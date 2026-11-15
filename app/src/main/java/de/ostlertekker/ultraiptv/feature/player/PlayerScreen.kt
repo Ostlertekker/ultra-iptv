@@ -319,7 +319,7 @@ fun PlayerScreen(
         panel?.let { current ->
             Box(Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(420.dp).background(Color.Black.copy(alpha = 0.9f)).padding(24.dp)) {
                 androidx.compose.runtime.key(tracksVersion) {
-                    PanelContent(current, vm, ui, panelFocus) { panel = null }
+                    PanelContent(current, vm, ui, settings, panelFocus) { panel = null }
                 }
             }
         }
@@ -336,7 +336,7 @@ private fun ProgressBar(progress: Float, buffered: Float?) {
 }
 
 @Composable
-private fun PanelContent(panel: Panel, vm: PlayerViewModel, ui: PlayerUi, focus: FocusRequester, close: () -> Unit) {
+private fun PanelContent(panel: Panel, vm: PlayerViewModel, ui: PlayerUi, settings: AppSettings, focus: FocusRequester, close: () -> Unit) {
     val p = LocalUltraTheme.current.palette
     data class Opt(val label: String, val selected: Boolean, val action: () -> Unit)
     val title: String
