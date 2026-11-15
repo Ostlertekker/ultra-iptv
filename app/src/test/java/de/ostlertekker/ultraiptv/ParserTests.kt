@@ -127,3 +127,47 @@ class SafeLogTest {
         assertTrue(s.contains("/live/***/***/"))
     }
 }
+
+class CountryAndSearchTest {
+    @Test fun detectsCountries() {
+        assertEquals("DE", de.ostlertekker.ultraiptv.core.model.Countries.detect("DE: Sport", null))
+        assertEquals("TR", de.ostlertekker.ultraiptv.core.model.Countries.detect("|TR| TRT 1"))
+        assertEquals("GB", de.ostlertekker.ultraiptv.core.model.Countries.detect("UK Entertainment"))
+        assertEquals("DE", de.ostlertekker.ultraiptv.core.model.Countries.detect("Deutschland HD"))
+        assertEquals("XY", de.ostlertekker.ultraiptv.core.model.Countries.detect("EX-YU: RTS"))
+        assertNull(de.ostlertekker.ultraiptv.core.model.Countries.detect("Action Movies"))
+        assertEquals("🇩🇪", de.ostlertekker.ultraiptv.core.model.Countries.byCode("DE")!!.flag)
+    }
+
+    @Test fun parsesNaturalQueries() {
+        val S = de.ostlertekker.ultraiptv.core.search.SmartSearch
+        val q = S.parse("deutsche Horrorfilme 80er")
+        assertEquals("de", q.language)
+        assertTrue("horror" in q.genres)
+        assertTrue(de.ostlertekker.ultraiptv.core.search.SearchKind.MOVIE in q.kinds)
+        assertEquals(1980, q.yearFrom); assertEquals(1989, q.yearTo)
+        assertTrue(q.terms.isEmpty())
+
+        val a = S.parse("filme mit Tom Hanks")
+        assertEquals("tom hanks", a.actor)
+        assertTrue(de.ostlertekker.ultraiptv.core.search.SearchKind.MOVIE in a.kinds)
+
+        val t = S.parse("türkische Sender")
+        assertEquals("tr", t.language)
+        assertTrue(de.ostlertekker.ultraiptv.core.search.SearchKind.LIVE in t.kinds)
+
+        val k = S.parse("Breaking Bad")
+        assertEquals(listOf("breaking", "bad"), k.terms)
+        assertFalse(k.hasFilters)
+    }
+
+    @Test fun ranksAndToleratesTypos() {
+        val S = de.ostlertekker.ultraiptv.core.search.SmartSearch
+        assertEquals(100, S.score("Breaking Bad", listOf("breaking", "bad")))
+        assertTrue(S.score("Breaking Bad", listOf("breakng")) > 0)       // Tippfehler
+        assertTrue(S.score("Das Erste HD", listOf("erste")) >= 70)
+        assertEquals(0, S.score("Tagesschau", listOf("krimi")))
+        assertTrue(S.score("Die Höhle", listOf("hoehle")) > 0)          // Umlaut-Normalisierung
+        assertEquals(1, S.distance("kitten", "sitten"))
+    }
+}

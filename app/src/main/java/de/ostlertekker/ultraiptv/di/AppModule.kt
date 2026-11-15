@@ -9,6 +9,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import de.ostlertekker.ultraiptv.core.database.ContentDao
 import de.ostlertekker.ultraiptv.core.database.EpgDao
+import de.ostlertekker.ultraiptv.core.database.ExtrasDao
+import de.ostlertekker.ultraiptv.core.database.Migrations
 import de.ostlertekker.ultraiptv.core.database.UltraDatabase
 import de.ostlertekker.ultraiptv.core.database.UserDao
 import okhttp3.OkHttpClient
@@ -36,12 +38,14 @@ object AppModule {
     @Provides @Singleton
     fun database(@ApplicationContext context: Context): UltraDatabase =
         Room.databaseBuilder(context, UltraDatabase::class.java, "ultra.db")
+            .addMigrations(Migrations.MIGRATION_1_2)
             .fallbackToDestructiveMigration()
             .build()
 
     @Provides fun contentDao(db: UltraDatabase): ContentDao = db.content()
     @Provides fun epgDao(db: UltraDatabase): EpgDao = db.epg()
     @Provides fun userDao(db: UltraDatabase): UserDao = db.user()
+    @Provides fun extrasDao(db: UltraDatabase): ExtrasDao = db.extras()
 
     @Provides @Singleton
     fun okHttp(): OkHttpClient = OkHttpClient.Builder()

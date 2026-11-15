@@ -48,6 +48,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.C
 import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.CaptionStyleCompat
+import androidx.media3.ui.SubtitleView
+import de.ostlertekker.ultraiptv.core.data.AppSettings
 import androidx.media3.ui.PlayerView
 import de.ostlertekker.ultraiptv.core.design.LocalUltraTheme
 import de.ostlertekker.ultraiptv.core.model.ContentKind
@@ -60,6 +63,10 @@ import kotlinx.coroutines.delay
 
 private enum class Panel { AUDIO, SUBTITLES, ASPECT, SPEED, SMART_SKIP, CHANNELS }
 
+private val subtitleColors = listOf(android.graphics.Color.WHITE, android.graphics.Color.YELLOW, android.graphics.Color.CYAN)
+private val subtitleColorNames = listOf("Weiß", "Gelb", "Cyan")
+private val subtitleBgNames = listOf("Kein Hintergrund", "Halbtransparent", "Schwarz")
+
 private fun fmt(ms: Long): String {
     if (ms <= 0) return "0:00"
     val s = ms / 1000
@@ -68,7 +75,15 @@ private fun fmt(ms: Long): String {
 }
 
 @Composable
-fun PlayerScreen(vm: PlayerViewModel, onExit: () -> Unit) {
+fun PlayerScreen(
+    vm: PlayerViewModel,
+    settings: AppSettings,
+    inPip: Boolean,
+    pipSupported: Boolean,
+    onExit: () -> Unit,
+    onPip: () -> Boolean,
+    onMini: () -> Unit,
+) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
     val ui by vm.ui.collectAsStateWithLifecycle()
@@ -159,6 +174,13 @@ fun PlayerScreen(vm: PlayerViewModel, onExit: () -> Unit) {
             update = { view ->
                 if (view.player !== vm.engine.player) view.player = vm.engine.player
                 view.resizeMode = ui.resizeMode
+                view.subtitleView?.let { sv ->
+                    val bg = when (settings.subtitleBackground) { 0 -> android.graphics.Color.TRANSPARENT; 1 -> 0x99000000.toInt(); else -> android.graphics.Color.BLACK }
+                    sv.setApplyEmbeddedStyles(false)
+                    sv.setStyle(CaptionStyleCompat(subtitleColors[settings.subtitleColor.coerceIn(0, subtitleColors.lastIndex)], bg,
+                        android.graphics.Color.TRANSPARENT, CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW, android.graphics.Color.BLACK, null))
+                    sv.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * settings.subtitleScale)
+                }
             },
             modifier = Modifier.fillMaxSize(),
         )
@@ -194,9 +216,31 @@ fun PlayerScreen(vm: PlayerViewModel, onExit: () -> Unit) {
                 modifier = Modifier.align(Alignment.BottomEnd).padding(48.dp).background(p.primary, RoundedCornerShape(10.dp)).padding(horizontal = 20.dp, vertical = 12.dp))
         }
 
-        if (ui.showStats) StatsOverlay(stats, ui, Modifier.align(Alignment.TopStart).padding(24.dp))
+        if (ui.showStats && !inPip) StatsOverlay(stats, ui, Modifier.align(Alignment.TopStart).padding(24.dp))
 
-        AnimatedVisibility(overlay && ui.countdown == null, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.fillMaxSize()) {
+        // Info-Banner beim Senderwechsel (Name, Nummer, laufende Sendung)
+        var bannerVisible by remember { mutableStateOf(false) }
+        LaunchedEffect(ui.zapAt) {
+            if (ui.zapAt > 0) { bannerVisible = true; delay(4000); bannerVisible = false }
+        }
+        if (bannerVisible && !overlay && !inPip && isLive) {
+            Column(Modifier.align(Alignment.BottomStart).padding(36.dp).width(560.dp)
+                .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(14.dp)).padding(18.dp)) {
+                Text(ui.subtitle, color = p.primary, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                Text(ui.title, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                if (ui.nowTitle != null) {
+                    Text("${ui.nowTime ?: ""}  ${ui.nowTitle}", color = Color.White, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    ProgressBar(ui.programProgress ?: 0f, null)
+                }
+                ui.nextTitle?.let { Text("Danach: $it", color = p.textDim, fontSize = 13.sp, maxLines = 1) }
+            }
+        }
+        if (ui.guest && !inPip) {
+            Text("👥 Watch Together – Gast", color = Color.White, fontSize = 12.sp, modifier = Modifier.align(Alignment.TopEnd).padding(20.dp)
+                .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 4.dp))
+        }
+
+        AnimatedVisibility(overlay && ui.countdown == null && !inPip, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.fillMaxSize()) {
             Box(Modifier.fillMaxSize()) {
                 Box(Modifier.fillMaxWidth().height(160.dp).background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.85f), Color.Transparent))))
                 Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(260.dp).background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.92f)))))
@@ -204,6 +248,18 @@ fun PlayerScreen(vm: PlayerViewModel, onExit: () -> Unit) {
                     Text(ui.title, color = Color.White, fontSize = 28.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily, maxLines = 1)
                     Text(ui.subtitle, color = p.textDim, fontSize = 15.sp, maxLines = 1)
                 }
+                // Auflösung / Bildrate / HDR des laufenden Videos (gemessen)
+                val badge = buildList {
+                    if (stats.decodedHeight > 0) add(when {
+                        stats.decodedHeight >= 2100 -> "4K"; stats.decodedHeight >= 1060 -> "FULL HD"; stats.decodedHeight >= 700 -> "HD"; else -> "SD"
+                    } + " ${stats.decodedWidth}×${stats.decodedHeight}")
+                    if (stats.measuredFps > 0) add("%.0f fps".format(stats.measuredFps)) else if (stats.sourceFps > 0) add("%.0f fps".format(stats.sourceFps))
+                    stats.hdr?.let { add(it.substringBefore(" (")) }
+                }.joinToString("  ·  ")
+                if (badge.isNotEmpty()) Text(badge, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(36.dp).background(Color.White.copy(alpha = 0.12f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 10.dp, vertical = 4.dp))
+                ui.qualityNote?.let { Text(it, color = p.primary, fontSize = 12.sp, modifier = Modifier.align(Alignment.TopEnd).padding(top = 72.dp, end = 36.dp)) }
                 Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal = 36.dp, vertical = 26.dp)) {
                     if (isLive) {
                         if (ui.nowTitle != null) {
@@ -242,6 +298,8 @@ fun PlayerScreen(vm: PlayerViewModel, onExit: () -> Unit) {
                             if (ui.hasNext) item { TvButton("Nächste Folge ▶▶", onClick = { vm.playNext() }) }
                         }
                         item { TvButton(if (ui.showStats) "Statistik aus" else "Statistik", onClick = { vm.toggleStats() }) }
+                        item { TvButton("Mini-Player", onClick = onMini) }
+                        if (pipSupported) item { TvButton("Bild-in-Bild", onClick = { if (!onPip()) onMini() }) }
                     }
                 }
             }
@@ -293,7 +351,12 @@ private fun PanelContent(panel: Panel, vm: PlayerViewModel, ui: PlayerUi, focus:
             title = "Untertitel"
             val off = vm.engine.isTypeDisabled(C.TRACK_TYPE_TEXT)
             options = listOf(Opt("Aus", off) { vm.engine.disableTrackType(C.TRACK_TYPE_TEXT); close() }) +
-                vm.engine.options(C.TRACK_TYPE_TEXT).map { o -> Opt(o.label, o.selected && !off) { vm.engine.select(o); close() } }
+                vm.engine.options(C.TRACK_TYPE_TEXT).map { o -> Opt(o.label, o.selected && !off) { vm.engine.select(o); close() } } +
+                listOf(
+                    Opt("Schriftgröße: ${(settings.subtitleScale * 100).toInt()} %", false) { vm.cycleSubtitleScale(settings.subtitleScale) },
+                    Opt("Farbe: ${subtitleColorNames[settings.subtitleColor.coerceIn(0, 2)]}", false) { vm.cycleSubtitleColor(settings.subtitleColor) },
+                    Opt("Hintergrund: ${subtitleBgNames[settings.subtitleBackground.coerceIn(0, 2)]}", false) { vm.cycleSubtitleBg(settings.subtitleBackground) },
+                )
         }
         Panel.ASPECT -> {
             title = "Bildformat"
@@ -353,7 +416,10 @@ private fun StatsOverlay(st: de.ostlertekker.ultraiptv.core.player.PlaybackStats
         add("Puffer:     ${ui.bufferedMs / 1000} s")
         add("Dropped:    ${st.droppedFrames}")
         add("Netz:       " + if (st.bandwidthBps > 0) "%.1f Mbit/s (geschätzt)".format(st.bandwidthBps / 1e6) else "–")
-        add("Fehler:     ${st.errors} · Wiederhergestellt: ${st.recoveries}")
+        add("Fehler:     ${st.errors} · Wiederhergestellt: ${st.recoveries}" + if (st.httpCode > 0) " · HTTP ${st.httpCode}" else "")
+        add("FPS real:   " + if (st.measuredFps > 0) "%.1f (gemessen)".format(st.measuredFps) else "–")
+        add("Nachladen:  ${st.rebuffers}× · ${st.stallMs / 1000.0} s Stillstand")
+        add("Bitrate:    " + if (st.videoBitrate > 0) "${st.videoBitrate / 1000} kbit/s (Manifest)" else "–")
     }
     Column(modifier.background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(10.dp)).padding(14.dp)) {
         lines.forEach { Text(it, color = Color(0xFF9CFFB0), fontSize = 12.sp, fontFamily = FontFamily.Monospace) }

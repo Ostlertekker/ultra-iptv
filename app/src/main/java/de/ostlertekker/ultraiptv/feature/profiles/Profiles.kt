@@ -49,11 +49,23 @@ val avatarColors = listOf(
 )
 
 @HiltViewModel
-class ProfilesViewModel @Inject constructor(val user: UserRepository) : ViewModel() {
+class ProfilesViewModel @Inject constructor(
+    val user: UserRepository,
+    private val creds: de.ostlertekker.ultraiptv.core.security.CredentialStore,
+    private val sync: de.ostlertekker.ultraiptv.core.data.SyncRepository,
+) : ViewModel() {
+    val accounts = creds.accounts
     val profiles = user.profiles.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val active = user.activeProfile.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    fun select(p: ProfileEntity, done: () -> Unit) = viewModelScope.launch { user.selectProfile(p); done() }
+    /** Profil wählen; hat das Profil ein eigenes Anbieter-Konto, wird darauf umgeschaltet und neu synchronisiert. */
+    fun select(p: ProfileEntity, done: () -> Unit) = viewModelScope.launch {
+        user.selectProfile(p)
+        val acc = p.providerId
+        val switched = acc != null && acc != creds.activeId.value && creds.setActive(acc)
+        done()
+        if (switched) sync.syncAll(includeEpg = true)
+    }
     fun create(name: String) = viewModelScope.launch { user.createProfile(name, profiles.value.size % avatarColors.size) }
     fun update(p: ProfileEntity) = viewModelScope.launch { user.updateProfile(p) }
     fun delete(p: ProfileEntity) = viewModelScope.launch { user.deleteProfile(p) }

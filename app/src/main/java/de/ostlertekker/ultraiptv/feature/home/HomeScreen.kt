@@ -41,6 +41,14 @@ import de.ostlertekker.ultraiptv.core.data.ContentRepository
 import de.ostlertekker.ultraiptv.core.data.SortOrder
 import de.ostlertekker.ultraiptv.core.data.SyncRepository
 import de.ostlertekker.ultraiptv.core.data.UserRepository
+import androidx.sqlite.db.SimpleSQLiteQuery
+import de.ostlertekker.ultraiptv.core.database.ContentDao
+import de.ostlertekker.ultraiptv.core.model.Countries
+import de.ostlertekker.ultraiptv.core.notify.NotificationCenter
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import de.ostlertekker.ultraiptv.core.database.ChannelEntity
 import de.ostlertekker.ultraiptv.core.database.MovieEntity
 import de.ostlertekker.ultraiptv.core.database.ProgressEntity
@@ -65,10 +73,55 @@ import javax.inject.Inject
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    content: ContentRepository,
-    user: UserRepository,
+    private val content: ContentRepository,
+    private val user: UserRepository,
     sync: SyncRepository,
+    private val dao: ContentDao,
+    notifications: NotificationCenter,
 ) : ViewModel() {
+    val unread = notifications.unread.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+    val latestNotification = notifications.notifications.map { it.firstOrNull { n -> !n.isRead } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    /** Dynamische Inhaltskategorien – werden aus Katalog, Verlauf und Gerätesprache berechnet. */
+    data class DynamicRow(val title: String, val movies: List<MovieEntity> = emptyList(), val channels: List<ChannelEntity> = emptyList())
+    val dynamicRows = MutableStateFlow<List<DynamicRow>>(emptyList())
+
+    init {
+        viewModelScope.launch {
+            combine(content.movieCount, content.channelCount, user.filter) { m, c, f -> Triple(m, c, f.showAdult) }.collect { (_, _, adult) ->
+                dynamicRows.value = buildDynamicRows(adult)
+            }
+        }
+    }
+
+    private suspend fun buildDynamicRows(adult: Boolean): List<DynamicRow> {
+        val a = if (adult) "" else " AND adult = 0"
+        fun mq(where: String, order: String, vararg args: Any) = SimpleSQLiteQuery("SELECT * FROM movies WHERE ($where)$a ORDER BY $order LIMIT 30", args)
+        fun cq(where: String, vararg args: Any) = SimpleSQLiteQuery("SELECT * FROM channels WHERE ($where)$a ORDER BY number, name LIMIT 30", args)
+        val rows = ArrayList<DynamicRow>()
+        val weekAgo = System.currentTimeMillis() - 7 * 86_400_000L
+        dao.rawMovies(mq("addedAt > ?", "addedAt DESC", weekAgo)).takeIf { it.size >= 3 }?.let { rows += DynamicRow("Neu diese Woche", movies = it) }
+        dao.rawMovies(mq("name LIKE '%4K%' OR name LIKE '%UHD%' OR category LIKE '%4K%' OR category LIKE '%UHD%'", "addedAt DESC"))
+            .takeIf { it.size >= 3 }?.let { rows += DynamicRow("4K / UHD", movies = it) }
+        dao.rawChannels(cq("category LIKE '%sport%' OR name LIKE '%sport%' OR name LIKE '%dazn%'")).takeIf { it.size >= 3 }
+            ?.let { rows += DynamicRow("Sport live", channels = it) }
+        dao.rawMovies(mq("genre LIKE '%anim%' OR genre LIKE '%famil%' OR genre LIKE '%kinder%' OR category LIKE '%kids%' OR category LIKE '%kinder%' OR category LIKE '%family%'", "rating DESC"))
+            .takeIf { it.size >= 3 }?.let { rows += DynamicRow("Kinder & Familie", movies = it) }
+        dao.rawMovies(mq("year != '' AND CAST(year AS INTEGER) BETWEEN 1950 AND 1999", "rating DESC")).takeIf { it.size >= 3 }
+            ?.let { rows += DynamicRow("Klassiker", movies = it) }
+        val country = java.util.Locale.getDefault().country.uppercase()
+        Countries.byCode(country)?.let { c ->
+            dao.rawChannels(cq("country = ?", c.code)).takeIf { it.size >= 3 }?.let { rows += DynamicRow("Sender aus ${c.name} ${c.flag}", channels = it) }
+        }
+        // Lieblingsgenre aus dem Verlauf
+        val recent = user.recentlyWatched.first().filter { it.kind == ContentKind.MOVIE.name }.take(20)
+        val genre = recent.mapNotNull { dao.movie(it.itemId)?.genre?.split(',', '/')?.firstOrNull()?.trim() }
+            .filter { it.isNotBlank() }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
+        if (genre != null) dao.rawMovies(mq("genre LIKE ?", "rating DESC", "%$genre%")).takeIf { it.size >= 3 }
+            ?.let { rows += DynamicRow("Dein Lieblingsgenre: $genre", movies = it) }
+        return rows
+    }
     private fun <T> StateFlowOf(flow: kotlinx.coroutines.flow.Flow<List<T>>): StateFlow<List<T>> =
         flow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -110,6 +163,9 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
     val popular by vm.popularMovies.collectAsStateWithLifecycle()
     val series by vm.newSeries.collectAsStateWithLifecycle()
     val recommended by vm.recommended.collectAsStateWithLifecycle()
+    val dynamicRows by vm.dynamicRows.collectAsStateWithLifecycle()
+    val unread by vm.unread.collectAsStateWithLifecycle()
+    val latestNotification by vm.latestNotification.collectAsStateWithLifecycle()
     val sync by vm.syncState.collectAsStateWithLifecycle()
     val channelCount by vm.channelCount.collectAsStateWithLifecycle()
     val movieCount by vm.movieCount.collectAsStateWithLifecycle()
@@ -131,6 +187,15 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
 
     val hero = newMovies.firstOrNull { !it.backdrop.isNullOrBlank() } ?: newMovies.firstOrNull()
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 60.dp)) {
+        val note = latestNotification
+        if (note != null) item {
+            Row(Modifier.fillMaxWidth().padding(bottom = 12.dp).background(p.surfaceFocused, RoundedCornerShape(12.dp)).padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("🔔 ${if (unread > 1) "$unread neue · " else ""}${note.title}", color = p.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                TvButton("Öffnen", onClick = { nav.navigate(Routes.SETTINGS) })
+            }
+        }
         if (hero != null) item {
             Box(Modifier.fillMaxWidth().height(300.dp).clip(RoundedCornerShape(theme.spec.corner.coerceAtMost(24.dp)))) {
                 AsyncImage(hero.backdrop ?: hero.poster, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
@@ -165,9 +230,15 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
         }
         if (favCh.isNotEmpty()) item { ChannelRow("Lieblingssender", favCh) { context.openPlayer(ContentKind.LIVE, it.id, category = it.category) } }
         if (recentCh.isNotEmpty()) item { ChannelRow("Zuletzt gesehene Sender", recentCh) { context.openPlayer(ContentKind.LIVE, it.id, category = it.category) } }
-        if (recommended.isNotEmpty()) item { MovieRow("Empfohlen für dich", recommended) { nav.navigate(Routes.movie(it.id)) } }
+        if (recommended.isNotEmpty()) item { MovieRow("Weil du ähnliche Filme gesehen hast", recommended) { nav.navigate(Routes.movie(it.id)) } }
         if (newMovies.isNotEmpty()) item { MovieRow("Neu hinzugefügt", newMovies) { nav.navigate(Routes.movie(it.id)) } }
         if (popular.isNotEmpty() && popular.any { (it.rating ?: 0.0) > 0 }) item { MovieRow("Beliebte Filme", popular) { nav.navigate(Routes.movie(it.id)) } }
+        dynamicRows.forEach { row ->
+            item(key = "dyn_" + row.title) {
+                if (row.movies.isNotEmpty()) MovieRow(row.title, row.movies) { nav.navigate(Routes.movie(it.id)) }
+                else ChannelRow(row.title, row.channels) { context.openPlayer(ContentKind.LIVE, it.id, category = it.category) }
+            }
+        }
         if (series.isNotEmpty()) item {
             SectionHeader("Serien")
             LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {

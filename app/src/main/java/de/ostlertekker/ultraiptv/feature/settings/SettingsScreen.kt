@@ -84,9 +84,10 @@ import java.util.Date
 import javax.inject.Inject
 
 enum class SettingsSection(val label: String) {
-    GENERAL("Allgemein"), APPEARANCE("Darstellung"), THEMES("Themes"), ANIMATIONS("Animationen"), INTRO("Intro"),
+    GENERAL("Allgemein"), ACCOUNTS("Konten (Multi-Account)"), UPDATES("App-Updates"), NOTIFICATIONS("Benachrichtigungen"), APPEARANCE("Darstellung"), THEMES("Themes"), ANIMATIONS("Animationen"), INTRO("Intro"),
     AUDIO("Audio"), PLAYBACK("Wiedergabe"), QUALITY("Bildqualität"), UPSCALING("KI-Upscaling"), SMART_SKIP("Smart Skip"),
-    EPG("EPG"), PROFILES("Profile"), PARENTAL("Jugendschutz"), NETWORK("Netzwerk"), DIAGNOSTICS("Diagnose"), ABOUT("Über"),
+    EPG("EPG"), PROFILES("Profile"), PARENTAL("Jugendschutz"), NETWORK("Netzwerk & Speedtest"), ANALYSIS("Sender-Analyse"),
+    BACKUP("Backup & Sync"), WATCH_TOGETHER("Watch Together"), DIAGNOSTICS("Diagnose"), ABOUT("Über"),
 }
 
 @HiltViewModel
@@ -154,7 +155,7 @@ class SettingsViewModel @Inject constructor(
 private fun <T> cycle(list: List<T>, current: T): T = list[(list.indexOf(current) + 1).mod(list.size)]
 
 @Composable
-fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), x: SettingsExtrasViewModel = hiltViewModel()) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
     var section by remember { mutableStateOf(SettingsSection.GENERAL) }
@@ -181,18 +182,24 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel()) 
                 item { SectionHeader(section.label) }
                 when (section) {
                     SettingsSection.GENERAL -> generalSection(vm, s, nav)
+                    SettingsSection.ACCOUNTS -> accountsSection(x, nav)
+                    SettingsSection.UPDATES -> updatesSection(x, s, vm)
+                    SettingsSection.NOTIFICATIONS -> notificationsSection(x)
+                    SettingsSection.ANALYSIS -> channelAnalysisSection(x)
+                    SettingsSection.BACKUP -> backupSection(x)
+                    SettingsSection.WATCH_TOGETHER -> watchTogetherSection(x)
                     SettingsSection.APPEARANCE -> appearanceSection(vm, s)
                     SettingsSection.ANIMATIONS -> animationSection(vm, s)
                     SettingsSection.INTRO -> introSection(vm, s)
                     SettingsSection.AUDIO -> audioSection(vm, s)
-                    SettingsSection.PLAYBACK -> playbackSection(vm, s)
+                    SettingsSection.PLAYBACK -> { playbackSection(vm, s); playbackExtras(vm, s, x) }
                     SettingsSection.QUALITY -> qualitySection(vm, s)
                     SettingsSection.UPSCALING -> upscalingSection(vm, s)
                     SettingsSection.SMART_SKIP -> smartSkipSection(vm, s)
                     SettingsSection.EPG -> epgSection(vm, s)
                     SettingsSection.PROFILES -> item { ProfilesSection() }
                     SettingsSection.PARENTAL -> item { ParentalSection(vm, s) }
-                    SettingsSection.NETWORK -> networkSection(vm, s)
+                    SettingsSection.NETWORK -> networkDiagSection(x, s, vm)
                     SettingsSection.DIAGNOSTICS -> diagnosticsSection(vm, s)
                     SettingsSection.ABOUT -> aboutSection(vm)
                     SettingsSection.THEMES -> Unit
@@ -490,6 +497,7 @@ private fun ProfilesSection(pvm: ProfilesViewModel = hiltViewModel()) {
     val p = LocalUltraTheme.current.palette
     val profiles by pvm.profiles.collectAsStateWithLifecycle()
     val active by pvm.active.collectAsStateWithLifecycle()
+    val accounts by pvm.accounts.collectAsStateWithLifecycle()
     var newName by remember { mutableStateOf("") }
     var nameError by remember { mutableStateOf<String?>(null) }
     var pinFor by remember { mutableStateOf<ProfileEntity?>(null) }
@@ -507,6 +515,10 @@ private fun ProfilesSection(pvm: ProfilesViewModel = hiltViewModel()) {
                 if (active?.id != prof.id) TvButton("Wechseln", onClick = { if (prof.pinHash != null) unlockFor = prof else pvm.select(prof) {} })
                 TvButton(if (prof.pinHash != null) "PIN entfernen" else "PIN setzen", onClick = { if (prof.pinHash != null) pvm.setPin(prof, null) else pinFor = prof })
                 TvButton("Alter: ${if (prof.maxAge == 0) "–" else prof.maxAge}", onClick = { pvm.update(prof.copy(maxAge = cycle(listOf(0, 6, 12, 16, 18), prof.maxAge))) })
+                if (accounts.size > 1) TvButton("Konto: " + (accounts.firstOrNull { it.id == prof.providerId }?.label?.take(14) ?: "Standard"), onClick = {
+                    val ids = listOf<String?>(null) + accounts.map { it.id }
+                    pvm.update(prof.copy(providerId = ids[(ids.indexOf(prof.providerId) + 1).mod(ids.size)]))
+                })
                 if (profiles.size > 1) TvButton("Löschen", onClick = { pvm.delete(prof) })
             }
         }

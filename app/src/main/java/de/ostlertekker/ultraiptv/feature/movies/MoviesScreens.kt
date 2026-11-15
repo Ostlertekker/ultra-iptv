@@ -48,6 +48,7 @@ import de.ostlertekker.ultraiptv.core.data.ContentRepository
 import de.ostlertekker.ultraiptv.core.data.SortOrder
 import de.ostlertekker.ultraiptv.core.data.SyncRepository
 import de.ostlertekker.ultraiptv.core.data.UserRepository
+import de.ostlertekker.ultraiptv.core.search.SearchRepository
 import de.ostlertekker.ultraiptv.core.database.MovieEntity
 import de.ostlertekker.ultraiptv.core.database.ProgressEntity
 import de.ostlertekker.ultraiptv.core.design.LocalUltraTheme
@@ -143,14 +144,19 @@ class MovieDetailViewModel @Inject constructor(
     content: ContentRepository,
     private val user: UserRepository,
     private val sync: SyncRepository,
+    private val search: SearchRepository,
 ) : ViewModel() {
     val id: String = savedState.get<String>("id") ?: ""
     val movie = content.movie(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    val similar = MutableStateFlow<List<MovieEntity>>(emptyList())
     val favorite = user.isFavorite(ContentKind.MOVIE, id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     val progress = MutableStateFlow<ProgressEntity?>(null)
 
     init {
-        viewModelScope.launch { sync.loadMovieDetails(id) }
+        viewModelScope.launch {
+            sync.loadMovieDetails(id)
+            content.movieOnce(id)?.let { similar.value = search.similarMovies(it) }
+        }
         refreshProgress()
     }
 
@@ -159,7 +165,8 @@ class MovieDetailViewModel @Inject constructor(
 }
 
 @Composable
-fun MovieDetailScreen(vm: MovieDetailViewModel = hiltViewModel()) {
+fun MovieDetailScreen(nav: NavController, vm: MovieDetailViewModel = hiltViewModel()) {
+    val similar by vm.similar.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val theme = LocalUltraTheme.current
     val p = theme.palette
@@ -177,7 +184,8 @@ fun MovieDetailScreen(vm: MovieDetailViewModel = hiltViewModel()) {
     Box(Modifier.fillMaxSize()) {
         AsyncImage(m.backdrop ?: m.poster, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), alpha = 0.45f)
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(p.bgTop, p.bgTop.copy(alpha = 0.8f), Color.Transparent))))
-        Row(Modifier.fillMaxSize().padding(40.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxSize().padding(start = 40.dp, end = 40.dp, top = 30.dp, bottom = if (similar.isNotEmpty()) 200.dp else 40.dp),
+            verticalAlignment = Alignment.CenterVertically) {
             AsyncImage(m.poster, m.name, contentScale = ContentScale.Crop,
                 modifier = Modifier.size(240.dp, 356.dp).clip(RoundedCornerShape(theme.spec.corner.coerceAtMost(18.dp))))
             Spacer(Modifier.width(36.dp))
@@ -186,7 +194,9 @@ fun MovieDetailScreen(vm: MovieDetailViewModel = hiltViewModel()) {
                 val meta = listOfNotNull(m.year, m.genre, m.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) },
                     m.durationSec?.takeIf { it > 0 }?.let { "${it / 60} Min." }, m.category).joinToString("  ·  ")
                 Text(meta, color = p.primary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(vertical = 10.dp))
-                Text(m.plot ?: "Keine Beschreibung verfügbar.", color = p.textDim, fontSize = 16.sp, maxLines = 8)
+                Text(m.plot ?: "Keine Beschreibung verfügbar.", color = p.textDim, fontSize = 16.sp, maxLines = 6)
+                if (!m.actors.isNullOrBlank()) Text("Mit: ${m.actors}", color = p.text, fontSize = 14.sp, maxLines = 2, modifier = Modifier.padding(top = 8.dp))
+                if (!m.director.isNullOrBlank()) Text("Regie: ${m.director}", color = p.textDim, fontSize = 13.sp, maxLines = 1)
                 Spacer(Modifier.height(24.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     val pr = progress
@@ -199,6 +209,12 @@ fun MovieDetailScreen(vm: MovieDetailViewModel = hiltViewModel()) {
                     }
                     TvButton(if (fav) "★ Auf Merkliste" else "☆ Merkliste", onClick = { vm.toggleFavorite() })
                 }
+            }
+        }
+        if (similar.isNotEmpty()) Column(Modifier.align(Alignment.BottomStart).padding(start = 40.dp, bottom = 16.dp)) {
+            Text("ÄHNLICHE TITEL", color = p.textDim, fontSize = 13.sp, letterSpacing = 2.sp, modifier = Modifier.padding(bottom = 6.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(similar, key = { it.id }) { sm -> FocusCard(sm.name, sm.poster, 96.dp, 142.dp, onClick = { nav.navigate(Routes.movie(sm.id)) }) }
             }
         }
     }

@@ -343,13 +343,13 @@ fun NavRail(items: List<NavItem>, selectedRoute: String, onSelect: (String) -> U
             .drawBehind {
                 if (theme.spec.menuFx.shootingStars) drawShootingStars(p.particle, railClock.value * 1.3f + 3f, 1)
             }
-            .padding(vertical = 28.dp, horizontal = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+            .padding(vertical = 18.dp, horizontal = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text("OSTLERTEKKER", color = p.textDim, fontSize = 11.sp, letterSpacing = 4.sp, modifier = Modifier.padding(start = 10.dp))
         Text("ULTRA IPTV", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, fontFamily = theme.spec.fontFamily,
             style = TextStyle(brush = Brush.linearGradient(listOf(p.primary, Color.White, p.secondary))), letterSpacing = 2.sp,
-            modifier = Modifier.padding(start = 10.dp, bottom = 22.dp))
+            modifier = Modifier.padding(start = 10.dp, bottom = 12.dp))
         items.forEachIndexed { index, item ->
             var focused by remember { mutableStateOf(false) }
             val selected = item.route == selectedRoute
@@ -360,7 +360,7 @@ fun NavRail(items: List<NavItem>, selectedRoute: String, onSelect: (String) -> U
                     .tvFocusable(shape, onClick = { onSelect(item.route) }, focusRequester = if (index == 0) firstFocus else null,
                         scaleOnFocus = false, onFocus = { focused = it })
                     .background(if (focused) p.surfaceFocused else if (selected) p.surface else Color.Transparent, shape)
-                    .padding(horizontal = 12.dp, vertical = 11.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(6.dp).background(if (selected || focused) p.primary else Color.Transparent, CircleShape))

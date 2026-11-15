@@ -15,7 +15,13 @@ import de.ostlertekker.ultraiptv.core.data.UserRepository
 import de.ostlertekker.ultraiptv.core.database.ChannelEntity
 import de.ostlertekker.ultraiptv.core.database.EpisodeEntity
 import de.ostlertekker.ultraiptv.core.database.MovieEntity
+import de.ostlertekker.ultraiptv.core.database.ChannelQualityEntity
+import de.ostlertekker.ultraiptv.core.database.ExtrasDao
 import de.ostlertekker.ultraiptv.core.device.DeviceCapabilityManager
+import de.ostlertekker.ultraiptv.core.lan.LanHub
+import de.ostlertekker.ultraiptv.core.lan.WatchState
+import de.ostlertekker.ultraiptv.core.player.MiniInfo
+import de.ostlertekker.ultraiptv.core.search.SmartSearch
 import de.ostlertekker.ultraiptv.core.model.ContentKind
 import de.ostlertekker.ultraiptv.core.player.PlayerEngine
 import de.ostlertekker.ultraiptv.core.player.UltraQualityEngine
@@ -60,6 +66,10 @@ data class PlayerUi(
     val ended: Boolean = false,
     val segments: List<SkipSegment> = emptyList(),
     val pendingMarkStart: Pair<SegmentType, Long>? = null,
+    /** Zeitpunkt des letzten Senderwechsels (für das Info-Banner). */
+    val zapAt: Long = 0,
+    val guest: Boolean = false,
+    val qualityNote: String? = null,
 )
 
 @HiltViewModel
@@ -73,6 +83,8 @@ class PlayerViewModel @Inject constructor(
     private val epg: EpgRepository,
     private val skipRepo: SmartSkipRepository,
     private val device: DeviceCapabilityManager,
+    private val lan: LanHub,
+    private val extras: ExtrasDao,
 ) : ViewModel() {
 
     private val kind = runCatching { ContentKind.valueOf(savedState.get<String>(PlayerActivity.EXTRA_KIND) ?: "") }.getOrDefault(ContentKind.MOVIE)
@@ -102,7 +114,18 @@ class PlayerViewModel @Inject constructor(
     private var lastEpg = 0L
     private var started = false
 
+    /** true = Engine nach dem Schließen weiterlaufen lassen (Mini-Player / Hintergrund-Audio). */
+    var keepEngine = false
+    private var qualityCap: Int? = null
+    private val triedChannels = HashSet<String>()
+    private var rebufferBase = 0
+    private var rebufferWindowStart = 0L
+    private var lastQualitySave = 0L
+    private var watchStart = System.currentTimeMillis()
+    private var lastFatal = 0
+
     init {
+        engine.setMini(null)
         viewModelScope.launch {
             settings = settingsRepo.current()
             loadAndPlay(startMs)
@@ -115,6 +138,15 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             engine.stats.collect { st -> if (settingsOrNull()?.matchFrameRate == true && st.sourceFps > 0) desiredFps.value = st.sourceFps }
         }
+        viewModelScope.launch {
+            lastFatal = engine.fatal.value
+            engine.fatal.collect { n -> if (n > lastFatal) { lastFatal = n; onFatal() } }
+        }
+        // Watch Together als Gast: Inhalt, Position und Pause des Host-Geräts übernehmen
+        viewModelScope.launch {
+            lan.guestState.collect { w -> if (w != null && started) followHost(w) }
+        }
+        _ui.update { it.copy(guest = lan.guestRemote.value != null) }
     }
 
     private fun settingsOrNull(): AppSettings? = if (this::settings.isInitialized) settings else null
@@ -152,12 +184,19 @@ class PlayerViewModel @Inject constructor(
     private suspend fun applyQuality() {
         val profile = user.activeProfileOnce()
         val displayMax = device.displayModes().maxOfOrNull { it.height } ?: 0
-        val c = UltraQualityEngine.constraints(settings.qualityMode, settings.manualMaxHeight, displayMax, device.maxDecoderHeight())
-        engine.applyConstraints(c, profile?.audioLanguage ?: "", profile?.subtitleLanguage ?: "")
+        var c = UltraQualityEngine.constraints(settings.qualityMode, settings.manualMaxHeight, displayMax, device.maxDecoderHeight())
+        val cap = qualityCap
+        if (cap != null && cap < c.maxHeight) c = c.copy(maxHeight = cap, maxWidth = UltraQualityEngine.widthFor(cap))
+        // Automatische Spracherkennung: ohne Profilvorgabe die Gerätesprache bevorzugen
+        val audio = profile?.audioLanguage?.ifBlank { null } ?: java.util.Locale.getDefault().language
+        engine.applyConstraints(c, audio, profile?.subtitleLanguage ?: "")
     }
 
     private fun playChannel(ch: ChannelEntity) {
+        saveChannelQuality()
+        watchStart = System.currentTimeMillis()
         itemId = ch.id; image = ch.logo
+        _ui.update { it.copy(zapAt = System.currentTimeMillis(), qualityNote = null) }
         _ui.update { it.copy(title = ch.name, subtitle = (if (ch.number > 0) "${ch.number} · " else "") + ch.category, nowTitle = null, nextTitle = null, programProgress = null) }
         play(ch.streamUrl, 0)
         viewModelScope.launch {
@@ -209,6 +248,10 @@ class PlayerViewModel @Inject constructor(
 
     private suspend fun tick() {
         val p = engine.player ?: return
+        engine.sampleFps()
+        autoQualityCheck()
+        publishWatch()
+        if (kind == ContentKind.LIVE && System.currentTimeMillis() - lastQualitySave > 30_000) saveChannelQuality()
         val pos = p.currentPosition
         val dur = p.duration.takeIf { it != C.TIME_UNSET && it > 0 } ?: 0L
         val state = p.playbackState
@@ -376,11 +419,22 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    fun onStopped() {
-        ticker?.cancel()
+    fun onStopped(keepPlaying: Boolean) {
         viewModelScope.launch { saveProgress() }
+        if (keepPlaying) return
+        ticker?.cancel()
         engine.player?.pause()
     }
+
+    fun cycleSubtitleScale(cur: Float) = viewModelScope.launch {
+        val list = listOf(0.75f, 1f, 1.25f, 1.5f, 2f)
+        settingsRepo.set(de.ostlertekker.ultraiptv.core.data.Keys.SUB_SCALE, list[(list.indexOf(cur) + 1).mod(list.size)])
+    }
+    fun cycleSubtitleColor(cur: Int) = viewModelScope.launch { settingsRepo.set(de.ostlertekker.ultraiptv.core.data.Keys.SUB_COLOR, (cur + 1) % 3) }
+    fun cycleSubtitleBg(cur: Int) = viewModelScope.launch { settingsRepo.set(de.ostlertekker.ultraiptv.core.data.Keys.SUB_BG, (cur + 1) % 3) }
+
+    val backgroundAudioEnabled: Boolean get() = settingsOrNull()?.backgroundAudio == true
+    val isPlayingNow: Boolean get() = engine.player?.isPlaying == true
 
     fun onStarted() {
         if (!started) return
@@ -389,11 +443,119 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun onExit() {
-        engine.stop()
+        saveChannelQuality()
+        lan.publishWatch(null)
+        if (!keepEngine) engine.stop()
     }
 
     override fun onCleared() {
-        engine.stop()
+        if (!keepEngine) engine.stop()
         super.onCleared()
+    }
+
+    // ---------------------------------------------------- Mini-Player
+
+    fun toMini() {
+        keepEngine = true
+        val cat = if (kind == ContentKind.LIVE) channels.getOrNull(channelIndex)?.category ?: category else category
+        engine.setMini(MiniInfo(kind.name, itemId, _ui.value.title, cat))
+    }
+
+    // ---------------------------------------------------- Sender-Qualität & Auto-Optimierung
+
+    private fun saveChannelQuality() {
+        if (kind != ContentKind.LIVE || itemId.isBlank()) return
+        lastQualitySave = System.currentTimeMillis()
+        val st = engine.stats.value
+        if (st.decodedWidth <= 0 && st.errors == 0) return
+        val id = itemId
+        val watched = System.currentTimeMillis() - watchStart
+        viewModelScope.launch {
+            val old = extras.quality(id)
+            extras.upsertQuality(ChannelQualityEntity(
+                channelId = id, lastPlayed = System.currentTimeMillis(),
+                width = st.decodedWidth.takeIf { it > 0 } ?: old?.width ?: 0, height = st.decodedHeight.takeIf { it > 0 } ?: old?.height ?: 0,
+                fps = if (st.measuredFps > 0) st.measuredFps else if (st.sourceFps > 0) st.sourceFps else old?.fps ?: 0f,
+                codec = st.videoMime ?: old?.codec, droppedFrames = st.droppedFrames, rebuffers = st.rebuffers,
+                watchMs = (old?.watchMs ?: 0L) + watched, errors = st.errors,
+            ))
+        }
+    }
+
+    /** Automatische Qualitätsoptimierung: bei häufigem Nachladen oder vielen verworfenen Frames eine Stufe runter. */
+    private suspend fun autoQualityCheck() {
+        if (!settings.autoQuality) return
+        val st = engine.stats.value
+        val now = System.currentTimeMillis()
+        if (rebufferWindowStart == 0L || now - rebufferWindowStart > 120_000) { rebufferWindowStart = now; rebufferBase = st.rebuffers; return }
+        val recent = st.rebuffers - rebufferBase
+        val tooManyDrops = st.measuredFps in 1f..20f && st.sourceFps > 24f
+        if (recent >= 3 || tooManyDrops) {
+            val currentH = qualityCap ?: st.decodedHeight.takeIf { it > 0 } ?: return
+            val next = listOf(2160, 1440, 1080, 720, 540, 360).firstOrNull { it < currentH } ?: return
+            qualityCap = next
+            applyQuality()
+            rebufferWindowStart = now; rebufferBase = st.rebuffers
+            val reason = if (recent >= 3) "häufiges Nachladen" else "Bildaussetzer"
+            _ui.update { it.copy(qualityNote = "Qualität automatisch auf max. ${next}p gesenkt ($reason)") }
+            toast("Qualität angepasst: max. ${next}p")
+        }
+    }
+
+    // ---------------------------------------------------- Automatische Fehlererkennung / Ausweichsender
+
+    private fun coreName(name: String): String = SmartSearch.normalize(
+        name.replace(Regex("^\\s*[\\[|(]?[A-Za-z]{2,3}[\\]|)]?\\s*[:|\\-]\\s*"), "")
+            .replace(Regex("(?i)\\b(uhd|fhd|hd|sd|4k|hevc|h265|backup|raw|vip|multi|50fps|60fps)\\b"), "")
+            .replace(Regex("[\\[(].*?[\\])]"), ""),
+    )
+
+    private fun onFatal() {
+        if (kind != ContentKind.LIVE || !settings.autoFailover) return
+        val cur = channels.getOrNull(channelIndex) ?: return
+        triedChannels += cur.id
+        viewModelScope.launch {
+            val core = coreName(cur.name)
+            if (core.length < 2) return@launch
+            val alt = content.channelsNamed(core.split(' ').first())
+                .firstOrNull { it.id !in triedChannels && coreName(it.name) == core }
+            if (alt != null) {
+                toast("Sender gestört – weiche auf „${alt.name}“ aus")
+                val idx = channels.indexOfFirst { it.id == alt.id }
+                if (idx >= 0) channelIndex = idx else { channels = channels + alt; channelIndex = channels.lastIndex }
+                playChannel(alt)
+            }
+        }
+    }
+
+    // ---------------------------------------------------- Watch Together
+
+    private fun publishWatch() {
+        if (lan.status.value.hostingWatch) {
+            val p = engine.player
+            lan.publishWatch(WatchState(kind.name, itemId, if (kind == ContentKind.LIVE) channels.getOrNull(channelIndex)?.category else category,
+                _ui.value.title, p?.currentPosition ?: 0L, p?.isPlaying == true, System.currentTimeMillis()))
+        }
+    }
+
+    private fun followHost(w: WatchState) {
+        val p = engine.player ?: return
+        if (w.kind != kind.name) return
+        if (w.id != itemId) {
+            if (kind == ContentKind.LIVE) {
+                viewModelScope.launch {
+                    val ch = content.channel(w.id) ?: return@launch
+                    val idx = channels.indexOfFirst { it.id == ch.id }
+                    if (idx >= 0) channelIndex = idx
+                    playChannel(ch)
+                }
+            } else if (kind == ContentKind.EPISODE) {
+                viewModelScope.launch { content.episode(w.id)?.let { playEpisode(it, w.positionMs) } }
+            }
+            return
+        }
+        if (kind != ContentKind.LIVE && kotlin.math.abs(p.currentPosition - w.positionMs) > 2_500) p.seekTo(w.positionMs + 300)
+        if (w.playing && !p.isPlaying) p.play()
+        if (!w.playing && p.isPlaying) p.pause()
     }
 }

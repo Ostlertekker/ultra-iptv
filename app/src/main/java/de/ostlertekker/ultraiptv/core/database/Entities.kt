@@ -14,6 +14,8 @@ data class ChannelEntity(
     val epgId: String?,
     val number: Int,
     val adult: Boolean,
+    /** Automatisch erkanntes Land (ISO-Code) aus Kategorie/Name. */
+    val country: String? = null,
 )
 
 @Entity(tableName = "movies", indices = [Index("category"), Index("name"), Index("addedAt")])
@@ -31,6 +33,9 @@ data class MovieEntity(
     val streamUrl: String,
     val addedAt: Long,
     val adult: Boolean,
+    val actors: String? = null,
+    val director: String? = null,
+    val language: String? = null,
 )
 
 @Entity(tableName = "series", indices = [Index("category"), Index("name")])
@@ -46,6 +51,8 @@ data class SeriesEntity(
     val rating: Double?,
     val addedAt: Long,
     val adult: Boolean,
+    val actors: String? = null,
+    val language: String? = null,
 )
 
 @Entity(tableName = "episodes", indices = [Index("seriesId")])
@@ -88,6 +95,8 @@ data class ProfileEntity(
     val animationProfile: String? = null,
     val audioLanguage: String = "",
     val subtitleLanguage: String = "",
+    /** Bevorzugtes Anbieter-Konto dieses Profils (Multi-Account). */
+    val providerId: String? = null,
 )
 
 @Entity(tableName = "favorites", primaryKeys = ["profileId", "kind", "itemId"])
@@ -124,4 +133,51 @@ data class SkipMarkerEntity(
     val source: String,
     val confidence: Float,
     val createdAt: Long,
+)
+
+@Entity(tableName = "channel_health")
+data class ChannelHealthEntity(
+    @PrimaryKey val channelId: String,
+    val checkedAt: Long,
+    val ok: Boolean,
+    val httpCode: Int,
+    val latencyMs: Long,
+    val bitrateKbps: Int,
+    val resolution: String?,
+    val error: String?,
+)
+
+@Entity(tableName = "channel_quality")
+data class ChannelQualityEntity(
+    @PrimaryKey val channelId: String,
+    val lastPlayed: Long,
+    val width: Int,
+    val height: Int,
+    val fps: Float,
+    val codec: String?,
+    val droppedFrames: Long,
+    val rebuffers: Int,
+    val watchMs: Long,
+    val errors: Int,
+)
+
+@Entity(tableName = "notifications")
+data class NotificationEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val createdAt: Long,
+    val title: String,
+    val body: String,
+    val kind: String,
+    val targetKind: String?,
+    val targetId: String?,
+    val isRead: Boolean,
+)
+
+@Entity(tableName = "reminders")
+data class ReminderEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val channelId: String,
+    val channelName: String,
+    val title: String,
+    val startMs: Long,
 )

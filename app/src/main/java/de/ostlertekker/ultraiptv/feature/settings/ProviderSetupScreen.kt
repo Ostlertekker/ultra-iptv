@@ -52,18 +52,20 @@ class ProviderSetupViewModel @Inject constructor(
 ) : ViewModel() {
     val existing: ProviderConfig? = creds.load()
     val syncState = sync.state
+    val hasAccounts: Boolean get() = creds.accounts.value.isNotEmpty()
 
-    fun saveAndSync(cfg: ProviderConfig, onSuccess: () -> Unit) = viewModelScope.launch {
-        creds.save(cfg)
+    /** [newAccount] = als zusätzliches Konto speichern (Multi-Account), sonst aktives Konto aktualisieren. */
+    fun saveAndSync(cfg: ProviderConfig, newAccount: Boolean, onSuccess: () -> Unit) = viewModelScope.launch {
+        if (newAccount) creds.saveAccount(cfg, null) else creds.save(cfg)
         if (sync.syncAll(includeEpg = true)) onSuccess()
     }
 }
 
 @Composable
-fun ProviderSetupScreen(onDone: () -> Unit, firstRun: Boolean, vm: ProviderSetupViewModel = hiltViewModel()) {
+fun ProviderSetupScreen(onDone: () -> Unit, firstRun: Boolean, newAccount: Boolean = false, vm: ProviderSetupViewModel = hiltViewModel()) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
-    val ex = vm.existing
+    val ex = if (newAccount) null else vm.existing
     var type by remember { mutableStateOf(ex?.type ?: ProviderType.XTREAM) }
     var name by remember { mutableStateOf(ex?.name ?: "") }
     var m3u by remember { mutableStateOf(ex?.m3uUrl ?: "") }
@@ -82,7 +84,7 @@ fun ProviderSetupScreen(onDone: () -> Unit, firstRun: Boolean, vm: ProviderSetup
                 .padding(32.dp).verticalScroll(rememberScrollState()),
         ) {
             if (firstRun) Text("OSTLERTEKKER PRESENTS", color = p.textDim, fontSize = 12.sp, letterSpacing = 4.sp)
-            Text("Quelle einrichten", color = p.text, fontSize = 28.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily)
+            Text(if (newAccount) "Weiteres Konto hinzufügen" else "Quelle einrichten", color = p.text, fontSize = 28.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily)
             Text("Nur legal lizenzierte, eigene oder vom Anbieter autorisierte Quellen verwenden. Zugangsdaten werden verschlüsselt gespeichert.",
                 color = p.textDim, fontSize = 13.sp, modifier = Modifier.padding(vertical = 8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(vertical = 8.dp)) {
@@ -121,7 +123,7 @@ fun ProviderSetupScreen(onDone: () -> Unit, firstRun: Boolean, vm: ProviderSetup
                         if (e.isEmpty()) {
                             val m3uFixed = if (m3u.isNotBlank() && "://" !in m3u) "http://${m3u.trim()}" else m3u.trim()
                             val epgFixed = if (epg.isNotBlank() && "://" !in epg) "http://${epg.trim()}" else epg.trim()
-                            vm.saveAndSync(ProviderConfig(type, name.trim(), m3uFixed, epgFixed, server.trim(), user.trim(), pass), onDone)
+                            vm.saveAndSync(ProviderConfig(type, name.trim(), m3uFixed, epgFixed, server.trim(), user.trim(), pass), newAccount, onDone)
                         }
                     })
                     if (!firstRun) TvButton("Abbrechen", onClick = onDone)

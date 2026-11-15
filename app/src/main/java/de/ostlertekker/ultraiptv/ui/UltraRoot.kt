@@ -54,6 +54,13 @@ import de.ostlertekker.ultraiptv.feature.series.SeriesDetailScreen
 import de.ostlertekker.ultraiptv.feature.series.SeriesScreen
 import de.ostlertekker.ultraiptv.feature.settings.ProviderSetupScreen
 import de.ostlertekker.ultraiptv.feature.settings.SettingsScreen
+import de.ostlertekker.ultraiptv.feature.world.WorldScreen
+import de.ostlertekker.ultraiptv.core.model.ContentKind
+import de.ostlertekker.ultraiptv.openPlayer
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 
 object Routes {
@@ -66,6 +73,8 @@ object Routes {
     const val SEARCH = "search"
     const val SETTINGS = "settings"
     const val SETUP = "setup"
+    const val WORLD = "world"
+    const val SETUP_NEW = "setupNew"
     fun movie(id: String) = "movie/${Uri.encode(id)}"
     fun seriesDetail(id: String) = "seriesDetail/${Uri.encode(id)}"
     fun epg(category: String?) = if (category == null) EPG else "$EPG?category=${Uri.encode(category)}"
@@ -115,7 +124,7 @@ fun UltraRoot(vm: RootViewModel = hiltViewModel()) {
                     LaunchedEffect(Unit) { delay(50); phase = Phase.MAIN }
                 }
             }
-            Phase.MAIN -> MainScaffold(s.customBackgroundUrl)
+            Phase.MAIN -> MainScaffold(s.customBackgroundUrl, vm)
         }
     }
 }
@@ -124,12 +133,14 @@ private fun railRouteFor(route: String): String = when {
     route.startsWith("movie/") -> Routes.MOVIES
     route.startsWith("seriesDetail/") -> Routes.SERIES
     route.startsWith(Routes.EPG) -> Routes.LIVE
+    route.startsWith(Routes.WORLD) -> Routes.WORLD
     route.startsWith(Routes.SETUP) -> Routes.SETTINGS
+    route.startsWith(Routes.SETUP_NEW) -> Routes.SETTINGS
     else -> route
 }
 
 @Composable
-private fun MainScaffold(customBackground: String) {
+private fun MainScaffold(customBackground: String, vm: RootViewModel) {
     val theme = LocalUltraTheme.current
     val sounds = LocalUiSounds.current
     val nav = rememberNavController()
@@ -138,7 +149,7 @@ private fun MainScaffold(customBackground: String) {
     val railFocus = remember { FocusRequester() }
     val items = remember {
         listOf(
-            NavItem(Routes.HOME, "HOME"), NavItem(Routes.LIVE, "LIVE TV"), NavItem(Routes.MOVIES, "MOVIES"),
+            NavItem(Routes.HOME, "HOME"), NavItem(Routes.LIVE, "LIVE TV"), NavItem(Routes.WORLD, "WORLD MAP"), NavItem(Routes.MOVIES, "MOVIES"),
             NavItem(Routes.SERIES, "SERIES"), NavItem(Routes.FAVORITES, "FAVORITES"), NavItem(Routes.SEARCH, "SEARCH"),
             NavItem(Routes.SETTINGS, "SETTINGS"),
         )
@@ -171,15 +182,29 @@ private fun MainScaffold(customBackground: String) {
                         arguments = listOf(navArgument("category") { type = NavType.StringType; nullable = true; defaultValue = null }),
                     ) { EpgScreen() }
                     composable(Routes.MOVIES) { MoviesScreen(nav) }
-                    composable("movie/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) { MovieDetailScreen() }
+                    composable("movie/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) { MovieDetailScreen(nav) }
                     composable(Routes.SERIES) { SeriesScreen(nav) }
-                    composable("seriesDetail/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) { SeriesDetailScreen() }
+                    composable("seriesDetail/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) { SeriesDetailScreen(nav) }
                     composable(Routes.FAVORITES) { FavoritesScreen(nav) }
                     composable(Routes.SEARCH) { SearchScreen(nav) }
                     composable(Routes.SETTINGS) { SettingsScreen(nav) }
+                    composable(Routes.WORLD) { WorldScreen() }
+                    composable(Routes.SETUP_NEW) { ProviderSetupScreen(onDone = { nav.popBackStack() }, firstRun = false, newAccount = true) }
                     composable(Routes.SETUP) { ProviderSetupScreen(onDone = { nav.popBackStack() }, firstRun = false) }
                 }
             }
+        }
+        MiniPlayerOverlay(vm.engine, Modifier.align(Alignment.BottomEnd).padding(28.dp))
+    }
+
+    // Watch Together (Gast): Inhalt des Host-Geräts automatisch öffnen
+    val context = LocalContext.current
+    val guest by vm.lan.guestState.collectAsStateWithLifecycle()
+    LaunchedEffect(guest?.id) {
+        val w = guest ?: return@LaunchedEffect
+        if (vm.engine.owner != "player" && w.id.isNotBlank()) {
+            val kind = runCatching { ContentKind.valueOf(w.kind) }.getOrNull() ?: return@LaunchedEffect
+            context.openPlayer(kind, w.id, w.positionMs, w.category)
         }
     }
 }

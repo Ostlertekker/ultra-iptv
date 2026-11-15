@@ -19,6 +19,7 @@ android {
         versionName = System.getenv("VERSION_NAME") ?: "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
+        buildConfigField("String", "UPDATE_REPO", "\"Ostlertekker/ultra-iptv\"")
     }
 
     signingConfigs {
@@ -69,6 +70,10 @@ android {
     }
 }
 
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
@@ -89,6 +94,8 @@ dependencies {
     implementation(libs.media3.exoplayer.hls)
     implementation(libs.media3.exoplayer.dash)
     implementation(libs.media3.ui)
+    implementation(libs.media3.session)
+    implementation(libs.work.runtime)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

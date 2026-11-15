@@ -13,6 +13,7 @@ import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.DecoderReuseEvaluation
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
@@ -58,7 +59,14 @@ data class PlaybackStats(
     val errors: Int = 0,
     val lastError: String? = null,
     val recoveries: Int = 0,
+    val rebuffers: Int = 0,
+    val stallMs: Long = 0,
+    val measuredFps: Float = -1f,
+    val httpCode: Int = 0,
 )
+
+/** Inhalt, der im Mini-Player weiterläuft. */
+data class MiniInfo(val kind: String, val id: String, val title: String, val category: String?)
 
 data class TrackOption(
     val group: Tracks.Group,
@@ -94,6 +102,55 @@ class PlayerEngine @Inject constructor(@ApplicationContext private val context: 
 
     var lastSessionStats: PlaybackStats? = null
         private set
+
+    private var currentUrl: String? = null
+    /** Wer den Player gerade nutzt: "player", "preview" oder "mini". */
+    var owner: String? = null
+        private set
+
+    private val _fatal = MutableStateFlow(0)
+    /** Wird erhöht, wenn ein Fehler nicht automatisch behoben werden konnte (z. B. für Ausweichsender). */
+    val fatal: StateFlow<Int> = _fatal.asStateFlow()
+
+    private val _mini = MutableStateFlow<MiniInfo?>(null)
+    val mini: StateFlow<MiniInfo?> = _mini.asStateFlow()
+
+    private var stallStart = 0L
+    private var wasReady = false
+    private var fpsLastCount = -1
+    private var fpsLastTime = 0L
+
+    fun setMini(info: MiniInfo?) {
+        _mini.value = info
+        if (info != null) owner = "mini"
+    }
+
+    /** Läuft bereits genau dieser Stream? (Dann kein Neustart – z. B. Vorschau → Vollbild.) */
+    fun isPlayingUrl(url: String): Boolean {
+        val p = exo ?: return false
+        return url == currentUrl && p.playbackState != Player.STATE_IDLE && p.playbackState != Player.STATE_ENDED && _error.value == null
+    }
+
+    fun claim(newOwner: String) { owner = newOwner }
+
+    /** Beendet die Wiedergabe nur, wenn [who] sie gerade besitzt. */
+    fun stopIfOwner(who: String) {
+        if (owner == who) { stop(); owner = null }
+    }
+
+    /** Misst die tatsächlich gerenderte Bildrate (aufrufen ca. alle 0,5–1 s). */
+    fun sampleFps() {
+        val p = exo ?: return
+        val counters = p.videoDecoderCounters ?: return
+        counters.ensureUpdated()
+        val count = counters.renderedOutputBufferCount
+        val now = System.nanoTime()
+        if (fpsLastCount >= 0 && count >= fpsLastCount && now > fpsLastTime) {
+            val fps = (count - fpsLastCount) / ((now - fpsLastTime) / 1e9f)
+            if (fps in 0f..300f) _stats.update { it.copy(measuredFps = fps) }
+        }
+        fpsLastCount = count; fpsLastTime = now
+    }
 
     val player: ExoPlayer? get() = exo
 
@@ -142,7 +199,15 @@ class PlayerEngine @Inject constructor(@ApplicationContext private val context: 
         return p
     }
 
-    fun play(url: String, startMs: Long, profile: BufferProfile) {
+    fun play(url: String, startMs: Long, profile: BufferProfile, who: String = "player") {
+        owner = who
+        if (isPlayingUrl(url) && bufferProfile == profile) {
+            if (startMs > 0 && kotlin.math.abs((exo?.currentPosition ?: 0L) - startMs) > 5_000) exo?.seekTo(startMs)
+            exo?.playWhenReady = true
+            return
+        }
+        currentUrl = url
+        fpsLastCount = -1; wasReady = false
         val p = obtain(profile)
         retryJob?.cancel()
         retries = 0
@@ -167,6 +232,8 @@ class PlayerEngine @Inject constructor(@ApplicationContext private val context: 
 
     fun stop() {
         lastSessionStats = _stats.value
+        currentUrl = null
+        owner = null
         retryJob?.cancel()
         exo?.stop()
         exo?.clearMediaItems()
@@ -255,7 +322,14 @@ class PlayerEngine @Inject constructor(@ApplicationContext private val context: 
     private val listener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
             _state.value = playbackState
+            val now = System.currentTimeMillis()
+            if (playbackState == Player.STATE_BUFFERING && wasReady) {
+                stallStart = now
+                _stats.update { it.copy(rebuffers = it.rebuffers + 1) }
+            }
             if (playbackState == Player.STATE_READY) {
+                if (stallStart > 0) { val d = now - stallStart; _stats.update { it.copy(stallMs = it.stallMs + d) }; stallStart = 0 }
+                wasReady = true
                 retries = 0
                 _error.value = null
             }
@@ -267,7 +341,16 @@ class PlayerEngine @Inject constructor(@ApplicationContext private val context: 
 
         override fun onPlayerError(error: PlaybackException) {
             val p = exo ?: return
-            _stats.update { it.copy(errors = it.errors + 1, lastError = "${error.errorCodeName}") }
+            val http = (error.cause as? HttpDataSource.InvalidResponseCodeException)?.responseCode ?: 0
+            _stats.update { it.copy(errors = it.errors + 1, lastError = error.errorCodeName, httpCode = http) }
+            if (http == 401 || http == 403 || http == 404) {
+                _error.value = when (http) {
+                    404 -> "Dieser Stream existiert beim Anbieter nicht mehr (404)."
+                    else -> "Zugriff verweigert ($http): Abo abgelaufen oder Verbindungslimit erreicht – läuft der Account gerade auf einem anderen Gerät?"
+                }
+                _fatal.update { it + 1 }
+                return
+            }
             if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
                 p.seekToDefaultPosition(); p.prepare(); return
             }
@@ -295,6 +378,7 @@ class PlayerEngine @Inject constructor(@ApplicationContext private val context: 
                 PlaybackException.ERROR_CODE_DRM_UNSPECIFIED -> "Geschützter Inhalt (DRM) – nicht abspielbar."
                 else -> "Wiedergabefehler: ${error.errorCodeName}"
             }
+            _fatal.update { it + 1 }
         }
     }
 

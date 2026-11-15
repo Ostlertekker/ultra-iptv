@@ -8,6 +8,7 @@ import de.ostlertekker.ultraiptv.core.database.EpisodeEntity
 import de.ostlertekker.ultraiptv.core.database.MovieEntity
 import de.ostlertekker.ultraiptv.core.database.SeriesEntity
 import de.ostlertekker.ultraiptv.core.database.UltraDatabase
+import de.ostlertekker.ultraiptv.core.model.Countries
 import de.ostlertekker.ultraiptv.core.model.ProviderConfig
 import de.ostlertekker.ultraiptv.core.model.ProviderType
 import de.ostlertekker.ultraiptv.core.model.SyncState
@@ -63,6 +64,18 @@ fun isAdultCategory(name: String): Boolean = ADULT.containsMatchIn(name)
 private fun shortHash(s: String): String =
     MessageDigest.getInstance("SHA-1").digest(s.toByteArray()).take(10).joinToString("") { "%02x".format(it) }
 
+/** Kontostatus laut Xtream-API (user_info). */
+data class AccountInfo(
+    val status: String?,
+    val expiresAt: Long?,
+    val maxConnections: Int?,
+    val activeConnections: Int?,
+    val isTrial: Boolean,
+    val createdAt: Long?,
+    val serverTimezone: String?,
+    val checkedAt: Long,
+)
+
 @Singleton
 class SyncRepository @Inject constructor(
     private val db: UltraDatabase,
@@ -71,6 +84,9 @@ class SyncRepository @Inject constructor(
     private val creds: CredentialStore,
     private val settings: SettingsRepository,
 ) {
+    private val _accountInfo = MutableStateFlow<AccountInfo?>(null)
+    val accountInfo: StateFlow<AccountInfo?> = _accountInfo.asStateFlow()
+
     private val _state = MutableStateFlow(SyncState())
     val state: StateFlow<SyncState> = _state.asStateFlow()
     private val mutex = Mutex()
@@ -145,12 +161,13 @@ class SyncRepository @Inject constructor(
                 M3uKind.LIVE -> channels += ChannelEntity(
                     id = "m3u:" + shortHash(e.url), name = e.name, category = e.group, logo = e.logo,
                     streamUrl = e.url, epgId = (e.tvgId ?: e.tvgName ?: e.name).lowercase(),
-                    number = index + 1, adult = adult,
+                    number = index + 1, adult = adult, country = Countries.detect(e.group, e.name),
                 )
                 M3uKind.MOVIE -> movies += MovieEntity(
                     id = "m3u:" + shortHash(e.url), name = e.name, category = e.group, poster = e.logo,
                     backdrop = null, plot = null, genre = null, year = null, rating = null, durationSec = null,
                     streamUrl = e.url, addedAt = now - index, adult = adult,
+                    language = Countries.languageOf(Countries.detect(e.group, e.name)),
                 )
                 M3uKind.EPISODE -> {
                     val info = M3uParser.episodeInfo(e.name)
@@ -159,6 +176,7 @@ class SyncRepository @Inject constructor(
                     if (seriesId !in series) series[seriesId] = SeriesEntity(
                         id = seriesId, name = show, category = e.group, poster = e.logo, backdrop = null,
                         plot = null, genre = null, year = null, rating = null, addedAt = now - index, adult = adult,
+                        language = Countries.languageOf(Countries.detect(e.group, show)),
                     )
                     episodes += EpisodeEntity(
                         id = "m3u:" + shortHash(e.url), seriesId = seriesId, season = info?.season ?: 1,
@@ -212,6 +230,7 @@ class SyncRepository @Inject constructor(
             ?: error("Server antwortet nicht im Xtream-Format")
         val userInfo = auth.obj("user_info")
         if (userInfo == null || userInfo.str("auth") == "0") error("Anmeldung abgelehnt – Zugangsdaten prüfen")
+        _accountInfo.value = parseAccountInfo(auth)
         userInfo.str("status")?.let { if (!it.equals("Active", true)) error("Konto-Status: $it") }
 
         status("Live-TV-Kategorien …")
@@ -225,6 +244,7 @@ class SyncRepository @Inject constructor(
                 logo = o.str("stream_icon"), streamUrl = StreamResolver.ref("live", id, "ts"),
                 epgId = o.str("epg_channel_id")?.lowercase(), number = o.str("num")?.toIntOrNull() ?: 0,
                 adult = isAdultCategory(cat) || o.str("is_adult") == "1",
+                country = Countries.detect(cat, o.str("name")),
             )
         }
 
@@ -241,6 +261,8 @@ class SyncRepository @Inject constructor(
                 durationSec = null, streamUrl = StreamResolver.ref("movie", id, o.str("container_extension") ?: "mp4"),
                 addedAt = (o.str("added")?.toLongOrNull() ?: 0L) * 1000L,
                 adult = isAdultCategory(cat) || o.str("is_adult") == "1",
+                actors = o.str("cast") ?: o.str("actors"), director = o.str("director"),
+                language = Countries.languageOf(Countries.detect(cat, o.str("name"))),
             )
         }
 
@@ -257,6 +279,7 @@ class SyncRepository @Inject constructor(
                 rating = o.str("rating")?.toDoubleOrNull(),
                 addedAt = (o.str("last_modified")?.toLongOrNull() ?: 0L) * 1000L,
                 adult = isAdultCategory(cat),
+                actors = o.str("cast"), language = Countries.languageOf(Countries.detect(cat, o.str("name"))),
             )
         }
 
@@ -309,7 +332,7 @@ class SyncRepository @Inject constructor(
             root.obj("info")?.let { info ->
                 val s = db.content().series(seriesId)
                 if (s != null) db.content().upsertSeries(listOf(s.copy(
-                    plot = info.str("plot") ?: s.plot, genre = info.str("genre") ?: s.genre,
+                    plot = info.str("plot") ?: s.plot, genre = info.str("genre") ?: s.genre, actors = info.str("cast") ?: s.actors,
                     backdrop = info.firstStr("backdrop_path") ?: s.backdrop,
                 )))
             }
@@ -342,10 +365,35 @@ class SyncRepository @Inject constructor(
                 backdrop = info.firstStr("backdrop_path") ?: m.backdrop,
                 durationSec = info.str("duration_secs")?.toLongOrNull() ?: m.durationSec,
             )
+            db.content().updateMovieCredits(movieId, info.str("cast") ?: info.str("actors") ?: m.actors, info.str("director") ?: m.director)
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
         }
+    }
+
+    private fun parseAccountInfo(auth: JsonObject): AccountInfo {
+        val u = auth.obj("user_info")
+        val srv = auth.obj("server_info")
+        return AccountInfo(
+            status = u?.str("status"),
+            expiresAt = u?.str("exp_date")?.toLongOrNull()?.times(1000L),
+            maxConnections = u?.str("max_connections")?.toIntOrNull(),
+            activeConnections = u?.str("active_cons")?.toIntOrNull(),
+            isTrial = u?.str("is_trial") == "1",
+            createdAt = u?.str("created_at")?.toLongOrNull()?.times(1000L),
+            serverTimezone = srv?.str("timezone"),
+            checkedAt = System.currentTimeMillis(),
+        )
+    }
+
+    /** Fragt den Kontostatus (Ablauf, Verbindungen) beim Xtream-Server ab. */
+    suspend fun refreshAccountInfo(): AccountInfo? = withContext(Dispatchers.IO) {
+        val cfg = creds.load() ?: return@withContext null
+        if (cfg.type != ProviderType.XTREAM) return@withContext null
+        runCatching {
+            readObject(XtreamUrls.api(XtreamUrls.normalizeServer(cfg.server), cfg.username, cfg.password, null))?.let { parseAccountInfo(it) }
+        }.getOrNull().also { _accountInfo.value = it }
     }
 
     // ------------------------------------------------------------------ EPG

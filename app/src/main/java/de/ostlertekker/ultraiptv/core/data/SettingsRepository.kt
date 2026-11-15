@@ -64,6 +64,15 @@ data class AppSettings(
     val activeProfileId: Long = 0,
     val showAdult: Boolean = false,
     val searchHistory: List<String> = emptyList(),
+    val subtitleScale: Float = 1f,
+    val subtitleColor: Int = 0,
+    val subtitleBackground: Int = 1,
+    val backgroundAudio: Boolean = false,
+    val autoUpdateHours: Int = 12,
+    val updateCheck: Boolean = true,
+    val autoQuality: Boolean = true,
+    val autoFailover: Boolean = true,
+    val lastUpdateCheck: Long = 0,
 )
 
 object Keys {
@@ -106,6 +115,15 @@ object Keys {
     val ACTIVE_PROFILE = longPreferencesKey("active_profile")
     val SHOW_ADULT = booleanPreferencesKey("show_adult")
     val SEARCH_HISTORY = stringPreferencesKey("search_history")
+    val SUB_SCALE = floatPreferencesKey("sub_scale")
+    val SUB_COLOR = intPreferencesKey("sub_color")
+    val SUB_BG = intPreferencesKey("sub_bg")
+    val BG_AUDIO = booleanPreferencesKey("bg_audio")
+    val AUTO_UPDATE_HOURS = intPreferencesKey("auto_update_hours")
+    val UPDATE_CHECK = booleanPreferencesKey("update_check")
+    val AUTO_QUALITY = booleanPreferencesKey("auto_quality")
+    val AUTO_FAILOVER = booleanPreferencesKey("auto_failover")
+    val LAST_UPDATE_CHECK = longPreferencesKey("last_update_check")
 }
 
 private inline fun <reified E : Enum<E>> enumOr(value: String?, default: E): E =
@@ -153,6 +171,15 @@ fun Preferences.toSettings(): AppSettings {
         activeProfileId = this[Keys.ACTIVE_PROFILE] ?: d.activeProfileId,
         showAdult = this[Keys.SHOW_ADULT] ?: d.showAdult,
         searchHistory = (this[Keys.SEARCH_HISTORY] ?: "").split('\u001F').filter { it.isNotBlank() },
+        subtitleScale = this[Keys.SUB_SCALE] ?: d.subtitleScale,
+        subtitleColor = this[Keys.SUB_COLOR] ?: d.subtitleColor,
+        subtitleBackground = this[Keys.SUB_BG] ?: d.subtitleBackground,
+        backgroundAudio = this[Keys.BG_AUDIO] ?: d.backgroundAudio,
+        autoUpdateHours = this[Keys.AUTO_UPDATE_HOURS] ?: d.autoUpdateHours,
+        updateCheck = this[Keys.UPDATE_CHECK] ?: d.updateCheck,
+        autoQuality = this[Keys.AUTO_QUALITY] ?: d.autoQuality,
+        autoFailover = this[Keys.AUTO_FAILOVER] ?: d.autoFailover,
+        lastUpdateCheck = this[Keys.LAST_UPDATE_CHECK] ?: d.lastUpdateCheck,
     )
 }
 
@@ -178,6 +205,24 @@ class SettingsRepository @Inject constructor(@ApplicationContext context: Contex
         store.edit { prefs ->
             val list = (prefs[Keys.SEARCH_HISTORY] ?: "").split('\u001F').filter { it.isNotBlank() && !it.equals(q, true) }
             prefs[Keys.SEARCH_HISTORY] = (listOf(q) + list).take(12).joinToString("\u001F")
+        }
+    }
+
+    /** Alle Rohwerte (für Backup). */
+    suspend fun exportRaw(): Map<String, Any> = store.data.first().asMap().mapKeys { it.key.name }
+
+    /** Übernimmt Rohwerte aus einem Backup (Typ wird aus dem Wert abgeleitet). */
+    suspend fun importRaw(values: Map<String, Any>) {
+        store.edit { prefs ->
+            values.forEach { (k, v) ->
+                when (v) {
+                    is Boolean -> prefs[booleanPreferencesKey(k)] = v
+                    is Int -> prefs[intPreferencesKey(k)] = v
+                    is Long -> prefs[longPreferencesKey(k)] = v
+                    is Float -> prefs[floatPreferencesKey(k)] = v
+                    is String -> prefs[stringPreferencesKey(k)] = v
+                }
+            }
         }
     }
 

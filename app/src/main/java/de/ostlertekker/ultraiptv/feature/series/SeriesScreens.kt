@@ -50,6 +50,7 @@ import de.ostlertekker.ultraiptv.core.data.ContentRepository
 import de.ostlertekker.ultraiptv.core.data.SortOrder
 import de.ostlertekker.ultraiptv.core.data.SyncRepository
 import de.ostlertekker.ultraiptv.core.data.UserRepository
+import de.ostlertekker.ultraiptv.core.search.SearchRepository
 import de.ostlertekker.ultraiptv.core.database.EpisodeEntity
 import de.ostlertekker.ultraiptv.core.database.SeriesEntity
 import de.ostlertekker.ultraiptv.core.design.LocalUltraTheme
@@ -133,8 +134,10 @@ class SeriesDetailViewModel @Inject constructor(
     content: ContentRepository,
     private val user: UserRepository,
     private val sync: SyncRepository,
+    private val search: SearchRepository,
 ) : ViewModel() {
     val id: String = savedState.get<String>("id") ?: ""
+    val similar = MutableStateFlow<List<SeriesEntity>>(emptyList())
     val series = content.seriesItem(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
     val episodes = content.episodesOf(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val favorite = user.isFavorite(ContentKind.SERIES, id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
@@ -147,6 +150,7 @@ class SeriesDetailViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             loadFailed.value = !sync.loadSeriesEpisodes(id)
+            content.seriesOnce(id)?.let { similar.value = search.similarSeries(it) }
             loading.value = false
         }
     }
@@ -155,7 +159,8 @@ class SeriesDetailViewModel @Inject constructor(
 }
 
 @Composable
-fun SeriesDetailScreen(vm: SeriesDetailViewModel = hiltViewModel()) {
+fun SeriesDetailScreen(nav: NavController, vm: SeriesDetailViewModel = hiltViewModel()) {
+    val similar by vm.similar.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val theme = LocalUltraTheme.current
     val p = theme.palette
@@ -190,6 +195,8 @@ fun SeriesDetailScreen(vm: SeriesDetailViewModel = hiltViewModel()) {
             Text(listOfNotNull(series.year, series.genre, series.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) }).joinToString("  ·  "),
                 color = p.primary, fontSize = 14.sp, modifier = Modifier.padding(vertical = 6.dp))
             Text(series.plot ?: "", color = p.textDim, fontSize = 14.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(760.dp))
+            if (!series.actors.isNullOrBlank()) Text("Mit: ${series.actors}", color = p.text, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.width(760.dp).padding(top = 4.dp))
             Spacer(Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (resume != null) {
@@ -211,6 +218,12 @@ fun SeriesDetailScreen(vm: SeriesDetailViewModel = hiltViewModel()) {
                     val pr = progress[ep.id]
                     EpisodeRow(ep, if (pr != null && pr.durationMs > 0) pr.positionMs.toFloat() / pr.durationMs else null) {
                         context.openPlayer(ContentKind.EPISODE, ep.id, if (pr != null && pr.durationMs > 0 && pr.positionMs < pr.durationMs * 0.95) pr.positionMs else 0)
+                    }
+                }
+                if (similar.isNotEmpty()) item {
+                    Text("ÄHNLICHE SERIEN", color = p.textDim, fontSize = 13.sp, letterSpacing = 2.sp, modifier = Modifier.padding(top = 16.dp, bottom = 6.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(similar, key = { it.id }) { sm -> FocusCard(sm.name, sm.poster, 110.dp, 162.dp, onClick = { nav.navigate(Routes.seriesDetail(sm.id)) }) }
                     }
                 }
             }

@@ -1,6 +1,12 @@
 package de.ostlertekker.ultraiptv.feature.player
 
+import android.app.PictureInPictureParams
+import android.content.ComponentName
+import android.content.pm.PackageManager
+import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
+import android.util.Rational
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -9,17 +15,22 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
+import com.google.common.util.concurrent.ListenableFuture
 import dagger.hilt.android.AndroidEntryPoint
 import de.ostlertekker.ultraiptv.core.data.AppSettings
 import de.ostlertekker.ultraiptv.core.data.SettingsRepository
 import de.ostlertekker.ultraiptv.core.device.DeviceCapabilityManager
 import de.ostlertekker.ultraiptv.core.player.DisplayModeInfo
+import de.ostlertekker.ultraiptv.core.player.PlaybackService
 import de.ostlertekker.ultraiptv.core.player.UltraQualityEngine
 import de.ostlertekker.ultraiptv.core.ui.UltraThemeHost
 import kotlinx.coroutines.launch
@@ -32,6 +43,11 @@ class PlayerActivity : ComponentActivity() {
     @Inject lateinit var device: DeviceCapabilityManager
     @Inject lateinit var settingsRepo: SettingsRepository
     private var originalModeId = 0
+    private var controllerFuture: ListenableFuture<MediaController>? = null
+    private val inPip = mutableStateOf(false)
+
+    private val pipSupported: Boolean
+        get() = Build.VERSION.SDK_INT >= 26 && packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,7 +58,12 @@ class PlayerActivity : ComponentActivity() {
             val s = settings
             if (s == null) Box(Modifier.fillMaxSize().background(Color.Black))
             else UltraThemeHost(s, device.tier, null) {
-                PlayerScreen(vm, onExit = { finish() })
+                PlayerScreen(
+                    vm = vm, settings = s, inPip = inPip.value, pipSupported = pipSupported,
+                    onExit = { finish() },
+                    onPip = { enterPip() },
+                    onMini = { vm.toMini(); finish() },
+                )
             }
         }
         lifecycleScope.launch {
@@ -50,6 +71,17 @@ class PlayerActivity : ComponentActivity() {
                 vm.desiredFps.collect { fps -> if (fps != null) applyFrameRate(fps) }
             }
         }
+    }
+
+    /** Bild-in-Bild, sofern das Gerät es unterstützt (viele Fire-TV-Modelle nicht → Mini-Player). */
+    private fun enterPip(): Boolean {
+        if (!pipSupported || Build.VERSION.SDK_INT < 26) return false
+        return runCatching { enterPictureInPictureMode(PictureInPictureParams.Builder().setAspectRatio(Rational(16, 9)).build()) }.getOrDefault(false)
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        inPip.value = isInPictureInPictureMode
     }
 
     /** Wechselt nur dann den Anzeigemodus, wenn das Display einen exakt passenden Modus anbietet. */
@@ -68,11 +100,25 @@ class PlayerActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         vm.onStarted()
+        // Hintergrund-Audio: Media-Session-Dienst verbinden, damit die Wiedergabe beim Verlassen weiterläuft
+        if (vm.backgroundAudioEnabled && controllerFuture == null) {
+            controllerFuture = MediaController.Builder(this, SessionToken(this, ComponentName(this, PlaybackService::class.java))).buildAsync()
+        }
     }
 
     override fun onStop() {
-        vm.onStopped()
+        val keep = (vm.backgroundAudioEnabled && vm.isPlayingNow && !isFinishing) || inPip.value
+        if (keep && vm.backgroundAudioEnabled && controllerFuture == null) {
+            controllerFuture = MediaController.Builder(this, SessionToken(this, ComponentName(this, PlaybackService::class.java))).buildAsync()
+        }
+        vm.onStopped(keepPlaying = keep)
         super.onStop()
+    }
+
+    override fun onDestroy() {
+        controllerFuture?.let { MediaController.releaseFuture(it) }
+        controllerFuture = null
+        super.onDestroy()
     }
 
     override fun finish() {

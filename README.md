@@ -50,6 +50,25 @@ Mit PC/ADB: `adb connect <IP-des-Fire-TV>` und `adb install -r UltraIPTV.apk`.
 
 Bedienung komplett per Fernbedienung: D-Pad, OK, Zurück, Play/Pause, ⏩/⏪, CH▲/▼, Menü. OK lange drücken auf einem Sender = Favorit.
 
+## Neu in Version 1.1
+
+| Bereich | Umsetzung |
+|---|---|
+| **Live-TV-Vorschau** | Sender auswählen genügt: Name, Nummer, Logo, Land, Jetzt/Danach mit Fortschritt und Gesundheits-/Qualitätswerte erscheinen sofort; die Vorschau startet nach 0,35 s Verweildauer im selben Player – beim Drücken von OK läuft der Sender ohne Neustart im Vollbild weiter. |
+| **App-Updater** | Einstellungen › App-Updates: prüft GitHub-Releases, lädt die neue APK und startet die Installation (Einstellungen/Favoriten bleiben erhalten). Automatische tägliche Prüfung mit Benachrichtigung. |
+| **Multi-Accounts** | Beliebig viele Anbieter-Konten, umschaltbar, pro Profil festlegbar, Kontostatus (Ablauf, Verbindungen) für Xtream. Funktioniert unabhängig vom Standort; Verbindungslimits des Anbieters werden nicht umgangen. |
+| **Intelligente Suche** | Versteht natürliche Anfragen („deutsche Horrorfilme 80er“, „Filme mit Tom Hanks“, „türkische Sender“), Tippfehler-Toleranz, Umlaut-Normalisierung, Vorschläge, Verlauf, Sprachsuche (System-Spracherkenner bzw. Fire-TV-Mikrofon in der Tastatur), „Ähnliche Titel“. Läuft komplett lokal – keine Cloud-KI. |
+| **TV World Map** | Weltkarte mit allen erkannten Ländern; Länder werden automatisch aus Kategorie-/Sendernamen erkannt (DE:, \|TR\|, UK …). |
+| **Stream-Analyse** | Sender-Gesundheitsprüfung (Antwortzeit, Datenrate, HLS-Auflösung, TS-Sync), Sender-Qualität aus echter Wiedergabe, Buffering-Analyse mit Empfehlung, automatische Fehlererkennung (401/403/404 erklärt) und Ausweichsender. |
+| **Netzwerk** | Verbindungsdiagnose (Netzart, IP, DNS/TCP/Anmeldung beim Anbieter, Kontolimits) und Speedtest (Ping, Jitter, Download, Upload, Anbieter-Durchsatz). |
+| **Backup & Sync** | Backup/Wiederherstellung (optional mit Konten), Gerätekopplung im Heimnetz mit 6-stelligem Code, Browser-Oberfläche fürs Handy, Übernahme von einem anderen Gerät. |
+| **Watch Together** | Mehrere Fernseher im selben Heimnetz folgen dem Host (Sender/Film, Position, Pause). |
+| **Benachrichtigungen** | Programm-Erinnerungen, neue Folgen bei Lieblingsserien, Kontoablauf, App-Updates; automatische Playlist-Aktualisierung im Hintergrund. |
+| **Player** | Gemessene Bildrate, Auflösungs-/HDR-Anzeige, Buffer- und Nachlade-Statistik, automatische Qualitätsoptimierung, Untertitel-Stil (Größe, Farbe, Hintergrund), Info-Banner beim Umschalten, Mini-Player, Bild-in-Bild (wo unterstützt), Hintergrund-Audio per Media-Session. |
+| **Startseite** | Dynamische Kategorien: Neu diese Woche, 4K/UHD, Sport live, Kinder & Familie, Klassiker, Sender aus deinem Land, Lieblingsgenre. |
+
+**Grenzen:** Watch Together und Gerätesync funktionieren im selben Heimnetz (kein Cloud-Server). Bild-in-Bild bieten viele Fire-TV-Modelle nicht an – dann gibt es den Mini-Player. Darsteller-Suche hängt von den Angaben des Anbieters ab.
+
 ---
 
 ## Ehrliche Grenzen

@@ -6,6 +6,10 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.RawQuery
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.db.SupportSQLiteQuery
 import androidx.room.RoomDatabase
 import androidx.room.Update
 import androidx.room.Upsert
@@ -111,7 +115,27 @@ interface ContentDao {
 
     @Query("SELECT * FROM episodes WHERE title LIKE '%' || :q || '%' ORDER BY title LIMIT :limit")
     suspend fun searchEpisodes(q: String, limit: Int): List<EpisodeEntity>
+
+    // ---------- Intelligente Suche / dynamische Kategorien ----------
+    @RawQuery suspend fun rawChannels(q: SupportSQLiteQuery): List<ChannelEntity>
+    @RawQuery suspend fun rawMovies(q: SupportSQLiteQuery): List<MovieEntity>
+    @RawQuery suspend fun rawSeries(q: SupportSQLiteQuery): List<SeriesEntity>
+
+    @Query("SELECT country AS code, COUNT(*) AS count FROM channels WHERE country IS NOT NULL AND (adult = 0 OR :showAdult = 1) GROUP BY country ORDER BY count DESC")
+    fun countryCounts(showAdult: Boolean): Flow<List<CountryCount>>
+
+    @Query("SELECT * FROM channels WHERE country = :code AND (adult = 0 OR :showAdult = 1) ORDER BY number, name LIMIT 500")
+    suspend fun channelsOfCountry(code: String, showAdult: Boolean): List<ChannelEntity>
+
+    @Query("UPDATE movies SET actors = :actors, director = :director WHERE id = :id")
+    suspend fun updateMovieCredits(id: String, actors: String?, director: String?)
+
+    @Query("SELECT id, addedAt FROM series WHERE id IN (:ids)")
+    suspend fun seriesStamps(ids: List<String>): List<SeriesStamp>
 }
+
+data class CountryCount(val code: String, val count: Int)
+data class SeriesStamp(val id: String, val addedAt: Long)
 
 @Dao
 interface EpgDao {
@@ -172,19 +196,89 @@ interface UserDao {
     @Query("DELETE FROM skip_markers WHERE episodeId = '' AND seriesId = :seriesId AND season = :season AND type = :type")
     suspend fun deleteTemplates(seriesId: String, season: Int, type: String)
     @Query("DELETE FROM skip_markers WHERE episodeId = :episodeId") suspend fun deleteAllMarkers(episodeId: String)
+
+    // Backup / Wiederherstellung
+    @Query("SELECT * FROM favorites") suspend fun allFavorites(): List<FavoriteEntity>
+    @Query("SELECT * FROM progress") suspend fun allProgress(): List<ProgressEntity>
+    @Query("SELECT * FROM skip_markers") suspend fun allMarkers(): List<SkipMarkerEntity>
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertProfiles(items: List<ProfileEntity>)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertFavorites(items: List<FavoriteEntity>)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertProgress(items: List<ProgressEntity>)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertMarkers(items: List<SkipMarkerEntity>)
+    @Query("DELETE FROM profiles") suspend fun clearProfiles()
+    @Query("DELETE FROM favorites") suspend fun clearAllFavorites()
+    @Query("DELETE FROM progress") suspend fun clearAllProgress()
+    @Query("DELETE FROM skip_markers") suspend fun clearAllMarkers()
+}
+
+@Dao
+interface ExtrasDao {
+    // Sender-Gesundheit
+    @Upsert suspend fun upsertHealth(h: ChannelHealthEntity)
+    @Query("SELECT * FROM channel_health WHERE channelId IN (:ids)") fun healthFor(ids: List<String>): Flow<List<ChannelHealthEntity>>
+    @Query("SELECT * FROM channel_health ORDER BY checkedAt DESC LIMIT 200") fun recentHealth(): Flow<List<ChannelHealthEntity>>
+
+    // Sender-Qualität (aus echter Wiedergabe)
+    @Upsert suspend fun upsertQuality(q: ChannelQualityEntity)
+    @Query("SELECT * FROM channel_quality WHERE channelId = :id") suspend fun quality(id: String): ChannelQualityEntity?
+    @Query("SELECT * FROM channel_quality ORDER BY lastPlayed DESC LIMIT 100") fun recentQuality(): Flow<List<ChannelQualityEntity>>
+
+    // Benachrichtigungen
+    @Insert suspend fun insertNotification(n: NotificationEntity): Long
+    @Query("SELECT * FROM notifications ORDER BY createdAt DESC LIMIT 100") fun notifications(): Flow<List<NotificationEntity>>
+    @Query("SELECT COUNT(*) FROM notifications WHERE isRead = 0") fun unreadCount(): Flow<Int>
+    @Query("UPDATE notifications SET isRead = 1") suspend fun markAllRead()
+    @Query("DELETE FROM notifications") suspend fun clearNotifications()
+    @Query("SELECT COUNT(*) FROM notifications WHERE kind = :kind AND targetId = :targetId AND createdAt > :since")
+    suspend fun countRecent(kind: String, targetId: String, since: Long): Int
+
+    // Programm-Erinnerungen
+    @Insert suspend fun insertReminder(r: ReminderEntity): Long
+    @Query("SELECT * FROM reminders WHERE startMs > :now ORDER BY startMs") fun upcomingReminders(now: Long): Flow<List<ReminderEntity>>
+    @Query("SELECT * FROM reminders") suspend fun allReminders(): List<ReminderEntity>
+    @Query("SELECT * FROM reminders WHERE id = :id") suspend fun reminder(id: Long): ReminderEntity?
+    @Query("SELECT * FROM reminders WHERE channelId = :channelId AND startMs = :startMs") suspend fun findReminder(channelId: String, startMs: Long): ReminderEntity?
+    @Query("DELETE FROM reminders WHERE id = :id") suspend fun deleteReminder(id: Long)
+    @Query("DELETE FROM reminders WHERE startMs < :before") suspend fun purgeReminders(before: Long)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertReminders(items: List<ReminderEntity>)
+}
+
+/** Migration v1 → v2: neue Spalten (Land, Darsteller, Sprache, Profil-Konto) und Tabellen. Nutzerdaten bleiben erhalten. */
+object Migrations {
+    val SQL_1_2 = listOf(
+        "ALTER TABLE `channels` ADD COLUMN `country` TEXT",
+        "ALTER TABLE `movies` ADD COLUMN `actors` TEXT",
+        "ALTER TABLE `movies` ADD COLUMN `director` TEXT",
+        "ALTER TABLE `movies` ADD COLUMN `language` TEXT",
+        "ALTER TABLE `series` ADD COLUMN `actors` TEXT",
+        "ALTER TABLE `series` ADD COLUMN `language` TEXT",
+        "ALTER TABLE `profiles` ADD COLUMN `providerId` TEXT",
+        "CREATE TABLE IF NOT EXISTS `channel_health` (`channelId` TEXT NOT NULL, `checkedAt` INTEGER NOT NULL, `ok` INTEGER NOT NULL, `httpCode` INTEGER NOT NULL, `latencyMs` INTEGER NOT NULL, `bitrateKbps` INTEGER NOT NULL, `resolution` TEXT, `error` TEXT, PRIMARY KEY(`channelId`))",
+        "CREATE TABLE IF NOT EXISTS `channel_quality` (`channelId` TEXT NOT NULL, `lastPlayed` INTEGER NOT NULL, `width` INTEGER NOT NULL, `height` INTEGER NOT NULL, `fps` REAL NOT NULL, `codec` TEXT, `droppedFrames` INTEGER NOT NULL, `rebuffers` INTEGER NOT NULL, `watchMs` INTEGER NOT NULL, `errors` INTEGER NOT NULL, PRIMARY KEY(`channelId`))",
+        "CREATE TABLE IF NOT EXISTS `notifications` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `createdAt` INTEGER NOT NULL, `title` TEXT NOT NULL, `body` TEXT NOT NULL, `kind` TEXT NOT NULL, `targetKind` TEXT, `targetId` TEXT, `isRead` INTEGER NOT NULL)",
+        "CREATE TABLE IF NOT EXISTS `reminders` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `channelId` TEXT NOT NULL, `channelName` TEXT NOT NULL, `title` TEXT NOT NULL, `startMs` INTEGER NOT NULL)",
+    )
+
+    val MIGRATION_1_2 = object : Migration(1, 2) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            SQL_1_2.forEach { db.execSQL(it) }
+        }
+    }
 }
 
 @Database(
     entities = [
         ChannelEntity::class, MovieEntity::class, SeriesEntity::class, EpisodeEntity::class,
         EpgProgramEntity::class, ProfileEntity::class, FavoriteEntity::class, ProgressEntity::class,
-        SkipMarkerEntity::class,
+        SkipMarkerEntity::class, ChannelHealthEntity::class, ChannelQualityEntity::class,
+        NotificationEntity::class, ReminderEntity::class,
     ],
-    version = 1,
-    exportSchema = false,
+    version = 2,
+    exportSchema = true,
 )
 abstract class UltraDatabase : RoomDatabase() {
     abstract fun content(): ContentDao
     abstract fun epg(): EpgDao
     abstract fun user(): UserDao
+    abstract fun extras(): ExtrasDao
 }
