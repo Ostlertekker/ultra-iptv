@@ -13,7 +13,7 @@ ULTRA IPTV ist ein **Player**. Er enthält keine Inhalte. Nutze ausschließlich 
 2. App **Downloader** aus dem Amazon Appstore installieren und öffnen.
 3. Diese Adresse eingeben:
    ```
-   https://github.com/<DEIN-GITHUB-NAME>/ultra-iptv/releases/latest/download/UltraIPTV.apk
+   https://github.com/Ostlertekker/ultra-iptv/releases/latest/download/UltraIPTV.apk
    ```
 4. **Installieren** wählen. Danach erscheint ULTRA IPTV unter *Apps* (mit TV-Banner).
 5. Beim ersten Start: Quelle einrichten (Xtream-Codes-Server + Benutzer + Passwort **oder** M3U-Adresse, optional XMLTV-EPG).
