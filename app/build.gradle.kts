@@ -37,7 +37,9 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 optimiert Compose/Media3 erheblich (flüssigeres Scrollen); eigener App-Code bleibt unverändert erhalten
+            isMinifyEnabled = true
+            isShrinkResources = true
             signingConfig = signingConfigs.getByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }

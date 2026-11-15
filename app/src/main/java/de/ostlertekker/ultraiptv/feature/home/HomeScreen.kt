@@ -259,7 +259,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
 private fun MovieRow(title: String, movies: List<MovieEntity>, onClick: (MovieEntity) -> Unit) {
     SectionHeader(title)
     LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        itemsIndexed(movies, key = { _, m -> m.id }) { i, m ->
+        itemsIndexed(movies, key = { _, m -> m.id }, contentType = { _, _ -> "poster" }) { i, m ->
             FocusCard(m.name, m.poster, 150.dp, 222.dp, onClick = { onClick(m) }, entranceIndex = i,
                 subtitle = listOfNotNull(m.year, m.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) }).joinToString(" · ").ifBlank { null })
         }
@@ -270,7 +270,7 @@ private fun MovieRow(title: String, movies: List<MovieEntity>, onClick: (MovieEn
 private fun ChannelRow(title: String, channels: List<ChannelEntity>, onClick: (ChannelEntity) -> Unit) {
     SectionHeader(title)
     LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        itemsIndexed(channels, key = { _, c -> c.id }) { i, c ->
+        itemsIndexed(channels, key = { _, c -> c.id }, contentType = { _, _ -> "channel" }) { i, c ->
             FocusCard(c.name, c.logo, 200.dp, 112.dp, onClick = { onClick(c) }, entranceIndex = i, subtitle = c.category, contentScale = ContentScale.Fit)
         }
     }

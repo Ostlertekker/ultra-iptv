@@ -36,6 +36,7 @@ import de.ostlertekker.ultraiptv.core.design.BackgroundEffect
 import de.ostlertekker.ultraiptv.core.design.ResolvedTheme
 import de.ostlertekker.ultraiptv.core.design.UltraPalette
 import de.ostlertekker.ultraiptv.core.model.AnimationProfile
+import de.ostlertekker.ultraiptv.core.motion.InputActivity
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlin.math.PI
@@ -76,21 +77,24 @@ fun hash01(a: Int, b: Int): Float {
  * Im Economy-Profil wird auf ca. 30 fps gedrosselt.
  */
 @Composable
-fun rememberAnimationClock(running: Boolean, throttle: Boolean = false, fps: Int = 60): State<Float> {
+fun rememberAnimationClock(running: Boolean, throttle: Boolean = false, fps: Int = 60, pauseOnInput: Boolean = false): State<Float> {
     val time = remember { mutableFloatStateOf(0f) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val lifecycleState by lifecycle.currentStateAsState()
     val active = running && lifecycleState.isAtLeast(Lifecycle.State.STARTED)
     LaunchedEffect(active) {
         if (!active) return@LaunchedEffect
-        val base = time.floatValue
-        val start = withFrameNanos { it }
-        // Bildratenbegrenzung: nur bei Bedarf neu zeichnen (spart GPU/CPU auf Fire TV)
+        // Bildratenbegrenzung: nur bei Bedarf neu zeichnen (spart GPU/CPU auf Fire TV).
+        // Zeit wird aufsummiert → nach einer Pause (Scrollen) läuft die Animation ohne Sprung weiter.
         val minFrameNs = 1_000_000_000L / (if (throttle) minOf(fps, 20) else fps).coerceIn(10, 60)
-        var last = 0L
+        var last = withFrameNanos { it }
         while (isActive) {
             withFrameNanos { now ->
-                if (now - last >= minFrameNs - 2_000_000L) { last = now; time.floatValue = base + (now - start) / 1_000_000_000f }
+                if (now - last >= minFrameNs - 2_000_000L) {
+                    val dt = ((now - last) / 1_000_000_000f).coerceAtMost(0.05f)
+                    last = now
+                    if (!(pauseOnInput && InputActivity.isBusy(now))) time.floatValue += dt
+                }
             }
         }
     }
@@ -102,7 +106,7 @@ fun ThemeBackground(theme: ResolvedTheme, modifier: Modifier = Modifier, animate
     val anim = theme.anim
     // Langsame Hintergrundbewegung braucht keine 60 fps – 30 fps sehen gleich aus und halbieren die Last
     val clock = rememberAnimationClock(animate && anim.backgroundMotion, throttle = anim.profile == AnimationProfile.ECONOMY,
-        fps = if (anim.profile == AnimationProfile.ULTRA) 40 else 30)
+        fps = if (anim.profile == AnimationProfile.ULTRA) 40 else 30, pauseOnInput = true)
     val count = (theme.spec.baseParticles * anim.particleFactor).toInt().coerceIn(0, 420)
     val field = remember(count, theme.spec.id) { ParticleField(count, theme.spec.id.hashCode()) }
     val paint = remember {

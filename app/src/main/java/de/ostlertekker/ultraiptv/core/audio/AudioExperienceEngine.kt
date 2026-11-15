@@ -163,14 +163,24 @@ class AudioExperienceEngine @Inject constructor() {
         t
     } catch (e: Exception) { null }
 
+    /** Eigener Audio-Thread: AudioTrack-Systemaufrufe blockieren nie die Fokus-Navigation. */
+    private val audioThread = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "ultra-ui-sound").apply { priority = Thread.NORM_PRIORITY - 1 } }
+    @Volatile private var pending = 0
+
     private fun fire(t: AudioTrack?) {
         if (!enabled || suppressed || t == null) return
-        try {
-            if (t.playState == AudioTrack.PLAYSTATE_PLAYING) t.stop()
-            t.reloadStaticData()
-            t.setVolume(volume)
-            t.play()
-        } catch (_: Exception) {
+        if (pending > 2) return                       // bei Dauer-Scrollen Klänge nicht aufstauen
+        pending++
+        audioThread.execute {
+            try {
+                if (t.playState == AudioTrack.PLAYSTATE_PLAYING) t.stop()
+                t.reloadStaticData()
+                t.setVolume(volume)
+                t.play()
+            } catch (_: Exception) {
+            } finally {
+                pending--
+            }
         }
     }
 

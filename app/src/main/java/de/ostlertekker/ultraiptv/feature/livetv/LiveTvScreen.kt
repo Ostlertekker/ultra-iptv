@@ -222,7 +222,6 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
     val channels by vm.channels.collectAsStateWithLifecycle()
     val favs by vm.favoriteIds.collectAsStateWithLifecycle()
     val programs by vm.programs.collectAsStateWithLifecycle()
-    val focused by vm.focused.collectAsStateWithLifecycle()
     val sortByName by vm.sortByName.collectAsStateWithLifecycle()
     val healthMap by vm.healthMap.collectAsStateWithLifecycle()
     val checkProgress by vm.health.progress.collectAsStateWithLifecycle()
@@ -281,7 +280,7 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
                     color = p.textDim, fontSize = 15.sp)
             }
             LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 40.dp)) {
-                itemsIndexed(channels, key = { _, c -> c.id }) { index, ch ->
+                itemsIndexed(channels, key = { _, c -> c.id }, contentType = { _, _ -> "channel" }) { index, ch ->
                     val nowProg = ch.epgId?.let { id -> programs[id]?.firstOrNull { it.startMs <= now && it.endMs > now } }
                     ChannelItem(ch, nowProg, ch.id in favs, healthMap[ch.id],
                         focusRequester = if (index == 0) firstChannel else null,
@@ -291,13 +290,22 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
                 }
             }
         }
-        Column(Modifier.weight(0.33f).fillMaxHeight()) {
-            val ch = focused
-            PreviewBox(vm, ch)
-            Spacer(Modifier.height(12.dp))
-            if (ch != null) FocusedInfo(vm, ch, favs, context)
-            else Text("Sender mit den Pfeiltasten auswählen – Infos und Vorschau erscheinen sofort.", color = p.textDim, fontSize = 14.sp)
-        }
+        // Eigener Recomposition-Bereich: ein Fokuswechsel aktualisiert nur dieses Panel, nicht die Senderliste
+        RightPanel(vm, favs, Modifier.weight(0.33f).fillMaxHeight())
+    }
+}
+
+@Composable
+private fun RightPanel(vm: LiveTvViewModel, favs: Set<String>, modifier: Modifier) {
+    val context = LocalContext.current
+    val p = LocalUltraTheme.current.palette
+    val focused by vm.focused.collectAsStateWithLifecycle()
+    Column(modifier) {
+        val ch = focused
+        PreviewBox(vm, ch)
+        Spacer(Modifier.height(12.dp))
+        if (ch != null) FocusedInfo(vm, ch, favs, context)
+        else Text("Sender mit den Pfeiltasten auswählen – Infos und Vorschau erscheinen sofort.", color = p.textDim, fontSize = 14.sp)
     }
 }
 

@@ -34,7 +34,7 @@ class UltraApp : Application(), ImageLoaderFactory {
                     .build()
             }
             .allowRgb565(low)
-            .crossfade(!low)
+            .crossfade(if (low) 0 else 120)
             .respectCacheHeaders(false)
             .build()
     }

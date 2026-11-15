@@ -85,6 +85,12 @@ import kotlin.math.sin
  */
 val LocalMotion = compositionLocalOf { MotionSpec.OFF }
 
+/** Zeitpunkt (nanoTime), an dem die aktuelle Seite geöffnet wurde. 0 = kein Seitenkontext (z. B. Menüleiste). */
+val LocalPageStart = compositionLocalOf { 0L }
+
+/** Eingangsanimationen nur direkt nach dem Öffnen einer Seite – beim Scrollen erscheinen neue Karten sofort. */
+private const val ENTRANCE_WINDOW_NS = 1_400_000_000L
+
 // --------------------------------------------------------------------------------------------
 // Motion-Bus: Fokus-Tracking + kurzlebige Overlay-Effekte (Trail, Hover-Explosion)
 // --------------------------------------------------------------------------------------------
@@ -97,6 +103,8 @@ object MotionBus {
     val events = mutableStateListOf<MotionEvent>()
     /** Mittelpunkt (Root-Koordinaten) des zuletzt fokussierten Elements. */
     var lastFocusCenter: Offset? = null
+    /** Zeitpunkt des letzten Fokuswechsels (zum Erkennen von Dauer-Scrollen). */
+    var lastFocusAt: Long = 0L
     private var seed = 0
     fun emit(kind: Int, from: Offset, to: Offset, durationMs: Int) {
         if (events.size > 12) events.removeAt(0)               // Ressourcen begrenzen
@@ -167,6 +175,12 @@ fun Modifier.crazyEntrance(index: Int = 0, trigger: Any? = Unit, override: Entra
     val spec = LocalMotion.current
     val anim = override ?: spec.entranceFor(index * 31 + (trigger?.hashCode() ?: 0))
     if (anim == null || (!spec.enabled && !forceEnabled)) return@composed this
+    val pageStart = LocalPageStart.current
+    // Einmal beim Erscheinen entscheiden: Karten, die erst durch Scrollen ins Bild kommen, werden nicht animiert
+    val allowed = remember(trigger) {
+        override != null || pageStart == 0L || System.nanoTime() - pageStart < ENTRANCE_WINDOW_NS
+    }
+    if (!allowed) return@composed this
     val p = LocalUltraTheme.current.palette
     val density = LocalDensity.current.density
     val progress = remember(trigger, anim) { Animatable(0f) }
@@ -394,6 +408,18 @@ fun Modifier.crazyFocus(focused: Boolean, baseScale: Float, scaleOnFocus: Boolea
     val target = if (focused && scaleOnFocus) baseScale else 1f
 
     LaunchedEffect(focused, effect) {
+        // Neu erscheinende, nicht fokussierte Elemente (beim Scrollen) brauchen keinerlei Arbeit
+        if (!focused && scale.value == 1f && offset.value == Offset.Zero && tiltX.value == 0f && tiltY.value == 0f && lift.value == 0f) return@LaunchedEffect
+        val nowN = System.nanoTime()
+        val rapid = nowN - MotionBus.lastFocusAt < 170_000_000L
+        if (focused) MotionBus.lastFocusAt = nowN
+        // Gedrückt gehaltene Pfeiltaste: nur ein schneller, leichter Skalierungsschritt – keine Partikel/Federn
+        if (rapid && spec.enabled && effect != null) {
+            if (focused) MotionBus.lastFocusCenter = boundsHolder[0].center
+            offset.snapTo(Offset.Zero); tiltX.snapTo(0f); tiltY.snapTo(0f); lift.snapTo(0f)
+            scale.animateTo(target, tween(90))
+            return@LaunchedEffect
+        }
         if (!spec.enabled || effect == null) { scale.snapTo(target); offset.snapTo(Offset.Zero); tiltX.snapTo(0f); tiltY.snapTo(0f); lift.snapTo(0f); return@LaunchedEffect }
         val bounds = boundsHolder[0]
         val center = bounds.center
@@ -482,6 +508,7 @@ fun PageTransitionHost(key: Any?, modifier: Modifier = Modifier, override: PageT
         progress.animateTo(1f, tween(spec.durationMs(type.baseMs), easing = LinearEasing))
     }
     val density = LocalDensity.current.density
+    val pageStart = remember(key) { System.nanoTime() }
     Box(modifier) {
         Box(Modifier.fillMaxSize().graphicsLayer {
             val t = progress.value
@@ -497,7 +524,7 @@ fun PageTransitionHost(key: Any?, modifier: Modifier = Modifier, override: PageT
                 PageTransition.SHATTER -> Unit
             }
             Unit
-        }) { content() }
+        }) { androidx.compose.runtime.CompositionLocalProvider(LocalPageStart provides pageStart) { content() } }
         if (type != null && progress.value < 1f) CurtainCanvas(type, progress.value, Modifier.fillMaxSize())
     }
 }

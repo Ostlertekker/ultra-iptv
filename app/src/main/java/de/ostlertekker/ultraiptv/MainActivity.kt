@@ -37,6 +37,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent { UltraRoot() }
     }
+
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        de.ostlertekker.ultraiptv.core.motion.InputActivity.mark()
+        return super.dispatchKeyEvent(event)
+    }
 }
 
 @HiltViewModel
