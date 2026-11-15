@@ -1,0 +1,205 @@
+package de.ostlertekker.ultraiptv.feature.movies
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
+import androidx.navigation.NavController
+import coil.compose.AsyncImage
+import dagger.hilt.android.lifecycle.HiltViewModel
+import de.ostlertekker.ultraiptv.core.data.ContentRepository
+import de.ostlertekker.ultraiptv.core.data.SortOrder
+import de.ostlertekker.ultraiptv.core.data.SyncRepository
+import de.ostlertekker.ultraiptv.core.data.UserRepository
+import de.ostlertekker.ultraiptv.core.database.MovieEntity
+import de.ostlertekker.ultraiptv.core.database.ProgressEntity
+import de.ostlertekker.ultraiptv.core.design.LocalUltraTheme
+import de.ostlertekker.ultraiptv.core.model.ContentKind
+import de.ostlertekker.ultraiptv.core.ui.FocusCard
+import de.ostlertekker.ultraiptv.core.ui.TvButton
+import de.ostlertekker.ultraiptv.core.ui.TvChip
+import de.ostlertekker.ultraiptv.openPlayer
+import de.ostlertekker.ultraiptv.ui.Routes
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+private const val PAGE = 240
+
+@OptIn(ExperimentalCoroutinesApi::class)
+@HiltViewModel
+class MoviesViewModel @Inject constructor(content: ContentRepository) : ViewModel() {
+    val category = MutableStateFlow<String?>(null)
+    val genre = MutableStateFlow<String?>(null)
+    val sort = MutableStateFlow(SortOrder.NEWEST)
+    val limit = MutableStateFlow(PAGE)
+
+    val categories = content.movieCategories().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val genres = content.movieGenres().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val movies: StateFlow<List<MovieEntity>> = combine(category, genre, sort, limit) { c, g, s, l -> Quad(c, g, s, l) }
+        .flatMapLatest { q -> content.movies(q.c, q.g, q.s, q.l) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun loadMore() { if (movies.value.size >= limit.value) limit.value += PAGE }
+    fun resetPaging() { limit.value = PAGE }
+
+    private data class Quad(val c: String?, val g: String?, val s: SortOrder, val l: Int)
+}
+
+@Composable
+fun MoviesScreen(nav: NavController, vm: MoviesViewModel = hiltViewModel()) {
+    val theme = LocalUltraTheme.current
+    val p = theme.palette
+    val cats by vm.categories.collectAsStateWithLifecycle()
+    val genres by vm.genres.collectAsStateWithLifecycle()
+    val movies by vm.movies.collectAsStateWithLifecycle()
+    val cat by vm.category.collectAsStateWithLifecycle()
+    val genre by vm.genre.collectAsStateWithLifecycle()
+    val sort by vm.sort.collectAsStateWithLifecycle()
+    val grid = rememberLazyGridState()
+
+    LaunchedEffect(grid) {
+        snapshotFlow { grid.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }.collect { last ->
+            if (last >= grid.layoutInfo.totalItemsCount - 24) vm.loadMore()
+        }
+    }
+
+    Column(Modifier.fillMaxSize().padding(start = 20.dp, top = 20.dp, end = 20.dp)) {
+        Text("MOVIES", color = p.text, fontSize = 26.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily)
+        Spacer(Modifier.height(8.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item { TvChip("Alle", cat == null, { vm.category.value = null; vm.resetPaging() }) }
+            items(cats, key = { it }) { c -> TvChip(c, c == cat, { vm.category.value = c; vm.resetPaging() }) }
+        }
+        Spacer(Modifier.height(8.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(SortOrder.entries, key = { it.name }) { s -> TvChip("↕ ${s.label}", s == sort, { vm.sort.value = s; vm.resetPaging() }) }
+            item { Spacer(Modifier.width(16.dp)) }
+            item { TvChip("Alle Genres", genre == null, { vm.genre.value = null; vm.resetPaging() }) }
+            items(genres, key = { "g_$it" }) { g -> TvChip(g, g == genre, { vm.genre.value = g; vm.resetPaging() }) }
+        }
+        Spacer(Modifier.height(12.dp))
+        if (movies.isEmpty()) Text("Keine Filme gefunden.", color = p.textDim)
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(160.dp), state = grid,
+            horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(18.dp),
+            contentPadding = PaddingValues(top = 8.dp, bottom = 60.dp, start = 8.dp, end = 8.dp),
+        ) {
+            items(movies, key = { it.id }) { m ->
+                FocusCard(m.name, m.poster, 150.dp, 222.dp, onClick = { nav.navigate(Routes.movie(m.id)) },
+                    subtitle = listOfNotNull(m.year, m.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) }).joinToString(" · ").ifBlank { null })
+            }
+        }
+    }
+}
+
+@HiltViewModel
+class MovieDetailViewModel @Inject constructor(
+    savedState: SavedStateHandle,
+    content: ContentRepository,
+    private val user: UserRepository,
+    private val sync: SyncRepository,
+) : ViewModel() {
+    val id: String = savedState.get<String>("id") ?: ""
+    val movie = content.movie(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    val favorite = user.isFavorite(ContentKind.MOVIE, id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val progress = MutableStateFlow<ProgressEntity?>(null)
+
+    init {
+        viewModelScope.launch { sync.loadMovieDetails(id) }
+        refreshProgress()
+    }
+
+    fun refreshProgress() = viewModelScope.launch { progress.value = user.progress(ContentKind.MOVIE, id) }
+    fun toggleFavorite() = viewModelScope.launch { user.toggleFavorite(ContentKind.MOVIE, id) }
+}
+
+@Composable
+fun MovieDetailScreen(vm: MovieDetailViewModel = hiltViewModel()) {
+    val context = LocalContext.current
+    val theme = LocalUltraTheme.current
+    val p = theme.palette
+    val movie by vm.movie.collectAsStateWithLifecycle()
+    val fav by vm.favorite.collectAsStateWithLifecycle()
+    val progress by vm.progress.collectAsStateWithLifecycle()
+    val playFocus = remember { FocusRequester() }
+    val m = movie ?: return
+    LaunchedEffect(m.id) { runCatching { playFocus.requestFocus() } }
+    androidx.lifecycle.compose.LifecycleResumeEffect(m.id) {
+        vm.refreshProgress()
+        onPauseOrDispose { }
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        AsyncImage(m.backdrop ?: m.poster, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), alpha = 0.45f)
+        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(p.bgTop, p.bgTop.copy(alpha = 0.8f), Color.Transparent))))
+        Row(Modifier.fillMaxSize().padding(40.dp), verticalAlignment = Alignment.CenterVertically) {
+            AsyncImage(m.poster, m.name, contentScale = ContentScale.Crop,
+                modifier = Modifier.size(240.dp, 356.dp).clip(RoundedCornerShape(theme.spec.corner.coerceAtMost(18.dp))))
+            Spacer(Modifier.width(36.dp))
+            Column(Modifier.width(640.dp)) {
+                Text(m.name, color = p.text, fontSize = 38.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily)
+                val meta = listOfNotNull(m.year, m.genre, m.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) },
+                    m.durationSec?.takeIf { it > 0 }?.let { "${it / 60} Min." }, m.category).joinToString("  ·  ")
+                Text(meta, color = p.primary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(vertical = 10.dp))
+                Text(m.plot ?: "Keine Beschreibung verfügbar.", color = p.textDim, fontSize = 16.sp, maxLines = 8)
+                Spacer(Modifier.height(24.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    val pr = progress
+                    if (pr != null && pr.positionMs > 30_000 && (pr.durationMs == 0L || pr.positionMs < pr.durationMs * 0.95)) {
+                        TvButton("▶ Fortsetzen (${pr.positionMs / 60000} Min.)", onClick = { context.openPlayer(ContentKind.MOVIE, m.id, pr.positionMs) },
+                            primary = true, focusRequester = playFocus)
+                        TvButton("Von vorne", onClick = { context.openPlayer(ContentKind.MOVIE, m.id, 0) })
+                    } else {
+                        TvButton("▶ Abspielen", onClick = { context.openPlayer(ContentKind.MOVIE, m.id, 0) }, primary = true, focusRequester = playFocus)
+                    }
+                    TvButton(if (fav) "★ Auf Merkliste" else "☆ Merkliste", onClick = { vm.toggleFavorite() })
+                }
+            }
+        }
+    }
+}
