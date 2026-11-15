@@ -127,8 +127,16 @@ fun AnimationStudio(vm: AnimationStudioViewModel = hiltViewModel()) {
     val effective = remember(c) { MotionSpec.resolve(c, weak, false) }
     var profileName by remember { mutableStateOf("") }
 
-    Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-        LazyColumn(Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(bottom = 60.dp)) {
+    // Vorschau-Bühne oben (immer sichtbar), Optionen darunter in voller Breite – Titel werden nie abgeschnitten
+    Column(Modifier.fillMaxSize()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("VORSCHAU", color = p.textDim, fontSize = 13.sp, letterSpacing = 2.sp, modifier = Modifier.weight(1f))
+            Text("▶ spielt die Animation hier ab · Fokus-Effekte mit den Feldern testen", color = p.textDim, fontSize = 11.sp)
+        }
+        Spacer(Modifier.height(6.dp))
+        PreviewStage(vm, effective)
+        Spacer(Modifier.height(8.dp))
+        LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = 60.dp)) {
             item {
                 SectionHeader("Animation Studio · CRAZY MOTION ENGINE")
                 ToggleRow("Engine aktiv", c.enabled, { v -> vm.update { it.copy(enabled = v) } })
@@ -198,15 +206,6 @@ fun AnimationStudio(vm: AnimationStudioViewModel = hiltViewModel()) {
                 }
             }
         }
-        // Vorschau-Bühne bleibt immer sichtbar
-        Column(Modifier.width(400.dp).fillMaxHeight()) {
-            Text("VORSCHAU", color = p.textDim, fontSize = 13.sp, letterSpacing = 2.sp)
-            Spacer(Modifier.height(6.dp))
-            PreviewStage(vm, effective)
-            Spacer(Modifier.height(8.dp))
-            Text("▶ in einer Zeile spielt die Animation hier ab. Fokus-Effekte testest du direkt mit den Feldern in der Bühne.",
-                color = p.textDim, fontSize = 12.sp)
-        }
     }
 }
 
@@ -234,22 +233,22 @@ private fun PreviewStage(vm: AnimationStudioViewModel, spec: MotionSpec) {
     val key by vm.previewKey.collectAsStateWithLifecycle()
     // Vorschau läuft immer (auch wenn die Engine global aus ist)
     val stageSpec = spec.copy(enabled = true, particles = spec.particles, speed = spec.speed)
-    Box(Modifier.fillMaxWidth().height(250.dp).clip(RoundedCornerShape(16.dp)).background(p.bgBottom).padding(10.dp)) {
+    Box(Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(16.dp)).background(p.bgBottom).padding(10.dp)) {
         when (val t = target) {
             is PreviewTarget.Entrance -> CompositionLocalProvider(LocalMotion provides stageSpec) {
                 Column {
                     Text(t.anim.label, color = p.primary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(6.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        for (i in 0 until 4) {
-                            Box(Modifier.crazyEntrance(i, key, t.anim, forceEnabled = true).size(78.dp, 116.dp).clip(RoundedCornerShape(10.dp))
+                        for (i in 0 until 6) {
+                            Box(Modifier.crazyEntrance(i, key, t.anim, forceEnabled = true).size(70.dp, 100.dp).clip(RoundedCornerShape(10.dp))
                                 .background(Brush.linearGradient(listOf(p.primary, p.secondary))), contentAlignment = Alignment.Center) {
                                 Text("${i + 1}", color = p.text, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
                     Spacer(Modifier.height(10.dp))
-                    Box(Modifier.crazyEntrance(4, key, t.anim, forceEnabled = true).fillMaxWidth().height(40.dp).clip(RoundedCornerShape(10.dp)).background(p.surfaceFocused),
+                    Box(Modifier.crazyEntrance(6, key, t.anim, forceEnabled = true).fillMaxWidth().height(36.dp).clip(RoundedCornerShape(10.dp)).background(p.surfaceFocused),
                         contentAlignment = Alignment.Center) { Text("MENÜPUNKT", color = p.text, fontSize = 14.sp, letterSpacing = 2.sp) }
                 }
             }

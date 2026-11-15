@@ -175,7 +175,11 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel) {
     val exit: ExitTransition = if (reduce) ExitTransition.None else exitTransitionFor(motion)
 
     Box(Modifier.fillMaxSize()) {
-        ThemeBackground(theme, Modifier.fillMaxSize(), customImage = customBackground)
+        // Läuft ein Video (Vorschau/Mini-Player), pausiert die Hintergrundanimation → volle Leistung fürs Video
+        val engineState by vm.engine.state.collectAsStateWithLifecycle()
+        val mini by vm.engine.mini.collectAsStateWithLifecycle()
+        val videoActive = (mini != null || vm.engine.owner == "preview") && engineState == androidx.media3.common.Player.STATE_READY
+        ThemeBackground(theme, Modifier.fillMaxSize(), animate = !videoActive, customImage = customBackground)
         Row(Modifier.fillMaxSize()) {
             NavRail(items, railRouteFor(route), onSelect = { r -> navigateTop(nav, r); sounds?.transition() }, firstFocus = railFocus)
             PageTransitionHost(key = entry?.id, modifier = Modifier.weight(1f).fillMaxHeight()) {

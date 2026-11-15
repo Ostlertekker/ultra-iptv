@@ -83,8 +83,8 @@ object ThemeEngine {
     fun profileFor(s: AppSettings, tier: DeviceTier): AnimationProfile =
         if (s.animationAuto) when (tier) {
             DeviceTier.ENTRY -> AnimationProfile.ECONOMY
-            DeviceTier.STANDARD -> AnimationProfile.BALANCED
-            else -> AnimationProfile.ULTRA
+            DeviceTier.STANDARD, DeviceTier.PREMIUM -> AnimationProfile.BALANCED
+            DeviceTier.HIGH_PERFORMANCE -> AnimationProfile.ULTRA
         } else s.animationProfile
 
     fun resolve(s: AppSettings, tier: DeviceTier): ResolvedTheme {

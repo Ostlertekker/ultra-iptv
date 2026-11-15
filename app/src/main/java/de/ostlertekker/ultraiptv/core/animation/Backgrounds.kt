@@ -76,7 +76,7 @@ fun hash01(a: Int, b: Int): Float {
  * Im Economy-Profil wird auf ca. 30 fps gedrosselt.
  */
 @Composable
-fun rememberAnimationClock(running: Boolean, throttle: Boolean = false): State<Float> {
+fun rememberAnimationClock(running: Boolean, throttle: Boolean = false, fps: Int = 60): State<Float> {
     val time = remember { mutableFloatStateOf(0f) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val lifecycleState by lifecycle.currentStateAsState()
@@ -85,9 +85,13 @@ fun rememberAnimationClock(running: Boolean, throttle: Boolean = false): State<F
         if (!active) return@LaunchedEffect
         val base = time.floatValue
         val start = withFrameNanos { it }
+        // Bildratenbegrenzung: nur bei Bedarf neu zeichnen (spart GPU/CPU auf Fire TV)
+        val minFrameNs = 1_000_000_000L / (if (throttle) minOf(fps, 20) else fps).coerceIn(10, 60)
+        var last = 0L
         while (isActive) {
-            withFrameNanos { now -> time.floatValue = base + (now - start) / 1_000_000_000f }
-            if (throttle) delay(16)
+            withFrameNanos { now ->
+                if (now - last >= minFrameNs - 2_000_000L) { last = now; time.floatValue = base + (now - start) / 1_000_000_000f }
+            }
         }
     }
     return time
@@ -96,7 +100,9 @@ fun rememberAnimationClock(running: Boolean, throttle: Boolean = false): State<F
 @Composable
 fun ThemeBackground(theme: ResolvedTheme, modifier: Modifier = Modifier, animate: Boolean = true, customImage: String = "") {
     val anim = theme.anim
-    val clock = rememberAnimationClock(animate && anim.backgroundMotion, throttle = anim.profile == AnimationProfile.ECONOMY)
+    // Langsame Hintergrundbewegung braucht keine 60 fps – 30 fps sehen gleich aus und halbieren die Last
+    val clock = rememberAnimationClock(animate && anim.backgroundMotion, throttle = anim.profile == AnimationProfile.ECONOMY,
+        fps = if (anim.profile == AnimationProfile.ULTRA) 40 else 30)
     val count = (theme.spec.baseParticles * anim.particleFactor).toInt().coerceIn(0, 420)
     val field = remember(count, theme.spec.id) { ParticleField(count, theme.spec.id.hashCode()) }
     val paint = remember {

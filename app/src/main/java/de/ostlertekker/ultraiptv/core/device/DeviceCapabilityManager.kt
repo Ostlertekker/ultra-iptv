@@ -123,8 +123,8 @@ class DeviceCapabilityManager @Inject constructor(@ApplicationContext private va
     val recommendedAnimation: AnimationProfile
         get() = when (tier) {
             DeviceTier.ENTRY -> AnimationProfile.ECONOMY
-            DeviceTier.STANDARD -> AnimationProfile.BALANCED
-            DeviceTier.PREMIUM, DeviceTier.HIGH_PERFORMANCE -> AnimationProfile.ULTRA
+            DeviceTier.STANDARD, DeviceTier.PREMIUM -> AnimationProfile.BALANCED
+            DeviceTier.HIGH_PERFORMANCE -> AnimationProfile.ULTRA
         }
 
     fun thermalStatus(): Pair<String, Accuracy> {

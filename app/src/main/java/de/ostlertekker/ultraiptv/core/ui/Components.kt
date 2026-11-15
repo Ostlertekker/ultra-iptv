@@ -44,6 +44,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -277,8 +280,9 @@ fun AnimatedMenuLabel(text: String, focused: Boolean, selected: Boolean, modifie
     val anim = theme.anim
     val fx = theme.spec.menuFx
     val focusProgress by animateFloatAsState(if (focused) 1f else 0f, tween(if (anim.reduceMotion) 0 else 280), label = "menuFocus")
-    val clock = rememberAnimationClock((focused || selected) && !anim.reduceMotion && fx.shimmer)
-    val t = clock.value
+    // Uhr läuft nur für das fokussierte Element; alle Werte werden ausschließlich in der Zeichenphase gelesen
+    // → keine Neukomposition pro Frame (deutlich flüssiger auf Fire TV)
+    val clock = rememberAnimationClock(focused && !anim.reduceMotion && (fx.shimmer || fx.sparkles), fps = 45)
     val burst = remember { Animatable(0f) }
     LaunchedEffect(focused) {
         if (focused && fx.sparkles && !anim.reduceMotion && anim.profile != AnimationProfile.ECONOMY) {
@@ -287,36 +291,26 @@ fun AnimatedMenuLabel(text: String, focused: Boolean, selected: Boolean, modifie
     }
     val emphasis = maxOf(focusProgress, if (selected) 0.65f else 0f)
     val baseColor = lerp(p.textDim, p.text, emphasis)
-    val glow = Shadow(p.glow.copy(alpha = (0.85f * focusProgress * fx.glowStrength).coerceIn(0f, 1f)), Offset.Zero,
-        blurRadius = 10f + 6f * focusProgress + 3f * sin(t * 2f))
-    val style = if (focusProgress > 0.05f && fx.shimmer) {
-        val sweep = fract(t * 0.22f) * 700f - 200f
-        TextStyle(
-            brush = Brush.linearGradient(listOf(p.primary, Color.White, p.secondary, p.primary),
-                start = Offset(sweep, 0f), end = Offset(sweep + 260f, 30f), tileMode = TileMode.Mirror),
-            fontFamily = theme.spec.fontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp, letterSpacing = 2.sp, shadow = glow,
-        )
-    } else {
-        TextStyle(color = if (focused) p.text else baseColor, fontFamily = theme.spec.fontFamily,
-            fontWeight = if (selected || focused) FontWeight.Bold else FontWeight.Medium, fontSize = 18.sp, letterSpacing = 2.sp, shadow = glow)
-    }
+    val glow = Shadow(p.glow.copy(alpha = (0.75f * focusProgress * fx.glowStrength).coerceIn(0f, 1f)), Offset.Zero, blurRadius = 14f * focusProgress)
+    val style = TextStyle(color = if (focusProgress > 0.05f) Color.White else baseColor, fontFamily = theme.spec.fontFamily,
+        fontWeight = if (selected || focused) FontWeight.Bold else FontWeight.Medium, fontSize = 18.sp, letterSpacing = 2.sp, shadow = glow)
+    val shimmer = fx.shimmer && focused
     Box(
         modifier.drawBehind {
-            if (focusProgress > 0.01f) {
-                // Kosmischer Staub / Glühen hinter dem Text
+            val fp = focusProgress
+            if (fp > 0.01f) {
+                val t = clock.value
                 drawRoundRect(
-                    Brush.radialGradient(listOf(p.glow.copy(alpha = 0.22f * focusProgress), Color.Transparent), center, size.width * 0.75f),
+                    Brush.radialGradient(listOf(p.glow.copy(alpha = 0.22f * fp), Color.Transparent), center, size.width * 0.75f),
                     cornerRadius = CornerRadius(size.height / 2),
                 )
                 if (fx.sparkles) {
-                    val n = if (anim.profile == AnimationProfile.ECONOMY) 4 else 9
+                    val n = if (anim.profile == AnimationProfile.ECONOMY) 4 else 8
                     for (i in 0 until n) {
                         val ang = t * 0.55f + i * (2f * PI.toFloat() / n)
-                        val rx = size.width / 2 + 10f
-                        val ry = size.height / 2 + 6f
-                        val c = Offset(center.x + cos(ang) * rx, center.y + sin(ang) * ry)
+                        val c = Offset(center.x + cos(ang) * (size.width / 2 + 10f), center.y + sin(ang) * (size.height / 2 + 6f))
                         val tw = 0.5f + 0.5f * sin(t * 3.1f + i * 1.7f)
-                        drawCircle(p.particle.copy(alpha = focusProgress * tw * 0.9f), 1.2f + tw * 1.6f, c)
+                        drawCircle(p.particle.copy(alpha = fp * tw * 0.9f), 1.2f + tw * 1.6f, c)
                     }
                 }
             }
@@ -326,14 +320,21 @@ fun AnimatedMenuLabel(text: String, focused: Boolean, selected: Boolean, modifie
                     val ang = i * (2f * PI.toFloat() / 10f)
                     val r0 = size.height * 0.3f + b * size.height * 0.4f
                     val r1 = r0 + 10f * (1f - b)
-                    val from = Offset(center.x + cos(ang) * r0 * 2.2f, center.y + sin(ang) * r0)
-                    val to = Offset(center.x + cos(ang) * r1 * 2.2f, center.y + sin(ang) * r1)
-                    drawLine(p.particle.copy(alpha = (1f - b) * 0.9f), from, to, 1.6f)
+                    drawLine(p.particle.copy(alpha = (1f - b) * 0.9f), Offset(center.x + cos(ang) * r0 * 2.2f, center.y + sin(ang) * r0),
+                        Offset(center.x + cos(ang) * r1 * 2.2f, center.y + sin(ang) * r1), 1.6f)
                 }
             }
         }.padding(horizontal = 6.dp, vertical = 2.dp),
     ) {
-        Text(text, style = style, maxLines = 1)
+        Text(text, style = style, maxLines = 1, modifier = if (!shimmer) Modifier else Modifier
+            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+            .drawWithContent {
+                drawContent()
+                // Wandernder Verlaufs-Glanz nur auf den Buchstaben (SrcIn), berechnet in der Zeichenphase
+                val sweep = fract(clock.value * 0.22f) * (size.width + 400f) - 200f
+                drawRect(Brush.linearGradient(listOf(p.primary, Color.White, p.secondary, p.primary),
+                    start = Offset(sweep, 0f), end = Offset(sweep + 260f, size.height), tileMode = TileMode.Mirror), blendMode = BlendMode.SrcIn)
+            })
     }
 }
 
@@ -345,10 +346,10 @@ fun NavRail(items: List<NavItem>, selectedRoute: String, onSelect: (String) -> U
     val theme = LocalUltraTheme.current
     val p = theme.palette
     val railClock = rememberAnimationClock(theme.spec.menuFx.shootingStars && theme.anim.backgroundMotion &&
-        theme.anim.profile != AnimationProfile.ECONOMY)
+        theme.anim.profile != AnimationProfile.ECONOMY, fps = 30)
     Column(
         modifier
-            .width(230.dp)
+            .width(200.dp)
             .fillMaxSize()
             .background(Brush.horizontalGradient(listOf(p.bgTop.copy(alpha = 0.92f), p.bgTop.copy(alpha = 0.55f), Color.Transparent)))
             .drawBehind {

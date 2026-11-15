@@ -251,16 +251,17 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
         onDispose { lifecycle.removeObserver(obs); vm.stopPreview() }
     }
 
-    Row(Modifier.fillMaxSize().padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        LazyColumn(Modifier.width(220.dp).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Row(Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Anteilige Breiten: die Senderliste behält auf jedem Bildschirm genug Platz für die Sendernamen
+        LazyColumn(Modifier.weight(0.25f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             item {
-                Text("LIVE TV", color = p.text, fontSize = 26.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily,
+                Text("LIVE TV", color = p.text, fontSize = 24.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily,
                     modifier = Modifier.padding(bottom = 10.dp))
             }
             item { CategoryItem("🌍 Weltkarte & Länder", false) { nav.navigate(Routes.WORLD) } }
             items(cats, key = { it }) { c -> CategoryItem(c, c == current) { vm.selected.value = c } }
         }
-        Column(Modifier.weight(1f).fillMaxHeight()) {
+        Column(Modifier.weight(0.42f).fillMaxHeight()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(current, color = p.text, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f))
@@ -290,7 +291,7 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
                 }
             }
         }
-        Column(Modifier.width(400.dp).fillMaxHeight()) {
+        Column(Modifier.weight(0.33f).fillMaxHeight()) {
             val ch = focused
             PreviewBox(vm, ch)
             Spacer(Modifier.height(12.dp))
@@ -447,8 +448,8 @@ private fun ChannelItem(
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(if (ch.number > 0) ch.number.toString() else "", color = p.textDim, fontSize = 13.sp, modifier = Modifier.width(44.dp))
-        Box(Modifier.size(64.dp, 40.dp), contentAlignment = Alignment.Center) {
+        Text(if (ch.number > 0) ch.number.toString() else "", color = p.textDim, fontSize = 13.sp, modifier = Modifier.width(30.dp), maxLines = 1)
+        Box(Modifier.size(52.dp, 34.dp), contentAlignment = Alignment.Center) {
             if (ch.logo != null) AsyncImage(ch.logo, null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
         }
         Spacer(Modifier.width(12.dp))

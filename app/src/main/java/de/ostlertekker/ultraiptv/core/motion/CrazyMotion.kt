@@ -389,11 +389,13 @@ fun Modifier.crazyFocus(focused: Boolean, baseScale: Float, scaleOnFocus: Boolea
     val tiltX = remember { Animatable(0f) }
     val tiltY = remember { Animatable(0f) }
     val lift = remember { Animatable(0f) }
-    var bounds by remember { mutableStateOf(Rect.Zero) }
+    // Kein Compose-State: Positionsänderungen beim Scrollen lösen so keine Snapshot-Schreibvorgänge aus
+    val boundsHolder = remember { arrayOf(Rect.Zero) }
     val target = if (focused && scaleOnFocus) baseScale else 1f
 
     LaunchedEffect(focused, effect) {
         if (!spec.enabled || effect == null) { scale.snapTo(target); offset.snapTo(Offset.Zero); tiltX.snapTo(0f); tiltY.snapTo(0f); lift.snapTo(0f); return@LaunchedEffect }
+        val bounds = boundsHolder[0]
         val center = bounds.center
         val prev = MotionBus.lastFocusCenter
         if (focused) MotionBus.lastFocusCenter = center
@@ -441,7 +443,7 @@ fun Modifier.crazyFocus(focused: Boolean, baseScale: Float, scaleOnFocus: Boolea
     } else 0f
 
     this
-        .onGloballyPositioned { bounds = it.boundsInRoot() }
+        .onGloballyPositioned { boundsHolder[0] = it.boundsInRoot() }
         .graphicsLayer {
             scaleX = scale.value; scaleY = scale.value
             translationX = offset.value.x; translationY = offset.value.y - lift.value * 8f * density
