@@ -34,6 +34,10 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import de.ostlertekker.ultraiptv.RootViewModel
+import de.ostlertekker.ultraiptv.core.motion.LocalMotion
+import de.ostlertekker.ultraiptv.core.motion.MotionOverlay
+import de.ostlertekker.ultraiptv.core.motion.PageTransitionHost
+import de.ostlertekker.ultraiptv.core.motion.exitTransitionFor
 import de.ostlertekker.ultraiptv.core.animation.ThemeBackground
 import de.ostlertekker.ultraiptv.core.design.LocalUltraTheme
 import de.ostlertekker.ultraiptv.core.design.TransitionStyle
@@ -160,19 +164,21 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel) {
         if (!nav.popBackStack()) nav.navigate(Routes.HOME)
     }
 
-    val reduce = theme.anim.reduceMotion
-    val enter: EnterTransition = if (reduce) EnterTransition.None else when (theme.spec.transition) {
+    val motion = LocalMotion.current
+    val reduce = theme.anim.reduceMotion || !motion.enabled
+    // Mit CRAZY-MOTION-Seitenübergang übernimmt das Vorhang-Overlay die Enthüllung → kurzer Fade genügt
+    val enter: EnterTransition = if (reduce) EnterTransition.None else if (motion.pageEnter != null) fadeIn(tween(90)) else when (theme.spec.transition) {
         TransitionStyle.FADE -> fadeIn(tween(260))
         TransitionStyle.SLIDE -> fadeIn(tween(260)) + slideInHorizontally(tween(300)) { it / 12 }
         TransitionStyle.ZOOM -> fadeIn(tween(260)) + scaleIn(tween(320), initialScale = 0.96f)
     }
-    val exit: ExitTransition = if (reduce) ExitTransition.None else fadeOut(tween(180))
+    val exit: ExitTransition = if (reduce) ExitTransition.None else exitTransitionFor(motion)
 
     Box(Modifier.fillMaxSize()) {
         ThemeBackground(theme, Modifier.fillMaxSize(), customImage = customBackground)
         Row(Modifier.fillMaxSize()) {
             NavRail(items, railRouteFor(route), onSelect = { r -> navigateTop(nav, r); sounds?.transition() }, firstFocus = railFocus)
-            Box(Modifier.weight(1f).fillMaxHeight()) {
+            PageTransitionHost(key = entry?.id, modifier = Modifier.weight(1f).fillMaxHeight()) {
                 NavHost(nav, startDestination = Routes.HOME, enterTransition = { enter }, exitTransition = { exit },
                     popEnterTransition = { enter }, popExitTransition = { exit }) {
                     composable(Routes.HOME) { HomeScreen(nav) }
@@ -195,6 +201,7 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel) {
             }
         }
         MiniPlayerOverlay(vm.engine, Modifier.align(Alignment.BottomEnd).padding(28.dp))
+        MotionOverlay()
     }
 
     // Watch Together (Gast): Inhalt des Host-Geräts automatisch öffnen

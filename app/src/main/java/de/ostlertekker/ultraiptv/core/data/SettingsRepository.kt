@@ -73,6 +73,9 @@ data class AppSettings(
     val autoQuality: Boolean = true,
     val autoFailover: Boolean = true,
     val lastUpdateCheck: Long = 0,
+    /** CRAZY MOTION ENGINE: aktive Konfiguration und eigene Profile (JSON). */
+    val motionJson: String = "",
+    val motionProfilesJson: String = "",
 )
 
 object Keys {
@@ -124,6 +127,8 @@ object Keys {
     val AUTO_QUALITY = booleanPreferencesKey("auto_quality")
     val AUTO_FAILOVER = booleanPreferencesKey("auto_failover")
     val LAST_UPDATE_CHECK = longPreferencesKey("last_update_check")
+    val MOTION = stringPreferencesKey("motion")
+    val MOTION_PROFILES = stringPreferencesKey("motion_profiles")
 }
 
 private inline fun <reified E : Enum<E>> enumOr(value: String?, default: E): E =
@@ -180,6 +185,8 @@ fun Preferences.toSettings(): AppSettings {
         autoQuality = this[Keys.AUTO_QUALITY] ?: d.autoQuality,
         autoFailover = this[Keys.AUTO_FAILOVER] ?: d.autoFailover,
         lastUpdateCheck = this[Keys.LAST_UPDATE_CHECK] ?: d.lastUpdateCheck,
+        motionJson = this[Keys.MOTION] ?: d.motionJson,
+        motionProfilesJson = this[Keys.MOTION_PROFILES] ?: d.motionProfilesJson,
     )
 }
 

@@ -130,8 +130,9 @@ fun MoviesScreen(nav: NavController, vm: MoviesViewModel = hiltViewModel()) {
             horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(18.dp),
             contentPadding = PaddingValues(top = 8.dp, bottom = 60.dp, start = 8.dp, end = 8.dp),
         ) {
-            items(movies, key = { it.id }) { m ->
-                FocusCard(m.name, m.poster, 150.dp, 222.dp, onClick = { nav.navigate(Routes.movie(m.id)) },
+            items(movies.size, key = { movies[it].id }) { i ->
+                val m = movies[i]
+                FocusCard(m.name, m.poster, 150.dp, 222.dp, onClick = { nav.navigate(Routes.movie(m.id)) }, entranceIndex = i % 8,
                     subtitle = listOfNotNull(m.year, m.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) }).joinToString(" · ").ifBlank { null })
             }
         }

@@ -121,7 +121,7 @@ fun SeriesScreen(nav: NavController, vm: SeriesViewModel = hiltViewModel()) {
         ) {
             items(list.size, key = { list[it].id }) { i ->
                 val s = list[i]
-                FocusCard(s.name, s.poster, 150.dp, 222.dp, onClick = { nav.navigate(Routes.seriesDetail(s.id)) }, subtitle = s.year)
+                FocusCard(s.name, s.poster, 150.dp, 222.dp, onClick = { nav.navigate(Routes.seriesDetail(s.id)) }, subtitle = s.year, entranceIndex = i % 8)
             }
         }
     }

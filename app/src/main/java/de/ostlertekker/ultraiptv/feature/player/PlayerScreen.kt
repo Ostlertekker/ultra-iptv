@@ -51,6 +51,11 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.SubtitleView
 import de.ostlertekker.ultraiptv.core.data.AppSettings
+import de.ostlertekker.ultraiptv.core.motion.CurtainOverlay
+import de.ostlertekker.ultraiptv.core.motion.LocalMotion
+import de.ostlertekker.ultraiptv.core.motion.MotionOverlay
+import de.ostlertekker.ultraiptv.core.motion.crazyEntrance
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.media3.ui.PlayerView
 import de.ostlertekker.ultraiptv.core.design.LocalUltraTheme
 import de.ostlertekker.ultraiptv.core.model.ContentKind
@@ -98,6 +103,16 @@ fun PlayerScreen(
     val panelFocus = remember { FocusRequester() }
     val countdownFocus = remember { FocusRequester() }
     val isLive = ui.kind == ContentKind.LIVE
+
+    // CRAZY MOTION ENGINE im Player
+    val motion = LocalMotion.current
+    var overlayShown by remember { mutableIntStateOf(0) }
+    LaunchedEffect(overlay) { if (overlay) overlayShown++ }
+    var zapKey by remember { mutableLongStateOf(0L) }
+    var zapSeen by remember { mutableStateOf(false) }
+    LaunchedEffect(ui.zapAt) {
+        if (ui.zapAt > 0) { if (zapSeen) zapKey = ui.zapAt; zapSeen = true }
+    }
 
     LaunchedEffect(overlay, interaction, panel) {
         if (overlay && panel == null) { delay(5000); overlay = false }
@@ -185,6 +200,10 @@ fun PlayerScreen(
             modifier = Modifier.fillMaxSize(),
         )
 
+        // Effekte liegen ÜBER dem Video (SurfaceView) – der Stream startet ohne Verzögerung darunter
+        if (!inPip) CurtainOverlay(trigger = Unit, type = motion.playerEnter)
+        if (!inPip) CurtainOverlay(trigger = zapKey, type = motion.zapEffect, skipFirst = true)
+
         if (ui.buffering && ui.error == null) UltraLoader(Modifier.align(Alignment.Center))
 
         ui.error?.let { err ->
@@ -244,7 +263,7 @@ fun PlayerScreen(
             Box(Modifier.fillMaxSize()) {
                 Box(Modifier.fillMaxWidth().height(160.dp).background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.85f), Color.Transparent))))
                 Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(260.dp).background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.92f)))))
-                Column(Modifier.padding(36.dp)) {
+                Column(Modifier.padding(36.dp).crazyEntrance(0, overlayShown)) {
                     Text(ui.title, color = Color.White, fontSize = 28.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily, maxLines = 1)
                     Text(ui.subtitle, color = p.textDim, fontSize = 15.sp, maxLines = 1)
                 }
@@ -278,7 +297,7 @@ fun PlayerScreen(
                         }
                     }
                     Spacer(Modifier.height(14.dp))
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    LazyRow(Modifier.crazyEntrance(1, overlayShown), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         if (offer != null) item { TvButton("${offer.segment.type.label} überspringen", onClick = { vm.acceptSkip() }, primary = true) }
                         item { TvButton(if (ui.isPlaying) "❚❚ Pause" else "▶ Play", onClick = { vm.togglePlay() }, focusRequester = playFocus) }
                         if (!isLive) {
@@ -315,6 +334,8 @@ fun PlayerScreen(
                 }
             }
         }
+
+        if (!inPip) MotionOverlay()
 
         panel?.let { current ->
             Box(Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(420.dp).background(Color.Black.copy(alpha = 0.9f)).padding(24.dp)) {

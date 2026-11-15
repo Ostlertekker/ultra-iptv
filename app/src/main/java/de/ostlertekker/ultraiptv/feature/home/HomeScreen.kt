@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -217,8 +218,8 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
         if (cw.isNotEmpty()) item {
             SectionHeader("Weiterschauen")
             LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                items(cw, key = { it.kind + it.itemId }) { pr ->
-                    FocusCard(pr.title, pr.image, 260.dp, 146.dp,
+                itemsIndexed(cw, key = { _, it -> it.kind + it.itemId }) { i, pr ->
+                    FocusCard(pr.title, pr.image, 260.dp, 146.dp, entranceIndex = i,
                         onClick = {
                             val kind = runCatching { ContentKind.valueOf(pr.kind) }.getOrDefault(ContentKind.MOVIE)
                             context.openPlayer(kind, pr.itemId, pr.positionMs)
@@ -242,8 +243,8 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
         if (series.isNotEmpty()) item {
             SectionHeader("Serien")
             LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                items(series, key = { it.id }) { s ->
-                    FocusCard(s.name, s.poster, 150.dp, 222.dp, onClick = { nav.navigate(Routes.seriesDetail(s.id)) }, subtitle = s.year)
+                itemsIndexed(series, key = { _, s -> s.id }) { i, s ->
+                    FocusCard(s.name, s.poster, 150.dp, 222.dp, onClick = { nav.navigate(Routes.seriesDetail(s.id)) }, subtitle = s.year, entranceIndex = i)
                 }
             }
         }
@@ -258,8 +259,8 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
 private fun MovieRow(title: String, movies: List<MovieEntity>, onClick: (MovieEntity) -> Unit) {
     SectionHeader(title)
     LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        items(movies, key = { it.id }) { m ->
-            FocusCard(m.name, m.poster, 150.dp, 222.dp, onClick = { onClick(m) },
+        itemsIndexed(movies, key = { _, m -> m.id }) { i, m ->
+            FocusCard(m.name, m.poster, 150.dp, 222.dp, onClick = { onClick(m) }, entranceIndex = i,
                 subtitle = listOfNotNull(m.year, m.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) }).joinToString(" · ").ifBlank { null })
         }
     }
@@ -269,8 +270,8 @@ private fun MovieRow(title: String, movies: List<MovieEntity>, onClick: (MovieEn
 private fun ChannelRow(title: String, channels: List<ChannelEntity>, onClick: (ChannelEntity) -> Unit) {
     SectionHeader(title)
     LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        items(channels, key = { it.id }) { c ->
-            FocusCard(c.name, c.logo, 200.dp, 112.dp, onClick = { onClick(c) }, subtitle = c.category, contentScale = ContentScale.Fit)
+        itemsIndexed(channels, key = { _, c -> c.id }) { i, c ->
+            FocusCard(c.name, c.logo, 200.dp, 112.dp, onClick = { onClick(c) }, entranceIndex = i, subtitle = c.category, contentScale = ContentScale.Fit)
         }
     }
 }

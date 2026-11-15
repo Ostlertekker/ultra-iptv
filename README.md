@@ -69,6 +69,16 @@ Bedienung komplett per Fernbedienung: D-Pad, OK, Zurück, Play/Pause, ⏩/⏪, C
 
 **Grenzen:** Watch Together und Gerätesync funktionieren im selben Heimnetz (kein Cloud-Server). Bild-in-Bild bieten viele Fire-TV-Modelle nicht an – dann gibt es den Mini-Player. Darsteller-Suche hängt von den Angaben des Anbieters ab.
 
+## CRAZY MOTION ENGINE (Version 1.2)
+
+Modulare Animations-Engine (`core/motion`), integriert in Navigation, Menüs, Karten und Player.
+
+* **Menu Entrance (14):** Gravity Drop, Explosion, Hologram Materialize, 3D Flip, Cyber Glitch, Liquid Morph, Black Hole, Meteor Shower, Domino, Magnetic Pull, Shatter Glass, Portal, Matrix Rain, Elastic Bounce – auf Menüleiste, Poster-/Senderreihen, Raster und Player-Steuerung.
+* **Navigation Effects (8):** Magnetic Focus, 3D Tilt, Hover Explosion, Elastic Focus, Depth Shift, Pulse Glow, Perspective Zoom, Trail Effect – zentral in `tvFocusable`, also auf jedem fokussierbaren Element.
+* **Page Transitions (7):** Portal, Shatter, Warp Speed, Liquid, Glitch, Zoom Tunnel, Cinematic Reveal – für App-Seiten, das Öffnen des Players und den Senderwechsel (als Overlay über dem Video, der Stream startet ohne Verzögerung). Dazu 7 Ausgangsanimationen.
+* **Animation Studio** (Einstellungen): Eingang/Ausgang/Übergänge/Fokus wählen, Geschwindigkeit, Intensität, Partikel, jede Animation einzeln an/aus, Zufallsmodus, eigene Profile + 4 Vorlagen, Live-Vorschau jeder Animation.
+* **Technik:** GPU-Transformationen über `graphicsLayer` (RenderNode), Clip-Reveals/Overlays über `drawWithContent`, analytische Physik (Gravitation mit Rückprall, gedämpfte Federn, Bounce), Federn für Fokus. Keine Tasten werden blockiert, neue Seiten sind sofort bedienbar. Reduzierter Modus, automatische Vereinfachung auf Entry-Geräten (weniger Partikel/Splitter, kürzere Laufzeit), Partikel- und Ereignis-Obergrenzen, Overlays laufen nur solange Effekte aktiv sind.
+
 ---
 
 ## Ehrliche Grenzen

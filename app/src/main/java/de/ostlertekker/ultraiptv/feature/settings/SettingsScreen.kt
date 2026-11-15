@@ -84,7 +84,7 @@ import java.util.Date
 import javax.inject.Inject
 
 enum class SettingsSection(val label: String) {
-    GENERAL("Allgemein"), ACCOUNTS("Konten (Multi-Account)"), UPDATES("App-Updates"), NOTIFICATIONS("Benachrichtigungen"), APPEARANCE("Darstellung"), THEMES("Themes"), ANIMATIONS("Animationen"), INTRO("Intro"),
+    GENERAL("Allgemein"), ACCOUNTS("Konten (Multi-Account)"), UPDATES("App-Updates"), NOTIFICATIONS("Benachrichtigungen"), APPEARANCE("Darstellung"), THEMES("Themes"), STUDIO("Animation Studio"), ANIMATIONS("Animationen"), INTRO("Intro"),
     AUDIO("Audio"), PLAYBACK("Wiedergabe"), QUALITY("Bildqualität"), UPSCALING("KI-Upscaling"), SMART_SKIP("Smart Skip"),
     EPG("EPG"), PROFILES("Profile"), PARENTAL("Jugendschutz"), NETWORK("Netzwerk & Speedtest"), ANALYSIS("Sender-Analyse"),
     BACKUP("Backup & Sync"), WATCH_TOGETHER("Watch Together"), DIAGNOSTICS("Diagnose"), ABOUT("Über"),
@@ -178,6 +178,7 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
         }
         Box(Modifier.weight(1f).fillMaxHeight()) {
             if (section == SettingsSection.THEMES) ThemeGallery(vm, s)
+            else if (section == SettingsSection.STUDIO) AnimationStudio()
             else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 60.dp)) {
                 item { SectionHeader(section.label) }
                 when (section) {
@@ -202,7 +203,7 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
                     SettingsSection.NETWORK -> networkDiagSection(x, s, vm)
                     SettingsSection.DIAGNOSTICS -> diagnosticsSection(vm, s)
                     SettingsSection.ABOUT -> aboutSection(vm)
-                    SettingsSection.THEMES -> Unit
+                    SettingsSection.THEMES, SettingsSection.STUDIO -> Unit
                 }
             }
         }

@@ -70,6 +70,8 @@ import de.ostlertekker.ultraiptv.core.animation.drawShootingStars
 import de.ostlertekker.ultraiptv.core.animation.rememberAnimationClock
 import de.ostlertekker.ultraiptv.core.animation.fract
 import de.ostlertekker.ultraiptv.core.audio.AudioExperienceEngine
+import de.ostlertekker.ultraiptv.core.motion.crazyEntrance
+import de.ostlertekker.ultraiptv.core.motion.crazyFocus
 import de.ostlertekker.ultraiptv.core.data.AppSettings
 import de.ostlertekker.ultraiptv.core.design.LoaderStyle
 import de.ostlertekker.ultraiptv.core.design.LocalUltraTheme
@@ -88,6 +90,12 @@ val LocalUiSounds = staticCompositionLocalOf<AudioExperienceEngine?> { null }
 @Composable
 fun UltraThemeHost(settings: AppSettings, tier: DeviceTier, sounds: AudioExperienceEngine?, content: @Composable () -> Unit) {
     val theme = remember(settings, tier) { ThemeEngine.resolve(settings, tier) }
+    val motion = remember(settings.motionJson, settings.reduceMotion, tier) {
+        de.ostlertekker.ultraiptv.core.motion.MotionSpec.resolve(
+            de.ostlertekker.ultraiptv.core.motion.MotionConfig.fromJson(settings.motionJson),
+            weakHardware = tier == DeviceTier.ENTRY, systemReduceMotion = settings.reduceMotion,
+        )
+    }
     LaunchedEffect(settings.uiSounds, settings.uiVolume, settings.themeSounds, theme.spec.id) {
         sounds?.configure(settings.uiSounds, settings.uiVolume,
             if (settings.themeSounds) theme.spec.sound else de.ostlertekker.ultraiptv.core.audio.SoundPreset.COSMIC)
@@ -98,7 +106,8 @@ fun UltraThemeHost(settings: AppSettings, tier: DeviceTier, sounds: AudioExperie
         onPrimary = Color.Black, onSurface = p.text, onBackground = p.text, surfaceVariant = p.surface,
         onSurfaceVariant = p.textDim, outline = p.textDim,
     )
-    CompositionLocalProvider(LocalUltraTheme provides theme, LocalUiSounds provides sounds) {
+    CompositionLocalProvider(LocalUltraTheme provides theme, LocalUiSounds provides sounds,
+        de.ostlertekker.ultraiptv.core.motion.LocalMotion provides motion) {
         MaterialTheme(colorScheme = scheme) { content() }
     }
 }
@@ -134,12 +143,10 @@ fun Modifier.tvFocusable(
     val theme = LocalUltraTheme.current
     val sounds = LocalUiSounds.current
     var focused by remember { mutableStateOf(false) }
-    val anim = theme.anim
-    val scale by animateFloatAsState(if (focused && scaleOnFocus) theme.spec.focusScale else 1f,
-        tween(if (anim.reduceMotion) 0 else 180), label = "scale")
     val p = theme.palette
+    // CRAZY MOTION ENGINE: Navigationseffekt (Magnetic, 3D Tilt, Elastic …) für jedes fokussierbare Element
     val base = this
-        .graphicsLayer { scaleX = scale; scaleY = scale }
+        .crazyFocus(focused, theme.spec.focusScale, scaleOnFocus)
         .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
         .onFocusChanged {
             if (it.isFocused && !focused) sounds?.focus()
@@ -222,12 +229,16 @@ fun FocusCard(
     onLongClick: (() -> Unit)? = null,
     onFocus: ((Boolean) -> Unit)? = null,
     contentScale: ContentScale = ContentScale.Crop,
+    /** Position in einer Reihe → gestaffelte Eingangsanimation (CRAZY MOTION ENGINE). */
+    entranceIndex: Int? = null,
 ) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
     val shape = RoundedCornerShape(theme.spec.corner.coerceAtMost(20.dp))
     var focused by remember { mutableStateOf(false) }
-    Column(modifier.width(width)) {
+    val motion = de.ostlertekker.ultraiptv.core.motion.LocalMotion.current
+    val entrance = if (entranceIndex != null && motion.cardEntrance) Modifier.crazyEntrance(entranceIndex) else Modifier
+    Column(modifier.then(entrance).width(width)) {
         Box(
             Modifier
                 .size(width, height)
@@ -357,6 +368,7 @@ fun NavRail(items: List<NavItem>, selectedRoute: String, onSelect: (String) -> U
             Box(
                 Modifier
                     .fillMaxWidth()
+                    .crazyEntrance(index)
                     .tvFocusable(shape, onClick = { onSelect(item.route) }, focusRequester = if (index == 0) firstFocus else null,
                         scaleOnFocus = false, onFocus = { focused = it })
                     .background(if (focused) p.surfaceFocused else if (selected) p.surface else Color.Transparent, shape)
