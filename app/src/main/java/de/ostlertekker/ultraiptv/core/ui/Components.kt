@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -254,13 +255,17 @@ fun FocusCard(
                 .tvFocusable(shape, onClick, onLongClick, onFocus = { focused = it; onFocus?.invoke(it) })
                 .background(p.surface, shape),
         ) {
-            if (!image.isNullOrBlank()) {
-                AsyncImage(model = image, contentDescription = title, contentScale = contentScale, modifier = Modifier.fillMaxSize())
-            } else {
+            // Platzhalter liegt immer darunter: lädt ein Bild nicht (404, Timeout), bleibt die Kachel trotzdem erkennbar
+            var loaded by remember(image) { mutableStateOf(false) }
+            if (!loaded) {
                 Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(p.primary.copy(alpha = 0.5f), p.secondary.copy(alpha = 0.25f)))),
                     contentAlignment = Alignment.Center) {
-                    Text(title.take(2).uppercase(), color = p.text, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                    Text(initialsOf(title), color = p.text, fontSize = 28.sp, fontWeight = FontWeight.Bold)
                 }
+            }
+            if (!image.isNullOrBlank()) {
+                AsyncImage(model = image, contentDescription = title, contentScale = contentScale, modifier = Modifier.fillMaxSize(),
+                    onSuccess = { loaded = true }, onError = { loaded = false })
             }
             if (progress != null && progress > 0f) {
                 Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(4.dp).background(Color.Black.copy(alpha = 0.5f)))
@@ -438,7 +443,9 @@ private fun SettingRowBase(title: String, subtitle: String?, value: String, high
 fun InfoRow(label: String, value: String, accuracy: Accuracy) {
     val p = LocalUltraTheme.current.palette
     Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.Top) {
-        Text(label, color = p.textDim, fontSize = 14.sp, modifier = Modifier.width(260.dp))
+        // Kurze Marker (z. B. „•“) brauchen keine breite Beschriftungsspalte
+        Text(label, color = p.textDim, fontSize = 14.sp,
+            modifier = if (label.length <= 2) Modifier.width(22.dp) else Modifier.fillMaxWidth(0.36f).widthIn(max = 280.dp))
         Text(value, color = p.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
         val badge = when (accuracy) {
             Accuracy.MEASURED -> Color(0xFF2EE59D)
@@ -549,4 +556,16 @@ private fun RailClock(modifier: Modifier) {
     var now by remember { androidx.compose.runtime.mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) { while (true) { now = System.currentTimeMillis(); kotlinx.coroutines.delay(20_000) } }
     Text(formatClock(now, h24), color = p.text, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = modifier)
+}
+
+
+/** Kürzel für Platzhalter: „Testsender 8 HD“ → „T8“, „Das Erste“ → „DE“. */
+fun initialsOf(name: String): String {
+    val words = name.replace(Regex("""\b(HD|FHD|UHD|4K|SD|HEVC|H265)\b""", RegexOption.IGNORE_CASE), "")
+        .split(' ', '-', '_', '|', ':').filter { it.isNotBlank() }
+    return when {
+        words.isEmpty() -> name.take(2).uppercase()
+        words.size == 1 -> words[0].take(2).uppercase()
+        else -> (words[0].take(1) + words[1].take(1)).uppercase()
+    }
 }

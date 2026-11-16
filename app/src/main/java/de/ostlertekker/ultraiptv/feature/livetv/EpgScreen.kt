@@ -195,7 +195,12 @@ private fun ProgramBlock(title: String, live: Boolean, modifier: Modifier, onCli
             .padding(horizontal = 8.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
-        Text(title, color = if (focused) Color.Black else p.text, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
-            fontWeight = if (live) FontWeight.SemiBold else FontWeight.Normal)
+        androidx.compose.foundation.layout.BoxWithConstraints {
+            // Schmale Sendungen: einzeilig mit „…“ statt Wörter mitten im Wort umzubrechen
+            val narrow = maxWidth < 130.dp
+            Text(title, color = if (focused) Color.Black else p.text, fontSize = if (narrow) 12.sp else 13.sp,
+                maxLines = if (narrow) 1 else 2, softWrap = !narrow, overflow = TextOverflow.Ellipsis,
+                fontWeight = if (live) FontWeight.SemiBold else FontWeight.Normal)
+        }
     }
 }

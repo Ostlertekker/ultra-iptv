@@ -17,6 +17,7 @@ import de.ostlertekker.ultraiptv.core.model.ProviderConfig
 import de.ostlertekker.ultraiptv.core.model.ProviderType
 import de.ostlertekker.ultraiptv.ui.Routes
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -73,7 +74,13 @@ class UiSmokeTest {
             hooks.user().ensureDefaultProfile()
             assertTrue("Sync der Testquelle fehlgeschlagen", hooks.sync().syncAll(includeEpg = true))
             // Favoriten aller Arten anlegen
-            hooks.content().channelsAllOnce(8).forEach { hooks.user().toggleFavorite(ContentKind.LIVE, it.id) }
+            hooks.content().channelsAllOnce(200).forEach { hooks.user().toggleFavorite(ContentKind.LIVE, it.id) }
+            kotlinx.coroutines.withTimeout(10_000) {
+                hooks.content().movies(null, null, de.ostlertekker.ultraiptv.core.data.SortOrder.entries.first(), 40)
+                    .first { it.isNotEmpty() }.forEach { hooks.user().toggleFavorite(ContentKind.MOVIE, it.id) }
+                hooks.content().series(null, de.ostlertekker.ultraiptv.core.data.SortOrder.entries.first(), 10)
+                    .first { it.isNotEmpty() }.forEach { hooks.user().toggleFavorite(ContentKind.SERIES, it.id) }
+            }
         }
     }
 
@@ -85,13 +92,13 @@ class UiSmokeTest {
         val base = server.url("/").toString().trimEnd('/')
         appendLine("#EXTM3U")
         val groups = listOf("Deutschland", "Sport", "Kinder", "Musik")
-        for (i in 1..80) {
+        for (i in 1..600) {
             val g = groups[i % groups.size]
             val stream = when (i % 10) { 3 -> "404"; 7 -> "403"; else -> "ok$i" }
             appendLine("#EXTINF:-1 tvg-id=\"ch$i\" tvg-name=\"Sender $i\" tvg-logo=\"$base/logo/$i.png\" group-title=\"$g\",Testsender $i HD")
             appendLine("$base/live/$stream.ts")
         }
-        for (i in 1..30) {
+        for (i in 1..120) {
             appendLine("#EXTINF:-1 tvg-logo=\"$base/poster/$i.jpg\" group-title=\"Filme Action\",Testfilm $i (2024)")
             appendLine("$base/movie/film$i.mp4")
         }
@@ -162,6 +169,8 @@ class UiSmokeTest {
             openRoute(Routes.FAVORITES).use {
                 if (round == 0) shot("favoriten")
                 keys("Favoriten Runde $round betreten", R, R, D, R, R, L)
+                keys("Favoriten weit scrollen", *IntArray(40) { R }, pauseMs = 70)
+                keys("Favoriten Filme/Serien", D, *IntArray(10) { R }, D, R, R, U, U, pauseMs = 120)
                 if (round == 0) shot("favoriten_fokus")
                 keys("Favoriten Sender starten", OK); Thread.sleep(6000); assertResponsive("Favoriten → Player")
                 if (round == 0) shot("player_aus_favoriten")

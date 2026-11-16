@@ -462,7 +462,10 @@ private fun ChannelItem(
         if (prefs.showNumbers) Text(if (ch.number > 0) ch.number.toString() else "", color = p.textDim, fontSize = 13.sp, modifier = Modifier.width(30.dp), maxLines = 1)
         if (prefs.showLogos) {
             Box(Modifier.size(if (prefs.density == 0) 40.dp else if (prefs.density == 2) 64.dp else 52.dp, if (prefs.density == 0) 26.dp else if (prefs.density == 2) 42.dp else 34.dp), contentAlignment = Alignment.Center) {
-                if (ch.logo != null) AsyncImage(ch.logo, null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+                var logoOk by remember(ch.logo) { mutableStateOf(false) }
+                if (!logoOk) Text(de.ostlertekker.ultraiptv.core.ui.initialsOf(ch.name), color = p.textDim, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                if (ch.logo != null) AsyncImage(ch.logo, null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize(),
+                    onSuccess = { logoOk = true }, onError = { logoOk = false })
             }
             Spacer(Modifier.width(12.dp))
         }
