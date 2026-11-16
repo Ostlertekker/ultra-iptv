@@ -112,7 +112,7 @@ fun EpgScreen(vm: EpgViewModel = hiltViewModel()) {
     Column(Modifier.fillMaxSize().padding(20.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(Modifier.weight(1f)) {
-                Text("TV-GUIDE", color = p.text, fontSize = 26.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily)
+                Text("TV-PROGRAMM", color = p.text, fontSize = 26.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily)
                 Text(vm.category ?: "Alle Sender", color = p.textDim, fontSize = 13.sp)
             }
             TvButton("◀ Früher", onClick = { vm.shift(-HALF_HOUR * 2) })

@@ -121,7 +121,21 @@ fun UltraThemeHost(settings: AppSettings, tier: DeviceTier, sounds: AudioExperie
         de.ostlertekker.ultraiptv.core.design.LocalUiPrefs provides prefs,
         LocalPerfMode provides settings.perfMode,
         androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(baseDensity.density * scale, baseDensity.fontScale)) {
-        MaterialTheme(colorScheme = scheme) { content() }
+        // Gewählte Schrift (oder Theme-Schrift aus dem Schriften-Paket) gilt für die gesamte Oberfläche
+        val ff = theme.spec.fontFamily
+        val global = settings.fontStyle > 0 || ff !in listOf(androidx.compose.ui.text.font.FontFamily.SansSerif, androidx.compose.ui.text.font.FontFamily.Serif,
+            androidx.compose.ui.text.font.FontFamily.Monospace, androidx.compose.ui.text.font.FontFamily.Cursive, androidx.compose.ui.text.font.FontFamily.Default) &&
+            ff != de.ostlertekker.ultraiptv.core.design.AppFonts.PressStart // Pixel-Schrift bei Retro-Themes nur für Überschriften (lesbarer)
+        val typography = remember(ff, global) {
+            val t = androidx.compose.material3.Typography()
+            if (!global) t else {
+                fun androidx.compose.ui.text.TextStyle.f() = copy(fontFamily = ff)
+                androidx.compose.material3.Typography(t.displayLarge.f(), t.displayMedium.f(), t.displaySmall.f(), t.headlineLarge.f(), t.headlineMedium.f(),
+                    t.headlineSmall.f(), t.titleLarge.f(), t.titleMedium.f(), t.titleSmall.f(), t.bodyLarge.f(), t.bodyMedium.f(), t.bodySmall.f(),
+                    t.labelLarge.f(), t.labelMedium.f(), t.labelSmall.f())
+            }
+        }
+        MaterialTheme(colorScheme = scheme, typography = typography) { content() }
     }
 }
 
@@ -318,7 +332,10 @@ fun AnimatedMenuLabel(text: String, focused: Boolean, selected: Boolean, modifie
     val baseColor = lerp(p.textDim, p.text, emphasis)
     val glow = Shadow(p.glow.copy(alpha = (0.75f * focusProgress * fx.glowStrength).coerceIn(0f, 1f)), Offset.Zero, blurRadius = 14f * focusProgress)
     val style = TextStyle(color = if (focusProgress > 0.05f) Color.White else baseColor, fontFamily = theme.spec.fontFamily,
-        fontWeight = if (selected || focused) FontWeight.Bold else FontWeight.Medium, fontSize = 18.sp, letterSpacing = 2.sp, shadow = glow)
+        fontWeight = if (selected || focused) FontWeight.Bold else FontWeight.Medium,
+        // Längere deutsche Begriffe (z. B. EINSTELLUNGEN) passen so in die Menüleiste
+        fontSize = (when { text.length > 11 -> 14f; text.length > 8 -> 16f; else -> 18f } *
+            (if (theme.spec.fontFamily == de.ostlertekker.ultraiptv.core.design.AppFonts.PressStart) 0.62f else 1f)).sp, letterSpacing = if (text.length > 11) 0.5.sp else 2.sp, shadow = glow)
     val shimmer = fx.shimmer && focused
     Box(
         modifier.drawBehind {

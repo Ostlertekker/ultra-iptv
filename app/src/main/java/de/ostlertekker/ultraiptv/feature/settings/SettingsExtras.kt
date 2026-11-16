@@ -412,7 +412,7 @@ fun LazyListScope.watchTogetherSection(x: SettingsExtrasViewModel) {
                 "Alle Geräte brauchen Zugriff auf denselben Anbieter (gleiche Inhalte).", color = p.textDim, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
             msg?.let { Text(it, color = p.primary, fontSize = 13.sp, modifier = Modifier.padding(8.dp)) }
             SectionHeader("Als Host")
-            ToggleRow("Watch Together hosten", hub.running && hub.hostingWatch, {
+            ToggleRow("Gemeinsam schauen starten", hub.running && hub.hostingWatch, {
                 if (it) { x.lan.stop(); x.lan.start(hostWatch = true) } else x.lan.stop()
             })
             if (hub.running && hub.hostingWatch) {

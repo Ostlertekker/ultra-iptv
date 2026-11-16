@@ -85,10 +85,10 @@ import java.util.Date
 import javax.inject.Inject
 
 enum class SettingsSection(val label: String) {
-    GENERAL("Allgemein"), ACCOUNTS("Konten (Multi-Account)"), UPDATES("App-Updates"), NOTIFICATIONS("Benachrichtigungen"), APPEARANCE("Darstellung"), LAYOUT("Layout & Listen"), THEMES("Themes"), STUDIO("Animation Studio"), ANIMATIONS("Animationen"), INTRO("Intro"),
-    AUDIO("Audio"), PLAYBACK("Wiedergabe"), LIVE_STABILITY("Live-Stabilität"), PLAYER_CONTROLS("Player & Fernbedienung"), QUALITY("Bildqualität"), UPSCALING("KI-Upscaling"), SMART_SKIP("Smart Skip"),
+    GENERAL("Allgemein"), ACCOUNTS("Konten (mehrere Zugänge)"), UPDATES("App-Updates"), NOTIFICATIONS("Benachrichtigungen"), APPEARANCE("Darstellung"), LAYOUT("Aufbau & Listen"), THEMES("Themes"), STUDIO("Animations-Studio"), ANIMATIONS("Animationen"), INTRO("Intro"),
+    AUDIO("Audio"), PLAYBACK("Wiedergabe"), LIVE_STABILITY("Live-Stabilität"), PLAYER_CONTROLS("Player & Fernbedienung"), QUALITY("Bildqualität"), UPSCALING("KI-Upscaling"), SMART_SKIP("Intro überspringen"),
     EPG("EPG"), PROFILES("Profile"), PARENTAL("Jugendschutz"), NETWORK("Netzwerk & Speedtest"), ANALYSIS("Sender-Analyse"),
-    BACKUP("Backup & Sync"), WATCH_TOGETHER("Watch Together"), DIAGNOSTICS("Diagnose"), ABOUT("Über"),
+    BACKUP("Sicherung & Abgleich"), WATCH_TOGETHER("Gemeinsam schauen"), DIAGNOSTICS("Diagnose"), ABOUT("Über"),
 }
 
 @HiltViewModel
@@ -164,7 +164,7 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
 
     Row(Modifier.fillMaxSize().padding(20.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
         LazyColumn(Modifier.width(200.dp).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            item { Text("SETTINGS", color = p.text, fontSize = 26.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily,
+            item { Text("EINSTELLUNGEN", color = p.text, fontSize = 26.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily,
                 modifier = Modifier.padding(bottom = 10.dp)) }
             items(SettingsSection.entries, key = { it.name }) { sec ->
                 var focused by remember { mutableStateOf(false) }
@@ -250,8 +250,7 @@ private fun LazyListScope.appearanceSection(vm: SettingsViewModel, s: AppSetting
                 subtitle = "Empfohlen für Fire TV: ruhiger Hintergrund, schlanke Animationen – maximal flüssiges Scrollen")
             ChoiceRow("UI-Größe", pct(s.uiScale), { vm.set(Keys.UI_SCALE, cycle(DesignOptions.scaleValues, s.uiScale.takeIf { it in DesignOptions.scaleValues } ?: 1f)) },
                 subtitle = "Skaliert die gesamte Oberfläche – größer für weite Sitzabstände")
-            ChoiceRow("Schriftart", DesignOptions.fontNames[s.fontStyle.coerceIn(0, DesignOptions.fontNames.lastIndex)],
-                { vm.set(Keys.FONT_STYLE, (s.fontStyle + 1) % DesignOptions.fontNames.size) })
+            FontPicker(s.fontStyle) { vm.set(Keys.FONT_STYLE, it) }
             ChoiceRow("Ecken", DesignOptions.cornerNames[s.cornerStyle.coerceIn(0, DesignOptions.cornerNames.lastIndex)],
                 { vm.set(Keys.CORNER_STYLE, (s.cornerStyle + 1) % DesignOptions.cornerNames.size) })
             ChoiceRow("Fokus-Zoom", DesignOptions.zoomNames[s.focusZoom.coerceIn(0, DesignOptions.zoomNames.lastIndex)],
@@ -384,7 +383,7 @@ private fun LazyListScope.upscalingSection(vm: SettingsViewModel, s: AppSettings
 private fun LazyListScope.smartSkipSection(vm: SettingsViewModel, s: AppSettings) {
     item {
         Column {
-            ToggleRow("Smart Skip aktiv", s.smartSkipEnabled, { vm.set(Keys.SKIP_ENABLED, it) })
+            ToggleRow("Intro überspringen aktiv", s.smartSkipEnabled, { vm.set(Keys.SKIP_ENABLED, it) })
             ToggleRow("Nur manuell (Button statt Automatik)", s.skipManualOnly, { vm.set(Keys.SKIP_MANUAL, it) })
             ToggleRow("Intro automatisch überspringen", s.autoSkipIntro, { vm.set(Keys.SKIP_INTRO, it) })
             ToggleRow("Rückblick automatisch überspringen", s.autoSkipRecap, { vm.set(Keys.SKIP_RECAP, it) })
@@ -444,7 +443,7 @@ private fun LazyListScope.diagnosticsSection(vm: SettingsViewModel, s: AppSettin
         val th = ThemeEngine.profileFor(s, vm.device.tier)
         InfoRow("Animations-Leistungsmodus", "${th.label}${if (s.animationAuto) " (automatisch)" else ""}", Accuracy.MEASURED)
         InfoRow("KI-Upscaling", vm.upscalingStatus.headline, Accuracy.MEASURED)
-        InfoRow("Smart Skip", if (s.smartSkipEnabled) (if (s.skipManualOnly) "Aktiv – nur manuell" else "Aktiv – automatisch ab 80 % Sicherheit") else "Deaktiviert", Accuracy.MEASURED)
+        InfoRow("Intro überspringen", if (s.smartSkipEnabled) (if (s.skipManualOnly) "Aktiv – nur manuell" else "Aktiv – automatisch ab 80 % Sicherheit") else "Deaktiviert", Accuracy.MEASURED)
         InfoRow("Zugangsdaten verschlüsselt", if (vm.encryption) "Ja" else "Nein", Accuracy.MEASURED)
     }
 }
@@ -455,7 +454,7 @@ private fun LazyListScope.aboutSection(vm: SettingsViewModel) {
         Column {
             Text("OSTLERTEKKER PRESENTS", color = p.textDim, fontSize = 12.sp, letterSpacing = 4.sp)
             Text("ULTRA IPTV", color = p.text, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
-            Text("THE ULTIMATE STREAMING EXPERIENCE", color = p.primary, fontSize = 13.sp, letterSpacing = 2.sp)
+            Text("DAS ULTIMATIVE STREAMING-ERLEBNIS", color = p.primary, fontSize = 13.sp, letterSpacing = 2.sp)
             Spacer(Modifier.height(10.dp))
             InfoRow("Version", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", Accuracy.MEASURED)
             InfoRow("Gerät", "${vm.device.manufacturer} ${vm.device.model}", Accuracy.MEASURED)
@@ -681,6 +680,39 @@ private fun ErrorReportBlock() {
                     modifier = Modifier.fillMaxWidth().background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.45f), RoundedCornerShape(8.dp)).padding(10.dp))
             }
             ActionRow("Protokoll löschen", { de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.clear(context); version++ })
+        }
+    }
+}
+
+
+/** Schriftauswahl mit echter Vorschau jeder Schrift – OK übernimmt sie sofort für die ganze App. */
+@Composable
+private fun FontPicker(selected: Int, onPick: (Int) -> Unit) {
+    val theme = LocalUltraTheme.current
+    val p = theme.palette
+    val names = DesignOptions.fontNames
+    val fams = DesignOptions.fontValues
+    val descriptions = listOf("Schrift des Themes", "Android-Standard", "Mit Serifen", "Festbreite", "Handschrift") +
+        de.ostlertekker.ultraiptv.core.design.AppFonts.catalog.map { it.second }
+    Column(Modifier.padding(vertical = 6.dp)) {
+        Text("Schriftart: ${names.getOrElse(selected) { names[0] }}", color = p.text, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+        Text("${names.size} Schriften – die Vorschau zeigt jede Schrift im Original", color = p.textDim, fontSize = 12.sp)
+        androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(vertical = 8.dp)) {
+            items(names.size) { i ->
+                val shape = RoundedCornerShape(theme.spec.corner.coerceAtMost(14.dp))
+                var focused by remember { mutableStateOf(false) }
+                val ff = fams[i] ?: theme.spec.fontFamily
+                Column(Modifier.width(190.dp).tvFocusable(shape, { onPick(i) }, onFocus = { focused = it })
+                    .background(if (focused) p.surfaceFocused else p.surface, shape)
+                    .padding(12.dp)) {
+                    Text("Aa Ää 123", color = if (i == selected) p.primary else p.text, fontFamily = ff, fontWeight = FontWeight.Bold, fontSize = 24.sp, maxLines = 1)
+                    Text("Ultra IPTV Kino", color = p.text, fontFamily = ff, fontSize = 15.sp, maxLines = 1)
+                    Text((if (i == selected) "✓ " else "") + names[i], color = if (i == selected) p.primary else p.text, fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.padding(top = 6.dp))
+                    Text(descriptions.getOrElse(i) { "" }, color = p.textDim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
         }
     }
 }

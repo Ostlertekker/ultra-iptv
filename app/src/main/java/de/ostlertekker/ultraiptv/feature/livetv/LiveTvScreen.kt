@@ -272,7 +272,7 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
         // Anteilige Breiten: die Senderliste behält auf jedem Bildschirm genug Platz für die Sendernamen
         LazyColumn(Modifier.weight(0.25f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             item {
-                Text("LIVE TV", color = p.text, fontSize = 24.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily,
+                Text("LIVE-TV", color = p.text, fontSize = 24.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily,
                     modifier = Modifier.padding(bottom = 10.dp))
             }
             items(cats, key = { it }) { c -> CategoryItem(c, c == current) { vm.selected.value = c } }
@@ -285,7 +285,7 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
             }
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
                 item { TvChip(if (sortByName) "↕ A–Z" else "↕ Nummer", false, { vm.sortByName.value = !sortByName }) }
-                item { TvChip("TV-Guide", false, { nav.navigate(Routes.epg(current.takeIf { !isVirtualCategory(it) })) }) }
+                item { TvChip("TV-Programm", false, { nav.navigate(Routes.epg(current.takeIf { !isVirtualCategory(it) })) }) }
                 item {
                     val prog = checkProgress
                     TvChip(if (prog != null) "Prüfe ${prog.first + 1}/${prog.second} …" else "✚ Sender prüfen", false,

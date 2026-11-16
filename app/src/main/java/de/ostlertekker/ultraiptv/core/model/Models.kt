@@ -20,7 +20,7 @@ data class ProviderConfig(
         }
 }
 
-enum class AnimationProfile(val label: String) { ECONOMY("Economy"), BALANCED("Balanced"), ULTRA("Ultra") }
+enum class AnimationProfile(val label: String) { ECONOMY("Sparsam"), BALANCED("Ausgewogen"), ULTRA("Ultra") }
 
 enum class QualityMode(val label: String) {
     AUTO("Auto"), BEST_AVAILABLE("Beste verfügbare"), DATA_SAVER("Datensparer"), MANUAL("Manuell")
@@ -31,7 +31,7 @@ enum class OutroMode(val label: String) { FULL("Ganzen Abspann überspringen"), 
 enum class BufferProfile(val label: String) { STANDARD("Standard"), LARGE("Groß (stabil)"), LOW_LATENCY("Niedrige Latenz") }
 
 enum class DeviceTier(val label: String) {
-    ENTRY("Entry"), STANDARD("Standard"), PREMIUM("Premium"), HIGH_PERFORMANCE("High Performance")
+    ENTRY("Einstieg"), STANDARD("Standard"), PREMIUM("Premium"), HIGH_PERFORMANCE("Hochleistung")
 }
 
 /** Kennzeichnet, ob ein angezeigter Wert gemessen, geschätzt oder nicht verfügbar ist. */

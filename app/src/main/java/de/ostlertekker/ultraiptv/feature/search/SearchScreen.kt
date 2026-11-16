@@ -109,7 +109,7 @@ fun SearchScreen(nav: NavController, vm: SearchViewModel = hiltViewModel()) {
     }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(24.dp)) {
-        item { ScreenTitle("SEARCH", subtitle = "Natürlich suchen: „deutsche Actionfilme 90er“, „Filme mit Tom Hanks“, „türkische Sender“ – Tippfehler erlaubt") }
+        item { ScreenTitle("SUCHE", subtitle = "Natürlich suchen: „deutsche Actionfilme 90er“, „Filme mit Tom Hanks“, „türkische Sender“ – Tippfehler erlaubt") }
         item {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 TvTextField(q, { vm.query.value = it }, "Suchen (OK drücken für Tastatur)", modifier = Modifier.width(620.dp))

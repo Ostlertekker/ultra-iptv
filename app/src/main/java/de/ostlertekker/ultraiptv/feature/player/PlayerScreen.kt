@@ -390,7 +390,7 @@ fun PlayerScreen(
                                     item { TvButton("● Zurück zu LIVE", onClick = { vm.goLive() }, primary = true) }
                                 }
                             }
-                            item { TvButton("⊞ Multi-View", onClick = { de.ostlertekker.ultraiptv.feature.multiview.MultiViewActivity.openWithComparison(context, vm.currentItemId()); onExit() }) }
+                            item { TvButton("⊞ Mehrfachansicht", onClick = { de.ostlertekker.ultraiptv.feature.multiview.MultiViewActivity.openWithComparison(context, vm.currentItemId()); onExit() }) }
                         }
                         item { TvButton("Audio", onClick = { panel = Panel.AUDIO }) }
                         item { TvButton("Untertitel", onClick = { panel = Panel.SUBTITLES }) }
@@ -399,9 +399,9 @@ fun PlayerScreen(
                         if (!isLive || ui.shiftBehindMs > 0) item { TvButton("Einzelbild", onClick = { overlay = false; vm.toggleFrameStep() }) }
                         item { TvButton("Sync", onClick = { panel = Panel.SYNC }) }
                         item { TvButton(if (settings.cinemaMode) "🎬 Kino: AN" else "🎬 Kinomodus", onClick = { panel = Panel.CINEMA }) }
-                        item { TvButton(if (health) "Health aus" else "Health-Monitor", onClick = { health = !health }) }
+                        item { TvButton(if (health) "Zustand aus" else "Stream-Zustand", onClick = { health = !health }) }
                         if (ui.kind == ContentKind.EPISODE) {
-                            item { TvButton("Smart Skip", onClick = { panel = Panel.SMART_SKIP }) }
+                            item { TvButton("Intro überspringen", onClick = { panel = Panel.SMART_SKIP }) }
                             if (ui.hasNext) item { TvButton("Nächste Folge ▶▶", onClick = { vm.playNext() }) }
                         }
                         item {
@@ -505,7 +505,7 @@ private fun PanelContent(panel: Panel, vm: PlayerViewModel, ui: PlayerUi, settin
             } + listOf(Opt("Ton-Verschiebung: vom Player (Media3) auf diesem Gerät nicht unterstützt", false) { })
         }
         Panel.SMART_SKIP -> {
-            title = "Smart Skip"
+            title = "Intro überspringen"
             val pending = ui.pendingMarkStart
             options = buildList {
                 if (pending != null) add(Opt("■ ${pending.first.label}-Ende = jetzt", false) { vm.markEnd(); close() })

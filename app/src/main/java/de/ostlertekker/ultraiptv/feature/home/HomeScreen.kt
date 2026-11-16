@@ -249,7 +249,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
             }
         }
         item {
-            SectionHeader("Live TV")
+            SectionHeader("Live-TV")
             TvButton("Zu allen Sendern", onClick = { nav.navigate(Routes.LIVE) })
         }
     }

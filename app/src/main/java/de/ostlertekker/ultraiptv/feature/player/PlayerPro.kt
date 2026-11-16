@@ -139,7 +139,7 @@ fun HealthMonitor(vm: PlayerViewModel, modifier: Modifier) {
     }
     val s = snap
     Column(modifier.background(Color.Black.copy(alpha = 0.82f), RoundedCornerShape(16.dp)).padding(18.dp)) {
-        Text2("STREAM HEALTH MONITOR", p.primary, 14, true)
+        Text2("STREAM-ZUSTAND", p.primary, 14, true)
         Spacer(Modifier.height(8.dp))
         if (s == null) Text2("Messung läuft …", p.textDim, 13, false) else HealthBody(s)
     }

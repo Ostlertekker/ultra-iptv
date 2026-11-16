@@ -126,7 +126,7 @@ fun HoloGuideScreen(vm: DiscoverViewModel = hiltViewModel()) {
             drawRect(Brush.verticalGradient(listOf(Color.Transparent, pal.primary.copy(alpha = 0.06f), Color.Transparent), startY = sy - 40f, endY = sy + 40f))
         }
         Column(Modifier.fillMaxSize().padding(24.dp)) {
-            Text("HOLO-GUIDE", color = pal.primary, fontSize = 30.sp, fontWeight = FontWeight.Black, letterSpacing = 6.sp)
+            Text("HOLO-PROGRAMM", color = pal.primary, fontSize = 30.sp, fontWeight = FontWeight.Black, letterSpacing = 6.sp)
             Text("${rows.size} Sender · ${formatTime(from)} – ${formatTime(to)} · OK = ansehen / Archiv / Erinnern", color = pal.textDim, fontSize = 12.sp)
             Spacer(Modifier.height(10.dp))
             if (loading && rows.isEmpty()) UltraLoader(Modifier.align(Alignment.CenterHorizontally))
@@ -282,7 +282,7 @@ fun UniverseScreen(vm: DiscoverViewModel = hiltViewModel()) {
             }
         }
         Column(Modifier.align(Alignment.TopStart).padding(24.dp)) {
-            Text("CHANNEL UNIVERSE", color = pal.primary, fontSize = 28.sp, fontWeight = FontWeight.Black, letterSpacing = 4.sp)
+            Text("SENDER-UNIVERSUM", color = pal.primary, fontSize = 28.sp, fontWeight = FontWeight.Black, letterSpacing = 4.sp)
             Text("◀ ▶ Galaxie wechseln · ▲ ▼ Sender · OK = ansehen · Menü = Galaxie im Multi-View", color = pal.textDim, fontSize = 12.sp)
             Text("◆ = deine eigenen Senderwelten (unter „Eigene Senderlisten“ anlegen)", color = pal.textDim, fontSize = 11.sp)
         }
@@ -317,7 +317,7 @@ fun MoodScreen(nav: NavController, initial: String, vm: DiscoverViewModel = hilt
     }
     val now = System.currentTimeMillis()
     Column(Modifier.fillMaxSize().padding(24.dp)) {
-        ScreenTitle("MOOD MODE", subtitle = "Wie fühlst du dich? Empfehlungen aus dem echten TV-Programm und deinen Filmen – lokal, regelbasiert, ohne Cloud")
+        ScreenTitle("STIMMUNGS-MODUS", subtitle = "Wie fühlst du dich? Empfehlungen aus dem echten TV-Programm und deinen Filmen – lokal, regelbasiert, ohne Cloud")
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(Mood.entries) { m -> TvChip("${m.emoji} ${m.label}", m in moods, { vm.setMoods(if (m in moods) moods - m else moods + m) }) }
         }
@@ -392,7 +392,7 @@ fun MyTvScreen(vm: DiscoverViewModel = hiltViewModel()) {
             }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Column(Modifier.weight(1f)) { SectionHeader("Top-Sender"); s.topChannels.forEach { (n, v) -> BarLine(n, v, s.topChannels.first().second, h(v)) } }
+                    Column(Modifier.weight(1f)) { SectionHeader("Beliebteste Sender"); s.topChannels.forEach { (n, v) -> BarLine(n, v, s.topChannels.first().second, h(v)) } }
                     Column(Modifier.weight(1f)) {
                         SectionHeader("Kategorien"); s.topCategories.forEach { (n, v) -> BarLine(n, v, s.topCategories.first().second, h(v)) }
                         SectionHeader("Genres"); if (s.topGenres.isEmpty()) Text("Noch zu wenig Daten", color = pal.textDim, fontSize = 12.sp)
@@ -482,7 +482,7 @@ private fun ListEditor(vm: DiscoverViewModel, existing: VirtualListEntity?, onDo
     LaunchedEffect(existing?.id) { vm.previewRules(rules()) }
     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item { TvTextField(name, { name = it }, "Name der Liste") }
-        item { SectionHeader("Smart-Gruppen") }
+        item { SectionHeader("Intelligente Gruppen") }
         item { LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) { items(SmartGroup.entries) { g -> TvChip(g.label, g in groups, { groups = if (g in groups) groups - g else groups + g }) } } }
         item { SectionHeader("Kategorien (${selCats.size} gewählt)") }
         item {
@@ -500,7 +500,7 @@ private fun ListEditor(vm: DiscoverViewModel, existing: VirtualListEntity?, onDo
                 if (existing != null) TvButton("Löschen", onClick = { vm.deleteList(existing.id); onDone() })
                 if (preview.isNotEmpty()) {
                     TvButton("▶ Abspielen", onClick = { context.openPlayer(ContentKind.LIVE, preview.first().id, category = preview.first().category) })
-                    TvButton("⊞ Multi-View", onClick = { MultiViewActivity.open(context, preview.take(9).map { it.id }) })
+                    TvButton("⊞ Mehrfachansicht", onClick = { MultiViewActivity.open(context, preview.take(9).map { it.id }) })
                 }
             }
         }

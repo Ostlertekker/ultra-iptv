@@ -31,45 +31,45 @@ interface MotionAnim {
 }
 
 enum class EntranceAnim(override val label: String, val baseMs: Int, override val heavy: Boolean = false) : MotionAnim {
-    GRAVITY_DROP("Gravity Drop", 900),
-    EXPLOSION("Explosion Entrance", 650, true),
-    HOLOGRAM("Hologram Materialize", 700),
+    GRAVITY_DROP("Schwerkraft-Fall", 900),
+    EXPLOSION("Explosions-Auftritt", 650, true),
+    HOLOGRAM("Hologramm-Erscheinen", 700),
     FLIP_3D("3D Flip", 600),
-    CYBER_GLITCH("Cyber Glitch", 650, true),
-    LIQUID_MORPH("Liquid Morph", 800),
-    BLACK_HOLE("Black Hole", 850, true),
-    METEOR_SHOWER("Meteor Shower", 750, true),
-    DOMINO("Domino Effect", 550),
-    MAGNETIC_PULL("Magnetic Pull", 700),
-    SHATTER_GLASS("Shatter Glass", 800, true),
-    PORTAL("Portal Entrance", 650),
-    MATRIX_RAIN("Matrix Rain", 850, true),
-    ELASTIC_BOUNCE("Elastic Bounce", 750);
+    CYBER_GLITCH("Cyber-Störung", 650, true),
+    LIQUID_MORPH("Flüssige Verwandlung", 800),
+    BLACK_HOLE("Schwarzes Loch", 850, true),
+    METEOR_SHOWER("Meteoritenschauer", 750, true),
+    DOMINO("Domino-Effekt", 550),
+    MAGNETIC_PULL("Magnetischer Sog", 700),
+    SHATTER_GLASS("Zerspringendes Glas", 800, true),
+    PORTAL("Portal-Auftritt", 650),
+    MATRIX_RAIN("Matrix-Regen", 850, true),
+    ELASTIC_BOUNCE("Elastisches Federn", 750);
 
     override val id: String get() = "in_$name"
 }
 
 enum class FocusEffect(override val label: String, override val heavy: Boolean = false) : MotionAnim {
-    MAGNETIC("Magnetic Focus"),
+    MAGNETIC("Magnetischer Fokus"),
     TILT_3D("3D Tilt"),
-    HOVER_EXPLOSION("Hover Explosion", true),
-    ELASTIC("Elastic Focus"),
-    DEPTH_SHIFT("Depth Shift"),
-    PULSE_GLOW("Pulse Glow"),
-    PERSPECTIVE_ZOOM("Perspective Zoom"),
-    TRAIL("Trail Effect", true);
+    HOVER_EXPLOSION("Schwebe-Explosion", true),
+    ELASTIC("Elastischer Fokus"),
+    DEPTH_SHIFT("Tiefenverschiebung"),
+    PULSE_GLOW("Pulsierendes Leuchten"),
+    PERSPECTIVE_ZOOM("Perspektiv-Zoom"),
+    TRAIL("Leuchtspur", true);
 
     override val id: String get() = "focus_$name"
 }
 
 enum class PageTransition(override val label: String, val baseMs: Int, override val heavy: Boolean = false) : MotionAnim {
-    PORTAL("Portal Transition", 650),
-    SHATTER("Shatter Transition", 750, true),
-    WARP_SPEED("Warp Speed", 700, true),
-    LIQUID("Liquid Transition", 750),
-    GLITCH("Glitch Transition", 450),
-    ZOOM_TUNNEL("Zoom Tunnel", 650),
-    CINEMATIC("Cinematic Reveal", 800);
+    PORTAL("Portal-Übergang", 650),
+    SHATTER("Splitter-Übergang", 750, true),
+    WARP_SPEED("Warp-Sprung", 700, true),
+    LIQUID("Flüssiger Übergang", 750),
+    GLITCH("Störungs-Übergang", 450),
+    ZOOM_TUNNEL("Zoom-Tunnel", 650),
+    CINEMATIC("Kino-Enthüllung", 800);
 
     override val id: String get() = "page_$name"
 }
@@ -77,7 +77,7 @@ enum class PageTransition(override val label: String, val baseMs: Int, override 
 /** Ausgangsanimationen der verlassenen Seite (GPU-Transformationen der Navigation). */
 enum class ExitAnim(val label: String) {
     FADE("Ausblenden"), SHRINK("Schrumpfen"), ZOOM_OUT("Wegzoomen"), SLIDE_LEFT("Nach links gleiten"),
-    GRAVITY_FALL("Herunterfallen (Gravity)"), DISSOLVE("Langsam auflösen"), NONE("Keine"),
+    GRAVITY_FALL("Herunterfallen"), DISSOLVE("Langsam auflösen"), NONE("Keine"),
 }
 
 /** Gespeicherte Konfiguration der Engine. */

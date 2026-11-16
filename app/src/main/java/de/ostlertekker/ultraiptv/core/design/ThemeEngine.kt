@@ -93,8 +93,11 @@ object DesignOptions {
     val cornerValues = listOf<Dp?>(null, 0.dp, 8.dp, 18.dp, 28.dp)
     val zoomNames = listOf("Theme-Standard", "Kein Zoom", "Dezent", "Normal", "Stark")
     val zoomValues = listOf<Float?>(null, 1f, 1.03f, 1.07f, 1.12f)
-    val fontNames = listOf("Theme-Standard", "Modern (Sans)", "Klassisch (Serif)", "Technisch (Mono)", "Verspielt (Cursive)")
-    val fontValues = listOf<FontFamily?>(null, FontFamily.SansSerif, FontFamily.Serif, FontFamily.Monospace, FontFamily.Cursive)
+    // Reihenfolge der ersten fünf nicht ändern (gespeicherte Auswahl bleibt gültig); neue Schriften hinten anhängen
+    val fontNames = listOf("Theme-Standard", "System modern", "System klassisch", "System technisch", "System verspielt") +
+        AppFonts.catalog.map { it.first }
+    val fontValues = listOf<FontFamily?>(null, FontFamily.SansSerif, FontFamily.Serif, FontFamily.Monospace, FontFamily.Cursive) +
+        AppFonts.catalog.map { it.third }
     val dimValues = listOf(0f, 0.2f, 0.4f, 0.6f)
     val scaleValues = listOf(0.85f, 0.9f, 1f, 1.1f, 1.2f)
     val densityNames = listOf("Kompakt", "Normal", "Groß")
@@ -107,7 +110,7 @@ object DesignOptions {
 object ThemeRegistry {
     private val themes = LinkedHashMap<String, ThemeSpec>()
 
-    init { (BuiltInThemes.all + BuiltInThemes.extra).forEach { register(it) } }
+    init { (BuiltInThemes.all + BuiltInThemes.consoles + BuiltInThemes.extra).forEach { register(it) } }
 
     fun register(spec: ThemeSpec) { themes[spec.id] = spec }
     fun all(): List<ThemeSpec> = themes.values.toList()
@@ -176,6 +179,34 @@ private object BuiltInThemes {
         fx, font, w, corner.dp, zoom, 1.5.dp, MenuFx(sparkles, stars, shimmer, glow), tr, loader, sound, particles,
     )
 
+    /** Konsolen-Themes: Farbwelten im Stil bekannter Spielkonsolen-Menüs (ohne Marken-Logos). */
+    val consoles = listOf(
+        t("console_blue", "BLAUE WELLE", "Konsolen-Look: tiefes Blau, sanfte Wellen, klare weiße Schrift",
+            listOf(0xFF00103A, 0xFF0A3D91, 0x8C0B2B66, 0xE01D5BC6, 0xFFFFFFFF, 0xFF4FA3FF, 0xFFFFFFFF, 0xFFAFC4E6, 0xFF6FB6FF, 0xFFFFFFFF, 0xFF7FC4FF),
+            BackgroundEffect.OCEAN, AppFonts.Titillium, FontWeight.Bold, 10, 1.07f, true, false, true, 0.9f, TransitionStyle.FADE, LoaderStyle.ORBIT, SoundPreset.CRYSTAL, 60),
+        t("console_green", "GRÜNE ARENA", "Konsolen-Look: Schwarz mit leuchtendem Grün, kantige Kacheln",
+            listOf(0xFF050805, 0xFF121A12, 0x99141C14, 0xE0254025, 0xFF52D017, 0xFFFFFFFF, 0xFFF2FFF0, 0xFF9DB39A, 0xFF5FE020, 0xFF52D017, 0xFFB8FF8C),
+            BackgroundEffect.HEX, AppFonts.Manrope, FontWeight.ExtraBold, 2, 1.06f, false, false, true, 1f, TransitionStyle.SLIDE, LoaderStyle.PULSE, SoundPreset.DIGITAL, 30),
+        t("console_red", "ROT & BLAU HANDHELD", "Konsolen-Look: Anthrazit mit Neon-Rot und Neon-Blau, runde Ecken",
+            listOf(0xFF1B1C1F, 0xFF2A2C31, 0x99303238, 0xE0464952, 0xFFFF4554, 0xFF00C3E3, 0xFFFFFFFF, 0xFFB4B7BE, 0xFFFF4554, 0xFF00C3E3, 0xFFFF4554),
+            BackgroundEffect.BOKEH, AppFonts.Nunito, FontWeight.ExtraBold, 24, 1.07f, false, false, true, 0.8f, TransitionStyle.ZOOM, LoaderStyle.PULSE, SoundPreset.CRYSTAL, 40),
+        t("console_16bit", "16-BIT", "Retro-Konsole der 90er: Grau, Lila und Pixel-Schrift",
+            listOf(0xFF1A1630, 0xFF2D2650, 0x99353058, 0xE0564C8A, 0xFFB9A8FF, 0xFFFF5E8A, 0xFFF4F2FF, 0xFFA8A3C2, 0xFFB9A8FF, 0xFFFFD34E, 0xFF6FD3FF),
+            BackgroundEffect.HEX, AppFonts.PressStart, FontWeight.Normal, 0, 1.06f, false, false, false, 0.9f, TransitionStyle.SLIDE, LoaderStyle.BARS, SoundPreset.DIGITAL, 20),
+        t("console_pocket", "POCKET-GRÜN", "Handheld-Klassiker: grünes LCD in vier Tönen",
+            listOf(0xFF0F380F, 0xFF306230, 0xB0306230, 0xE08BAC0F, 0xFF9BBC0F, 0xFF8BAC0F, 0xFFE0F8D0, 0xFF9BBC0F, 0xFF9BBC0F, 0xFF8BAC0F, 0xFF9BBC0F),
+            BackgroundEffect.HEX, AppFonts.PressStart, FontWeight.Normal, 0, 1.05f, false, false, false, 0.6f, TransitionStyle.FADE, LoaderStyle.BARS, SoundPreset.DIGITAL, 10),
+        t("console_arcade", "ARCADE", "Spielhalle: Neon-Pink, Gelb und Retro-Raster",
+            listOf(0xFF0A0014, 0xFF240038, 0x99200A33, 0xE04A1270, 0xFFFF2BD6, 0xFFFFE600, 0xFFFFF5FF, 0xFFC09AC9, 0xFFFF2BD6, 0xFFFFE600, 0xFF2DE2E6),
+            BackgroundEffect.SYNTHWAVE, AppFonts.Righteous, FontWeight.Normal, 12, 1.08f, true, true, true, 1.2f, TransitionStyle.ZOOM, LoaderStyle.BARS, SoundPreset.NEON, 50),
+        t("console_white", "WEISS & SCHWARZ", "Next-Gen-Konsole: Schwarz, Weiß und Eisblau, ganz schlicht",
+            listOf(0xFF000000, 0xFF101114, 0x99181A1F, 0xE0303540, 0xFFFFFFFF, 0xFF5AB4FF, 0xFFFFFFFF, 0xFF9AA0AA, 0xFFFFFFFF, 0xFF5AB4FF, 0xFFFFFFFF),
+            BackgroundEffect.GLASS, AppFonts.SpaceGrotesk, FontWeight.Bold, 14, 1.06f, false, false, false, 0.6f, TransitionStyle.FADE, LoaderStyle.PULSE, SoundPreset.GLASS, 0),
+        t("apple_clean", "KINO WERBUNG", "Edel wie Tech-Werbespots: Schwarz, feines Glas, Inter-Schrift",
+            listOf(0xFF000000, 0xFF0B0B0F, 0x991C1C22, 0xE02C2C35, 0xFF0A84FF, 0xFFBF5AF2, 0xFFF5F5F7, 0xFF86868B, 0xFF0A84FF, 0xFFFFFFFF, 0xFFBF5AF2),
+            BackgroundEffect.GLASS, AppFonts.Inter, FontWeight.Bold, 18, 1.05f, false, false, false, 0.5f, TransitionStyle.FADE, LoaderStyle.PULSE, SoundPreset.GLASS, 0),
+    )
+
     val extra = listOf(
         t("synthwave", "SYNTHWAVE", "Retro-Sonne, Neon-Raster, 80er-Nächte",
             listOf(0xFF12002B, 0xFF3A0446, 0x99240A3A, 0xE0501466, 0xFFFF3EA5, 0xFF2DE2E6, 0xFFFFF0FB, 0xFFC09AC9, 0xFFFF3EA5, 0xFFFFD319, 0xFF2DE2E6),
@@ -189,10 +220,10 @@ private object BuiltInThemes {
         t("rave", "RAVE", "Stroboskopfreie Laser-Farben, Equalizer im Takt",
             listOf(0xFF05010F, 0xFF120326, 0x99140A2E, 0xE02E1460, 0xFFB4FF39, 0xFFFF39D7, 0xFFF7FFE8, 0xFFA4A0C4, 0xFFB4FF39, 0xFFFF39D7, 0xFF39E1FF),
             BackgroundEffect.EQUALIZER, FontFamily.Monospace, FontWeight.ExtraBold, 8, 1.08f, true, false, true, 1.2f, TransitionStyle.ZOOM, LoaderStyle.BARS, SoundPreset.NEON, 64),
-        t("chrome_oil", "CHROME OIL", "Flüssiges Chrom mit Ölfilm-Schimmer",
+        t("chrome_oil", "CHROM & ÖL", "Flüssiges Chrom mit Ölfilm-Schimmer",
             listOf(0xFF07080B, 0xFF1A1D24, 0x80262A33, 0xE0444B58, 0xFFE6ECF5, 0xFF9C7CFF, 0xFFFFFFFF, 0xFFA7AFBD, 0xFFDDE6F3, 0xFFFFFFFF, 0xFF6FE7FF),
             BackgroundEffect.CHROME, FontFamily.SansSerif, FontWeight.Black, 14, 1.06f, true, false, true, 1f, TransitionStyle.ZOOM, LoaderStyle.ORBIT, SoundPreset.CRYSTAL, 50),
-        t("liquid_silver", "LIQUID SILVER", "Gebürstetes Metall, kühle Reflexe",
+        t("liquid_silver", "FLÜSSIGSILBER", "Gebürstetes Metall, kühle Reflexe",
             listOf(0xFF0C0D10, 0xFF22252B, 0x80262A31, 0xE04A505B, 0xFFCFD8E3, 0xFF8FA6C2, 0xFFF4F7FB, 0xFFA2AAB6, 0xFFE3EAF2, 0xFFFFFFFF, 0xFFB9C7D8),
             BackgroundEffect.CHROME, FontFamily.Serif, FontWeight.SemiBold, 6, 1.05f, false, false, true, 0.7f, TransitionStyle.FADE, LoaderStyle.PULSE, SoundPreset.GLASS, 30),
         t("winter", "WINTER", "Leiser Schneefall in Eisblau",
@@ -204,49 +235,49 @@ private object BuiltInThemes {
         t("sakura", "SAKURA", "Fallende Kirschblüten in Rosa",
             listOf(0xFF1A0A14, 0xFF2E1424, 0x8030182A, 0xE0582A4A, 0xFFFF8FC7, 0xFFFFD1E6, 0xFFFFF3F8, 0xFFC7A2B6, 0xFFFF9FCF, 0xFFFFB7D9, 0xFFFFE1EE),
             BackgroundEffect.SNOW, FontFamily.Serif, FontWeight.Medium, 22, 1.05f, false, false, true, 0.7f, TransitionStyle.FADE, LoaderStyle.PULSE, SoundPreset.AURORA, 90),
-        t("bokeh", "BOKEH NIGHT", "Weiche Lichter wie durch ein Objektiv",
+        t("bokeh", "LICHTERNACHT", "Weiche Lichter wie durch ein Objektiv",
             listOf(0xFF0E0906, 0xFF231710, 0x80281C14, 0xE04A3324, 0xFFFFB45A, 0xFFFF7A59, 0xFFFFF5EA, 0xFFC4AE98, 0xFFFFC27A, 0xFFFFC27A, 0xFFFF8A65),
             BackgroundEffect.BOKEH, FontFamily.SansSerif, FontWeight.SemiBold, 20, 1.06f, false, false, true, 0.8f, TransitionStyle.FADE, LoaderStyle.PULSE, SoundPreset.GOLD, 40),
-        t("city_lights", "CITY LIGHTS", "Nächtliche Stadt in Blau und Bernstein",
+        t("city_lights", "STADTLICHTER", "Nächtliche Stadt in Blau und Bernstein",
             listOf(0xFF050A16, 0xFF0F1C33, 0x80121F38, 0xE0243B66, 0xFF4DA3FF, 0xFFFFB74D, 0xFFEFF5FF, 0xFF95A6C2, 0xFF6CB4FF, 0xFF6CB4FF, 0xFFFFC46B),
             BackgroundEffect.BOKEH, FontFamily.SansSerif, FontWeight.Bold, 14, 1.06f, false, false, true, 0.9f, TransitionStyle.SLIDE, LoaderStyle.ORBIT, SoundPreset.OCEAN, 44),
-        t("hexcore", "HEXCORE", "Pulsierende Waben, Reaktor-Orange",
+        t("hexcore", "WABENKERN", "Pulsierende Waben, Reaktor-Orange",
             listOf(0xFF0A0703, 0xFF1C1206, 0x99201608, 0xE0463014, 0xFFFF9800, 0xFFFFE0B2, 0xFFFFF6EA, 0xFFB8A58A, 0xFFFFA726, 0xFFFFB74D, 0xFFFFE0B2),
             BackgroundEffect.HEX, FontFamily.Monospace, FontWeight.Bold, 4, 1.07f, false, false, true, 1.1f, TransitionStyle.ZOOM, LoaderStyle.BARS, SoundPreset.DIGITAL, 30),
-        t("toxic", "TOXIC", "Giftgrüne Waben und Warnlicht",
+        t("toxic", "GIFTGRÜN", "Giftgrüne Waben und Warnlicht",
             listOf(0xFF030803, 0xFF0F1A06, 0x99121F08, 0xE02A4410, 0xFFB6FF00, 0xFFFFEA00, 0xFFF5FFE0, 0xFF9DB07A, 0xFFC6FF00, 0xFFB6FF00, 0xFFFFEA00),
             BackgroundEffect.HEX, FontFamily.Monospace, FontWeight.ExtraBold, 0, 1.07f, false, false, false, 1.2f, TransitionStyle.SLIDE, LoaderStyle.BARS, SoundPreset.DIGITAL, 30),
-        t("lava", "LAVA LAMP", "Langsam wabernde Farbblasen",
+        t("lava", "LAVALAMPE", "Langsam wabernde Farbblasen",
             listOf(0xFF14030A, 0xFF2A0716, 0x992A0A18, 0xE0561632, 0xFFFF4F6D, 0xFFFFA94D, 0xFFFFF0F2, 0xFFC799A4, 0xFFFF6B81, 0xFFFF8A65, 0xFFFFC46B),
             BackgroundEffect.LAVA, FontFamily.SansSerif, FontWeight.Bold, 26, 1.06f, false, false, true, 0.9f, TransitionStyle.FADE, LoaderStyle.PULSE, SoundPreset.FIRE, 20),
-        t("purple_rain", "PURPLE RAIN", "Violetter Regen auf nassem Asphalt",
+        t("purple_rain", "LILA REGEN", "Violetter Regen auf nassem Asphalt",
             listOf(0xFF07020F, 0xFF180A2B, 0x99180C2C, 0xE0341A5C, 0xFFB388FF, 0xFFEA80FC, 0xFFF6F0FF, 0xFFA39AC0, 0xFFB388FF, 0xFFC9A7FF, 0xFFEA80FC),
             BackgroundEffect.RAIN, FontFamily.SansSerif, FontWeight.SemiBold, 12, 1.06f, false, false, true, 0.9f, TransitionStyle.FADE, LoaderStyle.ORBIT, SoundPreset.AURORA, 140),
-        t("neon_rain", "NEON RAIN", "Cyan- und Pink-Regen in der Großstadtnacht",
+        t("neon_rain", "NEONREGEN", "Cyan- und Pink-Regen in der Großstadtnacht",
             listOf(0xFF020812, 0xFF0A1226, 0x990C1528, 0xE01A2C52, 0xFF00E5FF, 0xFFFF2E9A, 0xFFEFFBFF, 0xFF8FA4BF, 0xFF00E5FF, 0xFF00E5FF, 0xFFFF2E9A),
             BackgroundEffect.RAIN, FontFamily.Monospace, FontWeight.Bold, 2, 1.07f, false, false, true, 1.2f, TransitionStyle.SLIDE, LoaderStyle.BARS, SoundPreset.NEON, 160),
-        t("midnight", "MIDNIGHT", "Ruhiges Nachtblau, wenig Ablenkung",
+        t("midnight", "MITTERNACHT", "Ruhiges Nachtblau, wenig Ablenkung",
             listOf(0xFF02040C, 0xFF070D22, 0x800B132E, 0xE01B2A5C, 0xFF6E8BFF, 0xFF9AB0FF, 0xFFEEF1FF, 0xFF8D96B8, 0xFF7D97FF, 0xFFDDE4FF, 0xFF9AB0FF),
             BackgroundEffect.GALAXY, FontFamily.SansSerif, FontWeight.SemiBold, 16, 1.05f, false, false, false, 0.6f, TransitionStyle.FADE, LoaderStyle.PULSE, SoundPreset.SPACE, 80),
-        t("rose_gold", "ROSÉ GOLD", "Warmes Roségold, edel und hell",
+        t("rose_gold", "ROSÉGOLD", "Warmes Roségold, edel und hell",
             listOf(0xFF140C0B, 0xFF2A1A18, 0x80301E1B, 0xE0583A35, 0xFFF4B6A6, 0xFFFFE3D6, 0xFFFFF6F2, 0xFFC6A8A0, 0xFFFFC7B7, 0xFFFFD1C2, 0xFFFFECE4),
             BackgroundEffect.GOLD, FontFamily.Serif, FontWeight.Medium, 18, 1.05f, true, false, true, 0.8f, TransitionStyle.FADE, LoaderStyle.PULSE, SoundPreset.GOLD, 110),
-        t("emerald", "EMERALD", "Smaragdgrüne Polarlichter",
+        t("emerald", "SMARAGD", "Smaragdgrüne Polarlichter",
             listOf(0xFF010C08, 0xFF042117, 0x80082A1E, 0xE0105238, 0xFF00E676, 0xFF64FFDA, 0xFFE9FFF4, 0xFF8FBFA9, 0xFF00E676, 0xFFE0FFF0, 0xFF64FFDA),
             BackgroundEffect.AURORA, FontFamily.SansSerif, FontWeight.Bold, 14, 1.06f, true, false, true, 0.9f, TransitionStyle.FADE, LoaderStyle.ORBIT, SoundPreset.AURORA, 90),
-        t("sunset", "SUNSET", "Abendrot in Orange, Pink und Violett",
+        t("sunset", "SONNENUNTERGANG", "Abendrot in Orange, Pink und Violett",
             listOf(0xFF1A0612, 0xFF3A0E22, 0x80361020, 0xE0662040, 0xFFFF7043, 0xFFBA68C8, 0xFFFFF1EA, 0xFFC9A1A8, 0xFFFF8A65, 0xFFFFE0D0, 0xFFCE93D8),
             BackgroundEffect.AURORA, FontFamily.SansSerif, FontWeight.ExtraBold, 20, 1.06f, true, false, true, 1f, TransitionStyle.ZOOM, LoaderStyle.ORBIT, SoundPreset.FIRE, 70),
-        t("deep_sea", "DEEP SEA", "Tiefsee mit Biolumineszenz",
+        t("deep_sea", "TIEFSEE", "Tiefsee mit Biolumineszenz",
             listOf(0xFF000812, 0xFF001A2C, 0x80021C30, 0xE0063A5C, 0xFF00BFA5, 0xFF40C4FF, 0xFFE6FBFF, 0xFF7FA8B8, 0xFF1DE9B6, 0xFF84FFFF, 0xFF40C4FF),
             BackgroundEffect.OCEAN, FontFamily.SansSerif, FontWeight.SemiBold, 22, 1.06f, false, false, true, 0.9f, TransitionStyle.SLIDE, LoaderStyle.PULSE, SoundPreset.OCEAN, 110),
-        t("amoled", "AMOLED BLACK", "Reines Schwarz – ideal für OLED-TVs, minimale Effekte",
+        t("amoled", "TIEFSCHWARZ", "Reines Schwarz – ideal für OLED-TVs, minimale Effekte",
             listOf(0xFF000000, 0xFF000000, 0x66141414, 0xE0262626, 0xFFFFFFFF, 0xFFBDBDBD, 0xFFFFFFFF, 0xFF9E9E9E, 0xFFFFFFFF, 0xFF444444, 0xFF666666),
             BackgroundEffect.GLASS, FontFamily.SansSerif, FontWeight.Bold, 12, 1.05f, false, false, false, 0.4f, TransitionStyle.FADE, LoaderStyle.PULSE, SoundPreset.GLASS, 0),
-        t("ice", "ICE CRYSTAL", "Gefrorene Kristalle und Polarlicht-Blau",
+        t("ice", "EISKRISTALL", "Gefrorene Kristalle und Polarlicht-Blau",
             listOf(0xFF03101A, 0xFF0D2636, 0x8010293A, 0xE0204D66, 0xFFB3F0FF, 0xFF80D8FF, 0xFFF5FDFF, 0xFF99B8C6, 0xFFCCF5FF, 0xFFFFFFFF, 0xFFA6E9FF),
             BackgroundEffect.DIAMOND, FontFamily.SansSerif, FontWeight.Medium, 8, 1.06f, true, false, true, 1f, TransitionStyle.ZOOM, LoaderStyle.PULSE, SoundPreset.CRYSTAL, 120),
-        t("volcano", "VOLCANO", "Ascheregen und glühende Lava",
+        t("volcano", "VULKAN", "Ascheregen und glühende Lava",
             listOf(0xFF0A0605, 0xFF1F0B06, 0x99221008, 0xE04E200E, 0xFFFF6D00, 0xFFFFD180, 0xFFFFF0E6, 0xFFB59A8A, 0xFFFF7A1A, 0xFFFF9E40, 0xFF9E9E9E),
             BackgroundEffect.INFERNO, FontFamily.Serif, FontWeight.ExtraBold, 6, 1.07f, true, false, true, 1.1f, TransitionStyle.SLIDE, LoaderStyle.BARS, SoundPreset.FIRE, 160),
         t("terminal", "TERMINAL", "Bernstein-Monitor wie in den 80ern",
@@ -256,7 +287,7 @@ private object BuiltInThemes {
 
     val all = listOf(
         ThemeSpec(
-            "galaxy", "GALAXY", "Die Signature-Erfahrung: Nebel, Sternschnuppen, kosmischer Glanz",
+            "galaxy", "GALAXIE", "Die Signature-Erfahrung: Nebel, Sternschnuppen, kosmischer Glanz",
             UltraPalette(c(0xFF070A1F), c(0xFF140A2E), c(0x8C141A3A), c(0xE02A2266), c(0xFFA77BFF), c(0xFF5BC8FF),
                 c(0xFFF4F1FF), c(0xFFA9A6C9), c(0xFFB28CFF), c(0xFFFFFFFF), c(0xFF8FD8FF)),
             BackgroundEffect.GALAXY, FontFamily.SansSerif, FontWeight.Bold, 18.dp, 1.08f, 2.dp,
@@ -264,7 +295,7 @@ private object BuiltInThemes {
             TransitionStyle.ZOOM, LoaderStyle.ORBIT, SoundPreset.COSMIC, 220,
         ),
         ThemeSpec(
-            "black_gold", "BLACK GOLD", "Metallisches Gold auf tiefem Schwarz",
+            "black_gold", "SCHWARZGOLD", "Metallisches Gold auf tiefem Schwarz",
             UltraPalette(c(0xFF050505), c(0xFF15110A), c(0x99151208), c(0xE03A2E12), c(0xFFE8C468), c(0xFFFFF1C1),
                 c(0xFFFFF7E3), c(0xFFB9A98A), c(0xFFFFD36E), c(0xFFFFD77A), c(0xFFFFF3C4)),
             BackgroundEffect.GOLD, FontFamily.Serif, FontWeight.SemiBold, 6.dp, 1.06f, 1.5.dp,
@@ -280,7 +311,7 @@ private object BuiltInThemes {
             TransitionStyle.SLIDE, LoaderStyle.BARS, SoundPreset.NEON, 60,
         ),
         ThemeSpec(
-            "glass", "GLASS PREMIUM", "Transparente Panels, weiche Reflexe",
+            "glass", "GLAS PREMIUM", "Transparente Panels, weiche Reflexe",
             UltraPalette(c(0xFF0E1726), c(0xFF1F2D44), c(0x40FFFFFF), c(0x70FFFFFF), c(0xFFFFFFFF), c(0xFF9EC9FF),
                 c(0xFFFFFFFF), c(0xFFC5D2E6), c(0xFFDDEBFF), c(0xFFFFFFFF), c(0xFFB9D7FF)),
             BackgroundEffect.GLASS, FontFamily.SansSerif, FontWeight.Medium, 24.dp, 1.05f, 1.dp,
@@ -296,7 +327,7 @@ private object BuiltInThemes {
             TransitionStyle.FADE, LoaderStyle.ORBIT, SoundPreset.AURORA, 90,
         ),
         ThemeSpec(
-            "ocean", "OCEAN", "Unterwasserwelt mit Lichtstrahlen",
+            "ocean", "OZEAN", "Unterwasserwelt mit Lichtstrahlen",
             UltraPalette(c(0xFF02152B), c(0xFF003049), c(0x80052A45), c(0xE00A4E73), c(0xFF35D0FF), c(0xFF7CF5E1),
                 c(0xFFEAF9FF), c(0xFF94BED3), c(0xFF35D0FF), c(0xFFBFF3FF), c(0xFF7CF5E1)),
             BackgroundEffect.OCEAN, FontFamily.SansSerif, FontWeight.Medium, 20.dp, 1.06f, 1.5.dp,
@@ -312,7 +343,7 @@ private object BuiltInThemes {
             TransitionStyle.FADE, LoaderStyle.BARS, SoundPreset.DIGITAL, 60,
         ),
         ThemeSpec(
-            "space", "SPACE", "Sterne, Planeten und Himmelsmechanik",
+            "space", "WELTALL", "Sterne, Planeten und Himmelsmechanik",
             UltraPalette(c(0xFF000000), c(0xFF0B0F1E), c(0x8C0F1528), c(0xE0222C4E), c(0xFFFFA94D), c(0xFF7FA7FF),
                 c(0xFFF3F6FF), c(0xFF9AA3BF), c(0xFFFFB866), c(0xFFFFFFFF), c(0xFFFFD2A1)),
             BackgroundEffect.SPACE, FontFamily.SansSerif, FontWeight.Bold, 14.dp, 1.07f, 1.5.dp,
@@ -320,7 +351,7 @@ private object BuiltInThemes {
             TransitionStyle.ZOOM, LoaderStyle.ORBIT, SoundPreset.SPACE, 180,
         ),
         ThemeSpec(
-            "diamond", "DIAMOND", "Kristallreflexe und metallische Highlights",
+            "diamond", "DIAMANT", "Kristallreflexe und metallische Highlights",
             UltraPalette(c(0xFF0B0F14), c(0xFF1C232D), c(0x80202A36), c(0xE03A4A5C), c(0xFFDDF3FF), c(0xFFB7A6FF),
                 c(0xFFFFFFFF), c(0xFFAAB6C4), c(0xFFE6F7FF), c(0xFFFFFFFF), c(0xFFCFE9FF)),
             BackgroundEffect.DIAMOND, FontFamily.Serif, FontWeight.Medium, 10.dp, 1.06f, 1.dp,
@@ -328,7 +359,7 @@ private object BuiltInThemes {
             TransitionStyle.ZOOM, LoaderStyle.PULSE, SoundPreset.CRYSTAL, 110,
         ),
         ThemeSpec(
-            "red_inferno", "RED INFERNO", "Glühende Partikel und kontrolliertes Feuer",
+            "red_inferno", "ROTES INFERNO", "Glühende Partikel und kontrolliertes Feuer",
             UltraPalette(c(0xFF0C0202), c(0xFF2A0505), c(0x99260707), c(0xE05A1010), c(0xFFFF5A2A), c(0xFFFFC14D),
                 c(0xFFFFF0EA), c(0xFFC79C90), c(0xFFFF6A33), c(0xFFFFA040), c(0xFFFFE08A)),
             BackgroundEffect.INFERNO, FontFamily.SansSerif, FontWeight.ExtraBold, 12.dp, 1.07f, 2.dp,

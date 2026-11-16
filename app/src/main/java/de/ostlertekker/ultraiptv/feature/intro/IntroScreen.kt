@@ -290,7 +290,7 @@ fun IntroScreen(full: Boolean, soundEnabled: Boolean, sounds: AudioExperienceEng
                     textPaint.textSize = h * 0.025f
                     textPaint.letterSpacing = 0.5f
                     textPaint.color = p.textDim.copy(alpha = ultra).toArgb()
-                    nc.drawText("THE ULTIMATE STREAMING EXPERIENCE", w / 2, y + h * 0.06f, textPaint)
+                    nc.drawText("DAS ULTIMATIVE STREAMING-ERLEBNIS", w / 2, y + h * 0.06f, textPaint)
                 }
             }
             // 9. Übergang

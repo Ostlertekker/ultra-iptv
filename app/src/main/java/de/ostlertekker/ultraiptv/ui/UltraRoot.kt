@@ -172,9 +172,9 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
     val railFocus = remember { FocusRequester() }
     val items = remember {
         listOf(
-            NavItem(Routes.HOME, "HOME"), NavItem(Routes.LIVE, "LIVE TV"), NavItem(Routes.EXPLORE, "EXPLORE"), NavItem(Routes.MOVIES, "MOVIES"),
-            NavItem(Routes.SERIES, "SERIES"), NavItem(Routes.FAVORITES, "FAVORITES"), NavItem(Routes.SEARCH, "SEARCH"),
-            NavItem(Routes.SETTINGS, "SETTINGS"),
+            NavItem(Routes.HOME, "START"), NavItem(Routes.LIVE, "LIVE-TV"), NavItem(Routes.EXPLORE, "ENTDECKEN"), NavItem(Routes.MOVIES, "FILME"),
+            NavItem(Routes.SERIES, "SERIEN"), NavItem(Routes.FAVORITES, "FAVORITEN"), NavItem(Routes.SEARCH, "SUCHE"),
+            NavItem(Routes.SETTINGS, "EINSTELLUNGEN"),
         )
     }
     LaunchedEffect(Unit) { delay(150); runCatching { railFocus.requestFocus() } }
