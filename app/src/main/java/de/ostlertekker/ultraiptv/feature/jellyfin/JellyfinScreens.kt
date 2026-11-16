@@ -328,8 +328,8 @@ class JellyfinItemViewModel @Inject constructor(savedState: SavedStateHandle, va
     }
 
     fun toggleFavorite() = viewModelScope.launch {
-        val it = item.value ?: return@launch
-        runCatching { repo.setFavorite(it.id, !it.favorite) }.onSuccess { item.value = it.copy(favorite = !it.favorite) }.onFailure { e -> error.value = e.message }
+        val cur = item.value ?: return@launch
+        runCatching { repo.setFavorite(cur.id, !cur.favorite) }.onSuccess { item.value = cur.copy(favorite = !cur.favorite) }.onFailure { e -> error.value = e.message }
     }
 
     fun togglePlayed(target: JfItem) = viewModelScope.launch {
