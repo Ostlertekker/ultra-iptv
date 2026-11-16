@@ -73,15 +73,11 @@ object SmartSearch {
 
     private val stopWords = setOf("mit", "with", "und", "and", "der", "die", "das", "den", "ein", "eine", "von", "the", "a", "aus", "in", "im", "zeig", "zeige", "mir", "suche", "alle", "beste", "besten", "gute")
 
-    private val MARKS = Regex("\\p{Mn}+")
-    private val NON_ALNUM = Regex("[^a-z0-9+]+")
-    private val SPACES = Regex("\\s+")
-
     fun normalize(s: String): String {
         val lower = s.lowercase()
             .replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss")
-        val noMarks = Normalizer.normalize(lower, Normalizer.Form.NFD).replace(MARKS, "")
-        return noMarks.replace(NON_ALNUM, " ").trim().replace(SPACES, " ")
+        val noMarks = Normalizer.normalize(lower, Normalizer.Form.NFD).replace(NormRx.MARKS, "")
+        return noMarks.replace(NormRx.NON_ALNUM, " ").trim().replace(NormRx.SPACES, " ")
     }
 
     fun parse(query: String): ParsedQuery {
@@ -191,4 +187,11 @@ object SmartSearch {
         val cat = if (categoryA != null && categoryA == categoryB) 1 else 0
         return (g * 0.25f + c * 0.35f + cat * 0.15f).coerceAtMost(1f)
     }
+}
+
+/** Vorkompilierte Ausdrücke – eigenes Objekt, damit sie vor SmartSearchs Initialisierung bereitstehen. */
+private object NormRx {
+    val MARKS = Regex("\\p{Mn}+")
+    val NON_ALNUM = Regex("[^a-z0-9+]+")
+    val SPACES = Regex("\\s+")
 }
