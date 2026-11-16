@@ -120,6 +120,19 @@ jobs:
             uitest.log
             logcat.txt
             app/build/outputs/androidTest-results/
+      - name: UI-Bericht veröffentlichen (Branch ui-report)
+        if: always()
+        run: |
+          mkdir -p /tmp/rep
+          cp -r shots /tmp/rep/ 2>/dev/null || true
+          cp uitest.log /tmp/rep/ 2>/dev/null || true
+          grep -E "FATAL|AndroidRuntime|ANR in" -A25 logcat.txt > /tmp/rep/crashes.txt 2>/dev/null || true
+          cd /tmp/rep
+          git init -q
+          git checkout -q -b ui-report
+          git add .
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "UI report run ${{ github.run_number }}" || true
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ui-report
       - name: UI-Test-Log bei Fehler veröffentlichen (Branch ci-logs)
         if: failure()
         run: |
