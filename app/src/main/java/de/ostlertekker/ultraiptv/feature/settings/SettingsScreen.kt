@@ -50,6 +50,7 @@ import de.ostlertekker.ultraiptv.core.data.SyncRepository
 import de.ostlertekker.ultraiptv.core.data.UserRepository
 import de.ostlertekker.ultraiptv.core.database.ProfileEntity
 import de.ostlertekker.ultraiptv.core.design.LocalUltraTheme
+import de.ostlertekker.ultraiptv.core.design.DesignOptions
 import de.ostlertekker.ultraiptv.core.design.ThemeEngine
 import de.ostlertekker.ultraiptv.core.design.ThemeRegistry
 import de.ostlertekker.ultraiptv.core.device.DeviceCapabilityManager
@@ -84,8 +85,8 @@ import java.util.Date
 import javax.inject.Inject
 
 enum class SettingsSection(val label: String) {
-    GENERAL("Allgemein"), ACCOUNTS("Konten (Multi-Account)"), UPDATES("App-Updates"), NOTIFICATIONS("Benachrichtigungen"), APPEARANCE("Darstellung"), THEMES("Themes"), STUDIO("Animation Studio"), ANIMATIONS("Animationen"), INTRO("Intro"),
-    AUDIO("Audio"), PLAYBACK("Wiedergabe"), QUALITY("Bildqualität"), UPSCALING("KI-Upscaling"), SMART_SKIP("Smart Skip"),
+    GENERAL("Allgemein"), ACCOUNTS("Konten (Multi-Account)"), UPDATES("App-Updates"), NOTIFICATIONS("Benachrichtigungen"), APPEARANCE("Darstellung"), LAYOUT("Layout & Listen"), THEMES("Themes"), STUDIO("Animation Studio"), ANIMATIONS("Animationen"), INTRO("Intro"),
+    AUDIO("Audio"), PLAYBACK("Wiedergabe"), LIVE_STABILITY("Live-Stabilität"), PLAYER_CONTROLS("Player & Fernbedienung"), QUALITY("Bildqualität"), UPSCALING("KI-Upscaling"), SMART_SKIP("Smart Skip"),
     EPG("EPG"), PROFILES("Profile"), PARENTAL("Jugendschutz"), NETWORK("Netzwerk & Speedtest"), ANALYSIS("Sender-Analyse"),
     BACKUP("Backup & Sync"), WATCH_TOGETHER("Watch Together"), DIAGNOSTICS("Diagnose"), ABOUT("Über"),
 }
@@ -190,6 +191,9 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
                     SettingsSection.BACKUP -> backupSection(x)
                     SettingsSection.WATCH_TOGETHER -> watchTogetherSection(x)
                     SettingsSection.APPEARANCE -> appearanceSection(vm, s)
+                    SettingsSection.LAYOUT -> layoutSection(vm, s)
+                    SettingsSection.LIVE_STABILITY -> liveStabilitySection(vm, s)
+                    SettingsSection.PLAYER_CONTROLS -> playerControlsSection(vm, s)
                     SettingsSection.ANIMATIONS -> animationSection(vm, s)
                     SettingsSection.INTRO -> introSection(vm, s)
                     SettingsSection.AUDIO -> audioSection(vm, s)
@@ -242,6 +246,19 @@ private fun LazyListScope.appearanceSection(vm: SettingsViewModel, s: AppSetting
                 val vals = ThemeEngine.accentPresets.map { it.second }
                 vm.set(Keys.ACCENT, cycle(vals, if (s.accentArgb in vals) s.accentArgb else 0L))
             })
+            ChoiceRow("UI-Größe", pct(s.uiScale), { vm.set(Keys.UI_SCALE, cycle(DesignOptions.scaleValues, s.uiScale.takeIf { it in DesignOptions.scaleValues } ?: 1f)) },
+                subtitle = "Skaliert die gesamte Oberfläche – größer für weite Sitzabstände")
+            ChoiceRow("Schriftart", DesignOptions.fontNames[s.fontStyle.coerceIn(0, DesignOptions.fontNames.lastIndex)],
+                { vm.set(Keys.FONT_STYLE, (s.fontStyle + 1) % DesignOptions.fontNames.size) })
+            ChoiceRow("Ecken", DesignOptions.cornerNames[s.cornerStyle.coerceIn(0, DesignOptions.cornerNames.lastIndex)],
+                { vm.set(Keys.CORNER_STYLE, (s.cornerStyle + 1) % DesignOptions.cornerNames.size) })
+            ChoiceRow("Fokus-Zoom", DesignOptions.zoomNames[s.focusZoom.coerceIn(0, DesignOptions.zoomNames.lastIndex)],
+                { vm.set(Keys.FOCUS_ZOOM, (s.focusZoom + 1) % DesignOptions.zoomNames.size) }, subtitle = "Wie stark Karten beim Auswählen wachsen")
+            ToggleRow("Leuchtender Fokus-Rahmen", s.focusGlow, { vm.set(Keys.FOCUS_GLOW, it) })
+            ChoiceRow("Hintergrund abdunkeln", "${(DesignOptions.dimValues.getOrElse(s.bgDim) { 0f } * 100).toInt()} %",
+                { vm.set(Keys.BG_DIM, (s.bgDim + 1) % DesignOptions.dimValues.size) }, subtitle = "Bessere Lesbarkeit bei hellen Themes")
+            ToggleRow("Uhr in der Menüleiste", s.menuClock, { vm.set(Keys.MENU_CLOCK, it) })
+            ToggleRow("24-Stunden-Format", s.clock24h, { vm.set(Keys.CLOCK_24H, it) })
             var bg by remember { mutableStateOf(s.customBackgroundUrl) }
             TvTextField(bg, { bg = it }, "Eigenes Hintergrundbild (Bild-URL, leer = keines)", modifier = Modifier.padding(vertical = 6.dp),
                 error = if (bg.isNotBlank()) InputValidator.url(bg) else null)
@@ -573,5 +590,65 @@ private fun ParentalSection(vm: SettingsViewModel, s: AppSettings) {
         PinDialog("PIN eingeben", onSubmit = { pin ->
             val ok = vm.checkPinFor(prof, pin); if (ok) { vm.set(Keys.SHOW_ADULT, true); askPin = false }; ok
         }, onDismiss = { askPin = false })
+    }
+}
+
+
+private fun LazyListScope.layoutSection(vm: SettingsViewModel, s: AppSettings) {
+    item {
+        Column {
+            SectionHeader("Senderliste")
+            ChoiceRow("Listen-Dichte", DesignOptions.densityNames[s.channelDensity.coerceIn(0, 2)], { vm.set(Keys.CHANNEL_DENSITY, (s.channelDensity + 1) % 3) },
+                subtitle = "Kompakt zeigt mehr Sender gleichzeitig")
+            ToggleRow("Sendernummern anzeigen", s.showChannelNumbers, { vm.set(Keys.SHOW_NUMBERS, it) })
+            ToggleRow("Senderlogos anzeigen", s.showChannelLogos, { vm.set(Keys.SHOW_LOGOS, it) }, subtitle = "Aus = schnellere Liste bei sehr vielen Sendern")
+            ToggleRow("Laufende Sendung in der Liste", s.showChannelEpg, { vm.set(Keys.SHOW_CH_EPG, it) })
+            SectionHeader("Filme & Serien")
+            ChoiceRow("Postergröße", DesignOptions.posterNames[s.posterSize.coerceIn(0, 3)], { vm.set(Keys.POSTER_SIZE, (s.posterSize + 1) % 4) })
+        }
+    }
+}
+
+private fun LazyListScope.liveStabilitySection(vm: SettingsViewModel, s: AppSettings) {
+    item {
+        Column {
+            ToggleRow("Automatisch neu verbinden", s.liveReconnect, { vm.set(Keys.LIVE_RECONNECT, it) },
+                subtitle = "Bleibt ein Sender stehen oder bricht ab, verbindet ULTRA IPTV ihn selbst wieder – ohne Fehlermeldung")
+            ChoiceRow("Stillstand erkennen nach", "${s.stallTimeoutSec} s", { vm.set(Keys.STALL_TIMEOUT, cycle(listOf(5, 8, 12, 20, 30), s.stallTimeoutSec.takeIf { it in listOf(5, 8, 12, 20, 30) } ?: 8)) },
+                subtitle = "Kürzer = schneller wieder da · länger = weniger Neustarts bei langsamen Anbietern")
+            ToggleRow("Ausweichsender bei Dauerstörung", s.autoFailover, { vm.set(Keys.AUTO_FAILOVER, it) },
+                subtitle = "Wechselt auf einen gleichnamigen Sender (z. B. HD → FHD), wenn der aktuelle nicht zurückkommt")
+            ChoiceRow("Puffer", s.bufferProfile.label, { vm.set(Keys.BUFFER, cycle(BufferProfile.entries, s.bufferProfile).name) },
+                subtitle = "„Groß“ hilft am meisten gegen Aussetzer bei schwankendem WLAN")
+            ChoiceRow("Live-Stream-Format", if (s.liveFormat == "m3u8") "HLS (m3u8)" else "MPEG-TS (ts)",
+                { vm.set(Keys.LIVE_FORMAT, if (s.liveFormat == "ts") "m3u8" else "ts") }, subtitle = "Bricht ein Xtream-Sender oft ab, das andere Format probieren")
+            ToggleRow("Andere Apps dürfen nicht pausieren", s.ignoreAudioFocus, { vm.set(Keys.IGNORE_FOCUS, it) },
+                subtitle = "An: Systemklänge/Alexa halten Live-TV nicht mehr an")
+            Text("Während der Wiedergabe bleiben Bildschirm und WLAN aktiv, damit der Fire TV den Stream nicht im Stand-by trennt.",
+                color = LocalUltraTheme.current.palette.textDim, fontSize = 12.sp, modifier = Modifier.padding(8.dp))
+        }
+    }
+}
+
+private fun LazyListScope.playerControlsSection(vm: SettingsViewModel, s: AppSettings) {
+    item {
+        Column {
+            SectionHeader("Anzeige")
+            ChoiceRow("Info-Leiste ausblenden nach", "${s.osdSeconds} s", { vm.set(Keys.OSD_SECONDS, cycle(listOf(3, 5, 8, 12, 20), s.osdSeconds.takeIf { it in listOf(3, 5, 8, 12, 20) } ?: 5)) })
+            ToggleRow("Info-Banner beim Senderwechsel", s.zapBanner, { vm.set(Keys.ZAP_BANNER, it) })
+            ToggleRow("Uhr im Player", s.playerClock, { vm.set(Keys.PLAYER_CLOCK, it) })
+            ChoiceRow("Standard-Bildformat", de.ostlertekker.ultraiptv.feature.player.aspectNames[s.defaultAspect.coerceIn(0, 3)], { vm.set(Keys.DEFAULT_ASPECT, (s.defaultAspect + 1) % 4) })
+            SectionHeader("Ton")
+            ChoiceRow("Lautstärke-Boost", if (s.volumeBoostDb == 0) "Aus" else "+${s.volumeBoostDb} dB",
+                { vm.set(Keys.VOL_BOOST, cycle(listOf(0, 3, 6, 9, 12), s.volumeBoostDb.takeIf { it in listOf(0, 3, 6, 9, 12) } ?: 0)) },
+                subtitle = "Für leise Sender – hohe Werte können bei lauten Quellen verzerren")
+            SectionHeader("Fernbedienung")
+            ToggleRow("Sendernummer per Zifferntasten", s.numberZap, { vm.set(Keys.NUMBER_ZAP, it) }, subtitle = "Nummer eintippen → Sender startet nach 1,5 s")
+            ToggleRow("Kanaltasten umkehren", s.invertChannelKeys, { vm.set(Keys.INVERT_ZAP, it) }, subtitle = "Pfeil hoch = nächster statt vorheriger Sender")
+            SectionHeader("Sleep-Timer")
+            ChoiceRow("Beim Start automatisch", if (s.sleepTimerMin == 0) "Aus" else "${s.sleepTimerMin} min",
+                { vm.set(Keys.SLEEP_TIMER, cycle(listOf(0, 15, 30, 45, 60, 90, 120), s.sleepTimerMin.takeIf { it in listOf(0, 15, 30, 45, 60, 90, 120) } ?: 0)) },
+                subtitle = "Im Player jederzeit über „☾ Sleep-Timer“ änderbar")
+        }
     }
 }

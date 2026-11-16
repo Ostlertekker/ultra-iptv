@@ -109,8 +109,13 @@ fun UltraThemeHost(settings: AppSettings, tier: DeviceTier, sounds: AudioExperie
         onPrimary = Color.Black, onSurface = p.text, onBackground = p.text, surfaceVariant = p.surface,
         onSurfaceVariant = p.textDim, outline = p.textDim,
     )
+    val baseDensity = androidx.compose.ui.platform.LocalDensity.current
+    val scale = settings.uiScale.coerceIn(0.8f, 1.3f)
+    val prefs = remember(settings) { de.ostlertekker.ultraiptv.core.design.UiPrefs.from(settings) }
     CompositionLocalProvider(LocalUltraTheme provides theme, LocalUiSounds provides sounds,
-        de.ostlertekker.ultraiptv.core.motion.LocalMotion provides motion) {
+        de.ostlertekker.ultraiptv.core.motion.LocalMotion provides motion,
+        de.ostlertekker.ultraiptv.core.design.LocalUiPrefs provides prefs,
+        androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(baseDensity.density * scale, baseDensity.fontScale)) {
         MaterialTheme(colorScheme = scheme) { content() }
     }
 }
@@ -361,7 +366,8 @@ fun NavRail(items: List<NavItem>, selectedRoute: String, onSelect: (String) -> U
         Text("OSTLERTEKKER", color = p.textDim, fontSize = 11.sp, letterSpacing = 4.sp, modifier = Modifier.padding(start = 10.dp))
         Text("ULTRA IPTV", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, fontFamily = theme.spec.fontFamily,
             style = TextStyle(brush = Brush.linearGradient(listOf(p.primary, Color.White, p.secondary))), letterSpacing = 2.sp,
-            modifier = Modifier.padding(start = 10.dp, bottom = 12.dp))
+            modifier = Modifier.padding(start = 10.dp, bottom = if (de.ostlertekker.ultraiptv.core.design.LocalUiPrefs.current.menuClock) 2.dp else 12.dp))
+        if (de.ostlertekker.ultraiptv.core.design.LocalUiPrefs.current.menuClock) RailClock(Modifier.padding(start = 10.dp, bottom = 10.dp))
         items.forEachIndexed { index, item ->
             var focused by remember { mutableStateOf(false) }
             val selected = item.route == selectedRoute
@@ -524,4 +530,18 @@ fun PinDialog(title: String, onSubmit: (String) -> Boolean, onDismiss: () -> Uni
         }
     }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+}
+
+
+/** Uhrzeit im gewählten Format (24 h oder 12 h mit AM/PM). */
+fun formatClock(ms: Long, h24: Boolean): String =
+    java.text.SimpleDateFormat(if (h24) "HH:mm" else "h:mm a", java.util.Locale.getDefault()).format(java.util.Date(ms))
+
+@Composable
+private fun RailClock(modifier: Modifier) {
+    val p = LocalUltraTheme.current.palette
+    val h24 = de.ostlertekker.ultraiptv.core.design.LocalUiPrefs.current.clock24h
+    var now by remember { androidx.compose.runtime.mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) { while (true) { now = System.currentTimeMillis(); kotlinx.coroutines.delay(20_000) } }
+    Text(formatClock(now, h24), color = p.text, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = modifier)
 }

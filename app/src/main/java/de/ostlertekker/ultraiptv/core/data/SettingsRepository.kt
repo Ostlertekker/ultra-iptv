@@ -76,6 +76,30 @@ data class AppSettings(
     /** CRAZY MOTION ENGINE: aktive Konfiguration und eigene Profile (JSON). */
     val motionJson: String = "",
     val motionProfilesJson: String = "",
+    val liveReconnect: Boolean = true,
+    val stallTimeoutSec: Int = 8,
+    val ignoreAudioFocus: Boolean = false,
+    val volumeBoostDb: Int = 0,
+    val sleepTimerMin: Int = 0,
+    val osdSeconds: Int = 5,
+    val invertChannelKeys: Boolean = false,
+    val playerClock: Boolean = true,
+    val defaultAspect: Int = 0,
+    val numberZap: Boolean = true,
+    val zapBanner: Boolean = true,
+    val uiScale: Float = 1f,
+    val cornerStyle: Int = 0,
+    val focusZoom: Int = 0,
+    val fontStyle: Int = 0,
+    val bgDim: Int = 0,
+    val channelDensity: Int = 1,
+    val showChannelNumbers: Boolean = true,
+    val showChannelLogos: Boolean = true,
+    val showChannelEpg: Boolean = true,
+    val posterSize: Int = 1,
+    val menuClock: Boolean = true,
+    val clock24h: Boolean = true,
+    val focusGlow: Boolean = true,
 )
 
 object Keys {
@@ -129,6 +153,30 @@ object Keys {
     val LAST_UPDATE_CHECK = longPreferencesKey("last_update_check")
     val MOTION = stringPreferencesKey("motion")
     val MOTION_PROFILES = stringPreferencesKey("motion_profiles")
+    val LIVE_RECONNECT = booleanPreferencesKey("live_reconnect")
+    val STALL_TIMEOUT = intPreferencesKey("stall_timeout")
+    val IGNORE_FOCUS = booleanPreferencesKey("ignore_focus")
+    val VOL_BOOST = intPreferencesKey("vol_boost")
+    val SLEEP_TIMER = intPreferencesKey("sleep_timer")
+    val OSD_SECONDS = intPreferencesKey("osd_seconds")
+    val INVERT_ZAP = booleanPreferencesKey("invert_zap")
+    val PLAYER_CLOCK = booleanPreferencesKey("player_clock")
+    val DEFAULT_ASPECT = intPreferencesKey("default_aspect")
+    val NUMBER_ZAP = booleanPreferencesKey("number_zap")
+    val ZAP_BANNER = booleanPreferencesKey("zap_banner")
+    val UI_SCALE = floatPreferencesKey("ui_scale")
+    val CORNER_STYLE = intPreferencesKey("corner_style")
+    val FOCUS_ZOOM = intPreferencesKey("focus_zoom")
+    val FONT_STYLE = intPreferencesKey("font_style")
+    val BG_DIM = intPreferencesKey("bg_dim")
+    val CHANNEL_DENSITY = intPreferencesKey("channel_density")
+    val SHOW_NUMBERS = booleanPreferencesKey("show_numbers")
+    val SHOW_LOGOS = booleanPreferencesKey("show_logos")
+    val SHOW_CH_EPG = booleanPreferencesKey("show_ch_epg")
+    val POSTER_SIZE = intPreferencesKey("poster_size")
+    val MENU_CLOCK = booleanPreferencesKey("menu_clock")
+    val CLOCK_24H = booleanPreferencesKey("clock_24h")
+    val FOCUS_GLOW = booleanPreferencesKey("focus_glow")
 }
 
 private inline fun <reified E : Enum<E>> enumOr(value: String?, default: E): E =
@@ -187,6 +235,30 @@ fun Preferences.toSettings(): AppSettings {
         lastUpdateCheck = this[Keys.LAST_UPDATE_CHECK] ?: d.lastUpdateCheck,
         motionJson = this[Keys.MOTION] ?: d.motionJson,
         motionProfilesJson = this[Keys.MOTION_PROFILES] ?: d.motionProfilesJson,
+        liveReconnect = this[Keys.LIVE_RECONNECT] ?: d.liveReconnect,
+        stallTimeoutSec = this[Keys.STALL_TIMEOUT] ?: d.stallTimeoutSec,
+        ignoreAudioFocus = this[Keys.IGNORE_FOCUS] ?: d.ignoreAudioFocus,
+        volumeBoostDb = this[Keys.VOL_BOOST] ?: d.volumeBoostDb,
+        sleepTimerMin = this[Keys.SLEEP_TIMER] ?: d.sleepTimerMin,
+        osdSeconds = this[Keys.OSD_SECONDS] ?: d.osdSeconds,
+        invertChannelKeys = this[Keys.INVERT_ZAP] ?: d.invertChannelKeys,
+        playerClock = this[Keys.PLAYER_CLOCK] ?: d.playerClock,
+        defaultAspect = this[Keys.DEFAULT_ASPECT] ?: d.defaultAspect,
+        numberZap = this[Keys.NUMBER_ZAP] ?: d.numberZap,
+        zapBanner = this[Keys.ZAP_BANNER] ?: d.zapBanner,
+        uiScale = this[Keys.UI_SCALE] ?: d.uiScale,
+        cornerStyle = this[Keys.CORNER_STYLE] ?: d.cornerStyle,
+        focusZoom = this[Keys.FOCUS_ZOOM] ?: d.focusZoom,
+        fontStyle = this[Keys.FONT_STYLE] ?: d.fontStyle,
+        bgDim = this[Keys.BG_DIM] ?: d.bgDim,
+        channelDensity = this[Keys.CHANNEL_DENSITY] ?: d.channelDensity,
+        showChannelNumbers = this[Keys.SHOW_NUMBERS] ?: d.showChannelNumbers,
+        showChannelLogos = this[Keys.SHOW_LOGOS] ?: d.showChannelLogos,
+        showChannelEpg = this[Keys.SHOW_CH_EPG] ?: d.showChannelEpg,
+        posterSize = this[Keys.POSTER_SIZE] ?: d.posterSize,
+        menuClock = this[Keys.MENU_CLOCK] ?: d.menuClock,
+        clock24h = this[Keys.CLOCK_24H] ?: d.clock24h,
+        focusGlow = this[Keys.FOCUS_GLOW] ?: d.focusGlow,
     )
 }
 
@@ -240,5 +312,6 @@ class SettingsRepository @Inject constructor(@ApplicationContext context: Contex
         it.remove(Keys.THEME); it.remove(Keys.ACCENT); it.remove(Keys.CUSTOM_BG); it.remove(Keys.ANIM_AUTO)
         it.remove(Keys.ANIM_PROFILE); it.remove(Keys.REDUCE_MOTION); it.remove(Keys.BG_ANIM)
         it.remove(Keys.ANIM_INTENSITY); it.remove(Keys.PARTICLE_INTENSITY); it.remove(Keys.THEME_SOUNDS)
+        listOf(Keys.UI_SCALE, Keys.CORNER_STYLE, Keys.FOCUS_ZOOM, Keys.FONT_STYLE, Keys.BG_DIM, Keys.CHANNEL_DENSITY, Keys.POSTER_SIZE, Keys.FOCUS_GLOW).forEach { k -> it.remove(k) }
     }
 }

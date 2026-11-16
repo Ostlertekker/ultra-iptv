@@ -116,6 +116,7 @@ fun ThemeBackground(theme: ResolvedTheme, modifier: Modifier = Modifier, animate
         Canvas(Modifier.fillMaxSize()) {
             val t = clock.value * (0.4f + 0.6f * anim.intensity)
             drawThemeEffect(theme.spec.effect, theme.palette, field, t, anim, paint)
+            if (theme.bgDim > 0f) drawRect(Color.Black.copy(alpha = theme.bgDim))
         }
         if (customImage.isNotBlank()) {
             AsyncImage(model = customImage, contentDescription = null, contentScale = ContentScale.Crop,
@@ -137,6 +138,14 @@ fun DrawScope.drawThemeEffect(effect: BackgroundEffect, p: UltraPalette, f: Part
         BackgroundEffect.SPACE -> drawSpace(p, f, t, a)
         BackgroundEffect.DIAMOND -> drawDiamond(p, f, t, a)
         BackgroundEffect.INFERNO -> drawInferno(p, f, t, a)
+        BackgroundEffect.SYNTHWAVE -> drawSynthwave(p, f, t, a)
+        BackgroundEffect.SNOW -> drawSnow(p, f, t, a)
+        BackgroundEffect.BOKEH -> drawBokeh(p, f, t, a)
+        BackgroundEffect.HEX -> drawHex(p, t, a)
+        BackgroundEffect.LAVA -> drawLava(p, t, a)
+        BackgroundEffect.RAIN -> drawRain(p, f, t, a)
+        BackgroundEffect.EQUALIZER -> drawEqualizer(p, f, t, a)
+        BackgroundEffect.CHROME -> drawChrome(p, f, t, a)
     }
     // Leichte Vignette für Lesbarkeit
     drawRect(Brush.radialGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.45f)),
@@ -383,5 +392,174 @@ private fun DrawScope.drawInferno(p: UltraPalette, f: ParticleField, t: Float, a
         val c = if (f.size[i] > 0.6f) p.particle2 else p.particle
         drawCircle(c.copy(alpha = 0.75f * fade), 1f + f.size[i] * 2.4f, Offset(x, y))
         drawCircle(c.copy(alpha = 0.12f * fade), 5f + f.size[i] * 6f, Offset(x, y))
+    }
+}
+
+
+// ------------------------------------------------------------------ Neue Hintergründe
+
+private fun DrawScope.drawSynthwave(p: UltraPalette, f: ParticleField, t: Float, a: AnimationConfig) {
+    val w = size.width; val h = size.height
+    val horizon = h * 0.58f
+    // Sterne im oberen Himmel
+    for (i in 0 until f.count) {
+        val tw = 0.5f + 0.5f * sin(t * (0.6f + f.speed[i]) + f.phase[i])
+        drawCircle(p.particle.copy(alpha = 0.15f + 0.5f * tw * f.size[i]), 0.6f + f.size[i] * 1.2f, Offset(f.x[i] * w, f.y[i] * horizon * 0.9f))
+    }
+    // Retro-Sonne mit Streifen
+    val sun = Offset(w * 0.5f, horizon - h * 0.02f)
+    val r = h * 0.24f
+    drawCircle(Brush.radialGradient(listOf(p.primary.copy(alpha = 0.35f * a.intensity), Color.Transparent), sun, r * 2.2f), r * 2.2f, sun)
+    drawCircle(Brush.verticalGradient(listOf(p.particle2, p.primary), startY = sun.y - r, endY = sun.y + r), r, sun)
+    for (i in 0 until 6) {
+        val y = sun.y + r * (0.15f + i * 0.15f)
+        drawRect(p.bgBottom, Offset(sun.x - r, y), Size(r * 2, r * (0.025f + i * 0.012f)))
+    }
+    drawRect(p.bgBottom, Offset(0f, horizon), Size(w, h - horizon))
+    // Perspektivisches Raster, läuft auf den Betrachter zu
+    val grid = p.secondary.copy(alpha = 0.55f)
+    val lines = 22
+    for (i in 0..lines) {
+        val x = (i / lines.toFloat()) * w
+        drawLine(grid, Offset(w * 0.5f + (x - w * 0.5f) * 0.08f, horizon), Offset(w * 0.5f + (x - w * 0.5f) * 2.4f, h), 1.4f)
+    }
+    val off = fract(t * 0.25f)
+    for (j in 0 until 12) {
+        val z = (j + off) / 12f
+        val y = horizon + (h - horizon) * z * z
+        drawLine(grid.copy(alpha = 0.15f + 0.5f * z), Offset(0f, y), Offset(w, y), 1.4f)
+    }
+    drawLine(Brush.horizontalGradient(listOf(Color.Transparent, p.primary, Color.Transparent)), Offset(0f, horizon), Offset(w, horizon), 2.5f)
+}
+
+private fun DrawScope.drawSnow(p: UltraPalette, f: ParticleField, t: Float, a: AnimationConfig) {
+    val w = size.width; val h = size.height
+    drawNebula(listOf(p.primary, p.secondary, p.glow, p.particle2), t * 0.5f, 0.5f * a.intensity)
+    for (i in 0 until f.count) {
+        val depth = f.size[i]
+        val y = fract(f.y[i] + t * 0.03f * (0.4f + depth)) * h
+        val x = fract(f.x[i] + sin(t * 0.4f + f.phase[i]) * 0.01f) * w
+        val c = if (i % 5 == 0) p.particle2 else p.particle
+        drawCircle(c.copy(alpha = 0.25f + 0.6f * depth), 1f + depth * 3.2f, Offset(x, y))
+    }
+}
+
+private fun DrawScope.drawBokeh(p: UltraPalette, f: ParticleField, t: Float, a: AnimationConfig) {
+    val w = size.width; val h = size.height
+    val cols = listOf(p.primary, p.secondary, p.particle, p.particle2)
+    for (i in 0 until f.count) {
+        val r = w * (0.02f + f.size[i] * 0.06f)
+        val x = fract(f.x[i] + t * 0.006f * (0.3f + f.speed[i])) * (w + r * 2) - r
+        val y = f.y[i] * h + sin(t * 0.2f + f.phase[i]) * h * 0.02f
+        val pulse = 0.5f + 0.5f * sin(t * 0.5f + f.phase[i])
+        val c = cols[i % cols.size]
+        val center = Offset(x, y)
+        drawCircle(Brush.radialGradient(listOf(c.copy(alpha = (0.10f + 0.16f * pulse) * a.intensity), c.copy(alpha = 0.04f), Color.Transparent), center, r), r, center)
+    }
+}
+
+private fun DrawScope.drawHex(p: UltraPalette, t: Float, a: AnimationConfig) {
+    val w = size.width; val h = size.height
+    val r = if (a.profile == AnimationProfile.ECONOMY) 72f else 50f
+    val dx = r * 1.732f; val dy = r * 1.5f
+    val path = Path()
+    var row = 0
+    var y = 0f
+    val wave = t * 0.8f
+    while (y < h + r) {
+        var x = if (row % 2 == 0) 0f else dx / 2
+        while (x < w + r) {
+            val d = kotlin.math.sqrt(((x - w * 0.5f) * (x - w * 0.5f) + (y - h * 0.5f) * (y - h * 0.5f)).toDouble()).toFloat()
+            val glow = (0.5f + 0.5f * sin(d * 0.012f - wave)).let { it * it * it }
+            path.reset()
+            for (k in 0 until 6) {
+                val ang = (60f * k - 30f) * (PI.toFloat() / 180f)
+                val px = x + cos(ang) * (r - 3); val py = y + sin(ang) * (r - 3)
+                if (k == 0) path.moveTo(px, py) else path.lineTo(px, py)
+            }
+            path.close()
+            drawPath(path, p.primary.copy(alpha = (0.05f + 0.45f * glow) * a.intensity), style = Stroke(1.6f))
+            if (glow > 0.7f) drawPath(path, p.glow.copy(alpha = 0.06f * glow))
+            x += dx
+        }
+        y += dy; row++
+    }
+}
+
+private fun DrawScope.drawLava(p: UltraPalette, t: Float, a: AnimationConfig) {
+    val w = size.width; val h = size.height
+    val cols = listOf(p.primary, p.secondary, p.particle2, p.glow, p.particle)
+    for (i in 0 until 7) {
+        val cx = w * (0.15f + 0.7f * (0.5f + 0.5f * sin(t * (0.05f + i * 0.013f) + i * 1.7f)))
+        val cy = h * (0.5f + 0.45f * sin(t * (0.07f + i * 0.011f) + i * 2.3f))
+        val r = w * (0.12f + 0.05f * sin(t * 0.2f + i))
+        val c = cols[i % cols.size]
+        drawCircle(Brush.radialGradient(listOf(c.copy(alpha = 0.55f * a.intensity), c.copy(alpha = 0.18f), Color.Transparent), Offset(cx, cy), r), r, Offset(cx, cy))
+    }
+}
+
+private fun DrawScope.drawRain(p: UltraPalette, f: ParticleField, t: Float, a: AnimationConfig) {
+    val w = size.width; val h = size.height
+    drawNebula(listOf(p.primary, p.secondary, p.glow, p.particle2), t * 0.4f, 0.45f * a.intensity)
+    for (i in 0 until f.count) {
+        val depth = f.size[i]
+        val len = 18f + depth * 38f
+        val y = fract(f.y[i] + t * (0.35f + depth * 0.6f)) * (h + len) - len
+        val x = f.x[i] * w + y * 0.12f
+        val c = if (i % 3 == 0) p.particle2 else p.particle
+        drawLine(c.copy(alpha = 0.18f + 0.45f * depth), Offset(x, y), Offset(x + len * 0.12f, y + len), 1f + depth * 1.3f, cap = StrokeCap.Round)
+    }
+    // Pfützen-Reflex am Boden
+    drawRect(Brush.verticalGradient(listOf(Color.Transparent, p.primary.copy(alpha = 0.12f * a.intensity)), startY = h * 0.8f, endY = h), Offset(0f, h * 0.8f), Size(w, h * 0.2f))
+}
+
+private fun DrawScope.drawEqualizer(p: UltraPalette, f: ParticleField, t: Float, a: AnimationConfig) {
+    val w = size.width; val h = size.height
+    val bars = 48
+    val bw = w / bars
+    val beat = (0.5f + 0.5f * sin(t * 6.3f)).let { it * it } // ruhiger "Kick" – kein Stroboskop
+    drawCircle(Brush.radialGradient(listOf(p.primary.copy(alpha = (0.10f + 0.12f * beat) * a.intensity), Color.Transparent), Offset(w / 2, h), w * 0.7f), w * 0.7f, Offset(w / 2, h))
+    for (i in 0 until bars) {
+        val n = 0.35f + 0.35f * sin(t * (1.3f + hash01(i, 3) * 2.2f) + i * 0.7f) + 0.3f * sin(t * (2.9f + hash01(i, 5)) + i * 0.31f)
+        val bh = h * (0.06f + 0.38f * n.coerceIn(0f, 1f) * (0.6f + 0.4f * beat))
+        val x = i * bw
+        drawRect(Brush.verticalGradient(listOf(p.secondary.copy(alpha = 0.55f), p.primary.copy(alpha = 0.85f)), startY = h - bh, endY = h),
+            Offset(x + bw * 0.15f, h - bh), Size(bw * 0.7f, bh))
+        drawRect(p.secondary.copy(alpha = 0.8f), Offset(x + bw * 0.15f, h - bh - 6f), Size(bw * 0.7f, 3f))
+    }
+    for (i in 0 until f.count) {
+        val y = fract(f.y[i] - t * 0.05f * (0.3f + f.speed[i])) * h * 0.7f
+        drawCircle(p.particle.copy(alpha = 0.2f + 0.4f * f.size[i]), 0.8f + f.size[i] * 1.8f, Offset(f.x[i] * w, y))
+    }
+}
+
+private fun DrawScope.drawChrome(p: UltraPalette, f: ParticleField, t: Float, a: AnimationConfig) {
+    val w = size.width; val h = size.height
+    // Metallische Bänder, langsam diagonal wandernd
+    for (i in 0 until 5) {
+        val off = fract(t * 0.03f + i * 0.21f) * (w + h) * 1.4f - h
+        val bandW = w * (0.12f + 0.06f * i)
+        drawRect(
+            Brush.linearGradient(
+                listOf(Color.Transparent, p.primary.copy(alpha = 0.10f * a.intensity), Color.White.copy(alpha = 0.22f * a.intensity), p.secondary.copy(alpha = 0.10f * a.intensity), Color.Transparent),
+                start = Offset(off, 0f), end = Offset(off + bandW, bandW * 0.6f),
+            ),
+        )
+    }
+    // Ölfilm-Schimmer: regenbogenartige, weiche Flecken
+    val oil = listOf(p.secondary, p.particle2, p.primary, p.glow)
+    for (i in 0 until 4) {
+        val cx = w * (0.2f + 0.6f * (0.5f + 0.5f * sin(t * 0.06f + i * 1.9f)))
+        val cy = h * (0.3f + 0.5f * (0.5f + 0.5f * cos(t * 0.05f + i * 2.4f)))
+        val r = w * 0.22f
+        drawCircle(Brush.radialGradient(listOf(oil[i].copy(alpha = 0.14f * a.intensity), Color.Transparent), Offset(cx, cy), r), r, Offset(cx, cy))
+    }
+    for (i in 0 until f.count) {
+        val tw = (0.5f + 0.5f * sin(t * (1f + f.speed[i] * 2f) + f.phase[i])).let { it * it * it * it }
+        if (tw < 0.2f) continue
+        val c = Offset(f.x[i] * w, f.y[i] * h)
+        val l = 4f + 10f * tw
+        drawLine(Color.White.copy(alpha = tw * 0.8f), Offset(c.x - l, c.y), Offset(c.x + l, c.y), 1.2f)
+        drawLine(Color.White.copy(alpha = tw * 0.8f), Offset(c.x, c.y - l), Offset(c.x, c.y + l), 1.2f)
     }
 }

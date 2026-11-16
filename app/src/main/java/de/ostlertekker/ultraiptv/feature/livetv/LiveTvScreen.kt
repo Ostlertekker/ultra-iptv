@@ -170,7 +170,7 @@ class LiveTvViewModel @Inject constructor(
             delay(350)
             val url = runCatching { resolver.resolve(ch.streamUrl, s.liveFormat) }.getOrNull() ?: return@launch
             previewError.value = null
-            engine.play(url, 0, s.bufferProfile, who = "preview")
+            engine.play(url, 0, s.bufferProfile, who = "preview", isLive = true)
             previewing.value = ch.id
         }
     }
@@ -449,21 +449,26 @@ private fun ChannelItem(
     val p = theme.palette
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(theme.spec.corner.coerceAtMost(14.dp))
+    val prefs = de.ostlertekker.ultraiptv.core.design.LocalUiPrefs.current
+    val vPad = when (prefs.density) { 0 -> 4.dp; 2 -> 13.dp; else -> 8.dp }
+    val nameSize = when (prefs.density) { 0 -> 14.sp; 2 -> 19.sp; else -> 16.sp }
     Row(
         Modifier.fillMaxWidth()
             .tvFocusable(shape, onClick, onLongClick, focusRequester = focusRequester, scaleOnFocus = false, onFocus = { focused = it; if (it) onFocus() })
             .background(if (focused) p.surfaceFocused else p.surface, shape)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 12.dp, vertical = vPad),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(if (ch.number > 0) ch.number.toString() else "", color = p.textDim, fontSize = 13.sp, modifier = Modifier.width(30.dp), maxLines = 1)
-        Box(Modifier.size(52.dp, 34.dp), contentAlignment = Alignment.Center) {
-            if (ch.logo != null) AsyncImage(ch.logo, null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+        if (prefs.showNumbers) Text(if (ch.number > 0) ch.number.toString() else "", color = p.textDim, fontSize = 13.sp, modifier = Modifier.width(30.dp), maxLines = 1)
+        if (prefs.showLogos) {
+            Box(Modifier.size(if (prefs.density == 0) 40.dp else if (prefs.density == 2) 64.dp else 52.dp, if (prefs.density == 0) 26.dp else if (prefs.density == 2) 42.dp else 34.dp), contentAlignment = Alignment.Center) {
+                if (ch.logo != null) AsyncImage(ch.logo, null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+            }
+            Spacer(Modifier.width(12.dp))
         }
-        Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(ch.name, color = p.text, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (now != null) Text("${formatTime(now.startMs)}  ${now.title}", color = p.textDim, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(ch.name, color = p.text, fontSize = nameSize, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (now != null && prefs.showChannelEpg) Text("${formatTime(now.startMs)}  ${now.title}", color = p.textDim, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         if (health != null) Box(Modifier.padding(horizontal = 6.dp).size(9.dp).background(if (health.ok) Color(0xFF2EE59D) else Color(0xFFFF5252), CircleShape))
         val country = Countries.byCode(ch.country)

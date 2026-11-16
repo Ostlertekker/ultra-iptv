@@ -70,7 +70,16 @@ data class PlayerUi(
     val zapAt: Long = 0,
     val guest: Boolean = false,
     val qualityNote: String? = null,
+    /** Hinweis während automatischer Wiederverbindung. */
+    val notice: String? = null,
+    /** Zeitpunkt, an dem der Sleep-Timer endet (0 = aus). */
+    val sleepAt: Long = 0,
+    /** Eingegebene Sendernummer (Zifferntasten). */
+    val numberInput: String = "",
 )
+
+val aspectModes = listOf(AspectRatioFrameLayout.RESIZE_MODE_FIT, AspectRatioFrameLayout.RESIZE_MODE_FILL, AspectRatioFrameLayout.RESIZE_MODE_ZOOM, AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH)
+val aspectNames = listOf("Original (Einpassen)", "Strecken", "Zoom (Füllen)", "Volle Breite")
 
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
@@ -128,12 +137,17 @@ class PlayerViewModel @Inject constructor(
         engine.setMini(null)
         viewModelScope.launch {
             settings = settingsRepo.current()
+            _ui.update { it.copy(resizeMode = aspectModes.getOrElse(settings.defaultAspect) { aspectModes[0] }) }
+            if (settings.sleepTimerMin > 0) setSleep(settings.sleepTimerMin)
             loadAndPlay(startMs)
             started = true
             startTicker()
         }
         viewModelScope.launch {
             engine.error.collect { e -> _ui.update { it.copy(error = e) } }
+        }
+        viewModelScope.launch {
+            engine.notice.collect { n -> _ui.update { it.copy(notice = n) } }
         }
         viewModelScope.launch {
             engine.stats.collect { st -> if (settingsOrNull()?.matchFrameRate == true && st.sourceFps > 0) desiredFps.value = st.sourceFps }
@@ -176,8 +190,9 @@ class PlayerViewModel @Inject constructor(
     private fun fail(msg: String) { _ui.update { it.copy(error = msg, buffering = false) } }
 
     private fun play(raw: String, start: Long) {
+        currentStreamUrl = raw
         val url = try { resolver.resolve(raw, settings.liveFormat) } catch (e: Exception) { return fail(e.message ?: "Stream nicht verfügbar") }
-        engine.play(url, start, settings.bufferProfile)
+        engine.play(url, start, settings.bufferProfile, isLive = kind == ContentKind.LIVE)
         viewModelScope.launch { applyQuality() }
     }
 
@@ -390,17 +405,68 @@ class PlayerViewModel @Inject constructor(
 
     fun switchChannel(delta: Int) {
         if (kind != ContentKind.LIVE || channels.size < 2) return
+        previousIndex = channelIndex
         channelIndex = (channelIndex + delta).mod(channels.size)
         playChannel(channels[channelIndex])
     }
 
     fun channelList(): List<ChannelEntity> = channels
-    fun playChannelAt(index: Int) { if (index in channels.indices) { channelIndex = index; playChannel(channels[index]) } }
+
+    // ------------------------------------------------ Sleep-Timer
+    private var sleepJob: Job? = null
+    fun setSleep(minutes: Int) {
+        sleepJob?.cancel()
+        if (minutes <= 0) { _ui.update { it.copy(sleepAt = 0) }; return }
+        val at = System.currentTimeMillis() + minutes * 60_000L
+        _ui.update { it.copy(sleepAt = at) }
+        sleepJob = viewModelScope.launch {
+            delay(minutes * 60_000L)
+            engine.player?.pause()
+            saveProgress()
+            toast("Sleep-Timer: Wiedergabe beendet")
+            delay(1500)
+            _ui.update { it.copy(ended = true, sleepAt = 0) }
+        }
+    }
+    fun cycleSleep() {
+        val opts = listOf(0, 15, 30, 45, 60, 90, 120)
+        val cur = _ui.value.sleepAt
+        val left = if (cur > 0) ((cur - System.currentTimeMillis()) / 60_000L).toInt() else 0
+        val next = opts.firstOrNull { it > left + 1 } ?: 0
+        setSleep(next)
+        toast(if (next == 0) "Sleep-Timer aus" else "Sleep-Timer: $next min")
+    }
+
+    // ------------------------------------------------ Zifferntasten-Direktwahl
+    private var numberJob: Job? = null
+    fun typeDigit(d: Int) {
+        if (kind != ContentKind.LIVE) return
+        val txt = (_ui.value.numberInput + d).takeLast(4)
+        _ui.update { it.copy(numberInput = txt) }
+        numberJob?.cancel()
+        numberJob = viewModelScope.launch {
+            delay(1600)
+            val n = txt.toIntOrNull() ?: 0
+            _ui.update { it.copy(numberInput = "") }
+            val idx = channels.indexOfFirst { it.number == n }
+            if (idx >= 0) playChannelAt(idx)
+            else {
+                val ch = runCatching { content.channelByNumber(n) }.getOrNull()
+                if (ch != null) { channels = channels + ch; playChannelAt(channels.lastIndex) } else toast("Sender $n nicht gefunden")
+            }
+        }
+    }
+
+    /** Zuletzt gesehener Sender (Zurück-Taste im Live-TV / „Letzter Sender“). */
+    private var previousIndex = -1
+    fun lastChannel() { if (previousIndex in channels.indices && previousIndex != channelIndex) playChannelAt(previousIndex) }
+    fun playChannelAt(index: Int) { if (index in channels.indices) { previousIndex = channelIndex; channelIndex = index; playChannel(channels[index]) } }
 
     fun setResize(mode: Int) = _ui.update { it.copy(resizeMode = mode) }
     fun setSpeed(speed: Float) { engine.player?.setPlaybackSpeed(speed); _ui.update { it.copy(speed = speed) } }
     fun toggleStats() = _ui.update { it.copy(showStats = !it.showStats) }
-    fun retry() { engine.player?.let { it.prepare(); it.playWhenReady = true }; _ui.update { it.copy(error = null) } }
+    fun retry() { _ui.update { it.copy(error = null) }; play(currentStreamUrl ?: return, engine.player?.currentPosition ?: 0) }
+    private var currentStreamUrl: String? = null
 
     private fun toast(msg: String) {
         _ui.update { it.copy(toast = msg) }

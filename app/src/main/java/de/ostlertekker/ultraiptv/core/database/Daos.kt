@@ -42,6 +42,7 @@ interface ContentDao {
     suspend fun channelsAllOnce(showAdult: Boolean, limit: Int): List<ChannelEntity>
 
     @Query("SELECT * FROM channels WHERE id = :id") suspend fun channel(id: String): ChannelEntity?
+    @Query("SELECT * FROM channels WHERE number = :number AND (adult = 0 OR :showAdult = 1) ORDER BY name LIMIT 1") suspend fun channelByNumber(number: Int, showAdult: Boolean): ChannelEntity?
     @Query("SELECT * FROM channels WHERE id IN (:ids)") suspend fun channels(ids: List<String>): List<ChannelEntity>
     @Query("SELECT * FROM channels WHERE id IN (:ids)") fun channelsFlow(ids: List<String>): Flow<List<ChannelEntity>>
 

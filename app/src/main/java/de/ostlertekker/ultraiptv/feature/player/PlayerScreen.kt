@@ -115,7 +115,7 @@ fun PlayerScreen(
     }
 
     LaunchedEffect(overlay, interaction, panel) {
-        if (overlay && panel == null) { delay(5000); overlay = false }
+        if (overlay && panel == null) { delay(settings.osdSeconds.coerceIn(2, 30) * 1000L); overlay = false }
     }
     LaunchedEffect(overlay, panel, ui.countdown != null) {
         delay(60)
@@ -154,9 +154,16 @@ fun PlayerScreen(
                 if (ev.key == Key.MediaPlayPause || ev.key == Key.MediaPlay || ev.key == Key.MediaPause) {
                     if (down) vm.togglePlay(); return@onPreviewKeyEvent true
                 }
+                val zapDir = if (settings.invertChannelKeys) -1 else 1
                 if (ev.key == Key.ChannelUp || ev.key == Key.ChannelDown) {
-                    if (down) vm.switchChannel(if (ev.key == Key.ChannelUp) -1 else 1); return@onPreviewKeyEvent true
+                    if (down) vm.switchChannel((if (ev.key == Key.ChannelUp) -1 else 1) * zapDir); return@onPreviewKeyEvent true
                 }
+                // Zifferntasten: Sendernummer direkt eingeben
+                val digit = digitOf(ev.key)
+                if (isLive && settings.numberZap && digit != null && panel == null) {
+                    if (down) vm.typeDigit(digit); return@onPreviewKeyEvent true
+                }
+                if (isLive && ev.key == Key.MediaPrevious) { if (down) vm.lastChannel(); return@onPreviewKeyEvent true }
                 if (ev.key == Key.MediaFastForward || ev.key == Key.MediaRewind) {
                     if (down) { val d = if (ev.key == Key.MediaFastForward) 30_000L else -10_000L; vm.seekBy(d); seekHint = if (d > 0) "+30 s" else "−10 s" }
                     return@onPreviewKeyEvent true
@@ -168,8 +175,8 @@ fun PlayerScreen(
                     Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> if (ui.skipOffer != null) vm.acceptSkip() else overlay = true
                     Key.DirectionLeft -> if (isLive) overlay = true else { vm.seekBy(-10_000); seekHint = "−10 s" }
                     Key.DirectionRight -> if (isLive) overlay = true else { vm.seekBy(10_000); seekHint = "+10 s" }
-                    Key.DirectionUp -> if (isLive) vm.switchChannel(-1) else overlay = true
-                    Key.DirectionDown -> if (isLive) vm.switchChannel(1) else overlay = true
+                    Key.DirectionUp -> if (isLive) vm.switchChannel(-1 * zapDir) else overlay = true
+                    Key.DirectionDown -> if (isLive) vm.switchChannel(1 * zapDir) else overlay = true
                     Key.Menu -> { overlay = true; panel = if (isLive) Panel.CHANNELS else Panel.AUDIO }
                     else -> overlay = true
                 }
@@ -206,6 +213,23 @@ fun PlayerScreen(
 
         if (ui.buffering && ui.error == null) UltraLoader(Modifier.align(Alignment.Center))
 
+        // Automatische Wiederverbindung: kleiner Hinweis statt Fehlerdialog – der Sender läuft von selbst weiter
+        ui.notice?.let { n ->
+            if (ui.error == null && !inPip) Text("⟳ $n", color = Color.White, fontSize = 14.sp,
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 70.dp)
+                    .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(20.dp)).padding(horizontal = 16.dp, vertical = 7.dp))
+        }
+        // Eingegebene Sendernummer
+        if (ui.numberInput.isNotEmpty() && !inPip) {
+            Text(ui.numberInput, color = Color.White, fontSize = 54.sp, fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.align(Alignment.TopEnd).padding(40.dp).background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(14.dp))
+                    .padding(horizontal = 24.dp, vertical = 8.dp))
+        }
+        // Uhr im Player
+        if (settings.playerClock && !inPip && overlay) {
+            PlayerClock(settings.clock24h, Modifier.align(Alignment.TopCenter).padding(top = 36.dp))
+        }
+
         ui.error?.let { err ->
             Column(Modifier.align(Alignment.Center).background(Color.Black.copy(alpha = 0.8f), RoundedCornerShape(16.dp)).padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally) {
@@ -240,7 +264,7 @@ fun PlayerScreen(
         // Info-Banner beim Senderwechsel (Name, Nummer, laufende Sendung)
         var bannerVisible by remember { mutableStateOf(false) }
         LaunchedEffect(ui.zapAt) {
-            if (ui.zapAt > 0) { bannerVisible = true; delay(4000); bannerVisible = false }
+            if (ui.zapAt > 0 && settings.zapBanner) { bannerVisible = true; delay(settings.osdSeconds.coerceIn(2, 30) * 800L); bannerVisible = false }
         }
         if (bannerVisible && !overlay && !inPip && isLive) {
             Column(Modifier.align(Alignment.BottomStart).padding(36.dp).width(560.dp)
@@ -307,6 +331,7 @@ fun PlayerScreen(
                             item { TvButton("Kanal ▲", onClick = { vm.switchChannel(-1) }) }
                             item { TvButton("Kanal ▼", onClick = { vm.switchChannel(1) }) }
                             item { TvButton("Senderliste", onClick = { panel = Panel.CHANNELS }) }
+                            item { TvButton("↺ Letzter Sender", onClick = { vm.lastChannel() }) }
                         }
                         item { TvButton("Audio", onClick = { panel = Panel.AUDIO }) }
                         item { TvButton("Untertitel", onClick = { panel = Panel.SUBTITLES }) }
@@ -315,6 +340,10 @@ fun PlayerScreen(
                         if (ui.kind == ContentKind.EPISODE) {
                             item { TvButton("Smart Skip", onClick = { panel = Panel.SMART_SKIP }) }
                             if (ui.hasNext) item { TvButton("Nächste Folge ▶▶", onClick = { vm.playNext() }) }
+                        }
+                        item {
+                            val left = if (ui.sleepAt > 0) ((ui.sleepAt - System.currentTimeMillis()) / 60_000L + 1).coerceAtLeast(1) else 0
+                            TvButton(if (left > 0) "☾ Sleep $left min" else "☾ Sleep-Timer", onClick = { vm.cycleSleep() })
                         }
                         item { TvButton(if (ui.showStats) "Statistik aus" else "Statistik", onClick = { vm.toggleStats() }) }
                         item { TvButton("Mini-Player", onClick = onMini) }
@@ -445,4 +474,18 @@ private fun StatsOverlay(st: de.ostlertekker.ultraiptv.core.player.PlaybackStats
     Column(modifier.background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(10.dp)).padding(14.dp)) {
         lines.forEach { Text(it, color = Color(0xFF9CFFB0), fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
     }
+}
+
+
+private fun digitOf(k: Key): Int? = when (k) {
+    Key.Zero, Key.NumPad0 -> 0; Key.One, Key.NumPad1 -> 1; Key.Two, Key.NumPad2 -> 2; Key.Three, Key.NumPad3 -> 3
+    Key.Four, Key.NumPad4 -> 4; Key.Five, Key.NumPad5 -> 5; Key.Six, Key.NumPad6 -> 6; Key.Seven, Key.NumPad7 -> 7
+    Key.Eight, Key.NumPad8 -> 8; Key.Nine, Key.NumPad9 -> 9; else -> null
+}
+
+@Composable
+private fun PlayerClock(h24: Boolean, modifier: Modifier) {
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) { while (true) { now = System.currentTimeMillis(); delay(15_000) } }
+    Text(de.ostlertekker.ultraiptv.core.ui.formatClock(now, h24), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = modifier)
 }

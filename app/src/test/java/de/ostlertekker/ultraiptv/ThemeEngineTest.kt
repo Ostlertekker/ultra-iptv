@@ -12,11 +12,18 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ThemeEngineTest {
-    @Test fun tenUniqueThemes() {
+    @Test fun allThemesUniqueAndEveryEffectUsed() {
         val all = ThemeRegistry.all()
-        assertEquals(10, all.size)
-        assertEquals(10, all.map { it.id }.toSet().size)
-        assertEquals(10, all.map { it.effect }.toSet().size)
+        assertEquals(35, all.size)
+        assertEquals(all.size, all.map { it.id }.toSet().size)
+        assertEquals(de.ostlertekker.ultraiptv.core.design.BackgroundEffect.entries.toSet(), all.map { it.effect }.toSet())
+    }
+
+    @Test fun designOverridesApply() {
+        val r = ThemeEngine.resolve(AppSettings(cornerStyle = 1, focusZoom = 1, bgDim = 2), DeviceTier.PREMIUM)
+        assertEquals(0f, r.spec.corner.value)
+        assertEquals(1f, r.spec.focusScale)
+        assertEquals(0.4f, r.bgDim)
     }
 
     @Test fun unknownIdFallsBackToGalaxy() {

@@ -126,7 +126,7 @@ fun MoviesScreen(nav: NavController, vm: MoviesViewModel = hiltViewModel()) {
         Spacer(Modifier.height(12.dp))
         if (movies.isEmpty()) Text("Keine Filme gefunden.", color = p.textDim)
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(160.dp), state = grid,
+            columns = GridCells.Adaptive(de.ostlertekker.ultraiptv.core.design.LocalUiPrefs.current.posterWidth), state = grid,
             horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(18.dp),
             contentPadding = PaddingValues(top = 8.dp, bottom = 60.dp, start = 8.dp, end = 8.dp),
         ) {

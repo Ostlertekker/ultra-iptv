@@ -144,6 +144,7 @@ class ContentRepository @Inject constructor(
     suspend fun channelsInOnce(category: String): List<ChannelEntity> = dao.channelsInOnce(category, adult.first())
     suspend fun channelsAllOnce(limit: Int): List<ChannelEntity> = dao.channelsAllOnce(adult.first(), limit)
     suspend fun channel(id: String) = dao.channel(id)
+    suspend fun channelByNumber(n: Int): ChannelEntity? = dao.channelByNumber(n, adult.first())
     suspend fun channelsNamed(q: String): List<ChannelEntity> = dao.searchChannels(q, adult.first(), 80)
     fun channelsByIds(ids: List<String>): Flow<List<ChannelEntity>> =
         if (ids.isEmpty()) flowOf(emptyList()) else dao.channelsFlow(ids.take(500)).map { list ->
