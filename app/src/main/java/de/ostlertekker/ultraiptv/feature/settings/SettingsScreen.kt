@@ -83,27 +83,27 @@ import java.text.DateFormat
 import java.util.Date
 import javax.inject.Inject
 
-/** Die zwölf Einstellungs-Kategorien laut Designkonzept; jede bündelt passende Bereiche. */
+/** Einstellungs-Kategorien nach dem Vorbild von TiviMate (plus eigener Punkt für App-Updates). */
 enum class SettingsCategory(val label: String, val sections: List<SettingsSection>) {
-    GENERAL("Allgemein", listOf(SettingsSection.GENERAL, SettingsSection.NOTIFICATIONS, SettingsSection.INTRO)),
-    APPEARANCE("Erscheinungsbild", listOf(SettingsSection.APPEARANCE, SettingsSection.LAYOUT)),
-    PLAYER("Player", listOf(SettingsSection.PLAYER_CONTROLS, SettingsSection.QUALITY, SettingsSection.AUDIO)),
-    PLAYBACK("Wiedergabe", listOf(SettingsSection.PLAYBACK, SettingsSection.LIVE_STABILITY, SettingsSection.SMART_SKIP)),
+    PLAYLISTS("Playlists", listOf(SettingsSection.GENERAL, SettingsSection.ACCOUNTS, SettingsSection.ANALYSIS)),
     EPG("EPG", listOf(SettingsSection.EPG)),
-    PLAYLISTS("Playlists", listOf(SettingsSection.ACCOUNTS)),
-    PROFILES("Benutzerprofile", listOf(SettingsSection.PROFILES)),
+    APPEARANCE("Erscheinungsbild", listOf(SettingsSection.APPEARANCE, SettingsSection.LAYOUT)),
+    PLAYBACK("Wiedergabe", listOf(SettingsSection.PLAYBACK, SettingsSection.LIVE_STABILITY, SettingsSection.QUALITY, SettingsSection.AUDIO,
+        SettingsSection.LANGUAGE, SettingsSection.SMART_SKIP)),
+    REMOTE("Fernbedienung", listOf(SettingsSection.PLAYER_CONTROLS)),
     PARENTAL("Kindersicherung", listOf(SettingsSection.PARENTAL)),
-    LANGUAGE("Sprache", listOf(SettingsSection.LANGUAGE)),
-    SYNC("Synchronisation", listOf(SettingsSection.BACKUP)),
-    PREMIUM("Premium", listOf(SettingsSection.ANALYSIS, SettingsSection.NETWORK)),
-    ABOUT("Über die App", listOf(SettingsSection.ABOUT, SettingsSection.UPDATES, SettingsSection.DIAGNOSTICS)),
+    REMINDERS("Erinnerungen", listOf(SettingsSection.NOTIFICATIONS)),
+    BACKUP("Datensicherung", listOf(SettingsSection.BACKUP)),
+    GENERAL("Allgemein", listOf(SettingsSection.PROFILES, SettingsSection.INTRO, SettingsSection.NETWORK)),
+    UPDATES("App-Updates", listOf(SettingsSection.UPDATES)),
+    ABOUT("Über", listOf(SettingsSection.ABOUT, SettingsSection.DIAGNOSTICS)),
 }
 
 enum class SettingsSection(val label: String) {
-    GENERAL("Allgemein"), ACCOUNTS("Konten (mehrere Zugänge)"), UPDATES("App-Updates"), NOTIFICATIONS("Benachrichtigungen"), APPEARANCE("Darstellung"), LAYOUT("Aufbau & Listen"), THEMES("Themes"), INTRO("Intro"),
-    AUDIO("Audio"), PLAYBACK("Wiedergabe"), LIVE_STABILITY("Live-Stabilität"), PLAYER_CONTROLS("Player & Fernbedienung"), QUALITY("Bildqualität"), SMART_SKIP("Intro überspringen"),
+    GENERAL("Quelle & Synchronisation"), ACCOUNTS("Weitere Playlists / Konten"), UPDATES("App-Updates"), NOTIFICATIONS("Erinnerungen & Hinweise"), APPEARANCE("Darstellung"), LAYOUT("Aufbau & Listen"), THEMES("Themes"), INTRO("Intro"),
+    AUDIO("Ton & Audio-Ausgabe"), PLAYBACK("Stream & Puffer"), LIVE_STABILITY("Live-Stabilität"), PLAYER_CONTROLS("Tasten & Player-Anzeige"), QUALITY("Bildqualität"), SMART_SKIP("Intro überspringen"),
     EPG("EPG"), PROFILES("Profile"), PARENTAL("Jugendschutz"), NETWORK("Netzwerk & Speedtest"), ANALYSIS("Stream-Doktor (Sender-Analyse)"),
-    BACKUP("Sicherung & Abgleich"), DIAGNOSTICS("Diagnose"), ABOUT("Über"), LANGUAGE("Sprache"),
+    BACKUP("Sicherung & Wiederherstellung"), DIAGNOSTICS("Diagnose"), ABOUT("Über"), LANGUAGE("Sprache"),
 }
 
 @HiltViewModel
@@ -172,7 +172,7 @@ private fun <T> cycle(list: List<T>, current: T): T = list[(list.indexOf(current
 fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), x: SettingsExtrasViewModel = hiltViewModel()) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
-    var category by remember { mutableStateOf(SettingsCategory.GENERAL) }
+    var category by remember { mutableStateOf(SettingsCategory.PLAYLISTS) }
     var themesOpen by remember { mutableStateOf(false) }
     val s by vm.settings.collectAsStateWithLifecycle()
 
