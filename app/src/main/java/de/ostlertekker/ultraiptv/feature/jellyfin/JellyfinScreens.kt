@@ -360,7 +360,8 @@ fun JellyfinMovieScreen(nav: NavController, vm: JellyfinItemViewModel = hiltView
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { if (error != null) Text("⚠ $error", color = p.textDim) else UltraLoader(label = "Lädt …") }
         return
     }
-    LaunchedEffect(m.id) { runCatching { playFocus.requestFocus() } }
+    // Ändert sich die Knopfreihe (z. B. nach „Gesehen“), bleibt der Fokus auf dem Abspielknopf statt verloren zu gehen
+    LaunchedEffect(m.id, m.played, m.positionMs > 30_000) { kotlinx.coroutines.delay(60); runCatching { playFocus.requestFocus() } }
     Box(Modifier.fillMaxSize()) {
         Backdrop(vm.repo.image(m, "Backdrop"))
         // Oben ausgerichtet und begrenzt: Knöpfe bleiben auch bei langen Beschreibungen sichtbar und erreichbar
