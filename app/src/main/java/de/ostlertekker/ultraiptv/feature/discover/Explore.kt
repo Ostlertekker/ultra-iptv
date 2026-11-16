@@ -192,7 +192,7 @@ fun ExploreHub(nav: NavController, vm: DiscoverViewModel = hiltViewModel()) {
             }
             is RemoteCommand.OpenSection -> nav.navigate(when (cmd.section) {
                 Section.FAVORITES -> Routes.FAVORITES; Section.SETTINGS -> Routes.SETTINGS; Section.MOVIES -> Routes.MOVIES
-                Section.SERIES -> Routes.SERIES; Section.GUIDE -> Routes.EPG; Section.WORLD -> Routes.WORLD; Section.SPORTS -> Routes.SPORTS
+                Section.SERIES -> Routes.SERIES; Section.GUIDE -> Routes.EPG; Section.WORLD -> Routes.LIVE; Section.SPORTS -> Routes.SPORTS
                 Section.STATS -> Routes.MYTV; Section.TIME_MACHINE -> Routes.timeMachine(0); Section.UNIVERSE -> Routes.UNIVERSE
                 Section.LIVE -> Routes.LIVE; Section.HOME -> Routes.HOME
             })

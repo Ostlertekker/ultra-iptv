@@ -58,7 +58,6 @@ import de.ostlertekker.ultraiptv.feature.series.SeriesDetailScreen
 import de.ostlertekker.ultraiptv.feature.series.SeriesScreen
 import de.ostlertekker.ultraiptv.feature.settings.ProviderSetupScreen
 import de.ostlertekker.ultraiptv.feature.settings.SettingsScreen
-import de.ostlertekker.ultraiptv.feature.world.WorldScreen
 import de.ostlertekker.ultraiptv.core.model.ContentKind
 import de.ostlertekker.ultraiptv.openPlayer
 import androidx.compose.ui.Alignment
@@ -150,7 +149,6 @@ private fun railRouteFor(route: String): String = when {
     route.startsWith("movie/") -> Routes.MOVIES
     route.startsWith("seriesDetail/") -> Routes.SERIES
     route.startsWith(Routes.EPG) -> Routes.LIVE
-    route.startsWith(Routes.WORLD) -> Routes.WORLD
     route.startsWith(Routes.SETUP) -> Routes.SETTINGS
     route.startsWith(Routes.SETUP_NEW) -> Routes.SETTINGS
     listOf(Routes.WHATSON, "radar", "timemachine", Routes.EVENTS, Routes.SPORTS, Routes.HOLO, Routes.UNIVERSE, "mood", Routes.MYTV, Routes.LISTS)
@@ -168,7 +166,7 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
     val railFocus = remember { FocusRequester() }
     val items = remember {
         listOf(
-            NavItem(Routes.HOME, "HOME"), NavItem(Routes.LIVE, "LIVE TV"), NavItem(Routes.EXPLORE, "EXPLORE"), NavItem(Routes.WORLD, "WORLD MAP"), NavItem(Routes.MOVIES, "MOVIES"),
+            NavItem(Routes.HOME, "HOME"), NavItem(Routes.LIVE, "LIVE TV"), NavItem(Routes.EXPLORE, "EXPLORE"), NavItem(Routes.MOVIES, "MOVIES"),
             NavItem(Routes.SERIES, "SERIES"), NavItem(Routes.FAVORITES, "FAVORITES"), NavItem(Routes.SEARCH, "SEARCH"),
             NavItem(Routes.SETTINGS, "SETTINGS"),
         )
@@ -218,7 +216,6 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
                     composable(Routes.FAVORITES) { FavoritesScreen(nav) }
                     composable(Routes.SEARCH) { SearchScreen(nav) }
                     composable(Routes.SETTINGS) { SettingsScreen(nav) }
-                    composable(Routes.WORLD) { WorldScreen() }
                     composable(Routes.EXPLORE) { de.ostlertekker.ultraiptv.feature.discover.ExploreHub(nav) }
                     composable(Routes.WHATSON) { de.ostlertekker.ultraiptv.feature.discover.WhatsOnScreen(nav) }
                     composable("radar?q={q}", arguments = listOf(navArgument("q") { type = NavType.StringType; defaultValue = "" })) { e ->

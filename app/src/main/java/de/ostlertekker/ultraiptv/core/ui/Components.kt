@@ -95,8 +95,10 @@ val LocalUiSounds = staticCompositionLocalOf<AudioExperienceEngine?> { null }
 @Composable
 fun UltraThemeHost(settings: AppSettings, tier: DeviceTier, sounds: AudioExperienceEngine?, content: @Composable () -> Unit) {
     val theme = remember(settings, tier) { ThemeEngine.resolve(settings, tier) }
-    val motion = remember(settings.motionJson, settings.reduceMotion, tier) {
-        de.ostlertekker.ultraiptv.core.motion.MotionSpec.resolve(
+    val motion = remember(settings.motionJson, settings.reduceMotion, tier, settings.perfMode) {
+        // Performance-Modus: keine Eingangs-/Seitenanimationen, keine Partikel – nur schneller Fokus-Zoom
+        if (settings.perfMode) de.ostlertekker.ultraiptv.core.motion.MotionSpec.OFF
+        else de.ostlertekker.ultraiptv.core.motion.MotionSpec.resolve(
             de.ostlertekker.ultraiptv.core.motion.MotionConfig.fromJson(settings.motionJson),
             weakHardware = tier == DeviceTier.ENTRY, systemReduceMotion = settings.reduceMotion,
         )
@@ -117,6 +119,7 @@ fun UltraThemeHost(settings: AppSettings, tier: DeviceTier, sounds: AudioExperie
     CompositionLocalProvider(LocalUltraTheme provides theme, LocalUiSounds provides sounds,
         de.ostlertekker.ultraiptv.core.motion.LocalMotion provides motion,
         de.ostlertekker.ultraiptv.core.design.LocalUiPrefs provides prefs,
+        LocalPerfMode provides settings.perfMode,
         androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(baseDensity.density * scale, baseDensity.fontScale)) {
         MaterialTheme(colorScheme = scheme) { content() }
     }
@@ -142,6 +145,17 @@ fun SectionHeader(text: String, modifier: Modifier = Modifier) {
 /** Gemeinsame Fokus-Logik: Skalierung, Leuchtrand und Fokus-Klang. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
+/** true = Performance-Modus (schlanke Darstellung, keine Dauer-Animationen). */
+val LocalPerfMode = androidx.compose.runtime.staticCompositionLocalOf { true }
+
+@Composable
+private fun Modifier.lightFocus(focused: Boolean, scale: Float, scaleOnFocus: Boolean): Modifier {
+    // Nur ein Wert, nur in der Zeichenphase gelesen: keine Layout-Messung, keine Neukomposition pro Frame
+    val s by androidx.compose.animation.core.animateFloatAsState(if (focused && scaleOnFocus) scale else 1f, tween(110), label = "f")
+    return this.graphicsLayer { scaleX = s; scaleY = s }
+}
+
+@Composable
 fun Modifier.tvFocusable(
     shape: RoundedCornerShape,
     onClick: () -> Unit,
@@ -155,8 +169,8 @@ fun Modifier.tvFocusable(
     var focused by remember { mutableStateOf(false) }
     val p = theme.palette
     // CRAZY MOTION ENGINE: Navigationseffekt (Magnetic, 3D Tilt, Elastic …) für jedes fokussierbare Element
-    val base = this
-        .crazyFocus(focused, theme.spec.focusScale, scaleOnFocus)
+    val light = LocalPerfMode.current || !de.ostlertekker.ultraiptv.core.motion.LocalMotion.current.enabled
+    val base = (if (light) this.lightFocus(focused, theme.spec.focusScale, scaleOnFocus) else this.crazyFocus(focused, theme.spec.focusScale, scaleOnFocus))
         .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
         .onFocusChanged {
             if (it.isFocused && !focused) sounds?.focus()
@@ -293,10 +307,11 @@ fun AnimatedMenuLabel(text: String, focused: Boolean, selected: Boolean, modifie
     val focusProgress by animateFloatAsState(if (focused) 1f else 0f, tween(if (anim.reduceMotion) 0 else 280), label = "menuFocus")
     // Uhr läuft nur für das fokussierte Element; alle Werte werden ausschließlich in der Zeichenphase gelesen
     // → keine Neukomposition pro Frame (deutlich flüssiger auf Fire TV)
-    val clock = rememberAnimationClock(focused && !anim.reduceMotion && (fx.shimmer || fx.sparkles), fps = 45)
+    val perf = LocalPerfMode.current
+    val clock = rememberAnimationClock(focused && !perf && !anim.reduceMotion && (fx.shimmer || fx.sparkles), fps = 45)
     val burst = remember { Animatable(0f) }
     LaunchedEffect(focused) {
-        if (focused && fx.sparkles && !anim.reduceMotion && anim.profile != AnimationProfile.ECONOMY) {
+        if (focused && !perf && fx.sparkles && !anim.reduceMotion && anim.profile != AnimationProfile.ECONOMY) {
             burst.snapTo(0f); burst.animateTo(1f, tween(650))
         }
     }
@@ -356,7 +371,7 @@ data class NavItem(val route: String, val label: String)
 fun NavRail(items: List<NavItem>, selectedRoute: String, onSelect: (String) -> Unit, firstFocus: FocusRequester, modifier: Modifier = Modifier) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
-    val railClock = rememberAnimationClock(theme.spec.menuFx.shootingStars && theme.anim.backgroundMotion &&
+    val railClock = rememberAnimationClock(!LocalPerfMode.current && theme.spec.menuFx.shootingStars && theme.anim.backgroundMotion &&
         theme.anim.profile != AnimationProfile.ECONOMY, fps = 30)
     Column(
         modifier

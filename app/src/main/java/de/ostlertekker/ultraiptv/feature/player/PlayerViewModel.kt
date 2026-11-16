@@ -81,6 +81,10 @@ data class PlayerUi(
     /** Sender hat ein Archiv bzw. ein zurückspulbares Live-Fenster. */
     val canTimeshift: Boolean = false,
     val livePaused: Boolean = false,
+    /** Länge des lokalen Zeitversatz-Puffers (ms) – 0 = keiner. */
+    val tsBufferedMs: Long = 0,
+    /** Ziel einer gerade eingegebenen Spul-Aktion (ms hinter Live), für die Vorschau-Anzeige. */
+    val seekPreviewMs: Long? = null,
     /** Einzelbild-Modus aktiv. */
     val frameStep: Boolean = false,
     /** Live-Spielstand zur laufenden Sendung (echte Daten, falls zuordenbar). */
@@ -90,6 +94,9 @@ data class PlayerUi(
 
 val aspectModes = listOf(AspectRatioFrameLayout.RESIZE_MODE_FIT, AspectRatioFrameLayout.RESIZE_MODE_FILL, AspectRatioFrameLayout.RESIZE_MODE_ZOOM, AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH)
 val aspectNames = listOf("Original (Einpassen)", "Strecken", "Zoom (Füllen)", "Volle Breite")
+
+/** Bis zu diesem Abstand gilt die Wiedergabe als „live“ (Puffer-Vorlauf). */
+private const val LIVE_TOLERANCE_MS = 9_000L
 
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
@@ -164,6 +171,13 @@ class PlayerViewModel @Inject constructor(
         }
         viewModelScope.launch {
             engine.notice.collect { n -> _ui.update { it.copy(notice = n) } }
+        }
+        viewModelScope.launch {
+            engine.timeshift.collect { st ->
+                if (st != null && shiftStartWall == 0L) _ui.update {
+                    it.copy(canTimeshift = true, tsBufferedMs = st.bufferedMs, shiftBehindMs = if (st.behindMs < LIVE_TOLERANCE_MS) 0 else st.behindMs)
+                } else if (st == null) _ui.update { it.copy(tsBufferedMs = 0) }
+            }
         }
         viewModelScope.launch {
             engine.stats.collect { st -> if (settingsOrNull()?.matchFrameRate == true && st.sourceFps > 0) desiredFps.value = st.sourceFps }
@@ -423,6 +437,12 @@ class PlayerViewModel @Inject constructor(
 
     fun togglePlay() {
         val p = engine.player ?: return
+        if (kind == ContentKind.LIVE && engine.timeshiftActive) {
+            // Lokaler Puffer: Pause hält nur das Bild an, der Sender wird im Hintergrund weiter aufgezeichnet
+            if (p.isPlaying) p.pause() else p.play()
+            _ui.update { it.copy(livePaused = !p.playWhenReady) }
+            return
+        }
         if (kind == ContentKind.LIVE && _ui.value.canTimeshift) {
             // Live pausieren: beim Fortsetzen geht es ab der Pausenstelle weiter (Archiv des Anbieters)
             if (p.isPlaying) { livePausedAt = System.currentTimeMillis(); p.pause(); _ui.update { it.copy(livePaused = true) }; return }
@@ -451,7 +471,33 @@ class PlayerViewModel @Inject constructor(
     }
 
     /** Zurückspulen im Live-TV (−30 s, −5 min …): erst im Live-Fenster des Streams, sonst über das Archiv. */
+    // Spul-Eingaben sammeln: mehrere Tastendrücke → ein einziger Sprung (kein ständiges Neustarten)
+    private var pendingShift = 0L
+    private var shiftJob: Job? = null
+
+    private fun queueShift(deltaMs: Long) {
+        pendingShift += deltaMs
+        val behindNow = (System.currentTimeMillis() - engine.timeshiftWall()).coerceAtLeast(0)
+        val maxBack = _ui.value.tsBufferedMs
+        val preview = (behindNow - pendingShift).coerceIn(0, maxBack.coerceAtLeast(0))
+        _ui.update { it.copy(seekPreviewMs = preview) }
+        shiftJob?.cancel()
+        shiftJob = viewModelScope.launch {
+            delay(450)
+            val d = pendingShift; pendingShift = 0
+            val target = engine.timeshiftWall() + d
+            val ch = liveChannel
+            val oldest = System.currentTimeMillis() - _ui.value.tsBufferedMs
+            if (d < 0 && target < oldest - 5_000 && ch != null && ch.archiveDays > 0) {
+                // Älter als der lokale Puffer → Archiv des Anbieters (falls vorhanden)
+                engine.stop(); startCatchup(target, null)
+            } else engine.timeshiftBy(d)
+            _ui.update { it.copy(seekPreviewMs = null, livePaused = false) }
+        }
+    }
+
     fun rewindLive(ms: Long) {
+        if (engine.timeshiftActive && shiftStartWall == 0L) { queueShift(-ms); return }
         val p = engine.player ?: return
         if (shiftStartWall == 0L && p.isCurrentMediaItemDynamic && p.isCurrentMediaItemSeekable && p.currentPosition - ms > 0) {
             p.seekTo(p.currentPosition - ms)
@@ -467,6 +513,7 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun forwardShift(ms: Long) {
+        if (engine.timeshiftActive && shiftStartWall == 0L) { queueShift(ms); return }
         val p = engine.player ?: return
         if (shiftStartWall == 0L) { if (p.isCurrentMediaItemSeekable) p.seekTo(p.currentPosition + ms); return }
         if (currentWall() + ms >= System.currentTimeMillis() - 15_000) { goLive(); return }
@@ -474,6 +521,12 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun goLive() {
+        if (engine.timeshiftActive && shiftStartWall == 0L) {
+            shiftJob?.cancel(); pendingShift = 0
+            engine.timeshiftToLive(); engine.player?.play()
+            _ui.update { it.copy(seekPreviewMs = null, livePaused = false, shiftBehindMs = 0) }
+            return
+        }
         val ch = liveChannel ?: return
         shiftStartWall = 0L
         playChannel(ch)

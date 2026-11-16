@@ -229,6 +229,7 @@ class PlayerEngine @Inject constructor(
 
     private fun checkLive() {
         val p = exo ?: return
+        updateTimeshiftState()
         val now = SystemClock.elapsedRealtime()
         if (!live || !cfg.liveReconnect || currentUrl == null || !p.playWhenReady ||
             p.playbackSuppressionReason != Player.PLAYBACK_SUPPRESSION_REASON_NONE) { lastProgressAt = now; return }
@@ -251,6 +252,17 @@ class PlayerEngine @Inject constructor(
     private fun reconnect(reason: String) {
         val p = exo ?: return
         val url = currentUrl ?: return
+        if (tsBuffer != null) {
+            // Zeitversatz aktiv: die Anbieter-Verbindung neu aufbauen, der Player liest weiter aus dem Puffer
+            consecutiveReconnects++
+            _notice.value = "$reason – verbinde neu …"
+            _stats.update { it.copy(recoveries = it.recoveries + 1, lastError = reason) }
+            graceUntil = SystemClock.elapsedRealtime() + 8_000
+            lastProgressAt = SystemClock.elapsedRealtime()
+            tsBuffer?.kick()
+            if (p.playbackState == Player.STATE_IDLE || p.playbackState == Player.STATE_ENDED) timeshiftTo(timeshiftWall())
+            return
+        }
         consecutiveReconnects++
         retryJob?.cancel()
         _stats.update { it.copy(recoveries = it.recoveries + 1, lastError = reason) }
@@ -262,6 +274,84 @@ class PlayerEngine @Inject constructor(
         p.setMediaItem(mediaItem(url))
         p.prepare()
         p.playWhenReady = true
+    }
+
+    // ------------------------------------------------ Lokaler Live-Zeitversatz (Pause / Zurückspulen / Vorspulen)
+    private val LIVE_MARGIN_MS = 3_000L
+    @Volatile private var tsBuffer: TimeshiftBuffer? = null
+    /** Wanduhrzeit, die dem Beginn des aktuell gespielten Puffer-Abschnitts entspricht. */
+    private var tsStartWall = 0L
+    private var tsSession = 0
+
+    data class TimeshiftState(val behindMs: Long, val bufferedMs: Long, val reconnects: Int)
+    private val _timeshift = MutableStateFlow<TimeshiftState?>(null)
+    /** null = kein lokaler Zeitversatz aktiv. */
+    val timeshift: StateFlow<TimeshiftState?> = _timeshift.asStateFlow()
+
+    val timeshiftActive: Boolean get() = tsBuffer != null
+
+    private fun canTimeshift(url: String, who: String, isLive: Boolean) =
+        isLive && who == "player" && cfg.timeshiftMin > 0 && mimeFor(url) == null
+
+    private fun startTimeshift(url: String): MediaItem {
+        stopTimeshift()
+        val free = context.cacheDir.usableSpace
+        val maxBytes = (free * 0.35).toLong().coerceIn(64L * 1024 * 1024, 4L * 1024 * 1024 * 1024)
+        val b = TimeshiftBuffer(java.io.File(context.cacheDir, "timeshift"), url, USER_AGENT, cfg.timeshiftMin * 60_000L, maxBytes)
+        b.start()
+        tsBuffer = b
+        tsStartWall = System.currentTimeMillis()
+        return tsItem(0L)
+    }
+
+    private fun tsItem(offset: Long) = MediaItem.Builder()
+        .setUri("timeshift://live/${++tsSession}?o=$offset")
+        .setMimeType(MimeTypes.VIDEO_MP2T)
+        .build()
+
+    private fun stopTimeshift() {
+        tsBuffer?.close(); tsBuffer = null
+        _timeshift.value = null
+    }
+
+    /** Wanduhrzeit des gerade gezeigten Bildes. */
+    fun timeshiftWall(): Long {
+        val p = exo ?: return System.currentTimeMillis()
+        return (tsStartWall + p.currentPosition).coerceAtMost(System.currentTimeMillis())
+    }
+
+    /** Springt im Puffer zu [wall] (ms). Ältere Zeiten werden auf den ältesten Stand begrenzt. */
+    fun timeshiftTo(wall: Long) {
+        val b = tsBuffer ?: return
+        val p = exo ?: return
+        val now = System.currentTimeMillis()
+        val target = wall.coerceIn(b.oldestWall(), now - LIVE_MARGIN_MS)
+        val offset = b.offsetForWall(target)
+        tsStartWall = b.wallForOffset(offset)
+        val keepPlaying = p.playWhenReady
+        p.setMediaItem(tsItem(offset))
+        p.prepare()
+        p.playWhenReady = keepPlaying || true
+        graceUntil = SystemClock.elapsedRealtime() + 6_000
+        updateTimeshiftState()
+    }
+
+    fun timeshiftBy(deltaMs: Long) {
+        if (tsBuffer == null) return
+        val target = timeshiftWall() + deltaMs
+        if (deltaMs > 0 && target >= System.currentTimeMillis() - LIVE_MARGIN_MS - 500) timeshiftToLive() else timeshiftTo(target)
+    }
+
+    fun timeshiftToLive() = timeshiftTo(System.currentTimeMillis() - LIVE_MARGIN_MS)
+
+    private fun updateTimeshiftState() {
+        val b = tsBuffer ?: return
+        val now = System.currentTimeMillis()
+        _timeshift.value = TimeshiftState(
+            behindMs = (now - timeshiftWall()).coerceAtLeast(0),
+            bufferedMs = (now - b.oldestWall()).coerceAtLeast(0),
+            reconnects = b.reconnects,
+        )
     }
 
     private fun mediaItem(url: String) = MediaItem.Builder().setUri(url).apply { mimeFor(url)?.let { setMimeType(it) } }.build()
@@ -329,7 +419,7 @@ class PlayerEngine @Inject constructor(
             .setAllowCrossProtocolRedirects(true)
             .setConnectTimeoutMs(10_000)
             .setReadTimeoutMs(12_000)
-        val sourceFactory = DefaultMediaSourceFactory(DefaultDataSource.Factory(context, http))
+        val sourceFactory = DefaultMediaSourceFactory(RoutingDataSourceFactory(DefaultDataSource.Factory(context, http)) { tsBuffer })
             .setLoadErrorHandlingPolicy(DefaultLoadErrorHandlingPolicy(6))
         val p = ExoPlayer.Builder(context, renderers)
             .setLoadControl(loadControl)
@@ -354,7 +444,8 @@ class PlayerEngine @Inject constructor(
         owner = who
         live = isLive
         startWatchdog()
-        if (isPlayingUrl(url) && bufferProfile == profile) {
+        // Vorschau → Vollbild: denselben Stream weiterverwenden – außer der Zeitversatz-Puffer muss erst starten
+        if (isPlayingUrl(url) && bufferProfile == profile && !(canTimeshift(url, who, isLive) && tsBuffer == null)) {
             if (startMs > 0 && kotlin.math.abs((exo?.currentPosition ?: 0L) - startMs) > 5_000) exo?.seekTo(startMs)
             exo?.playWhenReady = true
             return
@@ -371,7 +462,8 @@ class PlayerEngine @Inject constructor(
         val now = SystemClock.elapsedRealtime()
         graceUntil = now + 12_000 // erster Verbindungsaufbau darf länger dauern
         lastProgressAt = now; lastPos = Long.MIN_VALUE
-        p.setMediaItem(mediaItem(url), startMs.coerceAtLeast(0))
+        if (canTimeshift(url, who, isLive)) p.setMediaItem(startTimeshift(url))
+        else { stopTimeshift(); p.setMediaItem(mediaItem(url), startMs.coerceAtLeast(0)) }
         p.prepare()
         p.playWhenReady = true
     }
@@ -394,12 +486,14 @@ class PlayerEngine @Inject constructor(
         retryJob?.cancel()
         live = false
         _notice.value = null
+        stopTimeshift()
         exo?.stop()
         exo?.clearMediaItems()
     }
 
     fun release() {
         retryJob?.cancel()
+        stopTimeshift()
         runCatching { loudness?.release() }; loudness = null
         runCatching { dynamics?.release() }; dynamics = null; dynamicsMode = -1
         exo?.release()
@@ -547,7 +641,8 @@ class PlayerEngine @Inject constructor(
                 retryJob = scope.launch {
                     delay((1000L shl (retries - 1).coerceAtMost(4)).coerceAtMost(15_000))
                     _stats.update { it.copy(recoveries = it.recoveries + 1) }
-                    currentUrl?.let { u -> p.setMediaItem(mediaItem(u)); p.prepare(); p.playWhenReady = true }
+                    if (tsBuffer != null) timeshiftTo(timeshiftWall())
+                    else currentUrl?.let { u -> p.setMediaItem(mediaItem(u)); p.prepare(); p.playWhenReady = true }
                     graceUntil = SystemClock.elapsedRealtime() + 8_000
                 }
                 return

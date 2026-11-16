@@ -275,7 +275,6 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
                 Text("LIVE TV", color = p.text, fontSize = 24.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily,
                     modifier = Modifier.padding(bottom = 10.dp))
             }
-            item { CategoryItem("🌍 Weltkarte & Länder", false) { nav.navigate(Routes.WORLD) } }
             items(cats, key = { it }) { c -> CategoryItem(c, c == current) { vm.selected.value = c } }
         }
         Column(Modifier.weight(0.42f).fillMaxHeight()) {

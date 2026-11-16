@@ -218,6 +218,17 @@ class UiSmokeTest {
             shot("live_tv_vorschau")
             keys("Live hoch", *IntArray(10) { U }, pauseMs = 80)
             keys("Live Sender öffnen", OK); Thread.sleep(6000); assertResponsive("Live Player")
+            // Live-Zeitversatz: Puffer füllen, dann zurück- und vorspulen, pausieren, zurück zu Live
+            Thread.sleep(6000)
+            keys("Live zurückspulen 3× 10 s", L, L, L, pauseMs = 150); Thread.sleep(300); shot("live_spulen_vorschau")
+            Thread.sleep(2500); assertResponsive("Live nach Zurückspulen")
+            keys("Live Rückspultaste", KeyEvent.KEYCODE_MEDIA_REWIND, pauseMs = 300); Thread.sleep(2500)
+            keys("Live Pause", KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE); Thread.sleep(3000)
+            keys("Live weiter", KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE); Thread.sleep(1500)
+            keys("Live Overlay", OK); Thread.sleep(800); shot("live_zeitleiste")
+            keys("Overlay zu", BACK)
+            keys("Live vorspulen", R, R, KeyEvent.KEYCODE_MEDIA_FAST_FORWARD, pauseMs = 200); Thread.sleep(2500)
+            assertResponsive("Live nach Vorspulen")
             keys("Live zappen inkl. Fehlersender", D, D, D, D, pauseMs = 1500); Thread.sleep(4000)
             keys("Ziffern-Direktwahl", KeyEvent.KEYCODE_1, KeyEvent.KEYCODE_2); Thread.sleep(3000)
             keys("Overlay öffnen", OK); Thread.sleep(600); shot("player_overlay")
@@ -228,7 +239,7 @@ class UiSmokeTest {
     }
 
     @Test fun c_classicScreens() {
-        for (route in listOf(Routes.HOME, Routes.MOVIES, Routes.SERIES, Routes.WORLD, Routes.SEARCH, Routes.EPG)) {
+        for (route in listOf(Routes.HOME, Routes.MOVIES, Routes.SERIES, Routes.SEARCH, Routes.EPG)) {
             openRoute(route).use {
                 shot(route)
                 keys("$route bedienen", R, R, D, D, R, R, D, U, U, L)

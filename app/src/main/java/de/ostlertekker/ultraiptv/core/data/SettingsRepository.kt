@@ -77,6 +77,10 @@ data class AppSettings(
     val motionJson: String = "",
     val motionProfilesJson: String = "",
     val serverTz: String = "",
+    /** Lokaler Live-Zeitversatz in Minuten (0 = aus). */
+    val timeshiftMin: Int = 30,
+    /** Performance-Modus: statischer Hintergrund, schlanke Animationen (Standard an). */
+    val perfMode: Boolean = true,
     /** Untertitel-Verzögerung in ms (0…10000, nur „später“ technisch möglich). */
     val subDelayMs: Int = 0,
     val cinemaMode: Boolean = false,
@@ -166,6 +170,8 @@ object Keys {
     val MOTION = stringPreferencesKey("motion")
     val MOTION_PROFILES = stringPreferencesKey("motion_profiles")
     val SERVER_TZ = stringPreferencesKey("server_tz")
+    val TIMESHIFT_MIN = intPreferencesKey("timeshift_min")
+    val PERF_MODE = booleanPreferencesKey("perf_mode")
     val SUB_DELAY = intPreferencesKey("sub_delay_ms")
     val CINEMA_MODE = booleanPreferencesKey("cinema_mode")
     val CINEMA_SOUND = intPreferencesKey("cinema_sound")
@@ -257,6 +263,8 @@ fun Preferences.toSettings(): AppSettings {
         motionJson = this[Keys.MOTION] ?: d.motionJson,
         motionProfilesJson = this[Keys.MOTION_PROFILES] ?: d.motionProfilesJson,
         serverTz = this[Keys.SERVER_TZ] ?: d.serverTz,
+        timeshiftMin = this[Keys.TIMESHIFT_MIN] ?: d.timeshiftMin,
+        perfMode = this[Keys.PERF_MODE] ?: d.perfMode,
         subDelayMs = this[Keys.SUB_DELAY] ?: d.subDelayMs,
         cinemaMode = this[Keys.CINEMA_MODE] ?: d.cinemaMode,
         cinemaSound = this[Keys.CINEMA_SOUND] ?: d.cinemaSound,

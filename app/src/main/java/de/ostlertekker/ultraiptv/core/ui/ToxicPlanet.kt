@@ -181,7 +181,13 @@ object ToxicPlanet {
 /** Animiertes Logo (Endlosschleife), z. B. oben in der Menüleiste. */
 @Composable
 fun ToxicPlanetLogo(modifier: Modifier, running: Boolean, cycleSeconds: Float = 9f, detail: Boolean = true) {
-    val clock = rememberAnimationClock(running, fps = 30, pauseOnInput = true)
+    // Performance-Modus: das Logo explodiert einmal beim Start und steht danach still
+    val perf = LocalPerfMode.current
+    var active by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(true) }
+    androidx.compose.runtime.LaunchedEffect(perf) {
+        if (perf) { kotlinx.coroutines.delay((cycleSeconds * 1000).toLong() + 300); active = false } else active = true
+    }
+    val clock = rememberAnimationClock(running && active, fps = 30, pauseOnInput = true)
     Canvas(modifier) {
         val t = clock.value
         val (crack, boom, reform) = ToxicPlanet.loopPhases(t, cycleSeconds)

@@ -191,8 +191,8 @@ fun PlayerScreen(
                 if (!down) return@onPreviewKeyEvent true
                 when (ev.key) {
                     Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> if (ui.skipOffer != null) vm.acceptSkip() else overlay = true
-                    Key.DirectionLeft -> if (isLive) overlay = true else { vm.seekBy(-10_000); seekHint = "−10 s" }
-                    Key.DirectionRight -> if (isLive) overlay = true else { vm.seekBy(10_000); seekHint = "+10 s" }
+                    Key.DirectionLeft -> if (isLive) { if (ui.canTimeshift) vm.rewindLive(10_000) else overlay = true } else { vm.seekBy(-10_000); seekHint = "−10 s" }
+                    Key.DirectionRight -> if (isLive) { if (ui.canTimeshift) vm.forwardShift(10_000) else overlay = true } else { vm.seekBy(10_000); seekHint = "+10 s" }
                     Key.DirectionUp -> if (isLive) vm.switchChannel(-1 * zapDir) else overlay = true
                     Key.DirectionDown -> if (isLive) vm.switchChannel(1 * zapDir) else overlay = true
                     Key.Menu -> { overlay = true; panel = if (isLive) Panel.CHANNELS else Panel.AUDIO }
@@ -218,15 +218,22 @@ fun PlayerScreen(
             update = { view ->
                 if (view.player !== vm.engine.player) view.player = vm.engine.player
                 view.resizeMode = ui.resizeMode
-                if (picAdjust) (view.videoSurfaceView as? android.view.TextureView)?.setLayerType(android.view.View.LAYER_TYPE_HARDWARE,
-                    android.graphics.Paint().apply { colorFilter = android.graphics.ColorMatrixColorFilter(pictureMatrix(settings.picBrightness, settings.picContrast, settings.picSaturation)) })
+                val picKey = Triple(settings.picBrightness, settings.picContrast, settings.picSaturation)
+                if (picAdjust && view.getTag(de.ostlertekker.ultraiptv.R.id.ultra_pic) != picKey) view.setTag(de.ostlertekker.ultraiptv.R.id.ultra_pic, picKey)
+                    .also { (view.videoSurfaceView as? android.view.TextureView)?.setLayerType(android.view.View.LAYER_TYPE_HARDWARE,
+                    android.graphics.Paint().apply { colorFilter = android.graphics.ColorMatrixColorFilter(pictureMatrix(settings.picBrightness, settings.picContrast, settings.picSaturation)) }) }
                 view.subtitleView?.visibility = if (delayedSubs) android.view.View.GONE else android.view.View.VISIBLE
+                // Untertitel-Stil nur bei Änderung anwenden (nicht bei jedem Fortschritts-Update)
+                val styleKey = Triple(settings.subtitleColor, settings.subtitleBackground, settings.subtitleScale)
+                if (view.getTag(de.ostlertekker.ultraiptv.R.id.ultra_sub_style) != styleKey) {
+                    view.setTag(de.ostlertekker.ultraiptv.R.id.ultra_sub_style, styleKey)
                 view.subtitleView?.let { sv ->
                     val bg = when (settings.subtitleBackground) { 0 -> android.graphics.Color.TRANSPARENT; 1 -> 0x99000000.toInt(); else -> android.graphics.Color.BLACK }
                     sv.setApplyEmbeddedStyles(false)
                     sv.setStyle(CaptionStyleCompat(subtitleColors[settings.subtitleColor.coerceIn(0, subtitleColors.lastIndex)], bg,
                         android.graphics.Color.TRANSPARENT, CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW, android.graphics.Color.BLACK, null))
                     sv.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * settings.subtitleScale)
+                }
                 }
             },
             modifier = Modifier.fillMaxSize(),
@@ -251,6 +258,12 @@ fun PlayerScreen(
             Text(ui.numberInput, color = Color.White, fontSize = 54.sp, fontWeight = FontWeight.ExtraBold,
                 modifier = Modifier.align(Alignment.TopEnd).padding(40.dp).background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(14.dp))
                     .padding(horizontal = 24.dp, vertical = 8.dp))
+        }
+        // Spul-Vorschau (während Tasten gedrückt werden)
+        ui.seekPreviewMs?.let { b ->
+            if (!inPip) Text(if (b <= 0) "● LIVE" else "⏪ −%d:%02d".format(b / 60_000, (b / 1000) % 60), color = Color.White, fontSize = 40.sp,
+                fontWeight = FontWeight.Black, modifier = Modifier.align(Alignment.Center).background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(16.dp))
+                    .padding(horizontal = 26.dp, vertical = 10.dp))
         }
         if (!inPip) {
             TimeshiftBadge(ui, Modifier.align(Alignment.TopStart).padding(top = 30.dp, start = 36.dp))
@@ -337,6 +350,7 @@ fun PlayerScreen(
                         .padding(horizontal = 10.dp, vertical = 4.dp))
                 ui.qualityNote?.let { Text(it, color = p.primary, fontSize = 12.sp, modifier = Modifier.align(Alignment.TopEnd).padding(top = 72.dp, end = 36.dp)) }
                 Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal = 36.dp, vertical = 26.dp)) {
+                    if (isLive && ui.tsBufferedMs > 0) LiveTimeline(ui)
                     if (isLive) {
                         if (ui.nowTitle != null) {
                             Text("JETZT  ${ui.nowTime ?: ""}", color = p.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
@@ -366,9 +380,11 @@ fun PlayerScreen(
                             item { TvButton("Senderliste", onClick = { panel = Panel.CHANNELS }) }
                             item { TvButton("↺ Letzter Sender", onClick = { vm.lastChannel() }) }
                             if (ui.canTimeshift || ui.shiftBehindMs > 0) {
+                                item { TvButton("⏪ −10 s", onClick = { vm.rewindLive(10_000) }) }
                                 item { TvButton("⏪ −30 s", onClick = { vm.rewindLive(30_000) }) }
                                 item { TvButton("⏪ −5 min", onClick = { vm.rewindLive(300_000) }) }
                                 if (ui.shiftBehindMs > 0) {
+                                    item { TvButton("+10 s ⏩", onClick = { vm.forwardShift(10_000) }) }
                                     item { TvButton("+30 s ⏩", onClick = { vm.forwardShift(30_000) }) }
                                     item { TvButton("● Zurück zu LIVE", onClick = { vm.goLive() }, primary = true) }
                                 }
@@ -559,3 +575,26 @@ private fun PlayerClock(h24: Boolean, modifier: Modifier) {
 
 
 private fun cyclePct(v: Int): Int = listOf(70, 80, 90, 100, 110, 120, 130).let { l -> l[(l.indexOf(v).coerceAtLeast(0) + 1) % l.size] }
+
+
+/** Zeitleiste des Live-Puffers: links ältester Stand, rechts LIVE, Markierung = aktuelle Position. */
+@Composable
+private fun LiveTimeline(ui: PlayerUi) {
+    val p = LocalUltraTheme.current.palette
+    val buffered = ui.tsBufferedMs.coerceAtLeast(1)
+    val behind = (ui.seekPreviewMs ?: ui.shiftBehindMs).coerceIn(0, buffered)
+    val pos = 1f - behind.toFloat() / buffered
+    Column(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
+        Box(Modifier.fillMaxWidth().height(6.dp).background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(3.dp))) {
+            Box(Modifier.fillMaxWidth(pos.coerceIn(0.01f, 1f)).height(6.dp).background(p.primary, RoundedCornerShape(3.dp)))
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 3.dp)) {
+            Text("−%d:%02d".format(buffered / 60_000, (buffered / 1000) % 60), color = p.textDim, fontSize = 11.sp)
+            Spacer(Modifier.weight(1f))
+            Text(if (behind < 1000) "● LIVE" else "−%d:%02d hinter Live".format(behind / 60_000, (behind / 1000) % 60),
+                color = if (behind < 1000) Color(0xFFFF5050) else p.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.weight(1f))
+            Text("◀ ▶ = 10 s · ⏪ ⏩ = 30 s", color = p.textDim, fontSize = 11.sp)
+        }
+    }
+}

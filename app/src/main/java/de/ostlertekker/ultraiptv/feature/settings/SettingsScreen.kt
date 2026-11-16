@@ -246,6 +246,8 @@ private fun LazyListScope.appearanceSection(vm: SettingsViewModel, s: AppSetting
                 val vals = ThemeEngine.accentPresets.map { it.second }
                 vm.set(Keys.ACCENT, cycle(vals, if (s.accentArgb in vals) s.accentArgb else 0L))
             })
+            ToggleRow("Performance-Modus", s.perfMode, { vm.set(Keys.PERF_MODE, it) },
+                subtitle = "Empfohlen für Fire TV: ruhiger Hintergrund, schlanke Animationen – maximal flüssiges Scrollen")
             ChoiceRow("UI-Größe", pct(s.uiScale), { vm.set(Keys.UI_SCALE, cycle(DesignOptions.scaleValues, s.uiScale.takeIf { it in DesignOptions.scaleValues } ?: 1f)) },
                 subtitle = "Skaliert die gesamte Oberfläche – größer für weite Sitzabstände")
             ChoiceRow("Schriftart", DesignOptions.fontNames[s.fontStyle.coerceIn(0, DesignOptions.fontNames.lastIndex)],
@@ -613,6 +615,9 @@ private fun LazyListScope.layoutSection(vm: SettingsViewModel, s: AppSettings) {
 private fun LazyListScope.liveStabilitySection(vm: SettingsViewModel, s: AppSettings) {
     item {
         Column {
+            ChoiceRow("Live pausieren & spulen", if (s.timeshiftMin == 0) "Aus" else "${s.timeshiftMin} min Puffer",
+                { vm.set(Keys.TIMESHIFT_MIN, cycle(listOf(0, 15, 30, 60, 120), s.timeshiftMin.takeIf { it in listOf(0, 15, 30, 60, 120) } ?: 30)) },
+                subtitle = "Zeichnet den laufenden Sender lokal auf: Pause, ◀ ▶ 10 s, ⏪ ⏩ 30 s – bei jedem TS-Sender, ohne Anbieter-Archiv. Nutzt freien Speicher (max. 35 %).")
             ToggleRow("Automatisch neu verbinden", s.liveReconnect, { vm.set(Keys.LIVE_RECONNECT, it) },
                 subtitle = "Bleibt ein Sender stehen oder bricht ab, verbindet ULTRA IPTV ihn selbst wieder – ohne Fehlermeldung")
             ChoiceRow("Stillstand erkennen nach", "${s.stallTimeoutSec} s", { vm.set(Keys.STALL_TIMEOUT, cycle(listOf(5, 8, 12, 20, 30), s.stallTimeoutSec.takeIf { it in listOf(5, 8, 12, 20, 30) } ?: 8)) },

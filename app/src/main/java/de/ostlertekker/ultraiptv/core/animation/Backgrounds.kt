@@ -105,7 +105,9 @@ fun rememberAnimationClock(running: Boolean, throttle: Boolean = false, fps: Int
 fun ThemeBackground(theme: ResolvedTheme, modifier: Modifier = Modifier, animate: Boolean = true, customImage: String = "") {
     val anim = theme.anim
     // Langsame Hintergrundbewegung braucht keine 60 fps – 30 fps sehen gleich aus und halbieren die Last
-    val clock = rememberAnimationClock(animate && anim.backgroundMotion, throttle = anim.profile == AnimationProfile.ECONOMY,
+    // Performance-Modus: Hintergrund wird einmal gezeichnet und steht dann (keine Dauerlast für GPU/CPU)
+    val perf = de.ostlertekker.ultraiptv.core.ui.LocalPerfMode.current
+    val clock = rememberAnimationClock(animate && !perf && anim.backgroundMotion, throttle = anim.profile == AnimationProfile.ECONOMY,
         fps = if (anim.profile == AnimationProfile.ULTRA) 40 else 30, pauseOnInput = true)
     val count = (theme.spec.baseParticles * anim.particleFactor).toInt().coerceIn(0, 420)
     val field = remember(count, theme.spec.id) { ParticleField(count, theme.spec.id.hashCode()) }
