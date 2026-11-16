@@ -168,6 +168,15 @@ class UiSmokeTest {
         runCatching { device.executeShellCommand("screencap -p /data/local/tmp/shots/%02d_%s.png".format(shotNo, name)) }
     }
 
+    /** Leistungsmessung: Bildzeiten des App-Fensters (gfxinfo) für einen Abschnitt – landet im CI-Bericht (perf.txt). */
+    private fun perfStart() { runCatching { device.executeShellCommand("dumpsys gfxinfo ${context.packageName} reset") } }
+    private fun perfEnd(name: String) {
+        val out = runCatching { device.executeShellCommand("dumpsys gfxinfo ${context.packageName}") }.getOrDefault("")
+        fun v(label: String) = out.lineSequence().firstOrNull { it.trim().startsWith(label) }?.substringAfter(":")?.trim() ?: "?"
+        android.util.Log.i("UiPerf", "$name | Frames ${v("Total frames rendered")} | Ruckler ${v("Janky frames")} | " +
+            "p50 ${v("50th percentile")} | p90 ${v("90th percentile")} | p99 ${v("99th percentile")} | langsamer UI-Thread ${v("Number Slow UI thread")}")
+    }
+
     private fun keys(step: String, vararg codes: Int, pauseMs: Long = 220) {
         android.util.Log.i("UiSmoke", "Schritt: $step")
         // Tasten direkt einspeisen (ohne auf Barrierefreiheits-Ruhe zu warten – Animationen laufen dauerhaft)
@@ -207,7 +216,9 @@ class UiSmokeTest {
             openRoute(Routes.FAVORITES).use {
                 if (round == 0) shot("favoriten")
                 keys("Favoriten Runde $round betreten", R, R, D, R, R, L)
+                if (round == 0) perfStart()
                 keys("Favoriten weit scrollen", *IntArray(40) { R }, pauseMs = 70)
+                if (round == 0) perfEnd("Favoriten scrollen")
                 keys("Favoriten Filme/Serien", D, *IntArray(10) { R }, D, R, R, U, U, pauseMs = 120)
                 if (round == 0) shot("favoriten_fokus")
                 keys("Favoriten Sender starten", OK); Thread.sleep(6000); assertResponsive("Favoriten → Player")
@@ -225,7 +236,9 @@ class UiSmokeTest {
         openRoute(Routes.LIVE).use {
             shot("live_tv")
             keys("Live Kategorien", D, D, D, OK, R)
+            perfStart()
             keys("Live Dauer-Scrollen", *IntArray(25) { D }, pauseMs = 60)
+            perfEnd("Live-TV Senderliste scrollen")
             Thread.sleep(2500)
             shot("live_tv_vorschau")
             keys("Live hoch", *IntArray(10) { U }, pauseMs = 80)
@@ -256,7 +269,9 @@ class UiSmokeTest {
             openRoute(route).use {
                 Thread.sleep(4000); shot("${route}_gross")
                 keys("$route betreten", R, R, D, D, pauseMs = 300)
+                perfStart()
                 keys("$route lange scrollen", *IntArray(60) { D }, pauseMs = 90)
+                perfEnd("$route Übersicht scrollen")
                 Thread.sleep(2500); assertResponsive("$route nach Scrollen"); shot("${route}_gescrollt")
                 keys("$route nach oben", *IntArray(70) { U }, pauseMs = 60)
                 keys("$route Kategorie", U, U, R, R, R, OK, pauseMs = 300); Thread.sleep(2500)
@@ -267,8 +282,11 @@ class UiSmokeTest {
         for (route in listOf(Routes.HOME, Routes.MOVIES, Routes.SERIES, Routes.SEARCH, Routes.EPG)) {
             openRoute(route).use {
                 shot(route)
-                if (route == Routes.HOME) { keys("Start: Titelbild", D, pauseMs = 600); shot("home_titelbild_fokus"); keys("Start: Reihen", D, D, R, R, pauseMs = 500); shot("home_reihen") }
+                if (route == Routes.HOME) { keys("Start: Titelbild", D, pauseMs = 600); shot("home_titelbild_fokus"); perfStart(); keys("Start: Reihen", D, D, R, R, *IntArray(12) { D }, *IntArray(12) { R }, pauseMs = 150); perfEnd("Startseite Reihen scrollen"); keys("Start: hoch", *IntArray(14) { U }, pauseMs = 80); shot("home_reihen") }
+                perfStart()
                 keys("$route bedienen", R, R, D, D, R, R, D, U, U, L)
+                if (route == Routes.EPG) keys("EPG scrollen", *IntArray(20) { D }, *IntArray(10) { R }, pauseMs = 90)
+                perfEnd("$route bedienen")
                 keys("$route öffnen", OK); Thread.sleep(3500); assertResponsive("$route Detail")
                 keys("$route zurück", BACK); Thread.sleep(1500)
                 keys("$route nach Zurück", D, R, U)
