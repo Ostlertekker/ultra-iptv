@@ -63,6 +63,8 @@ class UiSmokeTest {
                 return when {
                     path.startsWith("/list.m3u") -> MockResponse().setBody(playlist())
                     path.startsWith("/epg.xml") -> MockResponse().setBody(epg())
+                    // Große, echte Poster wie bei vielen Anbietern (1500×2250 JPEG)
+                    path.startsWith("/poster/") -> MockResponse().setHeader("Content-Type", "image/jpeg").setBody(Buffer().write(bigPoster))
                     // Echte Fehlerfälle von Anbietern nachstellen
                     path.contains("/live/404") -> MockResponse().setResponseCode(404)
                     path.contains("/live/403") -> MockResponse().setResponseCode(403)
@@ -97,6 +99,15 @@ class UiSmokeTest {
         // Server bleibt für die folgenden Abschnitte aktiv; der Prozess endet nach dem Testlauf
     }
 
+    private val bigPoster: ByteArray by lazy {
+        val bmp = android.graphics.Bitmap.createBitmap(1500, 2250, android.graphics.Bitmap.Config.ARGB_8888)
+        val c = android.graphics.Canvas(bmp)
+        c.drawColor(android.graphics.Color.rgb(40, 60, 120))
+        val paint = android.graphics.Paint().apply { color = android.graphics.Color.rgb(200, 220, 80); textSize = 180f }
+        for (y in 0 until 2250 step 300) c.drawText("POSTER", 100f, y.toFloat() + 200f, paint)
+        java.io.ByteArrayOutputStream().also { bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, it) }.toByteArray()
+    }
+
     private fun playlist(): String = buildString {
         val base = server.url("/").toString().trimEnd('/')
         appendLine("#EXTM3U")
@@ -108,12 +119,13 @@ class UiSmokeTest {
             appendLine("#EXTINF:-1 tvg-id=\"ch$i\" tvg-name=\"Sender $i\" tvg-logo=\"$base/logo/$i.png\" group-title=\"$g\"$cu,Testsender $i HD")
             appendLine("$base/live/$stream.ts")
         }
-        for (i in 1..120) {
-            appendLine("#EXTINF:-1 tvg-logo=\"$base/poster/$i.jpg\" group-title=\"Filme Action\",Testfilm $i (2024)")
+        // Realistische Größe: 20.000 Filme in 60 Kategorien, 300 Serien mit je 10 Folgen
+        for (i in 1..20000) {
+            appendLine("#EXTINF:-1 tvg-logo=\"$base/poster/$i.jpg\" group-title=\"Filme Kategorie ${i % 60}\",Testfilm $i (${1980 + i % 45})")
             appendLine("$base/movie/film$i.mp4")
         }
-        for (s in 1..3) for (e in 1..5) {
-            appendLine("#EXTINF:-1 group-title=\"Serien\",Testserie $s S01E0$e")
+        for (s in 1..300) for (e in 1..10) {
+            appendLine("#EXTINF:-1 tvg-logo=\"$base/poster/s$s.jpg\" group-title=\"Serien ${s % 20}\",Testserie $s S01E${"%02d".format(e)}")
             appendLine("$base/series/s${s}e$e.mp4")
         }
     }
@@ -239,6 +251,19 @@ class UiSmokeTest {
     }
 
     @Test fun c_classicScreens() {
+        // Filme & Serien mit großer Datenmenge: öffnen, lange scrollen (Nachladen), Kategorie wechseln, Detail öffnen
+        for (route in listOf(Routes.MOVIES, Routes.SERIES)) {
+            openRoute(route).use {
+                Thread.sleep(4000); shot("${route}_gross")
+                keys("$route betreten", R, R, D, D, pauseMs = 300)
+                keys("$route lange scrollen", *IntArray(60) { D }, pauseMs = 90)
+                Thread.sleep(2500); assertResponsive("$route nach Scrollen"); shot("${route}_gescrollt")
+                keys("$route nach oben", *IntArray(70) { U }, pauseMs = 60)
+                keys("$route Kategorie", U, U, R, R, R, OK, pauseMs = 300); Thread.sleep(2500)
+                keys("$route Detail", D, D, D, OK); Thread.sleep(3500); assertResponsive("$route Detail")
+                keys("$route zurück", BACK); Thread.sleep(1500)
+            }
+        }
         for (route in listOf(Routes.HOME, Routes.MOVIES, Routes.SERIES, Routes.SEARCH, Routes.EPG)) {
             openRoute(route).use {
                 shot(route)
