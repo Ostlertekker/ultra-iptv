@@ -48,7 +48,7 @@ data class VirtualListEntity(
     val createdAt: Long,
 )
 
-@Entity(tableName = "movies", indices = [Index("category"), Index("name"), Index("addedAt")])
+@Entity(tableName = "movies", indices = [Index("category"), Index("name"), Index("addedAt"), Index("rating")])
 data class MovieEntity(
     @PrimaryKey val id: String,
     val name: String,
@@ -68,7 +68,7 @@ data class MovieEntity(
     val language: String? = null,
 )
 
-@Entity(tableName = "series", indices = [Index("category"), Index("name")])
+@Entity(tableName = "series", indices = [Index("category"), Index("name"), Index("addedAt"), Index("rating")])
 data class SeriesEntity(
     @PrimaryKey val id: String,
     val name: String,

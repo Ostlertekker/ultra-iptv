@@ -1,0 +1,8 @@
+# Baseline-Profil für ULTRA IPTV: App-Code und Bildlader werden bei der Installation vorkompiliert (schnellerer Start, flüssigeres erstes Scrollen).
+# Compose, Media3 & Co. bringen eigene Profile mit; hier kommt der eigene Code dazu.
+HSPLde/ostlertekker/ultraiptv/**->**(**)**
+Lde/ostlertekker/ultraiptv/**;
+HSPLcoil/**->**(**)**
+Lcoil/**;
+HSPLokhttp3/**->**(**)**
+Lokhttp3/**;

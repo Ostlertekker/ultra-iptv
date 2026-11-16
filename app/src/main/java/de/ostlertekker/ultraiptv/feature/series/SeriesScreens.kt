@@ -81,7 +81,7 @@ class SeriesViewModel @Inject constructor(content: ContentRepository, user: de.o
     /** Serien-Übersicht: Fortsetzen, Merkliste, Neu, Beliebt, Empfehlungen, Zuletzt angesehen, Kategorie-Reihen. */
     val overview: StateFlow<List<de.ostlertekker.ultraiptv.feature.common.CinemaRow>> = run {
         fun SeriesEntity.tile() = de.ostlertekker.ultraiptv.feature.common.CinemaTile(id, name, poster,
-            listOfNotNull(year, genre?.split(',')?.firstOrNull()?.trim(), rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) }).joinToString(" · ").ifBlank { null },
+            listOfNotNull(year, genre?.split(',')?.firstOrNull()?.trim(), rating?.takeIf { it > 0 }?.let { de.ostlertekker.ultraiptv.core.ui.ratingLabel(it) }).joinToString(" · ").ifBlank { null },
             backdrop = backdrop, plot = plot, kind = "SERIES")
         fun de.ostlertekker.ultraiptv.core.database.ProgressEntity.tile(resume: Boolean) = de.ostlertekker.ultraiptv.feature.common.CinemaTile(itemId, title, image,
             if (durationMs > 0) "Noch ${((durationMs - positionMs) / 60000).coerceAtLeast(1)} Min." else null,
@@ -248,7 +248,7 @@ fun SeriesDetailScreen(nav: NavController, vm: SeriesDetailViewModel = hiltViewM
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.95f), 0.55f to Color.Black.copy(alpha = 0.7f), 1f to Color.Black.copy(alpha = 0.25f))))
         Column(Modifier.fillMaxSize().padding(32.dp)) {
             Text(series.name, color = p.text, fontSize = 34.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily)
-            Text(listOfNotNull(series.year, series.genre, series.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) },
+            Text(listOfNotNull(series.year, series.genre, series.rating?.takeIf { it > 0 }?.let { de.ostlertekker.ultraiptv.core.ui.ratingLabel(it) },
                 seasons.size.takeIf { it > 0 }?.let { if (it == 1) "1 Staffel" else "$it Staffeln" }).joinToString("  ·  "),
                 color = p.primary, fontSize = 14.sp, modifier = Modifier.padding(vertical = 6.dp))
             Text(series.plot ?: "", color = p.textDim, fontSize = 14.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(760.dp))

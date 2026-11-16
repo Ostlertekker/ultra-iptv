@@ -249,7 +249,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
                     Text(hero.name, color = Color.White, fontSize = 42.sp, lineHeight = 46.sp, fontWeight = FontWeight.Bold,
                         maxLines = 2, overflow = TextOverflow.Ellipsis)
                     val meta = listOfNotNull(hero.year?.takeIf { it.isNotBlank() }, hero.genre?.split(',')?.firstOrNull()?.trim()?.takeIf { it.isNotBlank() },
-                        hero.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) }).joinToString("  ·  ")
+                        hero.rating?.takeIf { it > 0 }?.let { de.ostlertekker.ultraiptv.core.ui.ratingLabel(it) }).joinToString("  ·  ")
                     if (meta.isNotBlank()) Text(meta, color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp, modifier = Modifier.padding(top = 6.dp))
                     if (!hero.plot.isNullOrBlank()) Text(hero.plot, color = Color.White.copy(alpha = 0.72f), fontSize = 15.sp, maxLines = 2,
                         overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
@@ -329,7 +329,7 @@ private fun SeriesRow(title: String, list: List<SeriesEntity>, onClick: (SeriesE
     LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
         itemsIndexed(list, key = { _, s -> s.id }, contentType = { _, _ -> "poster" }) { i, s ->
             FocusCard(s.name, s.poster, 150.dp, 222.dp, onClick = { onClick(s) }, entranceIndex = i,
-                subtitle = listOfNotNull(s.year, s.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) }).joinToString(" · ").ifBlank { null })
+                subtitle = listOfNotNull(s.year, s.rating?.takeIf { it > 0 }?.let { de.ostlertekker.ultraiptv.core.ui.ratingLabel(it) }).joinToString(" · ").ifBlank { null })
         }
     }
 }
@@ -371,7 +371,7 @@ private fun MovieRow(title: String, movies: List<MovieEntity>, onClick: (MovieEn
     LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
         itemsIndexed(movies, key = { _, m -> m.id }, contentType = { _, _ -> "poster" }) { i, m ->
             FocusCard(m.name, m.poster, 150.dp, 222.dp, onClick = { onClick(m) }, entranceIndex = i,
-                subtitle = listOfNotNull(m.year, m.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) }).joinToString(" · ").ifBlank { null })
+                subtitle = listOfNotNull(m.year, m.rating?.takeIf { it > 0 }?.let { de.ostlertekker.ultraiptv.core.ui.ratingLabel(it) }).joinToString(" · ").ifBlank { null })
         }
     }
 }

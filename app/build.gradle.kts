@@ -77,6 +77,8 @@ ksp {
 }
 
 dependencies {
+    // Installiert das Baseline-Profil auch bei Installation per APK (ohne Play Store)
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)

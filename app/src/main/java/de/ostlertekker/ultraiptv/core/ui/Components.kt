@@ -291,7 +291,8 @@ fun FocusCard(
             }
         }
         Text(title, color = if (focused) p.text else p.textDim, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 6.dp, start = 2.dp), fontWeight = if (focused) FontWeight.SemiBold else FontWeight.Normal)
+            // Nur die Farbe wechselt beim Fokus – ein Wechsel der Schriftstärke würde den Text bei jedem Tastendruck neu setzen
+            modifier = Modifier.padding(top = 6.dp, start = 2.dp), fontWeight = FontWeight.Medium)
         if (subtitle != null) Text(subtitle, color = p.textDim.copy(alpha = 0.8f), fontSize = 12.sp, maxLines = 1,
             overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 2.dp))
     }
@@ -648,4 +649,11 @@ private fun TopNavPill(label: String, selected: Boolean, onClick: () -> Unit, fo
         Text(label, color = if (focused) Color(0xFF111111) else if (selected) Color.White else Color.White.copy(alpha = 0.72f),
             fontSize = 14.sp, fontWeight = if (focused || selected) FontWeight.SemiBold else FontWeight.Medium, maxLines = 1, softWrap = false)
     }
+}
+
+
+/** „★ 7,4“ – schnell ohne String.format (wird für jede Kachel beim Scrollen gebraucht). */
+fun ratingLabel(r: Double): String {
+    val t = Math.round(r * 10).toInt()
+    return "★ ${t / 10},${t % 10}"
 }

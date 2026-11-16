@@ -204,7 +204,7 @@ fun EpgScreen(vm: EpgViewModel = hiltViewModel()) {
                                                         catchupStart = prog.startMs, catchupEnd = prog.endMs) else vm.message.value = "Für diese Sendung gibt es kein Archiv."
                                                     else -> context.openPlayer(ContentKind.LIVE, ch.id, category = ch.category)
                                                 }
-                                            }, past = prog.endMs <= now) { f -> if (f) detail = prog }
+                                            }, past = prog.endMs <= now, narrow = w < 130.dp) { f -> if (f) detail = prog }
                                     }
                                 }
                             }
@@ -222,7 +222,7 @@ fun EpgScreen(vm: EpgViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun ProgramBlock(title: String, live: Boolean, modifier: Modifier, onClick: () -> Unit, past: Boolean = false, onFocus: (Boolean) -> Unit) {
+private fun ProgramBlock(title: String, live: Boolean, modifier: Modifier, onClick: () -> Unit, past: Boolean = false, narrow: Boolean = false, onFocus: (Boolean) -> Unit) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
     var focused by remember { mutableStateOf(false) }
@@ -234,12 +234,9 @@ private fun ProgramBlock(title: String, live: Boolean, modifier: Modifier, onCli
             .padding(horizontal = 8.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
-        androidx.compose.foundation.layout.BoxWithConstraints {
-            // Schmale Sendungen: einzeilig mit „…“ statt Wörter mitten im Wort umzubrechen
-            val narrow = maxWidth < 130.dp
-            Text(title, color = if (focused) Color.Black else p.text, fontSize = if (narrow) 12.sp else 13.sp,
-                maxLines = if (narrow) 1 else 2, softWrap = !narrow, overflow = TextOverflow.Ellipsis,
-                fontWeight = if (live) FontWeight.SemiBold else FontWeight.Normal)
-        }
+        // Schmale Sendungen: einzeilig mit „…“ (Breite wird übergeben – kein teures Nachmessen je Block)
+        Text(title, color = if (focused) Color.Black else p.text, fontSize = if (narrow) 12.sp else 13.sp,
+            maxLines = if (narrow) 1 else 2, softWrap = !narrow, overflow = TextOverflow.Ellipsis,
+            fontWeight = if (live) FontWeight.SemiBold else FontWeight.Normal)
     }
 }

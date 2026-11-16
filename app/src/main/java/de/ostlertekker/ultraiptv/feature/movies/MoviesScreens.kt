@@ -79,7 +79,7 @@ class MoviesViewModel @Inject constructor(content: ContentRepository, user: User
     val overview: StateFlow<List<de.ostlertekker.ultraiptv.feature.common.CinemaRow>> = run {
         fun MovieEntity.tile() = de.ostlertekker.ultraiptv.feature.common.CinemaTile(id, name, poster,
             listOfNotNull(year, genre?.split(',')?.firstOrNull()?.trim(), durationSec?.takeIf { it > 0 }?.let { "${it / 60} Min." },
-                rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) }).joinToString(" · ").ifBlank { null },
+                rating?.takeIf { it > 0 }?.let { de.ostlertekker.ultraiptv.core.ui.ratingLabel(it) }).joinToString(" · ").ifBlank { null },
             backdrop = backdrop, plot = plot, kind = "MOVIE")
         fun ProgressEntity.tile(resume: Boolean) = de.ostlertekker.ultraiptv.feature.common.CinemaTile(itemId, title, image,
             if (durationMs > 0) "Noch ${((durationMs - positionMs) / 60000).coerceAtLeast(1)} Min." else null,
@@ -191,7 +191,7 @@ fun MoviesScreen(nav: NavController, vm: MoviesViewModel = hiltViewModel()) {
             items(movies.size, key = { movies[it].id }, contentType = { "poster" }) { i ->
                 val m = movies[i]
                 FocusCard(m.name, m.poster, 150.dp, 222.dp, onClick = { nav.navigate(Routes.movie(m.id)) }, entranceIndex = i % 8,
-                    subtitle = listOfNotNull(m.year, m.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) }).joinToString(" · ").ifBlank { null })
+                    subtitle = listOfNotNull(m.year, m.rating?.takeIf { it > 0 }?.let { de.ostlertekker.ultraiptv.core.ui.ratingLabel(it) }).joinToString(" · ").ifBlank { null })
             }
         }
     }
@@ -251,7 +251,7 @@ fun MovieDetailScreen(nav: NavController, vm: MovieDetailViewModel = hiltViewMod
             Spacer(Modifier.width(36.dp))
             Column(Modifier.width(640.dp)) {
                 Text(m.name, color = Color.White, fontSize = 38.sp, fontWeight = FontWeight.Bold)
-                val meta = listOfNotNull(m.year, m.genre, m.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) },
+                val meta = listOfNotNull(m.year, m.genre, m.rating?.takeIf { it > 0 }?.let { de.ostlertekker.ultraiptv.core.ui.ratingLabel(it) },
                     m.durationSec?.takeIf { it > 0 }?.let { "${it / 60} Min." }, m.category).joinToString("  ·  ")
                 Text(meta, color = p.primary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(vertical = 10.dp))
                 Text(m.plot ?: "Keine Beschreibung verfügbar.", color = p.textDim, fontSize = 16.sp, maxLines = 6)

@@ -39,7 +39,8 @@ class UltraApp : Application(), ImageLoaderFactory {
             // Nicht 64 riesige Poster gleichzeitig decodieren – das sprengt auf Fire-TV-Sticks den Speicher
             .fetcherDispatcher(kotlinx.coroutines.Dispatchers.IO.limitedParallelism(if (low) 4 else 6))
             .decoderDispatcher(kotlinx.coroutines.Dispatchers.Default.limitedParallelism(if (low) 1 else 2))
-            .crossfade(if (low) 0 else 120)
+            // Kein Überblenden: jedes Bild wäre sonst 120 ms lang zusätzliche Zeichenarbeit beim Scrollen
+            .crossfade(false)
             .respectCacheHeaders(false)
             .build()
     }

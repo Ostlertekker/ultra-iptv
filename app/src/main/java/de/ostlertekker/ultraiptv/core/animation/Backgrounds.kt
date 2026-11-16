@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.core.animation
 
+import androidx.compose.ui.graphics.graphicsLayer
 import android.graphics.Paint
 import android.graphics.Typeface
 import androidx.compose.foundation.Canvas
@@ -115,7 +116,8 @@ fun ThemeBackground(theme: ResolvedTheme, modifier: Modifier = Modifier, animate
         Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textSize = 20f }
     }
     Box(modifier) {
-        Canvas(Modifier.fillMaxSize()) {
+        // Eigene Render-Ebene: der (ruhende) Hintergrund wird nicht bei jeder Änderung im Vordergrund neu gezeichnet
+        Canvas(Modifier.fillMaxSize().graphicsLayer()) {
             val t = clock.value * (0.4f + 0.6f * anim.intensity)
             drawThemeEffect(theme.spec.effect, theme.palette, field, t, anim, paint)
             if (theme.bgDim > 0f) drawRect(Color.Black.copy(alpha = theme.bgDim))

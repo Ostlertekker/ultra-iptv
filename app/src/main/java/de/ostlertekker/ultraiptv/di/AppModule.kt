@@ -38,7 +38,7 @@ object AppModule {
     @Provides @Singleton
     fun database(@ApplicationContext context: Context): UltraDatabase =
         Room.databaseBuilder(context, UltraDatabase::class.java, "ultra.db")
-            .addMigrations(Migrations.MIGRATION_1_2, Migrations.MIGRATION_2_3)
+            .addMigrations(Migrations.MIGRATION_1_2, Migrations.MIGRATION_2_3, Migrations.MIGRATION_3_4)
             .fallbackToDestructiveMigration()
             .addCallback(object : androidx.room.RoomDatabase.Callback() {
                 // Beim Öffnen übergroße Anbieter-Einträge kürzen (verhindert Abstürze in Filme/Serien)

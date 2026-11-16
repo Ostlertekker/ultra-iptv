@@ -352,6 +352,15 @@ object Migrations {
         "UPDATE epg SET description = substr(description, 1, 2000) WHERE length(description) > 2000",
     )
 
+    /** v4: Indizes für „Neu“ und „Beliebt“ – Reihen mit 20.000+ Titeln müssen nicht mehr komplett sortiert werden. */
+    val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_movies_rating` ON `movies` (`rating`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_series_addedAt` ON `series` (`addedAt`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_series_rating` ON `series` (`rating`)")
+        }
+    }
+
     val MIGRATION_2_3 = object : Migration(2, 3) {
         override fun migrate(db: SupportSQLiteDatabase) { SQL_2_3.forEach { db.execSQL(it) } }
     }
@@ -370,7 +379,7 @@ object Migrations {
         SkipMarkerEntity::class, ChannelHealthEntity::class, ChannelQualityEntity::class,
         NotificationEntity::class, ReminderEntity::class, WatchLogEntity::class, VirtualListEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class UltraDatabase : RoomDatabase() {
