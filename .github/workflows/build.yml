@@ -43,7 +43,8 @@ jobs:
         run: |
           chmod +x gradlew
           set -o pipefail
-          ./gradlew --no-daemon --stacktrace assembleDebug assembleRelease 2>&1 | tee build.log
+          ./gradlew --no-daemon --stacktrace assembleDebug 2>&1 | tee build.log
+          ./gradlew --no-daemon --stacktrace assembleRelease 2>&1 | tee -a build.log
 
       - name: Unit-Tests
         run: |
