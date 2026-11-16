@@ -134,5 +134,7 @@ class PlayerActivity : ComponentActivity() {
         const val EXTRA_ID = "id"
         const val EXTRA_START = "startMs"
         const val EXTRA_CATEGORY = "category"
+        const val EXTRA_CATCHUP_START = "catchupStart"
+        const val EXTRA_CATCHUP_END = "catchupEnd"
     }
 }

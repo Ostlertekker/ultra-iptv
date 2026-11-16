@@ -76,6 +76,18 @@ data class AppSettings(
     /** CRAZY MOTION ENGINE: aktive Konfiguration und eigene Profile (JSON). */
     val motionJson: String = "",
     val motionProfilesJson: String = "",
+    val serverTz: String = "",
+    /** Untertitel-Verzögerung in ms (0…10000, nur „später“ technisch möglich). */
+    val subDelayMs: Int = 0,
+    val cinemaMode: Boolean = false,
+    /** 0 = Normal, 1 = Nachtmodus, 2 = Dialog klar, 3 = Bass+ */
+    val cinemaSound: Int = 0,
+    /** Bildregler in Prozent (100 = neutral). */
+    val picBrightness: Int = 100,
+    val picContrast: Int = 100,
+    val picSaturation: Int = 100,
+    val sportsLeagues: String = "",
+    val scoreAlerts: Boolean = true,
     val liveReconnect: Boolean = true,
     val stallTimeoutSec: Int = 8,
     val ignoreAudioFocus: Boolean = false,
@@ -153,6 +165,15 @@ object Keys {
     val LAST_UPDATE_CHECK = longPreferencesKey("last_update_check")
     val MOTION = stringPreferencesKey("motion")
     val MOTION_PROFILES = stringPreferencesKey("motion_profiles")
+    val SERVER_TZ = stringPreferencesKey("server_tz")
+    val SUB_DELAY = intPreferencesKey("sub_delay_ms")
+    val CINEMA_MODE = booleanPreferencesKey("cinema_mode")
+    val CINEMA_SOUND = intPreferencesKey("cinema_sound")
+    val PIC_BRIGHTNESS = intPreferencesKey("pic_brightness")
+    val PIC_CONTRAST = intPreferencesKey("pic_contrast")
+    val PIC_SATURATION = intPreferencesKey("pic_saturation")
+    val SPORTS_LEAGUES = stringPreferencesKey("sports_leagues")
+    val SCORE_ALERTS = booleanPreferencesKey("score_alerts")
     val LIVE_RECONNECT = booleanPreferencesKey("live_reconnect")
     val STALL_TIMEOUT = intPreferencesKey("stall_timeout")
     val IGNORE_FOCUS = booleanPreferencesKey("ignore_focus")
@@ -235,6 +256,15 @@ fun Preferences.toSettings(): AppSettings {
         lastUpdateCheck = this[Keys.LAST_UPDATE_CHECK] ?: d.lastUpdateCheck,
         motionJson = this[Keys.MOTION] ?: d.motionJson,
         motionProfilesJson = this[Keys.MOTION_PROFILES] ?: d.motionProfilesJson,
+        serverTz = this[Keys.SERVER_TZ] ?: d.serverTz,
+        subDelayMs = this[Keys.SUB_DELAY] ?: d.subDelayMs,
+        cinemaMode = this[Keys.CINEMA_MODE] ?: d.cinemaMode,
+        cinemaSound = this[Keys.CINEMA_SOUND] ?: d.cinemaSound,
+        picBrightness = this[Keys.PIC_BRIGHTNESS] ?: d.picBrightness,
+        picContrast = this[Keys.PIC_CONTRAST] ?: d.picContrast,
+        picSaturation = this[Keys.PIC_SATURATION] ?: d.picSaturation,
+        sportsLeagues = this[Keys.SPORTS_LEAGUES] ?: d.sportsLeagues,
+        scoreAlerts = this[Keys.SCORE_ALERTS] ?: d.scoreAlerts,
         liveReconnect = this[Keys.LIVE_RECONNECT] ?: d.liveReconnect,
         stallTimeoutSec = this[Keys.STALL_TIMEOUT] ?: d.stallTimeoutSec,
         ignoreAudioFocus = this[Keys.IGNORE_FOCUS] ?: d.ignoreAudioFocus,

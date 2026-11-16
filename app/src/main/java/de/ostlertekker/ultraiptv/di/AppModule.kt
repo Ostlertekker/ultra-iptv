@@ -38,7 +38,7 @@ object AppModule {
     @Provides @Singleton
     fun database(@ApplicationContext context: Context): UltraDatabase =
         Room.databaseBuilder(context, UltraDatabase::class.java, "ultra.db")
-            .addMigrations(Migrations.MIGRATION_1_2)
+            .addMigrations(Migrations.MIGRATION_1_2, Migrations.MIGRATION_2_3)
             .fallbackToDestructiveMigration()
             .build()
 
@@ -46,6 +46,7 @@ object AppModule {
     @Provides fun epgDao(db: UltraDatabase): EpgDao = db.epg()
     @Provides fun userDao(db: UltraDatabase): UserDao = db.user()
     @Provides fun extrasDao(db: UltraDatabase): ExtrasDao = db.extras()
+    @Provides fun discoverDao(db: UltraDatabase): de.ostlertekker.ultraiptv.core.database.DiscoverDao = db.discover()
 
     @Provides @Singleton
     fun okHttp(): OkHttpClient = OkHttpClient.Builder()

@@ -66,7 +66,7 @@ import de.ostlertekker.ultraiptv.core.ui.UltraLoader
 import de.ostlertekker.ultraiptv.feature.smartskip.SegmentType
 import kotlinx.coroutines.delay
 
-private enum class Panel { AUDIO, SUBTITLES, ASPECT, SPEED, SMART_SKIP, CHANNELS }
+private enum class Panel { AUDIO, SUBTITLES, ASPECT, SPEED, SMART_SKIP, CHANNELS, CINEMA, SYNC }
 
 private val subtitleColors = listOf(android.graphics.Color.WHITE, android.graphics.Color.YELLOW, android.graphics.Color.CYAN)
 private val subtitleColorNames = listOf("Weiß", "Gelb", "Cyan")
@@ -96,6 +96,8 @@ fun PlayerScreen(
     val tracksVersion by vm.engine.tracksVersion.collectAsStateWithLifecycle()
     var overlay by remember { mutableStateOf(true) }
     var panel by remember { mutableStateOf<Panel?>(null) }
+    var health by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
     var interaction by remember { mutableLongStateOf(0L) }
     var seekHint by remember { mutableStateOf<String?>(null) }
     val rootFocus = remember { FocusRequester() }
@@ -143,6 +145,8 @@ fun PlayerScreen(
                 if (ev.key == Key.Back) {
                     if (!down) {
                         when {
+                            ui.frameStep -> vm.toggleFrameStep()
+                            health -> health = false
                             ui.countdown != null -> vm.cancelCountdown()
                             panel != null -> panel = null
                             overlay -> overlay = false
@@ -164,8 +168,22 @@ fun PlayerScreen(
                     if (down) vm.typeDigit(digit); return@onPreviewKeyEvent true
                 }
                 if (isLive && ev.key == Key.MediaPrevious) { if (down) vm.lastChannel(); return@onPreviewKeyEvent true }
-                if (ev.key == Key.MediaFastForward || ev.key == Key.MediaRewind) {
+                if (!isLive && (ev.key == Key.MediaFastForward || ev.key == Key.MediaRewind)) {
                     if (down) { val d = if (ev.key == Key.MediaFastForward) 30_000L else -10_000L; vm.seekBy(d); seekHint = if (d > 0) "+30 s" else "−10 s" }
+                    return@onPreviewKeyEvent true
+                }
+                // Einzelbild-Modus: Pfeiltasten steuern Bild für Bild
+                if (ui.frameStep && panel == null) {
+                    if (down) when (ev.key) {
+                        Key.DirectionLeft -> vm.stepFrames(-1); Key.DirectionRight -> vm.stepFrames(1)
+                        Key.DirectionUp -> vm.stepFrames(10); Key.DirectionDown -> vm.stepFrames(-10)
+                        Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> vm.toggleFrameStep()
+                        else -> Unit
+                    }
+                    return@onPreviewKeyEvent true
+                }
+                if (isLive && (ev.key == Key.MediaRewind || ev.key == Key.MediaFastForward)) {
+                    if (down) { if (ev.key == Key.MediaRewind) vm.rewindLive(30_000) else vm.forwardShift(30_000) }
                     return@onPreviewKeyEvent true
                 }
                 if (ui.countdown != null || panel != null || overlay) return@onPreviewKeyEvent false
@@ -183,9 +201,13 @@ fun PlayerScreen(
                 true
             },
     ) {
-        AndroidView(
+        val picAdjust = pictureAdjusted(settings)
+        val delayedSubs = settings.subDelayMs > 0
+        androidx.compose.runtime.key(picAdjust) { AndroidView(
             factory = { ctx ->
-                PlayerView(ctx).apply {
+                // Bildregler brauchen eine TextureView (Farbmatrix); sonst die schnellere SurfaceView
+                (if (picAdjust) android.view.LayoutInflater.from(ctx).inflate(de.ostlertekker.ultraiptv.R.layout.ultra_player_texture, null) as PlayerView
+                else PlayerView(ctx)).apply {
                     useController = false
                     isFocusable = false
                     setKeepContentOnPlayerReset(true)
@@ -196,6 +218,9 @@ fun PlayerScreen(
             update = { view ->
                 if (view.player !== vm.engine.player) view.player = vm.engine.player
                 view.resizeMode = ui.resizeMode
+                if (picAdjust) (view.videoSurfaceView as? android.view.TextureView)?.setLayerType(android.view.View.LAYER_TYPE_HARDWARE,
+                    android.graphics.Paint().apply { colorFilter = android.graphics.ColorMatrixColorFilter(pictureMatrix(settings.picBrightness, settings.picContrast, settings.picSaturation)) })
+                view.subtitleView?.visibility = if (delayedSubs) android.view.View.GONE else android.view.View.VISIBLE
                 view.subtitleView?.let { sv ->
                     val bg = when (settings.subtitleBackground) { 0 -> android.graphics.Color.TRANSPARENT; 1 -> 0x99000000.toInt(); else -> android.graphics.Color.BLACK }
                     sv.setApplyEmbeddedStyles(false)
@@ -205,7 +230,9 @@ fun PlayerScreen(
                 }
             },
             modifier = Modifier.fillMaxSize(),
-        )
+        ) }
+        if (delayedSubs) DelayedSubtitleLayer(vm.engine.player, settings.subDelayMs, settings, Modifier.fillMaxSize().padding(bottom = 24.dp))
+        if (settings.cinemaMode && !inPip) CinemaAmbience(Modifier.fillMaxSize())
 
         // Effekte liegen ÜBER dem Video (SurfaceView) – der Stream startet ohne Verzögerung darunter
         if (!inPip) CurtainOverlay(trigger = Unit, type = motion.playerEnter)
@@ -225,8 +252,14 @@ fun PlayerScreen(
                 modifier = Modifier.align(Alignment.TopEnd).padding(40.dp).background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(14.dp))
                     .padding(horizontal = 24.dp, vertical = 8.dp))
         }
+        if (!inPip) {
+            TimeshiftBadge(ui, Modifier.align(Alignment.TopStart).padding(top = 30.dp, start = 36.dp))
+            ScoreChip(ui, Modifier.align(Alignment.TopStart).padding(top = if (ui.shiftBehindMs >= 5_000 || ui.livePaused) 66.dp else 30.dp, start = 36.dp))
+            FrameStepHint(ui, Modifier.align(Alignment.TopCenter).padding(top = 30.dp))
+            if (health) HealthMonitor(vm, Modifier.align(Alignment.Center).fillMaxWidth(0.86f))
+        }
         // Uhr im Player
-        if (settings.playerClock && !inPip && overlay) {
+        if (settings.playerClock && !inPip && overlay && !settings.cinemaMode) {
             PlayerClock(settings.clock24h, Modifier.align(Alignment.TopCenter).padding(top = 36.dp))
         }
 
@@ -332,11 +365,24 @@ fun PlayerScreen(
                             item { TvButton("Kanal ▼", onClick = { vm.switchChannel(1) }) }
                             item { TvButton("Senderliste", onClick = { panel = Panel.CHANNELS }) }
                             item { TvButton("↺ Letzter Sender", onClick = { vm.lastChannel() }) }
+                            if (ui.canTimeshift || ui.shiftBehindMs > 0) {
+                                item { TvButton("⏪ −30 s", onClick = { vm.rewindLive(30_000) }) }
+                                item { TvButton("⏪ −5 min", onClick = { vm.rewindLive(300_000) }) }
+                                if (ui.shiftBehindMs > 0) {
+                                    item { TvButton("+30 s ⏩", onClick = { vm.forwardShift(30_000) }) }
+                                    item { TvButton("● Zurück zu LIVE", onClick = { vm.goLive() }, primary = true) }
+                                }
+                            }
+                            item { TvButton("⊞ Multi-View", onClick = { de.ostlertekker.ultraiptv.feature.multiview.MultiViewActivity.openWithComparison(context, vm.currentItemId()); onExit() }) }
                         }
                         item { TvButton("Audio", onClick = { panel = Panel.AUDIO }) }
                         item { TvButton("Untertitel", onClick = { panel = Panel.SUBTITLES }) }
                         item { TvButton("Bildformat", onClick = { panel = Panel.ASPECT }) }
-                        if (!isLive) item { TvButton("Tempo ${ui.speed}×", onClick = { panel = Panel.SPEED }) }
+                        if (!isLive || ui.shiftBehindMs > 0) item { TvButton("Tempo ${ui.speed}×", onClick = { panel = Panel.SPEED }) }
+                        if (!isLive || ui.shiftBehindMs > 0) item { TvButton("Einzelbild", onClick = { overlay = false; vm.toggleFrameStep() }) }
+                        item { TvButton("Sync", onClick = { panel = Panel.SYNC }) }
+                        item { TvButton(if (settings.cinemaMode) "🎬 Kino: AN" else "🎬 Kinomodus", onClick = { panel = Panel.CINEMA }) }
+                        item { TvButton(if (health) "Health aus" else "Health-Monitor", onClick = { health = !health }) }
                         if (ui.kind == ContentKind.EPISODE) {
                             item { TvButton("Smart Skip", onClick = { panel = Panel.SMART_SKIP }) }
                             if (ui.hasNext) item { TvButton("Nächste Folge ▶▶", onClick = { vm.playNext() }) }
@@ -418,7 +464,28 @@ private fun PanelContent(panel: Panel, vm: PlayerViewModel, ui: PlayerUi, settin
         }
         Panel.SPEED -> {
             title = "Wiedergabetempo"
-            options = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f).map { s -> Opt("$s×", ui.speed == s) { vm.setSpeed(s); close() } }
+            options = listOf(0.25f, 0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f, 3f, 4f).map { s -> Opt("$s×", ui.speed == s) { vm.setSpeed(s); close() } }
+        }
+        Panel.CINEMA -> {
+            title = "Kinomodus"
+            val soundNames = listOf("Normal", "Nachtmodus (leise Szenen lauter, laute leiser)", "Dialog klar", "Bass+")
+            options = listOf(
+                Opt(if (settings.cinemaMode) "Kinomodus ausschalten" else "Kinomodus einschalten", settings.cinemaMode) { vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.CINEMA_MODE, !settings.cinemaMode) },
+                Opt("Kinoklang: ${soundNames[settings.cinemaSound.coerceIn(0, 3)]}", settings.cinemaSound > 0) { vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.CINEMA_SOUND, (settings.cinemaSound + 1) % 4) },
+                Opt("Helligkeit: ${settings.picBrightness} %", settings.picBrightness != 100) { vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.PIC_BRIGHTNESS, cyclePct(settings.picBrightness)) },
+                Opt("Kontrast: ${settings.picContrast} %", settings.picContrast != 100) { vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.PIC_CONTRAST, cyclePct(settings.picContrast)) },
+                Opt("Farbsättigung: ${settings.picSaturation} %", settings.picSaturation != 100) { vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.PIC_SATURATION, cyclePct(settings.picSaturation)) },
+                Opt("Bildregler zurücksetzen", false) {
+                    vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.PIC_BRIGHTNESS, 100); vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.PIC_CONTRAST, 100)
+                    vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.PIC_SATURATION, 100)
+                },
+            )
+        }
+        Panel.SYNC -> {
+            title = "Synchronisation"
+            options = listOf(0, 250, 500, 1000, 1500, 2000, 3000, 5000).map { d ->
+                Opt(if (d == 0) "Untertitel: ohne Verzögerung" else "Untertitel: +${d} ms später", settings.subDelayMs == d) { vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.SUB_DELAY, d); close() }
+            } + listOf(Opt("Ton-Verschiebung: vom Player (Media3) auf diesem Gerät nicht unterstützt", false) { })
         }
         Panel.SMART_SKIP -> {
             title = "Smart Skip"
@@ -489,3 +556,6 @@ private fun PlayerClock(h24: Boolean, modifier: Modifier) {
     LaunchedEffect(Unit) { while (true) { now = System.currentTimeMillis(); delay(15_000) } }
     Text(de.ostlertekker.ultraiptv.core.ui.formatClock(now, h24), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = modifier)
 }
+
+
+private fun cyclePct(v: Int): Int = listOf(70, 80, 90, 100, 110, 120, 130).let { l -> l[(l.indexOf(v).coerceAtLeast(0) + 1) % l.size] }

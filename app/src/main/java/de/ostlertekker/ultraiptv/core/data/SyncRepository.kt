@@ -162,6 +162,7 @@ class SyncRepository @Inject constructor(
                     id = "m3u:" + shortHash(e.url), name = e.name, category = e.group, logo = e.logo,
                     streamUrl = e.url, epgId = (e.tvgId ?: e.tvgName ?: e.name).lowercase(),
                     number = index + 1, adult = adult, country = Countries.detect(e.group, e.name),
+                    archiveDays = e.catchup?.days ?: 0, catchupMode = e.catchup?.mode, catchupSource = e.catchup?.source,
                 )
                 M3uKind.MOVIE -> movies += MovieEntity(
                     id = "m3u:" + shortHash(e.url), name = e.name, category = e.group, poster = e.logo,
@@ -231,6 +232,7 @@ class SyncRepository @Inject constructor(
         val userInfo = auth.obj("user_info")
         if (userInfo == null || userInfo.str("auth") == "0") error("Anmeldung abgelehnt – Zugangsdaten prüfen")
         _accountInfo.value = parseAccountInfo(auth)
+        _accountInfo.value?.serverTimezone?.let { tz -> runCatching { settings.set(Keys.SERVER_TZ, tz) } }
         userInfo.str("status")?.let { if (!it.equals("Active", true)) error("Konto-Status: $it") }
 
         status("Live-TV-Kategorien …")
@@ -245,6 +247,10 @@ class SyncRepository @Inject constructor(
                 epgId = o.str("epg_channel_id")?.lowercase(), number = o.str("num")?.toIntOrNull() ?: 0,
                 adult = isAdultCategory(cat) || o.str("is_adult") == "1",
                 country = Countries.detect(cat, o.str("name")),
+                // Archiv laut Anbieter (tv_archive / tv_archive_duration) → TV Time Machine, Live-Pause, Zurückspulen
+                archiveDays = if (o.str("tv_archive") == "1") (o.str("tv_archive_duration")?.toIntOrNull() ?: 1).coerceIn(1, 30) else 0,
+                catchupMode = if (o.str("tv_archive") == "1") "xc" else null,
+                catchupSource = if (o.str("tv_archive") == "1") id else null,
             )
         }
 

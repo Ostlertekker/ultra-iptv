@@ -16,6 +16,36 @@ data class ChannelEntity(
     val adult: Boolean,
     /** Automatisch erkanntes Land (ISO-Code) aus Kategorie/Name. */
     val country: String? = null,
+    /** Archivtage laut Anbieter (Catch-up/Timeshift). 0 = kein Archiv. */
+    @androidx.room.ColumnInfo(defaultValue = "0") val archiveDays: Int = 0,
+    /** M3U: catchup-Modus (default/append/shift/flussonic); Xtream: "xc". */
+    val catchupMode: String? = null,
+    /** M3U: catchup-source-Vorlage; Xtream: stream_id. */
+    val catchupSource: String? = null,
+)
+
+/** Sehprotokoll für „Mein TV-Universum“ (nur lokal gespeichert). */
+@Entity(tableName = "watch_log", indices = [Index("startedAt"), Index("itemId")])
+data class WatchLogEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val profileId: Long,
+    val kind: String,
+    val itemId: String,
+    val name: String,
+    val category: String?,
+    val startedAt: Long,
+    val durationMs: Long,
+)
+
+/** Eigene, virtuelle Senderliste (AI Channel Cloning): Regeln, keine kopierten Streams. */
+@Entity(tableName = "virtual_lists")
+data class VirtualListEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val profileId: Long,
+    val name: String,
+    /** JSON-Regeln (Kategorien, Stichwörter, Smart-Gruppen, EPG-Thema, nur Favoriten). */
+    val rulesJson: String,
+    val createdAt: Long,
 )
 
 @Entity(tableName = "movies", indices = [Index("category"), Index("name"), Index("addedAt")])

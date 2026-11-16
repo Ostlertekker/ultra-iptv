@@ -82,6 +82,19 @@ object Routes {
     fun movie(id: String) = "movie/${Uri.encode(id)}"
     fun seriesDetail(id: String) = "seriesDetail/${Uri.encode(id)}"
     fun epg(category: String?) = if (category == null) EPG else "$EPG?category=${Uri.encode(category)}"
+
+    // Entdecken-Funktionen
+    const val EXPLORE = "explore"
+    const val WHATSON = "whatson"
+    const val EVENTS = "events"
+    const val SPORTS = "sports"
+    const val HOLO = "holo"
+    const val UNIVERSE = "universe"
+    const val MYTV = "mytv"
+    const val LISTS = "lists"
+    fun radar(q: String) = "radar?q=${Uri.encode(q)}"
+    fun timeMachine(at: Long) = "timemachine?at=$at"
+    fun mood(moods: String) = "mood?m=${Uri.encode(moods)}"
 }
 
 private enum class Phase { INTRO, SETUP, PROFILES, MAIN }
@@ -140,6 +153,8 @@ private fun railRouteFor(route: String): String = when {
     route.startsWith(Routes.WORLD) -> Routes.WORLD
     route.startsWith(Routes.SETUP) -> Routes.SETTINGS
     route.startsWith(Routes.SETUP_NEW) -> Routes.SETTINGS
+    listOf(Routes.WHATSON, "radar", "timemachine", Routes.EVENTS, Routes.SPORTS, Routes.HOLO, Routes.UNIVERSE, "mood", Routes.MYTV, Routes.LISTS)
+        .any { route.startsWith(it) } -> Routes.EXPLORE
     else -> route
 }
 
@@ -153,7 +168,7 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
     val railFocus = remember { FocusRequester() }
     val items = remember {
         listOf(
-            NavItem(Routes.HOME, "HOME"), NavItem(Routes.LIVE, "LIVE TV"), NavItem(Routes.WORLD, "WORLD MAP"), NavItem(Routes.MOVIES, "MOVIES"),
+            NavItem(Routes.HOME, "HOME"), NavItem(Routes.LIVE, "LIVE TV"), NavItem(Routes.EXPLORE, "EXPLORE"), NavItem(Routes.WORLD, "WORLD MAP"), NavItem(Routes.MOVIES, "MOVIES"),
             NavItem(Routes.SERIES, "SERIES"), NavItem(Routes.FAVORITES, "FAVORITES"), NavItem(Routes.SEARCH, "SEARCH"),
             NavItem(Routes.SETTINGS, "SETTINGS"),
         )
@@ -204,6 +219,23 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
                     composable(Routes.SEARCH) { SearchScreen(nav) }
                     composable(Routes.SETTINGS) { SettingsScreen(nav) }
                     composable(Routes.WORLD) { WorldScreen() }
+                    composable(Routes.EXPLORE) { de.ostlertekker.ultraiptv.feature.discover.ExploreHub(nav) }
+                    composable(Routes.WHATSON) { de.ostlertekker.ultraiptv.feature.discover.WhatsOnScreen(nav) }
+                    composable("radar?q={q}", arguments = listOf(navArgument("q") { type = NavType.StringType; defaultValue = "" })) { e ->
+                        de.ostlertekker.ultraiptv.feature.discover.RadarScreen(e.arguments?.getString("q") ?: "")
+                    }
+                    composable("timemachine?at={at}", arguments = listOf(navArgument("at") { type = NavType.LongType; defaultValue = 0L })) { e ->
+                        de.ostlertekker.ultraiptv.feature.discover.TimeMachineScreen(e.arguments?.getLong("at") ?: 0L)
+                    }
+                    composable(Routes.EVENTS) { de.ostlertekker.ultraiptv.feature.discover.EventsScreen(nav) }
+                    composable(Routes.SPORTS) { de.ostlertekker.ultraiptv.feature.discover.SportsScreen(nav) }
+                    composable(Routes.HOLO) { de.ostlertekker.ultraiptv.feature.discover.HoloGuideScreen() }
+                    composable(Routes.UNIVERSE) { de.ostlertekker.ultraiptv.feature.discover.UniverseScreen() }
+                    composable("mood?m={m}", arguments = listOf(navArgument("m") { type = NavType.StringType; defaultValue = "" })) { e ->
+                        de.ostlertekker.ultraiptv.feature.discover.MoodScreen(nav, e.arguments?.getString("m") ?: "")
+                    }
+                    composable(Routes.MYTV) { de.ostlertekker.ultraiptv.feature.discover.MyTvScreen() }
+                    composable(Routes.LISTS) { de.ostlertekker.ultraiptv.feature.discover.ListsScreen() }
                     composable(Routes.SETUP_NEW) { ProviderSetupScreen(onDone = { nav.popBackStack() }, firstRun = false, newAccount = true) }
                     composable(Routes.SETUP) { ProviderSetupScreen(onDone = { nav.popBackStack() }, firstRun = false) }
                 }

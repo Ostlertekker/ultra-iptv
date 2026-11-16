@@ -104,8 +104,9 @@ class RootViewModel @Inject constructor(
 }
 
 /** Startet den Vollbild-Player. */
-fun Context.openPlayer(kind: ContentKind, id: String, startMs: Long = 0L, category: String? = null) {
+fun Context.openPlayer(kind: ContentKind, id: String, startMs: Long = 0L, category: String? = null, catchupStart: Long = 0L, catchupEnd: Long = 0L) {
     startActivity(Intent(this, PlayerActivity::class.java).apply {
+        if (catchupStart > 0) { putExtra(PlayerActivity.EXTRA_CATCHUP_START, catchupStart); putExtra(PlayerActivity.EXTRA_CATCHUP_END, catchupEnd) }
         putExtra(PlayerActivity.EXTRA_KIND, kind.name)
         putExtra(PlayerActivity.EXTRA_ID, id)
         putExtra(PlayerActivity.EXTRA_START, startMs)

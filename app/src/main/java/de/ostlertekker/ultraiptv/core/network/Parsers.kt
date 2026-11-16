@@ -17,6 +17,8 @@ data class M3uEntry(
     val logo: String?,
     val tvgId: String?,
     val tvgName: String?,
+    /** Catch-up-Angaben aus der Playlist (catchup, catchup-days, catchup-source). */
+    val catchup: de.ostlertekker.ultraiptv.core.catchup.CatchupInfo? = null,
 )
 
 data class M3uResult(val entries: List<M3uEntry>, val epgUrl: String?)
@@ -61,6 +63,7 @@ object M3uParser {
                         logo = attrs["tvg-logo"]?.takeIf { it.isNotBlank() },
                         tvgId = attrs["tvg-id"]?.takeIf { it.isNotBlank() },
                         tvgName = attrs["tvg-name"]?.takeIf { it.isNotBlank() },
+                        catchup = de.ostlertekker.ultraiptv.core.catchup.Catchup.fromM3uAttrs(attrs),
                     )
                     pendingAttrs = null; pendingName = null; pendingGroup = null
                 }

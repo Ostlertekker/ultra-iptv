@@ -148,7 +148,7 @@ class PlayerEngine @Inject constructor(
         scope.launch {
             settingsRepo.settings.collect { s ->
                 cfg = s
-                applyAudioFocus(); applyBoost()
+                applyAudioFocus(); applyBoost(); applyCinemaSound()
             }
         }
     }
@@ -173,6 +173,48 @@ class PlayerEngine @Inject constructor(
             le.setTargetGain(db * 100)
             le.enabled = true
         } catch (_: Exception) { loudness = null }
+    }
+
+    // ------------------------------------------------ Kinoklang (Cinema Mode): Nachtmodus, Dialog, Bass – echte DSP
+    private var dynamics: android.media.audiofx.DynamicsProcessing? = null
+    private var dynamicsMode = -1
+    private var dynamicsSession = -1
+
+    private fun applyCinemaSound() {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.P) return
+        val p = exo ?: return
+        val mode = cfg.cinemaSound
+        val session = p.audioSessionId
+        if (mode == dynamicsMode && session == dynamicsSession) return
+        runCatching { dynamics?.release() }; dynamics = null
+        dynamicsMode = mode; dynamicsSession = session
+        if (mode <= 0 || session == C.AUDIO_SESSION_ID_UNSET) return
+        try {
+            val config = android.media.audiofx.DynamicsProcessing.Config.Builder(
+                android.media.audiofx.DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION,
+                2, false, 0, true, 1, true, 3, true,
+            ).build()
+            val dp = android.media.audiofx.DynamicsProcessing(0, session, config)
+            for (ch in 0 until 2) {
+                val mbc = dp.getMbcBandByChannelIndex(ch, 0)
+                mbc.isEnabled = mode == 1
+                if (mode == 1) { mbc.threshold = -32f; mbc.ratio = 4f; mbc.attackTime = 5f; mbc.releaseTime = 120f; mbc.postGain = 7f }
+                dp.setMbcBandByChannelIndex(ch, 0, mbc)
+                // Post-EQ: <250 Hz, 250 Hz–4 kHz, >4 kHz
+                val gains = when (mode) { 2 -> floatArrayOf(-4f, 5f, 2f); 3 -> floatArrayOf(7f, 0f, 1f); else -> floatArrayOf(-2f, 2f, 0f) }
+                val cuts = floatArrayOf(250f, 4000f, 20000f)
+                for (b in 0 until 3) {
+                    val eq = dp.getPostEqBandByChannelIndex(ch, b)
+                    eq.isEnabled = true; eq.cutoffFrequency = cuts[b]; eq.gain = gains[b]
+                    dp.setPostEqBandByChannelIndex(ch, b, eq)
+                }
+                val lim = dp.getLimiterByChannelIndex(ch)
+                lim.isEnabled = true; lim.threshold = -2f
+                dp.setLimiterByChannelIndex(ch, lim)
+            }
+            dp.enabled = true
+            dynamics = dp
+        } catch (_: Throwable) { dynamics = null }
     }
 
     private fun startWatchdog() {
@@ -359,6 +401,7 @@ class PlayerEngine @Inject constructor(
     fun release() {
         retryJob?.cancel()
         runCatching { loudness?.release() }; loudness = null
+        runCatching { dynamics?.release() }; dynamics = null; dynamicsMode = -1
         exo?.release()
         exo = null
         bufferProfile = null
@@ -462,7 +505,7 @@ class PlayerEngine @Inject constructor(
 
         override fun onAudioSessionIdChanged(audioSessionId: Int) {
             runCatching { loudness?.release() }; loudness = null
-            applyBoost()
+            applyBoost(); applyCinemaSound()
         }
 
         override fun onTracksChanged(tracks: Tracks) {

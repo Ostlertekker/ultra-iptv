@@ -2,6 +2,7 @@ package de.ostlertekker.ultraiptv
 
 import de.ostlertekker.ultraiptv.core.database.Migrations
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -12,35 +13,53 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Prüft die handgeschriebene Migration v1→v2 gegen das von Room erzeugte Schema (app/schemas/…/2.json).
+ * Prüft die handgeschriebenen Migrationen v1→v2→v3 gegen das von Room erzeugte Schema (app/schemas/…/3.json).
  * Verhindert, dass ein Update bestehende Favoriten/Verläufe löscht oder beim Start abstürzt.
  */
 class MigrationSchemaTest {
     private fun norm(s: String) = s.replace(Regex("\\s+"), " ").trim()
 
-    @Test fun migrationMatchesRoomSchema() {
-        val file = File("schemas/de.ostlertekker.ultraiptv.core.database.UltraDatabase/2.json")
+    private val entities: Map<String, JsonObject> by lazy {
+        val file = File("schemas/de.ostlertekker.ultraiptv.core.database.UltraDatabase/3.json")
         assertTrue("Room-Schema fehlt: ${file.absolutePath}", file.exists())
-        val entities = Json.parseToJsonElement(file.readText()).jsonObject["database"]!!.jsonObject["entities"]!!.jsonArray
-            .associateBy { it.jsonObject["tableName"]!!.jsonPrimitive.content }
+        Json.parseToJsonElement(file.readText()).jsonObject["database"]!!.jsonObject["entities"]!!.jsonArray
+            .associate { it.jsonObject["tableName"]!!.jsonPrimitive.content to it.jsonObject }
+    }
 
-        val creates = Migrations.SQL_1_2.filter { it.startsWith("CREATE TABLE") }
-        assertEquals(4, creates.size)
-        for (sql in creates) {
+    private fun checkCreates(sqls: List<String>) {
+        for (sql in sqls.filter { it.startsWith("CREATE TABLE") }) {
             val table = Regex("`([a-z_]+)`").find(sql)!!.groupValues[1]
-            val expected = entities[table]!!.jsonObject["createSql"]!!.jsonPrimitive.content.replace("\${TABLE_NAME}", table)
+            val expected = entities[table]!!["createSql"]!!.jsonPrimitive.content.replace("\${TABLE_NAME}", table)
             assertEquals("CREATE-Statement für $table", norm(expected), norm(sql))
-            val indices = entities[table]!!.jsonObject["indices"]?.jsonArray
-            assertTrue("Unerwartete Indizes in $table", indices == null || indices.isEmpty())
+            val indices = entities[table]!!["indices"]?.jsonArray.orEmpty()
+            for (idx in indices) {
+                val create = idx.jsonObject["createSql"]!!.jsonPrimitive.content.replace("\${TABLE_NAME}", table)
+                assertTrue("Index fehlt in Migration: $create", sqls.any { norm(it) == norm(create) })
+            }
         }
+    }
 
-        val alters = Migrations.SQL_1_2.filter { it.startsWith("ALTER TABLE") }
-        for (sql in alters) {
+    private fun field(table: String, column: String) = entities[table]!!["fields"]!!.jsonArray.map { it.jsonObject }
+        .first { it["columnName"]!!.jsonPrimitive.content == column }
+
+    @Test fun migration1to2MatchesRoomSchema() {
+        assertEquals(4, Migrations.SQL_1_2.count { it.startsWith("CREATE TABLE") })
+        checkCreates(Migrations.SQL_1_2)
+        for (sql in Migrations.SQL_1_2.filter { it.startsWith("ALTER TABLE") }) {
             val (table, column) = Regex("`([a-zA-Z_]+)`").findAll(sql).map { it.groupValues[1] }.toList()
-            val field = entities[table]!!.jsonObject["fields"]!!.jsonArray.map { it.jsonObject }
-                .first { it["columnName"]!!.jsonPrimitive.content == column }
-            assertEquals("Typ von $table.$column", "TEXT", field["affinity"]!!.jsonPrimitive.content)
-            assertEquals("$table.$column muss NULL erlauben", false, field["notNull"]!!.jsonPrimitive.boolean)
+            val f = field(table, column)
+            assertEquals("Typ von $table.$column", "TEXT", f["affinity"]!!.jsonPrimitive.content)
+            assertEquals("$table.$column muss NULL erlauben", false, f["notNull"]!!.jsonPrimitive.boolean)
         }
+    }
+
+    @Test fun migration2to3MatchesRoomSchema() {
+        assertEquals(2, Migrations.SQL_2_3.count { it.startsWith("CREATE TABLE") })
+        checkCreates(Migrations.SQL_2_3)
+        val archive = field("channels", "archiveDays")
+        assertEquals("INTEGER", archive["affinity"]!!.jsonPrimitive.content)
+        assertEquals(true, archive["notNull"]!!.jsonPrimitive.boolean)
+        assertEquals("0", archive["defaultValue"]!!.jsonPrimitive.content)
+        for (c in listOf("catchupMode", "catchupSource")) assertEquals(false, field("channels", c)["notNull"]!!.jsonPrimitive.boolean)
     }
 }

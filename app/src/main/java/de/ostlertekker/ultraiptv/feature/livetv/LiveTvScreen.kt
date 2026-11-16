@@ -84,6 +84,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -96,6 +97,10 @@ import javax.inject.Inject
 
 const val CAT_FAVORITES = "★ Favoriten"
 const val CAT_RECENT = "Zuletzt gesehen"
+/** Präfixe für virtuelle Kategorien: eigene Listen (AI Channel Cloning) und Smart Channel Groups. */
+const val CAT_LIST_PREFIX = "◆ "
+const val CAT_SMART_PREFIX = "✦ "
+fun isVirtualCategory(c: String) = c == CAT_FAVORITES || c == CAT_RECENT || c.startsWith(CAT_LIST_PREFIX) || c.startsWith(CAT_SMART_PREFIX)
 
 fun formatTime(ms: Long): String = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(ms))
 
@@ -111,13 +116,17 @@ class LiveTvViewModel @Inject constructor(
     private val notifications: NotificationCenter,
     val health: StreamHealthChecker,
     val engine: PlayerEngine,
+    private val discover: de.ostlertekker.ultraiptv.core.discover.DiscoverRepository,
 ) : ViewModel() {
 
     val selected = MutableStateFlow<String?>(null)
     val sortByName = MutableStateFlow(false)
 
     val categories: StateFlow<List<String>> = content.channelCategories()
-        .map { listOf(CAT_FAVORITES, CAT_RECENT) + it }
+        .combine(discover.lists()) { cats, lists ->
+            listOf(CAT_FAVORITES, CAT_RECENT) + cats + lists.map { CAT_LIST_PREFIX + it.name } +
+                de.ostlertekker.ultraiptv.core.discover.SmartGroup.entries.map { CAT_SMART_PREFIX + it.label }
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val favoriteIds: StateFlow<Set<String>> = user.favoriteIds(ContentKind.LIVE).map { it.toSet() }
@@ -128,7 +137,16 @@ class LiveTvViewModel @Inject constructor(
             when (cat) {
                 CAT_FAVORITES -> user.favoriteIds(ContentKind.LIVE).flatMapLatest { content.channelsByIds(it) }
                 CAT_RECENT -> user.recentChannels.flatMapLatest { list -> content.channelsByIds(list.map { it.itemId }) }
-                else -> content.channelsIn(cat)
+                else -> when {
+                    cat.startsWith(CAT_SMART_PREFIX) -> kotlinx.coroutines.flow.flow {
+                        val g = de.ostlertekker.ultraiptv.core.discover.SmartGroup.entries.firstOrNull { CAT_SMART_PREFIX + it.label == cat }
+                        emit(if (g == null) emptyList() else discover.smartGroups()[g] ?: emptyList())
+                    }
+                    cat.startsWith(CAT_LIST_PREFIX) -> discover.lists().map { ls -> ls.firstOrNull { CAT_LIST_PREFIX + it.name == cat } }
+                        .distinctUntilChanged()
+                        .flatMapLatest { l -> kotlinx.coroutines.flow.flow { emit(if (l == null) emptyList() else discover.resolveList(de.ostlertekker.ultraiptv.core.discover.ListRules.fromJson(l.rulesJson))) } }
+                    else -> content.channelsIn(cat)
+                }
             }
         }
         .combine(sortByName) { list, byName -> if (byName) list.sortedBy { it.name.lowercase() } else list }
@@ -207,7 +225,7 @@ class LiveTvViewModel @Inject constructor(
         previewJob?.cancel()
         // Übergabe an den Vollbild-Player: läuft der Sender schon in der Vorschau, gibt es keinen Neustart.
         if (previewing.value == ch.id) engine.claim("player") else engine.stopIfOwner("preview")
-        val cat = currentCategory().takeIf { it != CAT_FAVORITES && it != CAT_RECENT } ?: ch.category
+        val cat = currentCategory().takeIf { !isVirtualCategory(it) } ?: ch.category
         context.openPlayer(ContentKind.LIVE, ch.id, category = cat)
     }
 }
@@ -268,11 +286,11 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
             }
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
                 item { TvChip(if (sortByName) "↕ A–Z" else "↕ Nummer", false, { vm.sortByName.value = !sortByName }) }
-                item { TvChip("TV-Guide", false, { nav.navigate(Routes.epg(current.takeIf { it != CAT_FAVORITES && it != CAT_RECENT })) }) }
+                item { TvChip("TV-Guide", false, { nav.navigate(Routes.epg(current.takeIf { !isVirtualCategory(it) })) }) }
                 item {
                     val prog = checkProgress
                     TvChip(if (prog != null) "Prüfe ${prog.first + 1}/${prog.second} …" else "✚ Sender prüfen", false,
-                        { if (prog == null && current != CAT_FAVORITES && current != CAT_RECENT) vm.checkHealth(current) })
+                        { if (prog == null && !isVirtualCategory(current)) vm.checkHealth(current) })
                 }
             }
             if (channels.isEmpty()) {

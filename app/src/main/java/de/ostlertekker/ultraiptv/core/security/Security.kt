@@ -203,6 +203,11 @@ class StreamResolver @Inject constructor(private val creds: CredentialStore) {
         val type = rest.substringBefore('/')
         val file = rest.substringAfter('/')
         val id = file.substringBeforeLast('.')
+        if (type == "timeshift") {
+            // Archiv des Anbieters (Catch-up/Timeshift) – nur Xtream-Archiv-URL, keine lokale Aufnahme
+            val r = de.ostlertekker.ultraiptv.core.catchup.Catchup.parseXtreamRef(file) ?: error("Ungültige Archiv-Referenz")
+            return de.ostlertekker.ultraiptv.core.catchup.Catchup.xtreamPath(XtreamUrls.normalizeServer(cfg.server), cfg.username, cfg.password, r.streamId, r.startMs, r.durationMin, r.tz)
+        }
         var ext = if ('.' in file) file.substringAfterLast('.') else ""
         if (type == "live") ext = liveFormat
         return XtreamUrls.stream(XtreamUrls.normalizeServer(cfg.server), cfg.username, cfg.password, type, id, ext)

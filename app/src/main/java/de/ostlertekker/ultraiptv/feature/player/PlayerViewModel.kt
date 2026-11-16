@@ -76,6 +76,16 @@ data class PlayerUi(
     val sleepAt: Long = 0,
     /** Eingegebene Sendernummer (Zifferntasten). */
     val numberInput: String = "",
+    /** Timeshift: wie weit hinter Live (ms). 0 = live. */
+    val shiftBehindMs: Long = 0,
+    /** Sender hat ein Archiv bzw. ein zurückspulbares Live-Fenster. */
+    val canTimeshift: Boolean = false,
+    val livePaused: Boolean = false,
+    /** Einzelbild-Modus aktiv. */
+    val frameStep: Boolean = false,
+    /** Live-Spielstand zur laufenden Sendung (echte Daten, falls zuordenbar). */
+    val score: de.ostlertekker.ultraiptv.core.discover.ScoreEvent? = null,
+    val scoreFlash: String? = null,
 )
 
 val aspectModes = listOf(AspectRatioFrameLayout.RESIZE_MODE_FIT, AspectRatioFrameLayout.RESIZE_MODE_FILL, AspectRatioFrameLayout.RESIZE_MODE_ZOOM, AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH)
@@ -94,12 +104,17 @@ class PlayerViewModel @Inject constructor(
     private val device: DeviceCapabilityManager,
     private val lan: LanHub,
     private val extras: ExtrasDao,
+    private val discover: de.ostlertekker.ultraiptv.core.discover.DiscoverRepository,
+    private val sports: de.ostlertekker.ultraiptv.core.discover.SportsRepository,
 ) : ViewModel() {
 
     private val kind = runCatching { ContentKind.valueOf(savedState.get<String>(PlayerActivity.EXTRA_KIND) ?: "") }.getOrDefault(ContentKind.MOVIE)
     private var itemId: String = savedState.get<String>(PlayerActivity.EXTRA_ID) ?: ""
     private val startMs: Long = savedState.get<Long>(PlayerActivity.EXTRA_START) ?: 0L
     private val category: String? = savedState.get<String>(PlayerActivity.EXTRA_CATEGORY)
+    /** Catch-up direkt aus der TV Time Machine: Start/Ende der vergangenen Sendung. */
+    private val catchupStart: Long = savedState.get<Long>(PlayerActivity.EXTRA_CATCHUP_START) ?: 0L
+    private val catchupEnd: Long = savedState.get<Long>(PlayerActivity.EXTRA_CATCHUP_END) ?: 0L
 
     private val _ui = MutableStateFlow(PlayerUi(kind = kind))
     val ui: StateFlow<PlayerUi> = _ui.asStateFlow()
@@ -121,6 +136,7 @@ class PlayerViewModel @Inject constructor(
     private var countdownCancelled = false
     private var lastSave = 0L
     private var lastEpg = 0L
+    private var lastScoreTitle: String? = null
     private var started = false
 
     /** true = Engine nach dem Schließen weiterlaufen lassen (Mini-Player / Hintergrund-Audio). */
@@ -172,10 +188,12 @@ class PlayerViewModel @Inject constructor(
                 channels = (category?.let { content.channelsInOnce(it) } ?: emptyList()).ifEmpty { listOf(ch) }
                 channelIndex = channels.indexOfFirst { it.id == ch.id }.coerceAtLeast(0)
                 playChannel(ch)
+                if (catchupStart > 0) startCatchup(catchupStart, catchupEnd.takeIf { it > catchupStart })
             }
             ContentKind.MOVIE -> {
                 val m = content.movieOnce(itemId) ?: return fail("Film nicht gefunden")
                 movie = m; image = m.poster
+                logName = m.name; logCategory = m.genre ?: m.category
                 _ui.update { it.copy(title = m.name, subtitle = listOfNotNull(m.year, m.genre).joinToString(" · ")) }
                 play(m.streamUrl, start)
             }
@@ -189,10 +207,10 @@ class PlayerViewModel @Inject constructor(
 
     private fun fail(msg: String) { _ui.update { it.copy(error = msg, buffering = false) } }
 
-    private fun play(raw: String, start: Long) {
+    private fun play(raw: String, start: Long, live: Boolean = kind == ContentKind.LIVE) {
         currentStreamUrl = raw
         val url = try { resolver.resolve(raw, settings.liveFormat) } catch (e: Exception) { return fail(e.message ?: "Stream nicht verfügbar") }
-        engine.play(url, start, settings.bufferProfile, isLive = kind == ContentKind.LIVE)
+        engine.play(url, start, settings.bufferProfile, isLive = live)
         viewModelScope.launch { applyQuality() }
     }
 
@@ -209,7 +227,11 @@ class PlayerViewModel @Inject constructor(
 
     private fun playChannel(ch: ChannelEntity) {
         saveChannelQuality()
+        logWatch()
         watchStart = System.currentTimeMillis()
+        liveChannel = ch; shiftStartWall = 0L; livePausedAt = 0L
+        logName = ch.name; logCategory = ch.category
+        _ui.update { it.copy(shiftBehindMs = 0, livePaused = false, canTimeshift = ch.archiveDays > 0, score = null, scoreFlash = null) }
         itemId = ch.id; image = ch.logo
         _ui.update { it.copy(zapAt = System.currentTimeMillis(), qualityNote = null) }
         _ui.update { it.copy(title = ch.name, subtitle = (if (ch.number > 0) "${ch.number} · " else "") + ch.category, nowTitle = null, nextTitle = null, programProgress = null) }
@@ -233,10 +255,13 @@ class PlayerViewModel @Inject constructor(
                 programProgress = cur?.let { c -> ((now - c.startMs).toFloat() / (c.endMs - c.startMs)).coerceIn(0f, 1f) },
             )
         }
+        if (cur?.title != lastScoreTitle) { lastScoreTitle = cur?.title; watchScores(cur?.title?.let { t -> t + " " + (cur.description ?: "") }) }
     }
 
     private suspend fun playEpisode(ep: EpisodeEntity, start: Long) {
+        logWatch()
         episode = ep; itemId = ep.id; image = ep.image
+        logName = ep.title; logCategory = "Serie"
         skip.reset(); countdownCancelled = false; countdownJob?.cancel()
         val all = content.episodesOfOnce(ep.seriesId)
         val idx = all.indexOfFirst { it.id == ep.id }
@@ -274,6 +299,8 @@ class PlayerViewModel @Inject constructor(
             it.copy(positionMs = pos, durationMs = dur, bufferedMs = p.totalBufferedDuration, isPlaying = p.isPlaying,
                 buffering = state == Player.STATE_BUFFERING || state == Player.STATE_IDLE && it.error == null)
         }
+        // Archiv-Wiedergabe: Abstand zu Live anzeigen; am Archiv-Ende automatisch zurück zu Live
+        if (kind == ContentKind.LIVE && shiftStartWall > 0) { updateShift(); if (state == Player.STATE_ENDED) goLive() }
         val now = System.currentTimeMillis()
         when (kind) {
             ContentKind.LIVE -> if (now - lastEpg > 30_000) channels.getOrNull(channelIndex)?.let { refreshEpg(it) }
@@ -394,7 +421,141 @@ class PlayerViewModel @Inject constructor(
 
     // ---------------------------------------------------- Steuerung
 
-    fun togglePlay() { engine.player?.let { if (it.isPlaying) it.pause() else it.play() } }
+    fun togglePlay() {
+        val p = engine.player ?: return
+        if (kind == ContentKind.LIVE && _ui.value.canTimeshift) {
+            // Live pausieren: beim Fortsetzen geht es ab der Pausenstelle weiter (Archiv des Anbieters)
+            if (p.isPlaying) { livePausedAt = System.currentTimeMillis(); p.pause(); _ui.update { it.copy(livePaused = true) }; return }
+            val pausedAt = livePausedAt
+            livePausedAt = 0L; _ui.update { it.copy(livePaused = false) }
+            if (pausedAt > 0 && System.currentTimeMillis() - pausedAt > 8_000) {
+                val wall = if (shiftStartWall > 0) shiftStartWall + p.currentPosition else pausedAt
+                startCatchup(wall, null); return
+            }
+            p.play(); return
+        }
+        if (p.isPlaying) p.pause() else p.play()
+    }
+
+    // ---------------------------------------------------- TV Time Machine / Timeshift
+
+    private var liveChannel: ChannelEntity? = null
+    /** Wanduhrzeit, bei der die laufende Archiv-Wiedergabe beginnt (0 = live). */
+    private var shiftStartWall = 0L
+    private var livePausedAt = 0L
+
+    /** Aktuelle „Wanduhr“-Position der Wiedergabe. */
+    private fun currentWall(): Long {
+        val p = engine.player
+        return if (shiftStartWall > 0 && p != null) shiftStartWall + p.currentPosition else System.currentTimeMillis()
+    }
+
+    /** Zurückspulen im Live-TV (−30 s, −5 min …): erst im Live-Fenster des Streams, sonst über das Archiv. */
+    fun rewindLive(ms: Long) {
+        val p = engine.player ?: return
+        if (shiftStartWall == 0L && p.isCurrentMediaItemDynamic && p.isCurrentMediaItemSeekable && p.currentPosition - ms > 0) {
+            p.seekTo(p.currentPosition - ms)
+            _ui.update { it.copy(shiftBehindMs = it.shiftBehindMs + ms) }
+            return
+        }
+        if (shiftStartWall > 0) {
+            val target = p.currentPosition - ms
+            if (target >= 0) { p.seekTo(target); updateShift(); return }
+        }
+        if (!_ui.value.canTimeshift) { toast("Dieser Sender bietet kein Archiv – Zurückspulen nicht möglich"); return }
+        startCatchup(currentWall() - ms, null)
+    }
+
+    fun forwardShift(ms: Long) {
+        val p = engine.player ?: return
+        if (shiftStartWall == 0L) { if (p.isCurrentMediaItemSeekable) p.seekTo(p.currentPosition + ms); return }
+        if (currentWall() + ms >= System.currentTimeMillis() - 15_000) { goLive(); return }
+        p.seekTo(p.currentPosition + ms); updateShift()
+    }
+
+    fun goLive() {
+        val ch = liveChannel ?: return
+        shiftStartWall = 0L
+        playChannel(ch)
+    }
+
+    private fun updateShift() { _ui.update { it.copy(shiftBehindMs = (System.currentTimeMillis() - currentWall()).coerceAtLeast(0)) } }
+
+    /** Startet die Archiv-Wiedergabe des aktuellen Senders ab [startWall]. */
+    fun startCatchup(startWall: Long, endWall: Long?) {
+        val ch = liveChannel ?: return
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            val end = endWall ?: now
+            val raw = discover.catchupUrl(ch.id, startWall, end, now)
+            if (raw == null) { toast("Archiv für diese Zeit nicht verfügbar (Anbieter: ${ch.archiveDays} Tage)"); return@launch }
+            shiftStartWall = startWall
+            play(raw, 0, live = false)
+            _ui.update { it.copy(shiftBehindMs = now - startWall, livePaused = false) }
+            toast("⏪ Zeitversetzt ab ${de.ostlertekker.ultraiptv.feature.livetv.formatTime(startWall)}")
+        }
+    }
+
+    // ---------------------------------------------------- Einzelbild-Wiedergabe
+
+    fun toggleFrameStep() {
+        val on = !_ui.value.frameStep
+        engine.player?.let { p ->
+            if (on) { p.pause(); p.setSeekParameters(androidx.media3.exoplayer.SeekParameters.EXACT) }
+            else p.setSeekParameters(androidx.media3.exoplayer.SeekParameters.DEFAULT)
+        }
+        _ui.update { it.copy(frameStep = on) }
+        if (on) toast("Einzelbild: ◀ ▶ = 1 Bild · ▲ ▼ = 10 Bilder · OK = Ende")
+    }
+
+    /** Ein Bild vor/zurück (exakte Suche auf Bildlänge laut Stream-FPS). */
+    fun stepFrames(n: Int) {
+        val p = engine.player ?: return
+        if (!p.isCurrentMediaItemSeekable) { toast("Einzelbild nur bei Filmen, Serien und Archiv möglich"); return }
+        val st = engine.stats.value
+        val fps = if (st.sourceFps > 1f) st.sourceFps else if (st.measuredFps > 1f) st.measuredFps else 25f
+        p.pause()
+        p.seekTo((p.currentPosition + (n * 1000f / fps).toLong()).coerceAtLeast(0))
+    }
+
+    // ---------------------------------------------------- Sehprotokoll (Mein TV-Universum)
+
+    private var logName: String = ""
+    private var logCategory: String? = null
+    private fun logWatch() {
+        val started = watchStart
+        val dur = System.currentTimeMillis() - started
+        val name = logName.ifBlank { _ui.value.title }
+        val id = itemId
+        if (id.isBlank() || name.isBlank()) return
+        val cat = logCategory
+        watchStart = System.currentTimeMillis()
+        viewModelScope.launch { runCatching { discover.logWatch(kind, id, name, cat, started, dur) } }
+    }
+
+    // ---------------------------------------------------- Live-Spielstände (Universal Sports Mode / Auto Event Detection)
+
+    private var scoreJob: Job? = null
+    private fun watchScores(programTitle: String?) {
+        scoreJob?.cancel()
+        if (programTitle == null || de.ostlertekker.ultraiptv.core.discover.Sport.detect(programTitle) == null) return
+        scoreJob = viewModelScope.launch {
+            var lastLine: String? = null
+            while (true) {
+                val leagues = de.ostlertekker.ultraiptv.core.discover.League.entries
+                val board = runCatching { sports.scoreboard(leagues) }.getOrNull()
+                val ev = board?.let { sports.matchProgram(programTitle, it.events) }
+                if (ev != null) {
+                    val line = ev.scoreLine
+                    val flash = if (lastLine != null && line != lastLine && settings.scoreAlerts) "${ev.league.sport.emoji} $line" else null
+                    lastLine = line
+                    _ui.update { it.copy(score = ev, scoreFlash = flash ?: it.scoreFlash) }
+                    if (flash != null) { delay(8_000); _ui.update { it.copy(scoreFlash = null) } }
+                }
+                delay(if (ev?.live == true) 30_000 else 120_000)
+            }
+        }
+    }
 
     fun seekBy(deltaMs: Long) {
         val p = engine.player ?: return
@@ -411,6 +572,13 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun channelList(): List<ChannelEntity> = channels
+
+    fun currentItemId(): String = itemId
+
+    /** Einstellung direkt aus dem Player ändern (Kinomodus, Bildregler, Sync). */
+    fun <T> setPref(key: androidx.datastore.preferences.core.Preferences.Key<T>, value: T) {
+        viewModelScope.launch { settingsRepo.set(key, value) }
+    }
 
     // ------------------------------------------------ Sleep-Timer
     private var sleepJob: Job? = null
@@ -463,7 +631,7 @@ class PlayerViewModel @Inject constructor(
     fun playChannelAt(index: Int) { if (index in channels.indices) { previousIndex = channelIndex; channelIndex = index; playChannel(channels[index]) } }
 
     fun setResize(mode: Int) = _ui.update { it.copy(resizeMode = mode) }
-    fun setSpeed(speed: Float) { engine.player?.setPlaybackSpeed(speed); _ui.update { it.copy(speed = speed) } }
+    fun setSpeed(speed: Float) { engine.player?.setPlaybackSpeed(speed.coerceIn(0.25f, 4f)); _ui.update { it.copy(speed = speed.coerceIn(0.25f, 4f)) } }
     fun toggleStats() = _ui.update { it.copy(showStats = !it.showStats) }
     fun retry() { _ui.update { it.copy(error = null) }; play(currentStreamUrl ?: return, engine.player?.currentPosition ?: 0) }
     private var currentStreamUrl: String? = null
@@ -515,6 +683,7 @@ class PlayerViewModel @Inject constructor(
     }
 
     override fun onCleared() {
+        logWatch()
         if (!keepEngine) engine.stop()
         super.onCleared()
     }

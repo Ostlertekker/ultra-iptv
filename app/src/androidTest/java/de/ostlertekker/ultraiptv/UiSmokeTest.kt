@@ -95,7 +95,8 @@ class UiSmokeTest {
         for (i in 1..600) {
             val g = groups[i % groups.size]
             val stream = when (i % 10) { 3 -> "404"; 7 -> "403"; else -> "ok$i" }
-            appendLine("#EXTINF:-1 tvg-id=\"ch$i\" tvg-name=\"Sender $i\" tvg-logo=\"$base/logo/$i.png\" group-title=\"$g\",Testsender $i HD")
+            val cu = if (i % 4 == 0) " catchup=\"shift\" catchup-days=\"3\"" else ""
+            appendLine("#EXTINF:-1 tvg-id=\"ch$i\" tvg-name=\"Sender $i\" tvg-logo=\"$base/logo/$i.png\" group-title=\"$g\"$cu,Testsender $i HD")
             appendLine("$base/live/$stream.ts")
         }
         for (i in 1..120) {
@@ -111,12 +112,18 @@ class UiSmokeTest {
     private fun epg(): String = buildString {
         append("<?xml version=\"1.0\" encoding=\"UTF-8\"?><tv>")
         val fmt = java.text.SimpleDateFormat("yyyyMMddHHmmss Z", java.util.Locale.US)
-        val now = System.currentTimeMillis() - 30 * 60_000L
+        val now = System.currentTimeMillis() - 6 * 3_600_000L
         for (i in 1..80) {
             append("<channel id=\"ch$i\"><display-name>Sender $i</display-name></channel>")
-            for (p in 0 until 6) {
+            for (p in 0 until 14) {
                 val st = now + p * 3_600_000L
-                append("<programme start=\"${fmt.format(st)}\" stop=\"${fmt.format(st + 3_600_000L)}\" channel=\"ch$i\"><title>Sendung $p auf $i</title><desc>Beschreibung</desc></programme>")
+                val title = when {
+                    i % 5 == 0 && p % 3 == 0 -> "Fußball: 1. Bundesliga – Testspiel $p"
+                    i % 7 == 0 -> "Comedy-Show $p"
+                    i % 11 == 0 -> "Tatort: Der Kommissar ermittelt"
+                    else -> "Sendung $p auf $i"
+                }
+                append("<programme start=\"${fmt.format(st)}\" stop=\"${fmt.format(st + 3_600_000L)}\" channel=\"ch$i\"><title>$title</title><desc>Beschreibung</desc></programme>")
             }
         }
         append("</tv>")
@@ -202,6 +209,36 @@ class UiSmokeTest {
                 keys("$route zurück", BACK); Thread.sleep(1500)
                 keys("$route nach Zurück", D, R, U)
             }
+        }
+        // Neue Entdecken-Funktionen: jede Seite öffnen, bedienen, Aktion auslösen
+        val past = System.currentTimeMillis() - 2 * 3_600_000L
+        for (route in listOf(Routes.EXPLORE, Routes.WHATSON, Routes.radar("Fußball"), Routes.timeMachine(past), Routes.EVENTS, Routes.SPORTS,
+            Routes.HOLO, Routes.UNIVERSE, Routes.mood("LAUGH,RELAX"), Routes.MYTV, Routes.LISTS)) {
+            val name = route.substringBefore('?')
+            openRoute(route).use {
+                Thread.sleep(1500)
+                shot(name)
+                keys("$name bedienen", R, R, D, D, R, U, pauseMs = 300)
+                if (name == "universe") keys("Universe navigieren", R, R, D, D, D, L, pauseMs = 400)
+                keys("$name Aktion", OK); Thread.sleep(4500); assertResponsive("$name Aktion")
+                if (name == "timemachine") shot("catchup_player")
+                keys("$name zurück", BACK); Thread.sleep(1500)
+                keys("$name nach Zurück", D, U)
+            }
+        }
+        // Multi-View mit 4 Sendern
+        val ids = runBlocking { hooks.content().channelsAllOnce(4).map { it.id } }
+        ActivityScenario.launch<de.ostlertekker.ultraiptv.feature.multiview.MultiViewActivity>(
+            Intent(context, de.ostlertekker.ultraiptv.feature.multiview.MultiViewActivity::class.java)
+                .putStringArrayListExtra(de.ostlertekker.ultraiptv.feature.multiview.MultiViewActivity.EXTRA_IDS, ArrayList(ids))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)).use {
+            Thread.sleep(6000)
+            shot("multiview")
+            keys("Multi-View bedienen", R, D, L, U, pauseMs = 500)
+            keys("Multi-View Senderwahl", KeyEvent.KEYCODE_MENU); Thread.sleep(1500); shot("multiview_picker")
+            keys("Multi-View Sender zuweisen", D, D, OK); Thread.sleep(4000)
+            keys("Multi-View Layout", U, U, R, R, OK, pauseMs = 500); Thread.sleep(3000)
+            assertResponsive("Multi-View")
         }
         // Einstellungen: jede Sektion einmal rendern
         openRoute(Routes.SETTINGS).use {

@@ -40,6 +40,8 @@ interface ContentDao {
 
     @Query("SELECT * FROM channels WHERE (adult = 0 OR :showAdult = 1) ORDER BY number, name LIMIT :limit")
     suspend fun channelsAllOnce(showAdult: Boolean, limit: Int): List<ChannelEntity>
+    @Query("SELECT * FROM movies WHERE (adult = 0 OR :showAdult = 1) ORDER BY addedAt DESC LIMIT :limit")
+    suspend fun moviesAllOnce(showAdult: Boolean, limit: Int): List<MovieEntity>
 
     @Query("SELECT * FROM channels WHERE id = :id") suspend fun channel(id: String): ChannelEntity?
     @Query("SELECT * FROM channels WHERE number = :number AND (adult = 0 OR :showAdult = 1) ORDER BY name LIMIT 1") suspend fun channelByNumber(number: Int, showAdult: Boolean): ChannelEntity?
@@ -149,6 +151,60 @@ interface EpgDao {
 
     @Query("SELECT * FROM epg WHERE channelEpgId IN (:ids) AND endMs > :from AND startMs < :to ORDER BY startMs")
     suspend fun programs(ids: List<String>, from: Long, to: Long): List<EpgProgramEntity>
+
+    /** Was läuft zum Zeitpunkt :at auf allen Sendern (What's Playing Now, TV Time Machine). */
+    @Query("""SELECT c.id AS channelId, c.name AS channelName, c.logo AS logo, c.category AS category, c.number AS number,
+        c.archiveDays AS archiveDays, e.title AS title, e.description AS description, e.startMs AS startMs, e.endMs AS endMs
+        FROM epg e INNER JOIN channels c ON c.epgId = e.channelEpgId
+        WHERE e.startMs <= :at AND e.endMs > :at AND (c.adult = 0 OR :adult = 1)
+        GROUP BY c.id ORDER BY CASE WHEN c.number > 0 THEN c.number ELSE 999999 END, c.name LIMIT :limit""")
+    suspend fun airingAt(at: Long, adult: Boolean, limit: Int): List<AiringProgram>
+
+    /** Programmsuche über alle Sender (Channel Radar, Global EPG, Live Event Tracker). */
+    @Query("""SELECT c.id AS channelId, c.name AS channelName, c.logo AS logo, c.category AS category, c.number AS number,
+        c.archiveDays AS archiveDays, e.title AS title, e.description AS description, e.startMs AS startMs, e.endMs AS endMs
+        FROM epg e INNER JOIN channels c ON c.epgId = e.channelEpgId
+        WHERE e.endMs > :from AND e.startMs < :to AND (c.adult = 0 OR :adult = 1)
+          AND (e.title LIKE '%' || :q || '%' OR e.description LIKE '%' || :q || '%' OR c.name LIKE '%' || :q || '%')
+        ORDER BY e.startMs, c.number LIMIT :limit""")
+    suspend fun searchPrograms(q: String, from: Long, to: Long, adult: Boolean, limit: Int): List<AiringProgram>
+
+    /** Alle Sendungen in einem Zeitfenster (für Stichwort-Klassifikation im Speicher). */
+    @Query("""SELECT c.id AS channelId, c.name AS channelName, c.logo AS logo, c.category AS category, c.number AS number,
+        c.archiveDays AS archiveDays, e.title AS title, e.description AS description, e.startMs AS startMs, e.endMs AS endMs
+        FROM epg e INNER JOIN channels c ON c.epgId = e.channelEpgId
+        WHERE e.endMs > :from AND e.startMs < :to AND (c.adult = 0 OR :adult = 1)
+        ORDER BY e.startMs LIMIT :limit""")
+    suspend fun window(from: Long, to: Long, adult: Boolean, limit: Int): List<AiringProgram>
+}
+
+/** Sendung + Sender in einem (Ergebnis von JOIN-Abfragen). */
+data class AiringProgram(
+    val channelId: String,
+    val channelName: String,
+    val logo: String?,
+    val category: String,
+    val number: Int,
+    val archiveDays: Int,
+    val title: String,
+    val description: String?,
+    val startMs: Long,
+    val endMs: Long,
+)
+
+@Dao
+interface DiscoverDao {
+    @Insert suspend fun insertWatch(w: WatchLogEntity)
+    @Query("SELECT * FROM watch_log WHERE profileId = :profileId AND startedAt >= :since ORDER BY startedAt DESC")
+    suspend fun watchSince(profileId: Long, since: Long): List<WatchLogEntity>
+    @Query("DELETE FROM watch_log WHERE startedAt < :before") suspend fun purgeWatch(before: Long)
+    @Query("DELETE FROM watch_log WHERE profileId = :profileId") suspend fun clearWatch(profileId: Long)
+
+    @Query("SELECT * FROM virtual_lists WHERE profileId = :profileId ORDER BY name") fun lists(profileId: Long): Flow<List<VirtualListEntity>>
+    @Query("SELECT * FROM virtual_lists WHERE profileId = :profileId ORDER BY name") suspend fun listsOnce(profileId: Long): List<VirtualListEntity>
+    @Query("SELECT * FROM virtual_lists WHERE id = :id") suspend fun list(id: Long): VirtualListEntity?
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun saveList(l: VirtualListEntity): Long
+    @Query("DELETE FROM virtual_lists WHERE id = :id") suspend fun deleteList(id: Long)
 }
 
 @Dao
@@ -260,6 +316,20 @@ object Migrations {
         "CREATE TABLE IF NOT EXISTS `reminders` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `channelId` TEXT NOT NULL, `channelName` TEXT NOT NULL, `title` TEXT NOT NULL, `startMs` INTEGER NOT NULL)",
     )
 
+    val SQL_2_3 = listOf(
+        "ALTER TABLE `channels` ADD COLUMN `archiveDays` INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE `channels` ADD COLUMN `catchupMode` TEXT",
+        "ALTER TABLE `channels` ADD COLUMN `catchupSource` TEXT",
+        "CREATE TABLE IF NOT EXISTS `watch_log` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `profileId` INTEGER NOT NULL, `kind` TEXT NOT NULL, `itemId` TEXT NOT NULL, `name` TEXT NOT NULL, `category` TEXT, `startedAt` INTEGER NOT NULL, `durationMs` INTEGER NOT NULL)",
+        "CREATE INDEX IF NOT EXISTS `index_watch_log_startedAt` ON `watch_log` (`startedAt`)",
+        "CREATE INDEX IF NOT EXISTS `index_watch_log_itemId` ON `watch_log` (`itemId`)",
+        "CREATE TABLE IF NOT EXISTS `virtual_lists` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `profileId` INTEGER NOT NULL, `name` TEXT NOT NULL, `rulesJson` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)",
+    )
+
+    val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) { SQL_2_3.forEach { db.execSQL(it) } }
+    }
+
     val MIGRATION_1_2 = object : Migration(1, 2) {
         override fun migrate(db: SupportSQLiteDatabase) {
             SQL_1_2.forEach { db.execSQL(it) }
@@ -272,9 +342,9 @@ object Migrations {
         ChannelEntity::class, MovieEntity::class, SeriesEntity::class, EpisodeEntity::class,
         EpgProgramEntity::class, ProfileEntity::class, FavoriteEntity::class, ProgressEntity::class,
         SkipMarkerEntity::class, ChannelHealthEntity::class, ChannelQualityEntity::class,
-        NotificationEntity::class, ReminderEntity::class,
+        NotificationEntity::class, ReminderEntity::class, WatchLogEntity::class, VirtualListEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class UltraDatabase : RoomDatabase() {
@@ -282,4 +352,5 @@ abstract class UltraDatabase : RoomDatabase() {
     abstract fun epg(): EpgDao
     abstract fun user(): UserDao
     abstract fun extras(): ExtrasDao
+    abstract fun discover(): DiscoverDao
 }
