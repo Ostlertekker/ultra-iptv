@@ -25,7 +25,7 @@ import javax.inject.Singleton
 private val Context.ultraDataStore: DataStore<Preferences> by preferencesDataStore(name = "ultra_settings")
 
 data class AppSettings(
-    val themeId: String = "galaxy",
+    val themeId: String = "premium",
     val accentArgb: Long = 0L,
     val customBackgroundUrl: String = "",
     val animationAuto: Boolean = true,

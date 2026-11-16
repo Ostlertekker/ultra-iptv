@@ -83,11 +83,27 @@ import java.text.DateFormat
 import java.util.Date
 import javax.inject.Inject
 
+/** Die zwölf Einstellungs-Kategorien laut Designkonzept; jede bündelt passende Bereiche. */
+enum class SettingsCategory(val label: String, val sections: List<SettingsSection>) {
+    GENERAL("Allgemein", listOf(SettingsSection.GENERAL, SettingsSection.NOTIFICATIONS, SettingsSection.INTRO)),
+    APPEARANCE("Erscheinungsbild", listOf(SettingsSection.APPEARANCE, SettingsSection.LAYOUT)),
+    PLAYER("Player", listOf(SettingsSection.PLAYER_CONTROLS, SettingsSection.QUALITY, SettingsSection.AUDIO)),
+    PLAYBACK("Wiedergabe", listOf(SettingsSection.PLAYBACK, SettingsSection.LIVE_STABILITY, SettingsSection.SMART_SKIP)),
+    EPG("EPG", listOf(SettingsSection.EPG)),
+    PLAYLISTS("Playlists", listOf(SettingsSection.ACCOUNTS)),
+    PROFILES("Benutzerprofile", listOf(SettingsSection.PROFILES)),
+    PARENTAL("Kindersicherung", listOf(SettingsSection.PARENTAL)),
+    LANGUAGE("Sprache", listOf(SettingsSection.LANGUAGE)),
+    SYNC("Synchronisation", listOf(SettingsSection.BACKUP)),
+    PREMIUM("Premium", listOf(SettingsSection.ANALYSIS, SettingsSection.NETWORK)),
+    ABOUT("Über die App", listOf(SettingsSection.ABOUT, SettingsSection.UPDATES, SettingsSection.DIAGNOSTICS)),
+}
+
 enum class SettingsSection(val label: String) {
     GENERAL("Allgemein"), ACCOUNTS("Konten (mehrere Zugänge)"), UPDATES("App-Updates"), NOTIFICATIONS("Benachrichtigungen"), APPEARANCE("Darstellung"), LAYOUT("Aufbau & Listen"), THEMES("Themes"), INTRO("Intro"),
     AUDIO("Audio"), PLAYBACK("Wiedergabe"), LIVE_STABILITY("Live-Stabilität"), PLAYER_CONTROLS("Player & Fernbedienung"), QUALITY("Bildqualität"), SMART_SKIP("Intro überspringen"),
-    EPG("EPG"), PROFILES("Profile"), PARENTAL("Jugendschutz"), NETWORK("Netzwerk & Speedtest"), ANALYSIS("Sender-Analyse"),
-    BACKUP("Sicherung & Abgleich"), DIAGNOSTICS("Diagnose"), ABOUT("Über"),
+    EPG("EPG"), PROFILES("Profile"), PARENTAL("Jugendschutz"), NETWORK("Netzwerk & Speedtest"), ANALYSIS("Stream-Doktor (Sender-Analyse)"),
+    BACKUP("Sicherung & Abgleich"), DIAGNOSTICS("Diagnose"), ABOUT("Über"), LANGUAGE("Sprache"),
 }
 
 @HiltViewModel
@@ -156,28 +172,34 @@ private fun <T> cycle(list: List<T>, current: T): T = list[(list.indexOf(current
 fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), x: SettingsExtrasViewModel = hiltViewModel()) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
-    var section by remember { mutableStateOf(SettingsSection.GENERAL) }
+    var category by remember { mutableStateOf(SettingsCategory.GENERAL) }
+    var themesOpen by remember { mutableStateOf(false) }
     val s by vm.settings.collectAsStateWithLifecycle()
 
     Row(Modifier.fillMaxSize().padding(20.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
         LazyColumn(Modifier.width(200.dp).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             item { Text("Einstellungen", color = p.text, fontSize = 21.sp, maxLines = 1, softWrap = false, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily,
                 modifier = Modifier.padding(bottom = 10.dp)) }
-            items(SettingsSection.entries, key = { it.name }) { sec ->
+            items(SettingsCategory.entries, key = { it.name }) { sec ->
                 var focused by remember { mutableStateOf(false) }
                 val shape = RoundedCornerShape(theme.spec.corner.coerceAtMost(14.dp))
-                Box(Modifier.fillMaxWidth().tvFocusable(shape, { section = sec }, scaleOnFocus = false, onFocus = { focused = it; if (it) section = sec })
-                    .background(if (focused) p.surfaceFocused else if (section == sec) p.surface else androidx.compose.ui.graphics.Color.Transparent, shape)
+                Box(Modifier.fillMaxWidth().tvFocusable(shape, { category = sec }, scaleOnFocus = false, onFocus = { focused = it; if (it && category != sec) { category = sec; themesOpen = false } })
+                    .background(if (focused) p.surfaceFocused else if (category == sec) p.surface else androidx.compose.ui.graphics.Color.Transparent, shape)
                     .padding(horizontal = 14.dp, vertical = 10.dp)) {
-                    Text(sec.label, color = if (section == sec || focused) p.text else p.textDim, fontSize = 15.sp,
-                        fontWeight = if (section == sec) FontWeight.Bold else FontWeight.Normal)
+                    Text(sec.label, color = if (category == sec || focused) p.text else p.textDim, fontSize = 15.sp,
+                        fontWeight = if (category == sec) FontWeight.Bold else FontWeight.Normal)
                 }
             }
         }
         Box(Modifier.weight(1f).fillMaxHeight()) {
-            if (section == SettingsSection.THEMES) ThemeGallery(vm, s)
+            if (themesOpen && category == SettingsCategory.APPEARANCE) ThemeGallery(vm, s)
             else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 60.dp)) {
-                item { SectionHeader(section.label) }
+                item { Text(category.label, color = p.text, fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 4.dp)) }
+                if (category == SettingsCategory.APPEARANCE) item {
+                    ActionRow("Themes mit Live-Vorschau", { themesOpen = true }, subtitle = "${ThemeRegistry.all().size} Designs – Standard: Premium")
+                }
+                for (section in category.sections) {
+                if (category.sections.size > 1) item(key = "h_" + section.name) { SectionHeader(section.label) }
                 when (section) {
                     SettingsSection.GENERAL -> generalSection(vm, s, nav)
                     SettingsSection.ACCOUNTS -> accountsSection(x, nav)
@@ -200,7 +222,9 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
                     SettingsSection.NETWORK -> networkDiagSection(x, s, vm)
                     SettingsSection.DIAGNOSTICS -> diagnosticsSection(vm, s)
                     SettingsSection.ABOUT -> aboutSection(vm)
+                    SettingsSection.LANGUAGE -> languageSection(vm)
                     SettingsSection.THEMES -> Unit
+                }
                 }
             }
         }
@@ -305,6 +329,15 @@ private fun LazyListScope.playbackSection(vm: SettingsViewModel, s: AppSettings)
                 { vm.set(Keys.LIVE_FORMAT, if (s.liveFormat == "ts") "m3u8" else "ts") }, subtitle = "Nur für Xtream-Anbieter")
             ToggleRow("Live-Vorschau in der Senderliste", s.livePreview, { vm.set(Keys.LIVE_PREVIEW, it) },
                 subtitle = "Auf Entry-Geräten automatisch deaktiviert")
+        }
+    }
+}
+
+private fun LazyListScope.languageSection(vm: SettingsViewModel) {
+    item {
+        val profile by vm.activeProfile.collectAsStateWithLifecycle()
+        val prof = profile
+        Column {
             if (prof != null) {
                 ChoiceRow("Bevorzugte Audiosprache", languages.firstOrNull { it.first == prof.audioLanguage }?.second ?: prof.audioLanguage, {
                     val next = cycle(languages.map { it.first }, prof.audioLanguage); vm.updateProfile(prof.copy(audioLanguage = next))
@@ -313,6 +346,8 @@ private fun LazyListScope.playbackSection(vm: SettingsViewModel, s: AppSettings)
                     val next = cycle(languages.map { it.first }, prof.subtitleLanguage); vm.updateProfile(prof.copy(subtitleLanguage = next))
                 }, subtitle = "Pro Profil")
             }
+            Text("Die App-Oberfläche ist auf Deutsch. Audio- und Untertitelsprache gelten pro Profil und werden beim Abspielen automatisch gewählt, wenn der Stream sie anbietet.",
+                color = LocalUltraTheme.current.palette.textDim, fontSize = 12.sp, modifier = Modifier.padding(8.dp))
         }
     }
 }

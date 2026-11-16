@@ -1,5 +1,7 @@
 package de.ostlertekker.ultraiptv.feature.movies
 
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.flow.map
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -72,7 +74,47 @@ private const val PAGE = 240
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
-class MoviesViewModel @Inject constructor(content: ContentRepository) : ViewModel() {
+class MoviesViewModel @Inject constructor(content: ContentRepository, user: UserRepository) : ViewModel() {
+    /** Kino-Übersicht: Weiterschauen, Merkliste, Neu, Beliebt, Empfehlungen, Zuletzt angesehen, Genre-Reihen – alles aus echten Daten. */
+    val overview: StateFlow<List<de.ostlertekker.ultraiptv.feature.common.CinemaRow>> = run {
+        fun MovieEntity.tile() = de.ostlertekker.ultraiptv.feature.common.CinemaTile(id, name, poster,
+            listOfNotNull(year, genre?.split(',')?.firstOrNull()?.trim(), durationSec?.takeIf { it > 0 }?.let { "${it / 60} Min." },
+                rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) }).joinToString(" · ").ifBlank { null },
+            backdrop = backdrop, plot = plot, kind = "MOVIE")
+        fun ProgressEntity.tile(resume: Boolean) = de.ostlertekker.ultraiptv.feature.common.CinemaTile(itemId, title, image,
+            if (durationMs > 0) "Noch ${((durationMs - positionMs) / 60000).coerceAtLeast(1)} Min." else null,
+            progress = if (durationMs > 0) positionMs.toFloat() / durationMs else null, positionMs = positionMs, resume = resume, kind = "MOVIE")
+        val genreRows = content.movieGenres().flatMapLatest { gs ->
+            val top = gs.take(5)
+            if (top.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyList())
+            else combine(top.map { g -> content.movies(null, g, SortOrder.RATING, 24).map { l -> g to l } }) { it.toList() }
+        }
+        val recommended = user.recentlyWatched.flatMapLatest { recent ->
+            val last = recent.firstOrNull { it.kind == ContentKind.MOVIE.name }
+            if (last == null) kotlinx.coroutines.flow.flowOf(emptyList())
+            else content.movie(last.itemId).flatMapLatest { m ->
+                val g = m?.genre?.split(',', '/')?.firstOrNull()?.trim()
+                if (g.isNullOrBlank()) kotlinx.coroutines.flow.flowOf(emptyList()) else content.movies(null, g, SortOrder.RATING, 24).map { l -> l.filter { it.id != m.id } }
+            }
+        }
+        combine(
+            user.continueWatching.map { l -> l.filter { it.kind == ContentKind.MOVIE.name } },
+            user.favoriteIds(ContentKind.MOVIE).flatMapLatest { content.moviesByIds(it) },
+            content.movies(null, null, SortOrder.NEWEST, 30),
+            content.movies(null, null, SortOrder.RATING, 30),
+            combine(recommended, user.recentlyWatched.map { l -> l.filter { it.kind == ContentKind.MOVIE.name } }, genreRows) { a, b, c -> Triple(a, b, c) },
+        ) { cw, watch, newest, popular, (rec, recent, genres) ->
+            listOf(
+                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Weiterschauen", cw.map { it.tile(true) }, landscape = true),
+                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Meine Merkliste", watch.map { it.tile() }),
+                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Neu hinzugefügt", newest.map { it.tile() }),
+                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Beliebte Filme", if (popular.any { (it.rating ?: 0.0) > 0 }) popular.map { it.tile() } else emptyList()),
+                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Empfehlungen für dich", rec.map { it.tile() }),
+                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Zuletzt angesehen", recent.map { it.tile(false) }),
+            ) + genres.map { (g, l) -> de.ostlertekker.ultraiptv.feature.common.CinemaRow(g, l.map { it.tile() }) }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }
+
     val category = MutableStateFlow<String?>(null)
     val genre = MutableStateFlow<String?>(null)
     val sort = MutableStateFlow(SortOrder.NEWEST)
@@ -109,10 +151,26 @@ fun MoviesScreen(nav: NavController, vm: MoviesViewModel = hiltViewModel()) {
         }
     }
 
-    Column(Modifier.fillMaxSize().padding(start = 20.dp, top = 20.dp, end = 20.dp)) {
-        Text("Filme", color = p.text, fontSize = 26.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily)
-        Spacer(Modifier.height(8.dp))
+    var overviewMode by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(true) }
+    val context = LocalContext.current
+    if (overviewMode) {
+        val rows by vm.overview.collectAsStateWithLifecycle()
+        val hero = rows.firstOrNull { it.title == "Neu hinzugefügt" }?.tiles?.firstOrNull { !it.backdrop.isNullOrBlank() }
+            ?: rows.firstOrNull { it.title == "Neu hinzugefügt" }?.tiles?.firstOrNull()
+        de.ostlertekker.ultraiptv.feature.common.CinemaOverview(hero, rows,
+            header = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TvChip("Übersicht", true, { })
+                    TvChip("Alle Filme", false, { overviewMode = false })
+                }
+            },
+            onOpen = { nav.navigate(Routes.movie(it.id)) },
+            onPlay = { context.openPlayer(ContentKind.MOVIE, it.id, it.positionMs) })
+        return
+    }
+    Column(Modifier.fillMaxSize().padding(start = 20.dp, top = 12.dp, end = 20.dp)) {
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item { TvChip("Übersicht", false, { overviewMode = true }) }
             item { TvChip("Alle", cat == null, { vm.category.value = null; vm.resetPaging() }) }
             items(cats, key = { it }) { c -> TvChip(c, c == cat, { vm.category.value = c; vm.resetPaging() }) }
         }
@@ -183,15 +241,16 @@ fun MovieDetailScreen(nav: NavController, vm: MovieDetailViewModel = hiltViewMod
     }
 
     Box(Modifier.fillMaxSize()) {
-        AsyncImage(m.backdrop ?: m.poster, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), alpha = 0.45f)
-        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(p.bgTop, p.bgTop.copy(alpha = 0.8f), Color.Transparent))))
+        AsyncImage(m.backdrop ?: m.poster, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), alpha = 0.75f)
+        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.95f), 0.55f to Color.Black.copy(alpha = 0.65f), 1f to Color.Black.copy(alpha = 0.2f))))
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.6f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.85f))))
         Row(Modifier.fillMaxSize().padding(start = 40.dp, end = 40.dp, top = 30.dp, bottom = if (similar.isNotEmpty()) 200.dp else 40.dp),
             verticalAlignment = Alignment.CenterVertically) {
             AsyncImage(m.poster, m.name, contentScale = ContentScale.Crop,
                 modifier = Modifier.size(240.dp, 356.dp).clip(RoundedCornerShape(theme.spec.corner.coerceAtMost(18.dp))))
             Spacer(Modifier.width(36.dp))
             Column(Modifier.width(640.dp)) {
-                Text(m.name, color = p.text, fontSize = 38.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily)
+                Text(m.name, color = Color.White, fontSize = 38.sp, fontWeight = FontWeight.Bold)
                 val meta = listOfNotNull(m.year, m.genre, m.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) },
                     m.durationSec?.takeIf { it > 0 }?.let { "${it / 60} Min." }, m.category).joinToString("  ·  ")
                 Text(meta, color = p.primary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(vertical = 10.dp))
@@ -208,12 +267,12 @@ fun MovieDetailScreen(nav: NavController, vm: MovieDetailViewModel = hiltViewMod
                     } else {
                         TvButton("▶ Abspielen", onClick = { context.openPlayer(ContentKind.MOVIE, m.id, 0) }, primary = true, focusRequester = playFocus)
                     }
-                    TvButton(if (fav) "★ Auf Merkliste" else "☆ Merkliste", onClick = { vm.toggleFavorite() })
+                    TvButton(if (fav) "✓ Auf Merkliste" else "+ Merkliste", onClick = { vm.toggleFavorite() })
                 }
             }
         }
         if (similar.isNotEmpty()) Column(Modifier.align(Alignment.BottomStart).padding(start = 40.dp, bottom = 16.dp)) {
-            Text("ÄHNLICHE TITEL", color = p.textDim, fontSize = 13.sp, letterSpacing = 2.sp, modifier = Modifier.padding(bottom = 6.dp))
+            Text("Ähnliche Titel", color = p.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(similar, key = { it.id }) { sm -> FocusCard(sm.name, sm.poster, 96.dp, 142.dp, onClick = { nav.navigate(Routes.movie(sm.id)) }) }
             }

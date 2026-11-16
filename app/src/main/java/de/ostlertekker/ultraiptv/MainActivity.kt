@@ -83,6 +83,14 @@ class RootViewModel @Inject constructor(
         startupDone = true
         viewModelScope.launch {
             user.ensureDefaultProfile()
+            // Einmalig: neues Premium-Designsystem aktivieren (danach frei wählbar)
+            val design = appContext.getSharedPreferences("design_migration", android.content.Context.MODE_PRIVATE)
+            if (!design.getBoolean("premium_v1", false)) {
+                settingsRepo.set(de.ostlertekker.ultraiptv.core.data.Keys.THEME, "premium")
+                settingsRepo.set(de.ostlertekker.ultraiptv.core.data.Keys.FONT_STYLE, 0)
+                settingsRepo.set(de.ostlertekker.ultraiptv.core.data.Keys.ACCENT, 0L)
+                design.edit().putBoolean("premium_v1", true).apply()
+            }
             val s = settingsRepo.current()
             NotificationCenter.scheduleAutoUpdate(appContext, s.autoUpdateHours)
             runCatching { notifications.rescheduleAll() }

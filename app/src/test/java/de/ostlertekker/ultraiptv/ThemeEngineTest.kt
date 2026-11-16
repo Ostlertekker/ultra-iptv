@@ -14,7 +14,7 @@ import org.junit.Test
 class ThemeEngineTest {
     @Test fun allThemesUniqueAndEveryEffectUsed() {
         val all = ThemeRegistry.all()
-        assertEquals(43, all.size)
+        assertEquals(44, all.size)
         assertEquals(all.size, all.map { it.id }.toSet().size)
         assertEquals(de.ostlertekker.ultraiptv.core.design.BackgroundEffect.entries.toSet(), all.map { it.effect }.toSet())
     }
@@ -27,7 +27,7 @@ class ThemeEngineTest {
     }
 
     @Test fun unknownIdFallsBackToGalaxy() {
-        assertEquals("galaxy", ThemeRegistry.byId("gibt-es-nicht").id)
+        assertEquals("premium", ThemeRegistry.byId("gibt-es-nicht").id)
     }
 
     @Test fun switchingThemeChangesPalette() {

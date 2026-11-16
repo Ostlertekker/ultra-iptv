@@ -320,7 +320,7 @@ class UiSmokeTest {
             keys("Einstellungen betreten", D)
             for (i in 0 until 26) {
                 keys("Sektion $i", D, pauseMs = 350)
-                if (i in listOf(3, 5, 6, 8)) shot("einstellungen_$i")
+                if (i in listOf(1, 3, 8, 11)) shot("einstellungen_$i")
             }
             keys("Sektionen zurück", *IntArray(26) { U }, pauseMs = 120)
         }

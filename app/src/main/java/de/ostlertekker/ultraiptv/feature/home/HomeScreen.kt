@@ -90,7 +90,30 @@ class HomeViewModel @Inject constructor(
     sync: SyncRepository,
     private val dao: ContentDao,
     notifications: NotificationCenter,
+    private val discover: de.ostlertekker.ultraiptv.core.discover.DiscoverRepository,
 ) : ViewModel() {
+    /** Live-Highlights (läuft jetzt, Lieblingssender zuerst) und Sport-Highlights – echte EPG-Daten, alle 5 Minuten neu. */
+    val liveHighlights = MutableStateFlow<List<de.ostlertekker.ultraiptv.core.database.AiringProgram>>(emptyList())
+    val sportHighlights = MutableStateFlow<List<de.ostlertekker.ultraiptv.core.database.AiringProgram>>(emptyList())
+    init {
+        viewModelScope.launch {
+            while (true) {
+                runCatching {
+                    val now = System.currentTimeMillis()
+                    val favs = user.favoriteIds(ContentKind.LIVE).first().toSet()
+                    val airing = discover.airingAt(now, 400).filter { it.endMs > now }
+                    liveHighlights.value = (airing.filter { it.channelId in favs } + airing.filter { it.channelId !in favs }.sortedBy { it.number })
+                        .distinctBy { it.channelId }.take(20)
+                    sportHighlights.value = discover.sportEvents(now - 2 * 3_600_000L, now + 12 * 3_600_000L).map { it.program }
+                        .filter { it.endMs > now }.sortedBy { it.startMs }.distinctBy { it.channelId + it.startMs }.take(20)
+                }
+                kotlinx.coroutines.delay(5 * 60_000L)
+            }
+        }
+    }
+    val popularSeries: StateFlow<List<SeriesEntity>> by lazy { StateFlowOf(content.series(null, SortOrder.RATING, 30)) }
+    val favMovies: StateFlow<List<MovieEntity>> by lazy { StateFlowOf(user.favoriteIds(ContentKind.MOVIE).flatMapLatest { content.moviesByIds(it) }) }
+    val favSeries: StateFlow<List<SeriesEntity>> by lazy { StateFlowOf(user.favoriteIds(ContentKind.SERIES).flatMapLatest { content.seriesByIds(it) }) }
     val unread = notifications.unread.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
     val latestNotification = notifications.notifications.map { it.firstOrNull { n -> !n.isRead } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -176,6 +199,11 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
     val series by vm.newSeries.collectAsStateWithLifecycle()
     val recommended by vm.recommended.collectAsStateWithLifecycle()
     val dynamicRows by vm.dynamicRows.collectAsStateWithLifecycle()
+    val popularSeries by vm.popularSeries.collectAsStateWithLifecycle()
+    val favMovies by vm.favMovies.collectAsStateWithLifecycle()
+    val favSeries by vm.favSeries.collectAsStateWithLifecycle()
+    val liveHi by vm.liveHighlights.collectAsStateWithLifecycle()
+    val sportHi by vm.sportHighlights.collectAsStateWithLifecycle()
     val unread by vm.unread.collectAsStateWithLifecycle()
     val latestNotification by vm.latestNotification.collectAsStateWithLifecycle()
     val sync by vm.syncState.collectAsStateWithLifecycle()
@@ -265,28 +293,59 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
                 }
             }
         }
-        if (favCh.isNotEmpty()) item(key = "fav") { Column(pad) { ChannelRow("Lieblingssender", favCh) { context.openPlayer(ContentKind.LIVE, it.id, category = it.category) } } }
+        // Reihenfolge laut Designkonzept: ruhig, große Bilder, nur Reihen mit echten Inhalten
         if (recentCh.isNotEmpty()) item(key = "recent") { Column(pad) { ChannelRow("Zuletzt gesehen", recentCh) { context.openPlayer(ContentKind.LIVE, it.id, category = it.category) } } }
-        if (recommended.isNotEmpty()) item(key = "rec") { Column(pad) { MovieRow("Für dich", recommended) { nav.navigate(Routes.movie(it.id)) } } }
+        if (popular.isNotEmpty() && popular.any { (it.rating ?: 0.0) > 0 }) item(key = "pop") { Column(pad) { MovieRow("Beliebte Filme", popular) { nav.navigate(Routes.movie(it.id)) } } }
+        if (popularSeries.isNotEmpty() && popularSeries.any { (it.rating ?: 0.0) > 0 }) item(key = "popS") { Column(pad) { SeriesRow("Beliebte Serien", popularSeries) { nav.navigate(Routes.seriesDetail(it.id)) } } }
         if (newMovies.isNotEmpty()) item(key = "new") { Column(pad) { MovieRow("Neu hinzugefügt", newMovies) { nav.navigate(Routes.movie(it.id)) } } }
-        if (series.isNotEmpty()) item(key = "series") {
+        if (series.isNotEmpty()) item(key = "series") { Column(pad) { SeriesRow("Neue Serien", series) { nav.navigate(Routes.seriesDetail(it.id)) } } }
+        if (favCh.isNotEmpty()) item(key = "fav") { Column(pad) { ChannelRow("Lieblingssender", favCh) { context.openPlayer(ContentKind.LIVE, it.id, category = it.category) } } }
+        if (favMovies.isNotEmpty() || favSeries.isNotEmpty()) item(key = "favVod") {
             Column(pad) {
-                SectionHeader("Serien")
+                SectionHeader("Meine Merkliste")
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
-                    itemsIndexed(series, key = { _, s -> s.id }) { i, s ->
-                        FocusCard(s.name, s.poster, 150.dp, 222.dp, onClick = { nav.navigate(Routes.seriesDetail(s.id)) }, subtitle = s.year, entranceIndex = i)
-                    }
+                    items(favMovies, key = { "m" + it.id }) { m -> FocusCard(m.name, m.poster, 150.dp, 222.dp, onClick = { nav.navigate(Routes.movie(m.id)) }, subtitle = m.year) }
+                    items(favSeries, key = { "s" + it.id }) { se -> FocusCard(se.name, se.poster, 150.dp, 222.dp, onClick = { nav.navigate(Routes.seriesDetail(se.id)) }, subtitle = se.year) }
                 }
             }
         }
-        if (popular.isNotEmpty() && popular.any { (it.rating ?: 0.0) > 0 }) item(key = "pop") { Column(pad) { MovieRow("Am besten bewertet", popular) { nav.navigate(Routes.movie(it.id)) } } }
-        dynamicRows.forEach { row ->
+        if (recommended.isNotEmpty()) item(key = "rec") { Column(pad) { MovieRow("Empfehlungen für dich", recommended) { nav.navigate(Routes.movie(it.id)) } } }
+        if (liveHi.isNotEmpty()) item(key = "liveHi") { Column(pad) { ProgramRow("Live-TV-Highlights", liveHi) { context.openPlayer(ContentKind.LIVE, it.channelId, category = it.category) } } }
+        if (sportHi.isNotEmpty()) item(key = "sportHi") { Column(pad) { ProgramRow("Sport-Highlights", sportHi) { context.openPlayer(ContentKind.LIVE, it.channelId, category = it.category) } } }
+        dynamicRows.filter { it.title != "Sport live" }.take(3).forEach { row ->
             item(key = "dyn_" + row.title) {
                 Column(pad) {
                     if (row.movies.isNotEmpty()) MovieRow(row.title, row.movies) { nav.navigate(Routes.movie(it.id)) }
                     else ChannelRow(row.title, row.channels) { context.openPlayer(ContentKind.LIVE, it.id, category = it.category) }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SeriesRow(title: String, list: List<SeriesEntity>, onClick: (SeriesEntity) -> Unit) {
+    SectionHeader(title)
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
+        itemsIndexed(list, key = { _, s -> s.id }, contentType = { _, _ -> "poster" }) { i, s ->
+            FocusCard(s.name, s.poster, 150.dp, 222.dp, onClick = { onClick(s) }, entranceIndex = i,
+                subtitle = listOfNotNull(s.year, s.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) }).joinToString(" · ").ifBlank { null })
+        }
+    }
+}
+
+/** Sendungen aus dem TV-Programm als Kacheln: Senderlogo, Titel, Sender + Uhrzeit, Fortschritt wenn sie gerade läuft. */
+@Composable
+private fun ProgramRow(title: String, list: List<de.ostlertekker.ultraiptv.core.database.AiringProgram>, onClick: (de.ostlertekker.ultraiptv.core.database.AiringProgram) -> Unit) {
+    val now = System.currentTimeMillis()
+    val fmt = remember { java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY) }
+    SectionHeader(title)
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
+        items(list, key = { it.channelId + it.startMs }, contentType = { "program" }) { pr ->
+            val live = pr.startMs <= now && now < pr.endMs
+            FocusCard(pr.title, pr.logo, 260.dp, 146.dp, onClick = { onClick(pr) }, contentScale = ContentScale.Fit,
+                progress = if (live && pr.endMs > pr.startMs) (now - pr.startMs).toFloat() / (pr.endMs - pr.startMs) else null,
+                subtitle = (if (live) "● Live · " else "") + pr.channelName + " · " + fmt.format(java.util.Date(pr.startMs)) + "–" + fmt.format(java.util.Date(pr.endMs)))
         }
     }
 }

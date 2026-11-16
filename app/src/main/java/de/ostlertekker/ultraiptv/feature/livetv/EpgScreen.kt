@@ -63,7 +63,21 @@ class EpgViewModel @Inject constructor(
     private val content: ContentRepository,
     private val epg: EpgRepository,
     private val sync: SyncRepository,
+    private val notifications: de.ostlertekker.ultraiptv.core.notify.NotificationCenter,
 ) : ViewModel() {
+    val message = MutableStateFlow<String?>(null)
+    fun toggleReminder(ch: ChannelEntity, prog: EpgProgramEntity) = viewModelScope.launch {
+        val on = runCatching { notifications.toggleReminder(ch.id, ch.name, prog.title, prog.startMs) }.getOrNull()
+        message.value = when (on) { true -> "Erinnerung gesetzt: ${prog.title}"; false -> "Erinnerung entfernt: ${prog.title}"; null -> "Erinnerung nicht möglich" }
+    }
+    fun jumpDay(days: Int) {
+        val cal = java.util.Calendar.getInstance()
+        val nowStart = floorHalfHour(System.currentTimeMillis())
+        if (days == 0) { windowStart.value = nowStart; return }
+        cal.timeInMillis = System.currentTimeMillis(); cal.add(java.util.Calendar.DAY_OF_YEAR, days)
+        cal.set(java.util.Calendar.HOUR_OF_DAY, 20); cal.set(java.util.Calendar.MINUTE, 0); cal.set(java.util.Calendar.SECOND, 0); cal.set(java.util.Calendar.MILLISECOND, 0)
+        windowStart.value = cal.timeInMillis.coerceIn(nowStart - 7 * 86_400_000L, nowStart + 7 * 86_400_000L)
+    }
     val category: String? = savedState.get<String>("category")
     val channels = MutableStateFlow<List<ChannelEntity>>(emptyList())
     val programs = MutableStateFlow<Map<String, List<EpgProgramEntity>>>(emptyMap())
@@ -83,7 +97,7 @@ class EpgViewModel @Inject constructor(
 
     fun shift(deltaMs: Long) {
         val now = floorHalfHour(System.currentTimeMillis())
-        windowStart.value = (windowStart.value + deltaMs).coerceIn(now - 3 * 3_600_000L, now + 2 * 86_400_000L)
+        windowStart.value = (windowStart.value + deltaMs).coerceIn(now - 7 * 86_400_000L, now + 7 * 86_400_000L)
     }
 
     fun refresh() = viewModelScope.launch {
@@ -110,30 +124,36 @@ fun EpgScreen(vm: EpgViewModel = hiltViewModel()) {
     val now = System.currentTimeMillis()
 
     Column(Modifier.fillMaxSize().padding(20.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        val msg by vm.message.collectAsStateWithLifecycle()
+        val dayFmt = remember { java.text.SimpleDateFormat("EEEE, d. MMMM", java.util.Locale.GERMANY) }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Column(Modifier.weight(1f)) {
-                Text("TV-PROGRAMM", color = p.text, fontSize = 26.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily)
-                Text(vm.category ?: "Alle Sender", color = p.textDim, fontSize = 13.sp)
+                Text("TV-Programm", color = p.text, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                Text((vm.category ?: "Alle Sender") + " · " + dayFmt.format(java.util.Date(start)), color = p.textDim, fontSize = 13.sp)
             }
-            TvButton("◀ Früher", onClick = { vm.shift(-HALF_HOUR * 2) })
-            TvButton("Jetzt", onClick = { vm.windowStart.value = EpgViewModel.floorHalfHour(System.currentTimeMillis()) })
-            TvButton("Später ▶", onClick = { vm.shift(HALF_HOUR * 2) })
-            TvButton("EPG aktualisieren", onClick = { vm.refresh() })
+            TvButton("Gestern", onClick = { vm.jumpDay(-1) })
+            TvButton("◀", onClick = { vm.shift(-HALF_HOUR * 2) })
+            TvButton("Jetzt", onClick = { vm.jumpDay(0) }, primary = true)
+            TvButton("▶", onClick = { vm.shift(HALF_HOUR * 2) })
+            TvButton("Morgen", onClick = { vm.jumpDay(1) })
+            TvButton("↻", onClick = { vm.refresh() })
         }
         // Detailbereich der fokussierten Sendung
         Box(Modifier.fillMaxWidth().height(86.dp).padding(vertical = 8.dp)) {
             val d = detail
             if (d != null) Column {
                 Text("${formatTime(d.startMs)}–${formatTime(d.endMs)}  ${d.title}", color = p.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                Text(d.description ?: "", color = p.textDim, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            } else if (sync.running) Text(sync.message, color = p.textDim)
+                Text(d.description ?: "", color = p.textDim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(when { d.endMs <= now -> "OK: als Catch-up ansehen (wenn der Sender ein Archiv hat)"; d.startMs > now -> "OK: Erinnerung setzen oder entfernen"; else -> "OK: jetzt ansehen" },
+                    color = p.primary, fontSize = 12.sp)
+            } else if (msg != null) Text(msg ?: "", color = p.primary) else if (sync.running) Text(sync.message, color = p.textDim)
         }
         if (loading) { UltraLoader(Modifier.fillMaxWidth(), "TV-Programm wird geladen …"); return@Column }
         if (programs.isEmpty()) {
             Text("Keine EPG-Daten vorhanden. EPG-Adresse in den Einstellungen prüfen oder „EPG aktualisieren“ wählen.", color = p.textDim)
         }
         BoxWithConstraints(Modifier.fillMaxSize()) {
-            val nameW = 200.dp
+            val nameW = 230.dp
             val gridW = maxWidth - nameW
             val pxPerMs = gridW.value / WINDOW
             Column {
@@ -150,12 +170,17 @@ fun EpgScreen(vm: EpgViewModel = hiltViewModel()) {
                         }
                     }
                 }
+                Box(Modifier.fillMaxSize()) {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(bottom = 40.dp)) {
                     items(channels, key = { it.id }) { ch ->
                         Row(Modifier.fillMaxWidth().height(56.dp)) {
-                            Box(Modifier.width(nameW).fillMaxHeight().background(p.surface, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp),
-                                contentAlignment = Alignment.CenterStart) {
-                                Text(ch.name, color = p.text, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Row(Modifier.width(nameW).fillMaxHeight().background(p.surface, RoundedCornerShape(8.dp)).padding(horizontal = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(if (ch.number > 0) "${ch.number}" else "", color = p.textDim, fontSize = 12.sp, modifier = Modifier.width(26.dp))
+                                Box(Modifier.width(44.dp).height(30.dp), contentAlignment = Alignment.Center) {
+                                    if (!ch.logo.isNullOrBlank()) coil.compose.AsyncImage(ch.logo, null, contentScale = androidx.compose.ui.layout.ContentScale.Fit, modifier = Modifier.fillMaxSize())
+                                }
+                                Text(ch.name, color = p.text, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             }
                             Box(Modifier.width(gridW).fillMaxHeight()) {
                                 val list = ch.epgId?.let { programs[it] }.orEmpty()
@@ -168,14 +193,28 @@ fun EpgScreen(vm: EpgViewModel = hiltViewModel()) {
                                     if (e > s) {
                                         val x = ((s - start) * pxPerMs).dp
                                         val w = ((e - s) * pxPerMs).dp - 4.dp
-                                        if (w > 6.dp) ProgramBlock(prog.title, prog.startMs <= now && prog.endMs > now,
+                                        val catchup = prog.endMs <= now && ch.archiveDays > 0 && prog.startMs > now - ch.archiveDays * 86_400_000L
+                                        val label = (if (catchup) "↺ " else "") + prog.title
+                                        if (w > 6.dp) ProgramBlock(label, prog.startMs <= now && prog.endMs > now,
                                             Modifier.offset(x = x + 4.dp).width(w),
-                                            { context.openPlayer(ContentKind.LIVE, ch.id, category = ch.category) }) { f -> if (f) detail = prog }
+                                            {
+                                                when {
+                                                    prog.startMs > now -> vm.toggleReminder(ch, prog)
+                                                    prog.endMs <= now -> if (catchup) context.openPlayer(ContentKind.LIVE, ch.id, category = ch.category,
+                                                        catchupStart = prog.startMs, catchupEnd = prog.endMs) else vm.message.value = "Für diese Sendung gibt es kein Archiv."
+                                                    else -> context.openPlayer(ContentKind.LIVE, ch.id, category = ch.category)
+                                                }
+                                            }, past = prog.endMs <= now) { f -> if (f) detail = prog }
                                     }
                                 }
                             }
                         }
                     }
+                }
+                // Aktuelle Uhrzeit als durchgehende senkrechte Linie
+                if (now in start until start + WINDOW) {
+                    Box(Modifier.offset(x = nameW + ((now - start) * pxPerMs).dp).width(2.dp).fillMaxHeight().background(p.primary.copy(alpha = 0.85f)))
+                }
                 }
             }
         }
@@ -183,7 +222,7 @@ fun EpgScreen(vm: EpgViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun ProgramBlock(title: String, live: Boolean, modifier: Modifier, onClick: () -> Unit, onFocus: (Boolean) -> Unit) {
+private fun ProgramBlock(title: String, live: Boolean, modifier: Modifier, onClick: () -> Unit, past: Boolean = false, onFocus: (Boolean) -> Unit) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
     var focused by remember { mutableStateOf(false) }
@@ -191,7 +230,7 @@ private fun ProgramBlock(title: String, live: Boolean, modifier: Modifier, onCli
     Box(
         modifier.fillMaxHeight()
             .tvFocusable(shape, onClick, scaleOnFocus = false, onFocus = { focused = it; onFocus(it) })
-            .background(if (focused) p.primary else if (live) p.surfaceFocused else p.surface, shape)
+            .background(if (focused) p.primary else if (live) p.surfaceFocused else if (past) p.surface.copy(alpha = 0.55f) else p.surface, shape)
             .padding(horizontal = 8.dp),
         contentAlignment = Alignment.CenterStart,
     ) {

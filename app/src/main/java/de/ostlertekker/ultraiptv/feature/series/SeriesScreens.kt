@@ -77,7 +77,38 @@ private const val PAGE = 240
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
-class SeriesViewModel @Inject constructor(content: ContentRepository) : ViewModel() {
+class SeriesViewModel @Inject constructor(content: ContentRepository, user: de.ostlertekker.ultraiptv.core.data.UserRepository) : ViewModel() {
+    /** Serien-Übersicht: Fortsetzen, Merkliste, Neu, Beliebt, Empfehlungen, Zuletzt angesehen, Kategorie-Reihen. */
+    val overview: StateFlow<List<de.ostlertekker.ultraiptv.feature.common.CinemaRow>> = run {
+        fun SeriesEntity.tile() = de.ostlertekker.ultraiptv.feature.common.CinemaTile(id, name, poster,
+            listOfNotNull(year, genre?.split(',')?.firstOrNull()?.trim(), rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) }).joinToString(" · ").ifBlank { null },
+            backdrop = backdrop, plot = plot, kind = "SERIES")
+        fun de.ostlertekker.ultraiptv.core.database.ProgressEntity.tile(resume: Boolean) = de.ostlertekker.ultraiptv.feature.common.CinemaTile(itemId, title, image,
+            if (durationMs > 0) "Noch ${((durationMs - positionMs) / 60000).coerceAtLeast(1)} Min." else null,
+            progress = if (durationMs > 0) positionMs.toFloat() / durationMs else null, positionMs = positionMs, resume = resume, kind = "EPISODE")
+        val ep = de.ostlertekker.ultraiptv.core.model.ContentKind.EPISODE.name
+        val catRows = content.seriesCategories().flatMapLatest { cs ->
+            val top = cs.take(5)
+            if (top.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyList())
+            else combine(top.map { c -> content.series(c, SortOrder.RATING, 24).map { l -> c to l } }) { it.toList() }
+        }
+        combine(
+            user.continueWatching.map { l -> l.filter { it.kind == ep } },
+            user.favoriteIds(de.ostlertekker.ultraiptv.core.model.ContentKind.SERIES).flatMapLatest { content.seriesByIds(it) },
+            content.series(null, SortOrder.NEWEST, 30),
+            content.series(null, SortOrder.RATING, 30),
+            combine(user.recentlyWatched.map { l -> l.filter { it.kind == ep } }, catRows) { a, b -> a to b },
+        ) { cw, watch, newest, popular, (recent, cats) ->
+            listOf(
+                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Fortsetzen", cw.map { it.tile(true) }, landscape = true),
+                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Meine Merkliste", watch.map { it.tile() }),
+                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Neue Serien", newest.map { it.tile() }),
+                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Beliebte Serien", if (popular.any { (it.rating ?: 0.0) > 0 }) popular.map { it.tile() } else emptyList()),
+                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Zuletzt angesehen", recent.map { it.tile(true) }, landscape = true),
+            ) + cats.map { (c, l) -> de.ostlertekker.ultraiptv.feature.common.CinemaRow(c, l.map { it.tile() }) }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }
+
     val category = MutableStateFlow<String?>(null)
     val sort = MutableStateFlow(SortOrder.NEWEST)
     val limit = MutableStateFlow(PAGE)
@@ -103,10 +134,29 @@ fun SeriesScreen(nav: NavController, vm: SeriesViewModel = hiltViewModel()) {
             if (last >= grid.layoutInfo.totalItemsCount - 24) vm.loadMore()
         }
     }
-    Column(Modifier.fillMaxSize().padding(start = 20.dp, top = 20.dp, end = 20.dp)) {
-        Text("Serien", color = p.text, fontSize = 26.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily)
-        Spacer(Modifier.height(8.dp))
+    var overviewMode by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(true) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    if (overviewMode) {
+        val rows by vm.overview.collectAsStateWithLifecycle()
+        val hero = rows.firstOrNull { it.title == "Neue Serien" }?.tiles?.firstOrNull { !it.backdrop.isNullOrBlank() }
+            ?: rows.firstOrNull { it.title == "Neue Serien" }?.tiles?.firstOrNull()
+        de.ostlertekker.ultraiptv.feature.common.CinemaOverview(hero, rows,
+            header = {
+                androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TvChip("Übersicht", true, { })
+                    TvChip("Alle Serien", false, { overviewMode = false })
+                }
+            },
+            onOpen = { t -> if (t.kind == "EPISODE") context.openPlayer(de.ostlertekker.ultraiptv.core.model.ContentKind.EPISODE, t.id, t.positionMs) else nav.navigate(Routes.seriesDetail(t.id)) },
+            onPlay = { t ->
+                if (t.kind == "EPISODE") context.openPlayer(de.ostlertekker.ultraiptv.core.model.ContentKind.EPISODE, t.id, t.positionMs)
+                else nav.navigate(Routes.seriesDetail(t.id))
+            })
+        return
+    }
+    Column(Modifier.fillMaxSize().padding(start = 20.dp, top = 12.dp, end = 20.dp)) {
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item { TvChip("Übersicht", false, { overviewMode = true }) }
             items(SortOrder.entries, key = { it.name }) { s -> TvChip("↕ ${s.label}", s == sort, { vm.sort.value = s }) }
             item { Spacer(Modifier.width(16.dp)) }
             item { TvChip("Alle", cat == null, { vm.category.value = null }) }
@@ -156,6 +206,12 @@ class SeriesDetailViewModel @Inject constructor(
     }
 
     fun toggleFavorite() = viewModelScope.launch { user.toggleFavorite(ContentKind.SERIES, id) }
+
+    /** Folge als gesehen markieren (oder wieder als ungesehen): setzt den gespeicherten Fortschritt. */
+    fun toggleWatched(ep: EpisodeEntity, watched: Boolean) = viewModelScope.launch {
+        val dur = (ep.durationSec ?: 0).toLong().takeIf { it > 0 }?.times(1000) ?: 2_700_000L
+        user.saveProgress(ContentKind.EPISODE, ep.id, if (watched) 0L else dur, dur, ep.title, ep.image, id)
+    }
 }
 
 @Composable
@@ -188,11 +244,12 @@ fun SeriesDetailScreen(nav: NavController, vm: SeriesDetailViewModel = hiltViewM
     }
 
     Box(Modifier.fillMaxSize()) {
-        AsyncImage(series.backdrop ?: series.poster, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), alpha = 0.35f)
-        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(p.bgTop, p.bgTop.copy(alpha = 0.85f), Color.Transparent))))
+        AsyncImage(series.backdrop ?: series.poster, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), alpha = 0.7f)
+        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.95f), 0.55f to Color.Black.copy(alpha = 0.7f), 1f to Color.Black.copy(alpha = 0.25f))))
         Column(Modifier.fillMaxSize().padding(32.dp)) {
             Text(series.name, color = p.text, fontSize = 34.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily)
-            Text(listOfNotNull(series.year, series.genre, series.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) }).joinToString("  ·  "),
+            Text(listOfNotNull(series.year, series.genre, series.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) },
+                seasons.size.takeIf { it > 0 }?.let { if (it == 1) "1 Staffel" else "$it Staffeln" }).joinToString("  ·  "),
                 color = p.primary, fontSize = 14.sp, modifier = Modifier.padding(vertical = 6.dp))
             Text(series.plot ?: "", color = p.textDim, fontSize = 14.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(760.dp))
             if (!series.actors.isNullOrBlank()) Text("Mit: ${series.actors}", color = p.text, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -204,7 +261,8 @@ fun SeriesDetailScreen(nav: NavController, vm: SeriesDetailViewModel = hiltViewM
                     TvButton(if (pr != null && pr.positionMs > 30_000) "▶ Weiter: S${resume.season} E${resume.episode}" else "▶ S${resume.season} E${resume.episode} abspielen",
                         onClick = { context.openPlayer(ContentKind.EPISODE, resume.id, pr?.positionMs ?: 0) }, primary = true)
                 }
-                TvButton(if (fav) "★ Favorit" else "☆ Favorit", onClick = { vm.toggleFavorite() })
+                TvButton(if (fav) "✓ Auf Merkliste" else "+ Merkliste", onClick = { vm.toggleFavorite() })
+                Text("Lange OK auf einer Folge: als gesehen markieren", color = p.textDim, fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterVertically))
             }
             Spacer(Modifier.height(14.dp))
             if (loading && eps.isEmpty()) UltraLoader(label = "Episoden werden geladen …")
@@ -216,12 +274,14 @@ fun SeriesDetailScreen(nav: NavController, vm: SeriesDetailViewModel = hiltViewM
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 60.dp)) {
                 items(shown, key = { it.id }) { ep ->
                     val pr = progress[ep.id]
-                    EpisodeRow(ep, if (pr != null && pr.durationMs > 0) pr.positionMs.toFloat() / pr.durationMs else null) {
+                    val done = pr != null && pr.durationMs > 0 && pr.positionMs >= pr.durationMs * 0.95
+                    EpisodeRow(ep, if (pr != null && pr.durationMs > 0) pr.positionMs.toFloat() / pr.durationMs else null, done,
+                        onLongClick = { vm.toggleWatched(ep, done) }) {
                         context.openPlayer(ContentKind.EPISODE, ep.id, if (pr != null && pr.durationMs > 0 && pr.positionMs < pr.durationMs * 0.95) pr.positionMs else 0)
                     }
                 }
                 if (similar.isNotEmpty()) item {
-                    Text("ÄHNLICHE SERIEN", color = p.textDim, fontSize = 13.sp, letterSpacing = 2.sp, modifier = Modifier.padding(top = 16.dp, bottom = 6.dp))
+                    Text("Ähnliche Serien", color = p.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp, bottom = 6.dp))
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(similar, key = { it.id }) { sm -> FocusCard(sm.name, sm.poster, 110.dp, 162.dp, onClick = { nav.navigate(Routes.seriesDetail(sm.id)) }) }
                     }
@@ -232,14 +292,14 @@ fun SeriesDetailScreen(nav: NavController, vm: SeriesDetailViewModel = hiltViewM
 }
 
 @Composable
-private fun EpisodeRow(ep: EpisodeEntity, progress: Float?, onClick: () -> Unit) {
+private fun EpisodeRow(ep: EpisodeEntity, progress: Float?, watched: Boolean = false, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(theme.spec.corner.coerceAtMost(14.dp))
     Row(
         Modifier.fillMaxWidth().padding(end = 20.dp)
-            .tvFocusable(shape, onClick, scaleOnFocus = false, onFocus = { focused = it })
+            .tvFocusable(shape, onClick, onLongClick = onLongClick, scaleOnFocus = false, onFocus = { focused = it })
             .background(if (focused) p.surfaceFocused else p.surface, shape).padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -252,7 +312,7 @@ private fun EpisodeRow(ep: EpisodeEntity, progress: Float?, onClick: () -> Unit)
         }
         Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
-            Text("E${ep.episode} · ${ep.title}", color = p.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text((if (watched) "✓ " else "") + "S${ep.season} · E${ep.episode} · ${ep.title}", color = p.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (ep.durationSec != null && ep.durationSec > 0) Text("${ep.durationSec / 60} Min.", color = p.textDim, fontSize = 12.sp)
             if (ep.plot != null) Text(ep.plot, color = p.textDim, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }

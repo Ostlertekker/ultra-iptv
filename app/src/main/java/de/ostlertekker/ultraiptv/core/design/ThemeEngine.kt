@@ -114,7 +114,7 @@ object ThemeRegistry {
 
     fun register(spec: ThemeSpec) { themes[spec.id] = spec }
     fun all(): List<ThemeSpec> = themes.values.toList()
-    fun byId(id: String): ThemeSpec = themes[id] ?: themes.getValue("galaxy")
+    fun byId(id: String): ThemeSpec = themes[id] ?: themes.getValue("premium")
 }
 
 object ThemeEngine {
@@ -286,6 +286,15 @@ private object BuiltInThemes {
     )
 
     val all = listOf(
+        // PREMIUM – Standard-Designsystem: Tiefschwarz, Anthrazit, Eisblau, Inter; ruhig und edel
+        ThemeSpec(
+            "premium", "PREMIUM", "Tiefschwarz, Anthrazit und Eisblau – ruhig, edel, wie ein Streaming-Dienst",
+            UltraPalette(c(0xFF000000), c(0xFF15171B), c(0xFF1C1F24), c(0xFF243447), c(0xFF8FD3FF), c(0xFF5AB4FF),
+                c(0xFFFFFFFF), c(0xFFB4B9C3), c(0xFF8FD3FF), c(0xFFFFFFFF), c(0xFF8FD3FF)),
+            BackgroundEffect.GLASS, AppFonts.Inter, FontWeight.Bold, 14.dp, 1.05f, 1.dp,
+            MenuFx(sparkles = false, shootingStars = false, shimmer = false, glowStrength = 0.3f),
+            TransitionStyle.FADE, LoaderStyle.PULSE, SoundPreset.GLASS, 0,
+        ),
         ThemeSpec(
             "galaxy", "GALAXIE", "Die Signature-Erfahrung: Nebel, Sternschnuppen, kosmischer Glanz",
             UltraPalette(c(0xFF070A1F), c(0xFF140A2E), c(0x8C141A3A), c(0xE02A2266), c(0xFFA77BFF), c(0xFF5BC8FF),
