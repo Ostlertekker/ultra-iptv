@@ -363,21 +363,21 @@ fun JellyfinMovieScreen(nav: NavController, vm: JellyfinItemViewModel = hiltView
     LaunchedEffect(m.id) { runCatching { playFocus.requestFocus() } }
     Box(Modifier.fillMaxSize()) {
         Backdrop(vm.repo.image(m, "Backdrop"))
-        Row(Modifier.fillMaxSize().padding(start = 40.dp, end = 40.dp, top = 20.dp, bottom = if (similar.isNotEmpty()) 200.dp else 40.dp),
-            verticalAlignment = Alignment.CenterVertically) {
+        // Oben ausgerichtet und begrenzt: Knöpfe bleiben auch bei langen Beschreibungen sichtbar und erreichbar
+        Row(Modifier.fillMaxWidth().padding(start = 40.dp, end = 40.dp, top = 16.dp), verticalAlignment = Alignment.Top) {
             AsyncImage(vm.repo.image(m, width = 480), m.name, contentScale = ContentScale.Crop,
-                modifier = Modifier.size(230.dp, 340.dp).clip(RoundedCornerShape(14.dp)).background(p.surface))
+                modifier = Modifier.size(190.dp, 282.dp).clip(RoundedCornerShape(14.dp)).background(p.surface))
             Spacer(Modifier.width(36.dp))
             Column(Modifier.width(640.dp)) {
-                Text(m.name, color = Color.White, fontSize = 36.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(m.meta() + (if (m.played) "  ·  ✓ Gesehen" else ""), color = p.primary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(vertical = 8.dp))
-                if (m.genres.size > 1) Text(m.genres.joinToString(", "), color = p.textDim, fontSize = 13.sp)
-                Text(m.overview ?: "Keine Beschreibung verfügbar.", color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp, maxLines = 6,
-                    overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
-                if (m.people.isNotEmpty()) Text("Mit: ${m.people.joinToString(", ")}", color = p.text, fontSize = 13.sp, maxLines = 2, modifier = Modifier.padding(top = 8.dp))
-                if (m.directors.isNotEmpty()) Text("Regie: ${m.directors.joinToString(", ")}", color = p.textDim, fontSize = 13.sp)
-                Spacer(Modifier.height(20.dp))
+                Text(m.name, color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(m.meta() + (if (m.played) "  ·  ✓ Gesehen" else "") + (if (m.genres.size > 1) "  ·  " + m.genres.drop(1).joinToString(", ") else ""),
+                    color = p.primary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.padding(vertical = 6.dp))
+                Text(m.overview ?: "Keine Beschreibung verfügbar.", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp, maxLines = 3,
+                    overflow = TextOverflow.Ellipsis)
+                val credits = listOfNotNull(m.people.takeIf { it.isNotEmpty() }?.let { "Mit: " + it.joinToString(", ") },
+                    m.directors.takeIf { it.isNotEmpty() }?.let { "Regie: " + it.joinToString(", ") }).joinToString("   ·   ")
+                if (credits.isNotBlank()) Text(credits, color = p.textDim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+                Spacer(Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (m.positionMs > 30_000 && !m.played) {
                         TvButton("▶ Fortsetzen (${m.positionMs / 60_000} Min.)", onClick = { context.openPlayer(ContentKind.MOVIE, JF_PREFIX + m.id, m.positionMs) },
@@ -392,11 +392,11 @@ fun JellyfinMovieScreen(nav: NavController, vm: JellyfinItemViewModel = hiltView
                 error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)) }
             }
         }
-        if (similar.isNotEmpty()) Column(Modifier.align(Alignment.BottomStart).padding(start = 40.dp, bottom = 16.dp)) {
-            Text("Ähnliche Titel", color = p.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
+        if (similar.isNotEmpty()) Column(Modifier.align(Alignment.BottomStart).padding(start = 40.dp, bottom = 10.dp)) {
+            Text("Ähnliche Titel", color = p.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 4.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(similar, key = { it.id }) { s ->
-                    FocusCard(s.name, vm.repo.image(s), 96.dp, 142.dp, onClick = { openJellyfin(nav, context, vm.repo.tile(s), play = false) })
+                    FocusCard(s.name, vm.repo.image(s), 84.dp, 124.dp, onClick = { openJellyfin(nav, context, vm.repo.tile(s), play = false) })
                 }
             }
         }
