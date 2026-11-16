@@ -175,8 +175,9 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
     val railFocus = remember { FocusRequester() }
     val items = remember {
         listOf(
-            NavItem(Routes.HOME, "Start"), NavItem(Routes.LIVE, "Live-TV"), NavItem(Routes.EPG, "TV-Programm"), NavItem(Routes.MOVIES, "Filme"),
-            NavItem(Routes.SERIES, "Serien"), NavItem(Routes.EVENTS, "Sport"), NavItem(Routes.FAVORITES, "Favoriten"), NavItem(Routes.JELLYFIN, "Jellyfin"), NavItem(Routes.EXPLORE, "Mehr"),
+            NavItem(Routes.HOME, "Start"), NavItem(Routes.LIVE, "Live-TV"), NavItem(Routes.EPG, "Programm"), NavItem(Routes.MOVIES, "Filme"),
+            NavItem(Routes.SERIES, "Serien"), NavItem(Routes.EVENTS, "Sport"), NavItem(Routes.FAVORITES, "Favoriten"), NavItem(Routes.JELLYFIN, "Jellyfin"), NavItem("app:YOUTUBE", "YouTube"), NavItem("app:SPOTIFY", "Spotify"),
+            NavItem(Routes.EXPLORE, "Mehr"),
         )
     }
     val utility = remember { listOf(NavItem(Routes.SEARCH, "🔍"), NavItem(Routes.SETTINGS, "⚙")) }
@@ -254,7 +255,13 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
                 }
             }
         }
-        TopNavBar(items, utility, railRouteFor(route), onSelect = { r -> navigateTop(nav, r); sounds?.transition() }, firstFocus = railFocus,
+        val ctx = androidx.compose.ui.platform.LocalContext.current
+        TopNavBar(items, utility, railRouteFor(route), onSelect = { r ->
+            // YouTube/Spotify laufen als eingebettete Weboberfläche im eigenen Vollbild – keine externe App
+            if (r.startsWith("app:")) de.ostlertekker.ultraiptv.feature.web.WebAppActivity.open(ctx, de.ostlertekker.ultraiptv.feature.web.WebApp.valueOf(r.removePrefix("app:")))
+            else navigateTop(nav, r)
+            sounds?.transition()
+        }, firstFocus = railFocus,
             modifier = Modifier.align(Alignment.TopCenter))
         MiniPlayerOverlay(vm.engine, Modifier.align(Alignment.BottomEnd).padding(28.dp))
     }
