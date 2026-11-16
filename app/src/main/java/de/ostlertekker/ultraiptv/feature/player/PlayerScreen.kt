@@ -266,8 +266,9 @@ fun PlayerScreen(
                     .padding(horizontal = 26.dp, vertical = 10.dp))
         }
         if (!inPip) {
-            TimeshiftBadge(ui, Modifier.align(Alignment.TopStart).padding(top = 30.dp, start = 36.dp))
-            ScoreChip(ui, Modifier.align(Alignment.TopStart).padding(top = if (ui.shiftBehindMs >= 5_000 || ui.livePaused) 66.dp else 30.dp, start = 36.dp))
+            // Bei geöffneter Info-Leiste zeigt die Zeitleiste den Versatz – Abzeichen würden den Titel überdecken
+            if (!overlay) TimeshiftBadge(ui, Modifier.align(Alignment.TopStart).padding(top = 30.dp, start = 36.dp))
+            if (!overlay) ScoreChip(ui, Modifier.align(Alignment.TopStart).padding(top = if (ui.shiftBehindMs >= 5_000 || ui.livePaused) 66.dp else 30.dp, start = 36.dp))
             FrameStepHint(ui, Modifier.align(Alignment.TopCenter).padding(top = 30.dp))
             if (health) HealthMonitor(vm, Modifier.align(Alignment.Center).fillMaxWidth(0.86f))
         }
