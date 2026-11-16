@@ -272,7 +272,7 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
         // Anteilige Breiten: die Senderliste behält auf jedem Bildschirm genug Platz für die Sendernamen
         LazyColumn(Modifier.weight(0.25f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             item {
-                Text("LIVE-TV", color = p.text, fontSize = 24.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily,
+                Text("Live-TV", color = p.text, fontSize = 24.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily,
                     modifier = Modifier.padding(bottom = 10.dp))
             }
             items(cats, key = { it }) { c -> CategoryItem(c, c == current) { vm.selected.value = c } }

@@ -38,7 +38,7 @@ object M3uParser {
         var pendingName: String? = null
         var pendingGroup: String? = null
         for (raw in lines) {
-            val line = raw.trim().removePrefix("﻿")
+            val line = raw.trim().removePrefix("\uFEFF")
             if (line.isEmpty()) continue
             when {
                 line.startsWith("#EXTM3U", ignoreCase = true) -> {

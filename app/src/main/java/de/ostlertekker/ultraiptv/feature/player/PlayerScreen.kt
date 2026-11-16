@@ -53,7 +53,6 @@ import androidx.media3.ui.SubtitleView
 import de.ostlertekker.ultraiptv.core.data.AppSettings
 import de.ostlertekker.ultraiptv.core.motion.CurtainOverlay
 import de.ostlertekker.ultraiptv.core.motion.LocalMotion
-import de.ostlertekker.ultraiptv.core.motion.MotionOverlay
 import de.ostlertekker.ultraiptv.core.motion.crazyEntrance
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.media3.ui.PlayerView
@@ -325,10 +324,6 @@ fun PlayerScreen(
                 ui.nextTitle?.let { Text("Danach: $it", color = p.textDim, fontSize = 13.sp, maxLines = 1) }
             }
         }
-        if (ui.guest && !inPip) {
-            Text("👥 Watch Together – Gast", color = Color.White, fontSize = 12.sp, modifier = Modifier.align(Alignment.TopEnd).padding(20.dp)
-                .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 4.dp))
-        }
 
         AnimatedVisibility(overlay && ui.countdown == null && !inPip, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.fillMaxSize()) {
             Box(Modifier.fillMaxSize()) {
@@ -427,7 +422,6 @@ fun PlayerScreen(
             }
         }
 
-        if (!inPip) MotionOverlay()
 
         panel?.let { current ->
             Box(Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(420.dp).background(Color.Black.copy(alpha = 0.9f)).padding(24.dp)) {

@@ -18,8 +18,6 @@ import de.ostlertekker.ultraiptv.core.database.MovieEntity
 import de.ostlertekker.ultraiptv.core.database.ChannelQualityEntity
 import de.ostlertekker.ultraiptv.core.database.ExtrasDao
 import de.ostlertekker.ultraiptv.core.device.DeviceCapabilityManager
-import de.ostlertekker.ultraiptv.core.lan.LanHub
-import de.ostlertekker.ultraiptv.core.lan.WatchState
 import de.ostlertekker.ultraiptv.core.player.MiniInfo
 import de.ostlertekker.ultraiptv.core.search.SmartSearch
 import de.ostlertekker.ultraiptv.core.model.ContentKind
@@ -68,7 +66,6 @@ data class PlayerUi(
     val pendingMarkStart: Pair<SegmentType, Long>? = null,
     /** Zeitpunkt des letzten Senderwechsels (für das Info-Banner). */
     val zapAt: Long = 0,
-    val guest: Boolean = false,
     val qualityNote: String? = null,
     /** Hinweis während automatischer Wiederverbindung. */
     val notice: String? = null,
@@ -109,7 +106,6 @@ class PlayerViewModel @Inject constructor(
     private val epg: EpgRepository,
     private val skipRepo: SmartSkipRepository,
     private val device: DeviceCapabilityManager,
-    private val lan: LanHub,
     private val extras: ExtrasDao,
     private val discover: de.ostlertekker.ultraiptv.core.discover.DiscoverRepository,
     private val sports: de.ostlertekker.ultraiptv.core.discover.SportsRepository,
@@ -186,11 +182,6 @@ class PlayerViewModel @Inject constructor(
             lastFatal = engine.fatal.value
             engine.fatal.collect { n -> if (n > lastFatal) { lastFatal = n; onFatal() } }
         }
-        // Watch Together als Gast: Inhalt, Position und Pause des Host-Geräts übernehmen
-        viewModelScope.launch {
-            lan.guestState.collect { w -> if (w != null && started) followHost(w) }
-        }
-        _ui.update { it.copy(guest = lan.guestRemote.value != null) }
     }
 
     private fun settingsOrNull(): AppSettings? = if (this::settings.isInitialized) settings else null
@@ -304,7 +295,6 @@ class PlayerViewModel @Inject constructor(
         val p = engine.player ?: return
         engine.sampleFps()
         autoQualityCheck()
-        publishWatch()
         if (kind == ContentKind.LIVE && System.currentTimeMillis() - lastQualitySave > 30_000) saveChannelQuality()
         val pos = p.currentPosition
         val dur = p.duration.takeIf { it != C.TIME_UNSET && it > 0 } ?: 0L
@@ -731,7 +721,6 @@ class PlayerViewModel @Inject constructor(
 
     fun onExit() {
         saveChannelQuality()
-        lan.publishWatch(null)
         if (!keepEngine) engine.stop()
     }
 
@@ -814,36 +803,5 @@ class PlayerViewModel @Inject constructor(
                 playChannel(alt)
             }
         }
-    }
-
-    // ---------------------------------------------------- Watch Together
-
-    private fun publishWatch() {
-        if (lan.status.value.hostingWatch) {
-            val p = engine.player
-            lan.publishWatch(WatchState(kind.name, itemId, if (kind == ContentKind.LIVE) channels.getOrNull(channelIndex)?.category else category,
-                _ui.value.title, p?.currentPosition ?: 0L, p?.isPlaying == true, System.currentTimeMillis()))
-        }
-    }
-
-    private fun followHost(w: WatchState) {
-        val p = engine.player ?: return
-        if (w.kind != kind.name) return
-        if (w.id != itemId) {
-            if (kind == ContentKind.LIVE) {
-                viewModelScope.launch {
-                    val ch = content.channel(w.id) ?: return@launch
-                    val idx = channels.indexOfFirst { it.id == ch.id }
-                    if (idx >= 0) channelIndex = idx
-                    playChannel(ch)
-                }
-            } else if (kind == ContentKind.EPISODE) {
-                viewModelScope.launch { content.episode(w.id)?.let { playEpisode(it, w.positionMs) } }
-            }
-            return
-        }
-        if (kind != ContentKind.LIVE && kotlin.math.abs(p.currentPosition - w.positionMs) > 2_500) p.seekTo(w.positionMs + 300)
-        if (w.playing && !p.isPlaying) p.play()
-        if (!w.playing && p.isPlaying) p.pause()
     }
 }

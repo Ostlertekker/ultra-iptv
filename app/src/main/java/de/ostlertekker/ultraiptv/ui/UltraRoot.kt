@@ -41,7 +41,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import de.ostlertekker.ultraiptv.RootViewModel
 import de.ostlertekker.ultraiptv.core.motion.LocalMotion
-import de.ostlertekker.ultraiptv.core.motion.MotionOverlay
 import de.ostlertekker.ultraiptv.core.motion.PageTransitionHost
 import de.ostlertekker.ultraiptv.core.motion.exitTransitionFor
 import de.ostlertekker.ultraiptv.core.animation.ThemeBackground
@@ -49,6 +48,7 @@ import de.ostlertekker.ultraiptv.core.design.LocalUltraTheme
 import de.ostlertekker.ultraiptv.core.design.TransitionStyle
 import de.ostlertekker.ultraiptv.core.ui.LocalUiSounds
 import de.ostlertekker.ultraiptv.core.ui.NavItem
+import de.ostlertekker.ultraiptv.core.ui.TopNavBar
 import de.ostlertekker.ultraiptv.core.ui.NavRail
 import de.ostlertekker.ultraiptv.core.ui.UltraThemeHost
 import de.ostlertekker.ultraiptv.feature.favorites.FavoritesScreen
@@ -93,13 +93,10 @@ object Routes {
     const val WHATSON = "whatson"
     const val EVENTS = "events"
     const val SPORTS = "sports"
-    const val HOLO = "holo"
-    const val UNIVERSE = "universe"
     const val MYTV = "mytv"
     const val LISTS = "lists"
     fun radar(q: String) = "radar?q=${Uri.encode(q)}"
     fun timeMachine(at: Long) = "timemachine?at=$at"
-    fun mood(moods: String) = "mood?m=${Uri.encode(moods)}"
 }
 
 private enum class Phase { INTRO, SETUP, PROFILES, MAIN }
@@ -157,7 +154,7 @@ private fun railRouteFor(route: String): String = when {
     route.startsWith(Routes.EPG) -> Routes.LIVE
     route.startsWith(Routes.SETUP) -> Routes.SETTINGS
     route.startsWith(Routes.SETUP_NEW) -> Routes.SETTINGS
-    listOf(Routes.WHATSON, "radar", "timemachine", Routes.EVENTS, Routes.SPORTS, Routes.HOLO, Routes.UNIVERSE, "mood", Routes.MYTV, Routes.LISTS)
+    listOf(Routes.WHATSON, "radar", "timemachine", Routes.EVENTS, Routes.SPORTS, Routes.MYTV, Routes.LISTS)
         .any { route.startsWith(it) } -> Routes.EXPLORE
     else -> route
 }
@@ -172,11 +169,11 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
     val railFocus = remember { FocusRequester() }
     val items = remember {
         listOf(
-            NavItem(Routes.HOME, "START"), NavItem(Routes.LIVE, "LIVE-TV"), NavItem(Routes.EXPLORE, "ENTDECKEN"), NavItem(Routes.MOVIES, "FILME"),
-            NavItem(Routes.SERIES, "SERIEN"), NavItem(Routes.FAVORITES, "FAVORITEN"), NavItem(Routes.SEARCH, "SUCHE"),
-            NavItem(Routes.SETTINGS, "EINSTELLUNGEN"),
+            NavItem(Routes.HOME, "Start"), NavItem(Routes.LIVE, "Live-TV"), NavItem(Routes.MOVIES, "Filme"),
+            NavItem(Routes.SERIES, "Serien"), NavItem(Routes.FAVORITES, "Favoriten"), NavItem(Routes.EXPLORE, "Entdecken"),
         )
     }
+    val utility = remember { listOf(NavItem(Routes.SEARCH, "🔍 Suche"), NavItem(Routes.SETTINGS, "⚙")) }
     LaunchedEffect(Unit) { delay(150); runCatching { railFocus.requestFocus() } }
     // Direkter Einstieg in eine Seite (z. B. für automatische Oberflächentests)
     LaunchedEffect(startRoute) {
@@ -204,9 +201,10 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
         val mini by vm.engine.mini.collectAsStateWithLifecycle()
         val videoActive = (mini != null || vm.engine.owner == "preview") && engineState == androidx.media3.common.Player.STATE_READY
         ThemeBackground(theme, Modifier.fillMaxSize(), animate = !videoActive, customImage = customBackground)
-        Row(Modifier.fillMaxSize()) {
-            NavRail(items, railRouteFor(route), onSelect = { r -> navigateTop(nav, r); sounds?.transition() }, firstFocus = railFocus)
-            PageTransitionHost(key = entry?.id, modifier = Modifier.weight(1f).fillMaxHeight()) {
+        // Startseite läuft wie bei Apple TV bis unter die Menüleiste, alle anderen Seiten beginnen darunter
+        val topPad = if (route == Routes.HOME) 0.dp else 92.dp
+        Box(Modifier.fillMaxSize().padding(top = topPad)) {
+            PageTransitionHost(key = entry?.id, modifier = Modifier.fillMaxSize()) {
                 NavHost(nav, startDestination = Routes.HOME, enterTransition = { enter }, exitTransition = { exit },
                     popEnterTransition = { enter }, popExitTransition = { exit }) {
                     composable(Routes.HOME) { HomeScreen(nav) }
@@ -232,11 +230,6 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
                     }
                     composable(Routes.EVENTS) { de.ostlertekker.ultraiptv.feature.discover.EventsScreen(nav) }
                     composable(Routes.SPORTS) { de.ostlertekker.ultraiptv.feature.discover.SportsScreen(nav) }
-                    composable(Routes.HOLO) { de.ostlertekker.ultraiptv.feature.discover.HoloGuideScreen() }
-                    composable(Routes.UNIVERSE) { de.ostlertekker.ultraiptv.feature.discover.UniverseScreen() }
-                    composable("mood?m={m}", arguments = listOf(navArgument("m") { type = NavType.StringType; defaultValue = "" })) { e ->
-                        de.ostlertekker.ultraiptv.feature.discover.MoodScreen(nav, e.arguments?.getString("m") ?: "")
-                    }
                     composable(Routes.MYTV) { de.ostlertekker.ultraiptv.feature.discover.MyTvScreen() }
                     composable(Routes.LISTS) { de.ostlertekker.ultraiptv.feature.discover.ListsScreen() }
                     composable(Routes.SETUP_NEW) { ProviderSetupScreen(onDone = { nav.popBackStack() }, firstRun = false, newAccount = true) }
@@ -244,19 +237,9 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
                 }
             }
         }
+        TopNavBar(items, utility, railRouteFor(route), onSelect = { r -> navigateTop(nav, r); sounds?.transition() }, firstFocus = railFocus,
+            modifier = Modifier.align(Alignment.TopCenter))
         MiniPlayerOverlay(vm.engine, Modifier.align(Alignment.BottomEnd).padding(28.dp))
-        MotionOverlay()
-    }
-
-    // Watch Together (Gast): Inhalt des Host-Geräts automatisch öffnen
-    val context = LocalContext.current
-    val guest by vm.lan.guestState.collectAsStateWithLifecycle()
-    LaunchedEffect(guest?.id) {
-        val w = guest ?: return@LaunchedEffect
-        if (vm.engine.owner != "player" && w.id.isNotBlank()) {
-            val kind = runCatching { ContentKind.valueOf(w.kind) }.getOrNull() ?: return@LaunchedEffect
-            context.openPlayer(kind, w.id, w.positionMs, w.category)
-        }
     }
 }
 

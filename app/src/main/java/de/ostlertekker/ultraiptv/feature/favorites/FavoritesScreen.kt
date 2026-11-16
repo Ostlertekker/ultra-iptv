@@ -54,7 +54,7 @@ fun FavoritesScreen(nav: NavController, vm: FavoritesViewModel = hiltViewModel()
     val movies by vm.movies.collectAsStateWithLifecycle()
     val series by vm.series.collectAsStateWithLifecycle()
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(24.dp)) {
-        item { ScreenTitle("FAVORITEN", subtitle = "Sender, Merkliste und Serien deines Profils") }
+        item { ScreenTitle("Favoriten", subtitle = "Sender, Merkliste und Serien deines Profils") }
         if (channels.isEmpty() && movies.isEmpty() && series.isEmpty()) item {
             Text("Noch keine Favoriten. In Live TV, bei Filmen oder Serien „Favorit“ wählen.", color = p.textDim, fontSize = 16.sp)
         }

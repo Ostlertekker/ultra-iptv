@@ -135,12 +135,6 @@ class SettingsExtrasViewModel @Inject constructor(
         }.getOrElse { "Fehler: ${it.message}" }
     }
 
-    fun joinWatch(host: String, code: String) {
-        val (h, port) = parseHost(host)
-        lan.joinWatch(LanHub.Remote(h, port, code.trim()))
-        message.value = "Watch Together: verbunden mit $h – Inhalte des Hosts öffnen sich automatisch."
-    }
-
     private fun parseHost(input: String): Pair<String, Int> {
         val t = input.trim().removePrefix("http://")
         val h = t.substringBefore(':')
@@ -375,7 +369,7 @@ fun LazyListScope.backupSection(x: SettingsExtrasViewModel) {
             files.take(5).forEach { f -> ActionRow("Wiederherstellen: ${f.name}", { x.restoreBackup(f) }, subtitle = "Ersetzt Profile, Favoriten und Verlauf") }
             Text("Speicherort: ${x.backup.backupDir.absolutePath}", color = p.textDim, fontSize = 11.sp, modifier = Modifier.padding(8.dp))
             SectionHeader("Gerätekopplung (Heimnetz)")
-            ToggleRow("Dieses Gerät freigeben", hub.running, { if (it) x.lan.start(hub.hostingWatch) else x.lan.stop() },
+            ToggleRow("Dieses Gerät freigeben", hub.running, { if (it) x.lan.start(false) else x.lan.stop() },
                 subtitle = "Andere ULTRA-IPTV-Geräte oder der Browser am Handy können Daten übernehmen")
             if (hub.running) {
                 Text("Adresse: http://${hub.address ?: "?"}:${hub.port}    Kopplungscode: ${hub.code}", color = p.text, fontSize = 17.sp,
@@ -393,44 +387,6 @@ fun LazyListScope.backupSection(x: SettingsExtrasViewModel) {
             }
             Text("Geräteübergreifende Synchronisation läuft direkt zwischen deinen Geräten im Heimnetz – ohne Cloud-Konto.",
                 color = p.textDim, fontSize = 11.sp, modifier = Modifier.padding(8.dp))
-        }
-    }
-}
-
-// ------------------------------------------------------------------ Watch Together
-
-fun LazyListScope.watchTogetherSection(x: SettingsExtrasViewModel) {
-    item {
-        val p = LocalUltraTheme.current.palette
-        val hub by x.lan.status.collectAsStateWithLifecycle()
-        val guest by x.lan.guestRemote.collectAsStateWithLifecycle()
-        val msg by x.message.collectAsStateWithLifecycle()
-        var host by remember { mutableStateOf("") }
-        var code by remember { mutableStateOf("") }
-        Column {
-            Text("Gemeinsam schauen auf mehreren Fernsehern im selben Heimnetz: Gäste folgen automatisch Sender, Film, Position und Pause des Hosts. " +
-                "Alle Geräte brauchen Zugriff auf denselben Anbieter (gleiche Inhalte).", color = p.textDim, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
-            msg?.let { Text(it, color = p.primary, fontSize = 13.sp, modifier = Modifier.padding(8.dp)) }
-            SectionHeader("Als Host")
-            ToggleRow("Gemeinsam schauen starten", hub.running && hub.hostingWatch, {
-                if (it) { x.lan.stop(); x.lan.start(hostWatch = true) } else x.lan.stop()
-            })
-            if (hub.running && hub.hostingWatch) {
-                Text("Gäste verbinden mit:  ${hub.address ?: "?"}:${hub.port}    Code ${hub.code}", color = p.text, fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp))
-                Text("Starte jetzt einfach einen Sender oder Film – die Gäste folgen.", color = p.textDim, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 8.dp))
-            }
-            SectionHeader("Als Gast")
-            if (guest != null) {
-                Text("Verbunden mit ${guest?.host}", color = p.primary, fontSize = 15.sp, modifier = Modifier.padding(8.dp))
-                TvButton("Verbindung trennen", onClick = { x.lan.leaveWatch() })
-            } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TvTextField(host, { host = it }, "Host-Adresse (IP:Port)", modifier = Modifier.width(320.dp))
-                    TvTextField(code, { code = it.filter { c -> c.isDigit() }.take(6) }, "Code", number = true, modifier = Modifier.width(140.dp))
-                }
-                TvButton("Beitreten", onClick = { x.joinWatch(host, code) }, primary = true, modifier = Modifier.padding(top = 6.dp))
-            }
         }
     }
 }

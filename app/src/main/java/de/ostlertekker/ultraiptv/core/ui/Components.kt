@@ -95,17 +95,10 @@ val LocalUiSounds = staticCompositionLocalOf<AudioExperienceEngine?> { null }
 @Composable
 fun UltraThemeHost(settings: AppSettings, tier: DeviceTier, sounds: AudioExperienceEngine?, content: @Composable () -> Unit) {
     val theme = remember(settings, tier) { ThemeEngine.resolve(settings, tier) }
-    val motion = remember(settings.motionJson, settings.reduceMotion, tier, settings.perfMode) {
-        // Performance-Modus: keine Eingangs-/Seitenanimationen, keine Partikel – nur schneller Fokus-Zoom
-        if (settings.perfMode) de.ostlertekker.ultraiptv.core.motion.MotionSpec.OFF
-        else de.ostlertekker.ultraiptv.core.motion.MotionSpec.resolve(
-            de.ostlertekker.ultraiptv.core.motion.MotionConfig.fromJson(settings.motionJson),
-            weakHardware = tier == DeviceTier.ENTRY, systemReduceMotion = settings.reduceMotion,
-        )
-    }
-    LaunchedEffect(settings.uiSounds, settings.uiVolume, settings.themeSounds, theme.spec.id) {
-        sounds?.configure(settings.uiSounds, settings.uiVolume,
-            if (settings.themeSounds) theme.spec.sound else de.ostlertekker.ultraiptv.core.audio.SoundPreset.COSMIC)
+    // Schlanke, ruhige Oberfläche: keine Effekt-Animationen, keine Partikel – nur sanfter Fokus
+    val motion = de.ostlertekker.ultraiptv.core.motion.MotionSpec.OFF
+    LaunchedEffect(settings.uiSounds, settings.uiVolume) {
+        sounds?.configure(settings.uiSounds, settings.uiVolume, de.ostlertekker.ultraiptv.core.audio.SoundPreset.GLASS)
     }
     val p = theme.palette
     val scheme = darkColorScheme(
@@ -119,7 +112,7 @@ fun UltraThemeHost(settings: AppSettings, tier: DeviceTier, sounds: AudioExperie
     CompositionLocalProvider(LocalUltraTheme provides theme, LocalUiSounds provides sounds,
         de.ostlertekker.ultraiptv.core.motion.LocalMotion provides motion,
         de.ostlertekker.ultraiptv.core.design.LocalUiPrefs provides prefs,
-        LocalPerfMode provides settings.perfMode,
+        LocalPerfMode provides true,
         androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(baseDensity.density * scale, baseDensity.fontScale)) {
         // Gewählte Schrift (oder Theme-Schrift aus dem Schriften-Paket) gilt für die gesamte Oberfläche
         val ff = theme.spec.fontFamily
@@ -143,8 +136,7 @@ fun UltraThemeHost(settings: AppSettings, tier: DeviceTier, sounds: AudioExperie
 fun ScreenTitle(text: String, modifier: Modifier = Modifier, subtitle: String? = null) {
     val theme = LocalUltraTheme.current
     Column(modifier.padding(bottom = 12.dp)) {
-        Text(text, color = theme.palette.text, fontFamily = theme.spec.fontFamily, fontWeight = theme.spec.titleWeight,
-            fontSize = 30.sp, letterSpacing = 2.sp)
+        Text(text, color = theme.palette.text, fontWeight = FontWeight.Bold, fontSize = 32.sp)
         if (subtitle != null) Text(subtitle, color = theme.palette.textDim, fontSize = 14.sp)
     }
 }
@@ -152,8 +144,8 @@ fun ScreenTitle(text: String, modifier: Modifier = Modifier, subtitle: String? =
 @Composable
 fun SectionHeader(text: String, modifier: Modifier = Modifier) {
     val theme = LocalUltraTheme.current
-    Text(text.uppercase(), modifier = modifier.padding(start = 4.dp, top = 14.dp, bottom = 8.dp), color = theme.palette.text,
-        fontFamily = theme.spec.fontFamily, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, letterSpacing = 1.5.sp)
+    Text(text, modifier = modifier.padding(start = 2.dp, top = 18.dp, bottom = 6.dp), color = theme.palette.text,
+        fontWeight = FontWeight.Bold, fontSize = 20.sp)
 }
 
 /** true = Performance-Modus (schlanke Darstellung, keine Dauer-Animationen). */
@@ -197,10 +189,9 @@ fun Modifier.tvFocusable(
             onLongClick = onLongClick,
         )
         .clip(shape)
-    return if (focused) base
-        .border(theme.spec.borderWidth + 1.dp, Brush.linearGradient(listOf(p.primary, p.secondary, p.glow)), shape)
-        .drawBehind { drawRect(p.glow.copy(alpha = 0.10f)) }
-    else base.border(1.dp, Color.White.copy(alpha = 0.06f), shape)
+    // Moderner, ruhiger Fokus wie bei Apple TV: sanftes Anheben + klarer heller Rand
+    return if (focused) base.border(2.5.dp, Color.White.copy(alpha = 0.92f), shape)
+    else base
 }
 
 @Composable
@@ -598,5 +589,62 @@ fun initialsOf(name: String): String {
         words.isEmpty() -> name.take(2).uppercase()
         words.size == 1 -> words[0].take(2).uppercase()
         else -> (words[0].take(1) + words[1].take(1)).uppercase()
+    }
+}
+
+/**
+ * Hauptnavigation oben im Apple-TV-Stil: Schriftzug links, Reiter als Pillen in der Mitte,
+ * Suche/Einstellungen/Uhr rechts. Fokus = weiße Pille mit dunkler Schrift, aktive Seite = dezente Pille.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun TopNavBar(items: List<NavItem>, utility: List<NavItem>, selectedRoute: String, onSelect: (String) -> Unit, firstFocus: FocusRequester,
+              modifier: Modifier = Modifier) {
+    val theme = LocalUltraTheme.current
+    val p = theme.palette
+    Row(
+        modifier.fillMaxWidth()
+            .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.78f), Color.Black.copy(alpha = 0.35f), Color.Transparent)))
+            .padding(start = 48.dp, end = 40.dp, top = 22.dp, bottom = 26.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("OSTLERTEKKER", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold, letterSpacing = 4.sp,
+            fontFamily = de.ostlertekker.ultraiptv.core.design.AppFonts.Inter, maxLines = 1)
+        Spacer(Modifier.weight(1f))
+        Row(Modifier.background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(50)).padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            items.forEachIndexed { i, item ->
+                val focusHere = if (items.any { it.route == selectedRoute }) item.route == selectedRoute else i == 0
+                TopNavPill(item.label, item.route == selectedRoute, { onSelect(item.route) }, if (focusHere) firstFocus else null)
+            }
+        }
+        Spacer(Modifier.weight(1f))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            utility.forEach { item -> TopNavPill(item.label, item.route == selectedRoute, { onSelect(item.route) }, null) }
+            if (de.ostlertekker.ultraiptv.core.design.LocalUiPrefs.current.menuClock) RailClock(Modifier.padding(start = 12.dp))
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun TopNavPill(label: String, selected: Boolean, onClick: () -> Unit, focusRequester: FocusRequester?) {
+    val sounds = LocalUiSounds.current
+    var focused by remember { mutableStateOf(false) }
+    val scale by androidx.compose.animation.core.animateFloatAsState(if (focused) 1.06f else 1f, androidx.compose.animation.core.tween(140), label = "pill")
+    val shape = RoundedCornerShape(50)
+    Box(
+        Modifier
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .onFocusChanged { if (it.isFocused && !focused) sounds?.focus(); focused = it.isFocused }
+            .combinedClickable(interactionSource = remember { MutableInteractionSource() }, indication = null,
+                onClick = { sounds?.select(); onClick() })
+            .background(
+                when { focused -> Color.White; selected -> Color.White.copy(alpha = 0.18f); else -> Color.Transparent }, shape)
+            .padding(horizontal = 20.dp, vertical = 9.dp),
+    ) {
+        Text(label, color = if (focused) Color(0xFF111111) else if (selected) Color.White else Color.White.copy(alpha = 0.72f),
+            fontSize = 17.sp, fontWeight = if (focused || selected) FontWeight.SemiBold else FontWeight.Medium, maxLines = 1)
     }
 }

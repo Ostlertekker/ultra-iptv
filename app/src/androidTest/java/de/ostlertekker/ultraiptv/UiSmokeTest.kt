@@ -267,6 +267,7 @@ class UiSmokeTest {
         for (route in listOf(Routes.HOME, Routes.MOVIES, Routes.SERIES, Routes.SEARCH, Routes.EPG)) {
             openRoute(route).use {
                 shot(route)
+                if (route == Routes.HOME) { keys("Start: Titelbild", D, pauseMs = 600); shot("home_titelbild_fokus"); keys("Start: Reihen", D, D, R, R, pauseMs = 500); shot("home_reihen") }
                 keys("$route bedienen", R, R, D, D, R, R, D, U, U, L)
                 keys("$route öffnen", OK); Thread.sleep(3500); assertResponsive("$route Detail")
                 keys("$route zurück", BACK); Thread.sleep(1500)
@@ -280,13 +281,12 @@ class UiSmokeTest {
         // Neue Entdecken-Funktionen: jede Seite öffnen, bedienen, Aktion auslösen
         val past = System.currentTimeMillis() - 2 * 3_600_000L
         for (route in listOf(Routes.EXPLORE, Routes.WHATSON, Routes.radar("Fußball"), Routes.timeMachine(past), Routes.EVENTS, Routes.SPORTS,
-            Routes.HOLO, Routes.UNIVERSE, Routes.mood("LAUGH,RELAX"), Routes.MYTV, Routes.LISTS)) {
+            Routes.MYTV, Routes.LISTS)) {
             val name = route.substringBefore('?')
             openRoute(route).use {
                 Thread.sleep(1500)
                 shot(name)
                 keys("$name bedienen", R, R, D, D, R, U, pauseMs = 300)
-                if (name == "universe") keys("Universe navigieren", R, R, D, D, D, L, pauseMs = 400)
                 keys("$name Aktion", OK); Thread.sleep(4500); assertResponsive("$name Aktion")
                 if (name == "timemachine") shot("catchup_player")
                 keys("$name zurück", BACK); Thread.sleep(1500)
@@ -317,12 +317,12 @@ class UiSmokeTest {
     @Test fun f_settingsAndIntro() {
         // Einstellungen: jede Sektion einmal rendern
         openRoute(Routes.SETTINGS).use {
-            keys("Einstellungen betreten", R)
-            for (i in 0 until 32) {
+            keys("Einstellungen betreten", D)
+            for (i in 0 until 26) {
                 keys("Sektion $i", D, pauseMs = 350)
-                if (i in listOf(4, 5, 11, 12, 13, 23, 24)) shot("einstellungen_$i")
+                if (i in listOf(3, 5, 6, 8)) shot("einstellungen_$i")
             }
-            keys("Sektionen zurück", *IntArray(32) { U }, pauseMs = 120)
+            keys("Sektionen zurück", *IntArray(26) { U }, pauseMs = 120)
         }
         // Volles Intro mit explodierendem Planeten
         runBlocking { hooks.settings().set(Keys.INTRO, true); hooks.settings().set(Keys.INTRO_PLAYED, false) }

@@ -146,10 +146,10 @@ object ThemeEngine {
         } else spec.palette
         val anim = AnimationConfig(
             profile = profile,
-            particleFactor = (base * s.particleIntensity).coerceIn(0f, 1.5f),
+            particleFactor = 0f,
             intensity = s.animationIntensity.coerceIn(0f, 1.5f),
             reduceMotion = s.reduceMotion,
-            backgroundMotion = s.backgroundAnimation && !s.reduceMotion,
+            backgroundMotion = false,
         )
         return ResolvedTheme(spec, palette, anim, DesignOptions.dimValues.getOrElse(s.bgDim) { 0f })
     }

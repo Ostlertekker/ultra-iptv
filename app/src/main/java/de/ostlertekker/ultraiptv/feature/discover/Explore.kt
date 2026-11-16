@@ -193,10 +193,10 @@ fun ExploreHub(nav: NavController, vm: DiscoverViewModel = hiltViewModel()) {
             is RemoteCommand.OpenSection -> nav.navigate(when (cmd.section) {
                 Section.FAVORITES -> Routes.FAVORITES; Section.SETTINGS -> Routes.SETTINGS; Section.MOVIES -> Routes.MOVIES
                 Section.SERIES -> Routes.SERIES; Section.GUIDE -> Routes.EPG; Section.WORLD -> Routes.LIVE; Section.SPORTS -> Routes.SPORTS
-                Section.STATS -> Routes.MYTV; Section.TIME_MACHINE -> Routes.timeMachine(0); Section.UNIVERSE -> Routes.UNIVERSE
+                Section.STATS -> Routes.MYTV; Section.TIME_MACHINE -> Routes.timeMachine(0); Section.UNIVERSE -> Routes.MYTV
                 Section.LIVE -> Routes.LIVE; Section.HOME -> Routes.HOME
             })
-            is RemoteCommand.MoodPick -> nav.navigate(Routes.mood(cmd.moods.joinToString(",") { it.name }))
+            is RemoteCommand.MoodPick -> nav.navigate(Routes.WHATSON)
             is RemoteCommand.Search -> if (cmd.query.isNotBlank()) nav.navigate(Routes.radar(cmd.query))
         }
     }
@@ -214,15 +214,12 @@ fun ExploreHub(nav: NavController, vm: DiscoverViewModel = hiltViewModel()) {
         HubTile("🏟", "Live Event Tracker", "Fußball, CL, F1, Tennis, Basketball, Boxen", Routes.EVENTS),
         HubTile("📊", "Sport-Dashboard", "Live-Spielstände, Aufstellungen, Statistik", Routes.SPORTS),
         HubTile("⊞", "Multi-View", "Bis zu 16 Sender gleichzeitig", "multiview"),
-        HubTile("🔮", "Holo-Programm", "Räumliche Programmübersicht", Routes.HOLO),
-        HubTile("🌌", "Sender-Universum", "Sender als Sternensysteme entdecken", Routes.UNIVERSE),
-        HubTile("🎭", "Stimmungs-Modus", "Empfehlungen nach Stimmung", Routes.mood("")),
-        HubTile("🪐", "Mein TV-Universum", "Statistik, Verlauf, für dich", Routes.MYTV),
+        HubTile("📈", "Mein TV", "Statistik, Verlauf, für dich", Routes.MYTV),
         HubTile("🧬", "Eigene Senderlisten", "Virtuelle Sender nach deinen Regeln", Routes.LISTS),
     )
 
     Column(Modifier.fillMaxSize().padding(24.dp)) {
-        ScreenTitle("ENTDECKEN", subtitle = "Intelligente TV-Funktionen – alles aus deinen echten Sender- und Programmdaten")
+        ScreenTitle("Entdecken", subtitle = "Intelligente TV-Funktionen – alles aus deinen echten Sender- und Programmdaten")
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(Modifier.weight(1f)) { TvTextField(input, { input = it }, "Smart Remote – z. B. „Zeige mir alle Sender mit Fußball“") }
             TvButton("Ausführen", onClick = { if (input.isNotBlank()) execute(input) }, primary = true)
@@ -281,7 +278,7 @@ fun WhatsOnScreen(nav: NavController, vm: DiscoverViewModel = hiltViewModel()) {
     val genres = remember(classified) { classified.flatMap { it.second }.groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.map { it.key } }
     val shown = classified.filter { genre == null || genre in it.second }.map { it.first }
     Column(Modifier.fillMaxSize().padding(24.dp)) {
-        ScreenTitle("JETZT LÄUFT", subtitle = "${airing.size} Sender mit Programminfos · aktualisiert sich jede Minute")
+        ScreenTitle("Jetzt läuft", subtitle = "${airing.size} Sender mit Programminfos · aktualisiert sich jede Minute")
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             item { TvChip("Alle", genre == null, { genre = null }) }
             items(genres) { g -> TvChip(g.label, genre == g, { genre = g }) }
@@ -308,6 +305,7 @@ fun RadarScreen(initial: String, vm: DiscoverViewModel = hiltViewModel()) {
     val pal = LocalUltraTheme.current.palette
     val context = LocalContext.current
     val results by vm.searchResults.collectAsStateWithLifecycle()
+    val query by vm.query.collectAsStateWithLifecycle()
     val loading by vm.loading.collectAsStateWithLifecycle()
     var q by remember { mutableStateOf(initial) }
     var range by remember { mutableStateOf(0) } // 0 = jetzt+heute, 1 = 7 Tage zurück/vor
@@ -322,7 +320,7 @@ fun RadarScreen(initial: String, vm: DiscoverViewModel = hiltViewModel()) {
     val later = results.filter { it.startMs > now }
     val past = results.filter { it.endMs <= now }
     Column(Modifier.fillMaxSize().padding(24.dp)) {
-        ScreenTitle("SENDER-RADAR", subtitle = "Durchsucht Titel, Beschreibungen und Sendernamen im gesamten TV-Programm (Global EPG)")
+        ScreenTitle("Sender-Radar", subtitle = "Durchsucht Titel, Beschreibungen und Sendernamen im gesamten TV-Programm (Global EPG)")
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(Modifier.weight(1f)) { TvTextField(q, { q = it }, "Thema, Sendung, Team, Person …") }
             TvButton("Scannen", onClick = { run() }, primary = true)
@@ -344,7 +342,7 @@ fun RadarScreen(initial: String, vm: DiscoverViewModel = hiltViewModel()) {
             items(later, key = { "n" + it.channelId + it.startMs }) { p -> ProgramRow(p, now, programBadge(p, now), { act(p) }) }
             if (past.isNotEmpty()) item { SectionHeader("Bereits gelaufen") }
             items(past, key = { "p" + it.channelId + it.startMs }) { p -> ProgramRow(p, now, programBadge(p, now), { act(p) }) }
-            if (results.isEmpty() && vm.query.value.isNotBlank() && !loading) item { EmptyHint("Nichts gefunden für „${vm.query.value}“.") }
+            if (results.isEmpty() && query.isNotBlank() && !loading) item { EmptyHint("Nichts gefunden für „$query“.") }
         }
     }
 }
@@ -365,7 +363,7 @@ fun TimeMachineScreen(initialAt: Long, vm: DiscoverViewModel = hiltViewModel()) 
     val dayFmt = remember { java.text.SimpleDateFormat("EE dd.MM.", java.util.Locale.GERMANY) }
     val diffH = (at - now) / 3_600_000.0
     Column(Modifier.fillMaxSize().padding(24.dp)) {
-        ScreenTitle("TV-ZEITMASCHINE", subtitle = when {
+        ScreenTitle("TV-Zeitmaschine", subtitle = when {
             kotlin.math.abs(at - now) < 120_000 -> "Jetzt"
             at < now -> "Zeitreise: %.1f Stunden zurück · Catch-up, wo der Anbieter ein Archiv hat".format(-diffH)
             else -> "Zeitreise: %.1f Stunden in die Zukunft · Erinnerungen setzen".format(diffH)
@@ -425,7 +423,7 @@ fun EventsScreen(nav: NavController, vm: DiscoverViewModel = hiltViewModel()) {
     val now = System.currentTimeMillis()
     val shown = events.filter { (sport == null || it.sport == sport) && it.program.endMs > now }
     Column(Modifier.fillMaxSize().padding(24.dp)) {
-        ScreenTitle("LIVE-EREIGNISSE", subtitle = "Sportereignisse automatisch aus dem TV-Programm erkannt · nächste 36 Stunden")
+        ScreenTitle("Live-Ereignisse", subtitle = "Sportereignisse automatisch aus dem TV-Programm erkannt · nächste 36 Stunden")
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             item { TvChip("Alle (${events.count { it.program.endMs > now }})", sport == null, { sport = null }) }
             items(Sport.entries) { s -> TvChip("${s.emoji} ${s.label} (${events.count { it.sport == s && it.program.endMs > now }})", sport == s, { sport = s }) }
@@ -457,7 +455,7 @@ fun SportsScreen(nav: NavController, vm: DiscoverViewModel = hiltViewModel()) {
     LaunchedEffect(Unit) { vm.startScores() }
     LaunchedEffect(selected?.id) { selected?.let { vm.loadDetail(it.league, it.id) } }
     Column(Modifier.fillMaxSize().padding(24.dp)) {
-        ScreenTitle("SPORT-DASHBOARD", subtitle = board?.let { "Stand ${formatTime(it.fetchedAt)} · Quelle: ESPN (öffentliche Live-Daten) · aktualisiert alle 30 s" } ?: "Lade Live-Daten …")
+        ScreenTitle("Sport-Dashboard", subtitle = board?.let { "Stand ${formatTime(it.fetchedAt)} · Quelle: ESPN (öffentliche Live-Daten) · aktualisiert alle 30 s" } ?: "Lade Live-Daten …")
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(League.entries) { l -> TvChip(l.label, l in leagues, { vm.toggleLeague(l) }) }
         }

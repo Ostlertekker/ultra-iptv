@@ -20,6 +20,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -186,79 +197,119 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
         return
     }
 
-    val hero = newMovies.firstOrNull { !it.backdrop.isNullOrBlank() } ?: newMovies.firstOrNull()
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 60.dp)) {
+    // Apple-TV-Startseite: großes Titelbild (wechselt zwischen den neuesten Filmen), darunter Kachelreihen
+    val heroes = remember(newMovies) {
+        (newMovies.filter { !it.backdrop.isNullOrBlank() } + newMovies.filter { it.backdrop.isNullOrBlank() }).take(5)
+    }
+    var heroIndex by remember { mutableIntStateOf(0) }
+    var heroFocused by remember { mutableStateOf(false) }
+    LaunchedEffect(heroes.size, heroFocused) {
+        while (heroes.size > 1 && !heroFocused) { delay(9000); heroIndex = (heroIndex + 1) % heroes.size }
+    }
+    val hero = heroes.getOrNull(heroIndex.coerceAtMost((heroes.size - 1).coerceAtLeast(0)))
+    val heroHeight = (LocalConfiguration.current.screenHeightDp * 0.68f).dp
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 60.dp)) {
+        if (hero != null) item(key = "hero") {
+            Box(Modifier.fillMaxWidth().height(heroHeight)) {
+                androidx.compose.animation.Crossfade(hero, animationSpec = androidx.compose.animation.core.tween(600), label = "hero") { h ->
+                    AsyncImage(h.backdrop ?: h.poster, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                }
+                Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.82f), 0.55f to Color.Black.copy(alpha = 0.25f), 1f to Color.Transparent)))
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.55f to Color.Transparent, 1f to p.bgBottom)))
+                Column(Modifier.align(Alignment.BottomStart).padding(start = 48.dp, bottom = 34.dp).width(560.dp)) {
+                    Text("NEU", color = Color.White.copy(alpha = 0.75f), fontSize = 13.sp, letterSpacing = 3.sp, fontWeight = FontWeight.SemiBold)
+                    Text(hero.name, color = Color.White, fontSize = 42.sp, lineHeight = 46.sp, fontWeight = FontWeight.Bold,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    val meta = listOfNotNull(hero.year?.takeIf { it.isNotBlank() }, hero.genre?.split(',')?.firstOrNull()?.trim()?.takeIf { it.isNotBlank() },
+                        hero.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) }).joinToString("  ·  ")
+                    if (meta.isNotBlank()) Text(meta, color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp, modifier = Modifier.padding(top = 6.dp))
+                    if (!hero.plot.isNullOrBlank()) Text(hero.plot, color = Color.White.copy(alpha = 0.72f), fontSize = 15.sp, maxLines = 2,
+                        overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
+                    Row(Modifier.padding(top = 18.dp).onFocusChanged { heroFocused = it.hasFocus }, horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        HeroButton("▶  Abspielen", primary = true) { context.openPlayer(ContentKind.MOVIE, hero.id) }
+                        HeroButton("Details") { nav.navigate(Routes.movie(hero.id)) }
+                        if (heroes.size > 1) Row(Modifier.padding(start = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            heroes.indices.forEach { i ->
+                                Box(Modifier.size(if (i == heroIndex) 9.dp else 7.dp)
+                                    .background(Color.White.copy(alpha = if (i == heroIndex) 0.95f else 0.4f), RoundedCornerShape(50)))
+                            }
+                        }
+                    }
+                }
+            }
+        } else item(key = "top_space") { Spacer(Modifier.height(100.dp)) }
+        val pad = Modifier.padding(horizontal = 48.dp)
         val note = latestNotification
-        if (note != null) item {
-            Row(Modifier.fillMaxWidth().padding(bottom = 12.dp).background(p.surfaceFocused, RoundedCornerShape(12.dp)).padding(14.dp),
+        if (note != null) item(key = "note") {
+            Row(pad.fillMaxWidth().padding(vertical = 10.dp).background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(14.dp)).padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Text("🔔 ${if (unread > 1) "$unread neue · " else ""}${note.title}", color = p.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 TvButton("Öffnen", onClick = { nav.navigate(Routes.SETTINGS) })
             }
         }
-        if (hero != null) item {
-            Box(Modifier.fillMaxWidth().height(300.dp).clip(RoundedCornerShape(theme.spec.corner.coerceAtMost(24.dp)))) {
-                AsyncImage(hero.backdrop ?: hero.poster, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(p.bgTop.copy(alpha = 0.95f), p.bgTop.copy(alpha = 0.5f), Color.Transparent))))
-                Column(Modifier.align(Alignment.CenterStart).padding(32.dp).width(520.dp)) {
-                    Text("NEU IM KATALOG", color = p.primary, fontSize = 13.sp, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
-                    Text(hero.name, color = p.text, fontSize = 34.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily,
-                        maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    if (!hero.plot.isNullOrBlank()) Text(hero.plot, color = p.textDim, fontSize = 14.sp, maxLines = 3,
-                        overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
-                    Spacer(Modifier.height(16.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        TvButton("▶  Abspielen", onClick = { context.openPlayer(ContentKind.MOVIE, hero.id) }, primary = true)
-                        TvButton("Details", onClick = { nav.navigate(Routes.movie(hero.id)) })
+        if (cw.isNotEmpty()) item(key = "cw") {
+            Column(pad) {
+                SectionHeader("Weiterschauen")
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
+                    itemsIndexed(cw, key = { _, it -> it.kind + it.itemId }) { i, pr ->
+                        FocusCard(pr.title, pr.image, 300.dp, 169.dp, entranceIndex = i,
+                            onClick = {
+                                val kind = runCatching { ContentKind.valueOf(pr.kind) }.getOrDefault(ContentKind.MOVIE)
+                                context.openPlayer(kind, pr.itemId, pr.positionMs)
+                            },
+                            progress = if (pr.durationMs > 0) pr.positionMs.toFloat() / pr.durationMs else null,
+                            subtitle = if (pr.durationMs > 0) "Noch ${((pr.durationMs - pr.positionMs) / 60000).coerceAtLeast(1)} Min." else null)
                     }
                 }
             }
         }
-        if (cw.isNotEmpty()) item {
-            SectionHeader("Weiterschauen")
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                itemsIndexed(cw, key = { _, it -> it.kind + it.itemId }) { i, pr ->
-                    FocusCard(pr.title, pr.image, 260.dp, 146.dp, entranceIndex = i,
-                        onClick = {
-                            val kind = runCatching { ContentKind.valueOf(pr.kind) }.getOrDefault(ContentKind.MOVIE)
-                            context.openPlayer(kind, pr.itemId, pr.positionMs)
-                        },
-                        progress = if (pr.durationMs > 0) pr.positionMs.toFloat() / pr.durationMs else null,
-                        subtitle = "${pr.positionMs / 60000} Min. gesehen")
+        if (favCh.isNotEmpty()) item(key = "fav") { Column(pad) { ChannelRow("Lieblingssender", favCh) { context.openPlayer(ContentKind.LIVE, it.id, category = it.category) } } }
+        if (recentCh.isNotEmpty()) item(key = "recent") { Column(pad) { ChannelRow("Zuletzt gesehen", recentCh) { context.openPlayer(ContentKind.LIVE, it.id, category = it.category) } } }
+        if (recommended.isNotEmpty()) item(key = "rec") { Column(pad) { MovieRow("Für dich", recommended) { nav.navigate(Routes.movie(it.id)) } } }
+        if (newMovies.isNotEmpty()) item(key = "new") { Column(pad) { MovieRow("Neu hinzugefügt", newMovies) { nav.navigate(Routes.movie(it.id)) } } }
+        if (series.isNotEmpty()) item(key = "series") {
+            Column(pad) {
+                SectionHeader("Serien")
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
+                    itemsIndexed(series, key = { _, s -> s.id }) { i, s ->
+                        FocusCard(s.name, s.poster, 150.dp, 222.dp, onClick = { nav.navigate(Routes.seriesDetail(s.id)) }, subtitle = s.year, entranceIndex = i)
+                    }
                 }
             }
         }
-        if (favCh.isNotEmpty()) item { ChannelRow("Lieblingssender", favCh) { context.openPlayer(ContentKind.LIVE, it.id, category = it.category) } }
-        if (recentCh.isNotEmpty()) item { ChannelRow("Zuletzt gesehene Sender", recentCh) { context.openPlayer(ContentKind.LIVE, it.id, category = it.category) } }
-        if (recommended.isNotEmpty()) item { MovieRow("Weil du ähnliche Filme gesehen hast", recommended) { nav.navigate(Routes.movie(it.id)) } }
-        if (newMovies.isNotEmpty()) item { MovieRow("Neu hinzugefügt", newMovies) { nav.navigate(Routes.movie(it.id)) } }
-        if (popular.isNotEmpty() && popular.any { (it.rating ?: 0.0) > 0 }) item { MovieRow("Beliebte Filme", popular) { nav.navigate(Routes.movie(it.id)) } }
+        if (popular.isNotEmpty() && popular.any { (it.rating ?: 0.0) > 0 }) item(key = "pop") { Column(pad) { MovieRow("Am besten bewertet", popular) { nav.navigate(Routes.movie(it.id)) } } }
         dynamicRows.forEach { row ->
             item(key = "dyn_" + row.title) {
-                if (row.movies.isNotEmpty()) MovieRow(row.title, row.movies) { nav.navigate(Routes.movie(it.id)) }
-                else ChannelRow(row.title, row.channels) { context.openPlayer(ContentKind.LIVE, it.id, category = it.category) }
-            }
-        }
-        if (series.isNotEmpty()) item {
-            SectionHeader("Serien")
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                itemsIndexed(series, key = { _, s -> s.id }) { i, s ->
-                    FocusCard(s.name, s.poster, 150.dp, 222.dp, onClick = { nav.navigate(Routes.seriesDetail(s.id)) }, subtitle = s.year, entranceIndex = i)
+                Column(pad) {
+                    if (row.movies.isNotEmpty()) MovieRow(row.title, row.movies) { nav.navigate(Routes.movie(it.id)) }
+                    else ChannelRow(row.title, row.channels) { context.openPlayer(ContentKind.LIVE, it.id, category = it.category) }
                 }
             }
         }
-        item {
-            SectionHeader("Live-TV")
-            TvButton("Zu allen Sendern", onClick = { nav.navigate(Routes.LIVE) })
-        }
+    }
+}
+
+/** Apple-TV-Knopf: weiße Pille (Hauptaktion) bzw. Glas-Pille; Fokus hebt leicht an. */
+@Composable
+private fun HeroButton(label: String, primary: Boolean = false, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val scale by androidx.compose.animation.core.animateFloatAsState(if (focused) 1.07f else 1f, androidx.compose.animation.core.tween(140), label = "hb")
+    val bg = when { focused -> Color.White; primary -> Color.White.copy(alpha = 0.88f); else -> Color.White.copy(alpha = 0.16f) }
+    Box(Modifier.graphicsLayer { scaleX = scale; scaleY = scale }
+        .onFocusChanged { focused = it.isFocused }
+        .clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null, onClick = onClick)
+        .background(bg, RoundedCornerShape(12.dp))
+        .padding(horizontal = 28.dp, vertical = 12.dp)) {
+        Text(label, color = if (focused || primary) Color(0xFF111111) else Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
 @Composable
 private fun MovieRow(title: String, movies: List<MovieEntity>, onClick: (MovieEntity) -> Unit) {
     SectionHeader(title)
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
         itemsIndexed(movies, key = { _, m -> m.id }, contentType = { _, _ -> "poster" }) { i, m ->
             FocusCard(m.name, m.poster, 150.dp, 222.dp, onClick = { onClick(m) }, entranceIndex = i,
                 subtitle = listOfNotNull(m.year, m.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) }).joinToString(" · ").ifBlank { null })
@@ -269,9 +320,9 @@ private fun MovieRow(title: String, movies: List<MovieEntity>, onClick: (MovieEn
 @Composable
 private fun ChannelRow(title: String, channels: List<ChannelEntity>, onClick: (ChannelEntity) -> Unit) {
     SectionHeader(title)
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
         itemsIndexed(channels, key = { _, c -> c.id }, contentType = { _, _ -> "channel" }) { i, c ->
-            FocusCard(c.name, c.logo, 200.dp, 112.dp, onClick = { onClick(c) }, entranceIndex = i, subtitle = c.category, contentScale = ContentScale.Fit)
+            FocusCard(c.name, c.logo, 240.dp, 135.dp, onClick = { onClick(c) }, entranceIndex = i, subtitle = c.category, contentScale = ContentScale.Fit)
         }
     }
 }

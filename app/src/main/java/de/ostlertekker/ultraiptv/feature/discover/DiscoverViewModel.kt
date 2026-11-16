@@ -101,20 +101,6 @@ class DiscoverViewModel @Inject constructor(
     }
     fun loadDetail(league: League, id: String) { detail.value = null; viewModelScope.launch { detail.value = sports.detail(league, id) } }
 
-    // --------------------------------------------------- Mood
-    val moodPrograms = MutableStateFlow<List<Pair<AiringProgram, Float>>>(emptyList())
-    val moodMovies = MutableStateFlow<List<Pair<MovieEntity, Float>>>(emptyList())
-    val moods = MutableStateFlow<Set<Mood>>(emptySet())
-    fun setMoods(m: Set<Mood>) {
-        moods.value = m
-        viewModelScope.launch {
-            loading.value = true
-            val (p, mv) = runCatching { repo.moodPicks(m.toList(), System.currentTimeMillis()) }.getOrDefault(emptyList<Pair<AiringProgram, Float>>() to emptyList())
-            moodPrograms.value = p; moodMovies.value = mv
-            loading.value = false
-        }
-    }
-
     // --------------------------------------------------- Mein TV
     val stats = MutableStateFlow<WatchStats?>(null)
     val forYou = MutableStateFlow<List<AiringProgram>>(emptyList())
@@ -123,27 +109,6 @@ class DiscoverViewModel @Inject constructor(
         forYou.value = repo.forYou(s, System.currentTimeMillis())
     }
     fun clearStats() = viewModelScope.launch { repo.clearStats(); loadStats() }
-
-    // --------------------------------------------------- Holo-Guide / Universum
-    val holoChannels = MutableStateFlow<List<Pair<ChannelEntity, List<EpgProgramEntity>>>>(emptyList())
-    fun loadHolo() = viewModelScope.launch {
-        loading.value = true
-        val now = System.currentTimeMillis()
-        val chans = repo.allChannels().filter { !it.epgId.isNullOrBlank() }.take(400)
-        val progs = epg.programs(chans.mapNotNull { it.epgId }, now - 30 * 60_000L, now + 5 * 3_600_000L)
-        holoChannels.value = chans.map { it to (progs[it.epgId] ?: emptyList()) }.filter { it.second.isNotEmpty() }.take(80)
-        loading.value = false
-    }
-
-    val universe = MutableStateFlow<List<Pair<String, List<ChannelEntity>>>>(emptyList())
-    fun loadUniverse() = viewModelScope.launch {
-        loading.value = true
-        val all = repo.allChannels()
-        val cats = all.groupBy { it.category }.entries.sortedByDescending { it.value.size }.take(10).map { it.key to it.value.take(36) }
-        val lists = repo.listsOnce().map { "◆ " + it.name to repo.resolveList(ListRules.fromJson(it.rulesJson)).take(36) }.filter { it.second.isNotEmpty() }
-        universe.value = lists + cats
-        loading.value = false
-    }
 
     suspend fun nowOn(ch: ChannelEntity): String? = epg.nowNext(ch.epgId).firstOrNull { it.startMs <= System.currentTimeMillis() }?.title
 

@@ -75,7 +75,6 @@ import de.ostlertekker.ultraiptv.core.ui.TvTextField
 import de.ostlertekker.ultraiptv.core.ui.tvFocusable
 import de.ostlertekker.ultraiptv.feature.profiles.ProfileAvatar
 import de.ostlertekker.ultraiptv.feature.profiles.ProfilesViewModel
-import de.ostlertekker.ultraiptv.feature.upscaling.UltraAIUpscaling
 import de.ostlertekker.ultraiptv.ui.Routes
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -85,10 +84,10 @@ import java.util.Date
 import javax.inject.Inject
 
 enum class SettingsSection(val label: String) {
-    GENERAL("Allgemein"), ACCOUNTS("Konten (mehrere Zugänge)"), UPDATES("App-Updates"), NOTIFICATIONS("Benachrichtigungen"), APPEARANCE("Darstellung"), LAYOUT("Aufbau & Listen"), THEMES("Themes"), STUDIO("Animations-Studio"), ANIMATIONS("Animationen"), INTRO("Intro"),
-    AUDIO("Audio"), PLAYBACK("Wiedergabe"), LIVE_STABILITY("Live-Stabilität"), PLAYER_CONTROLS("Player & Fernbedienung"), QUALITY("Bildqualität"), UPSCALING("KI-Upscaling"), SMART_SKIP("Intro überspringen"),
+    GENERAL("Allgemein"), ACCOUNTS("Konten (mehrere Zugänge)"), UPDATES("App-Updates"), NOTIFICATIONS("Benachrichtigungen"), APPEARANCE("Darstellung"), LAYOUT("Aufbau & Listen"), THEMES("Themes"), INTRO("Intro"),
+    AUDIO("Audio"), PLAYBACK("Wiedergabe"), LIVE_STABILITY("Live-Stabilität"), PLAYER_CONTROLS("Player & Fernbedienung"), QUALITY("Bildqualität"), SMART_SKIP("Intro überspringen"),
     EPG("EPG"), PROFILES("Profile"), PARENTAL("Jugendschutz"), NETWORK("Netzwerk & Speedtest"), ANALYSIS("Sender-Analyse"),
-    BACKUP("Sicherung & Abgleich"), WATCH_TOGETHER("Gemeinsam schauen"), DIAGNOSTICS("Diagnose"), ABOUT("Über"),
+    BACKUP("Sicherung & Abgleich"), DIAGNOSTICS("Diagnose"), ABOUT("Über"),
 }
 
 @HiltViewModel
@@ -99,7 +98,6 @@ class SettingsViewModel @Inject constructor(
     private val creds: CredentialStore,
     private val epg: EpgRepository,
     private val player: PlayerEngine,
-    private val upscaling: UltraAIUpscaling,
     private val user: UserRepository,
 ) : ViewModel() {
     val settings = repo.settings.stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings())
@@ -107,7 +105,6 @@ class SettingsViewModel @Inject constructor(
     val provider = creds.config
     val activeProfile = user.activeProfile.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
     val encryption get() = creds.encryptionAvailable
-    val upscalingStatus by lazy { upscaling.assess() }
     val deviceReport: List<InfoEntry> by lazy { device.report() }
     var epgCount by mutableStateOf(-1)
         private set
@@ -164,7 +161,7 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
 
     Row(Modifier.fillMaxSize().padding(20.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
         LazyColumn(Modifier.width(200.dp).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            item { Text("EINSTELLUNGEN", color = p.text, fontSize = 21.sp, maxLines = 1, softWrap = false, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily,
+            item { Text("Einstellungen", color = p.text, fontSize = 21.sp, maxLines = 1, softWrap = false, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily,
                 modifier = Modifier.padding(bottom = 10.dp)) }
             items(SettingsSection.entries, key = { it.name }) { sec ->
                 var focused by remember { mutableStateOf(false) }
@@ -179,7 +176,6 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
         }
         Box(Modifier.weight(1f).fillMaxHeight()) {
             if (section == SettingsSection.THEMES) ThemeGallery(vm, s)
-            else if (section == SettingsSection.STUDIO) AnimationStudio()
             else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 60.dp)) {
                 item { SectionHeader(section.label) }
                 when (section) {
@@ -189,17 +185,14 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
                     SettingsSection.NOTIFICATIONS -> notificationsSection(x)
                     SettingsSection.ANALYSIS -> channelAnalysisSection(x)
                     SettingsSection.BACKUP -> backupSection(x)
-                    SettingsSection.WATCH_TOGETHER -> watchTogetherSection(x)
                     SettingsSection.APPEARANCE -> appearanceSection(vm, s)
                     SettingsSection.LAYOUT -> layoutSection(vm, s)
                     SettingsSection.LIVE_STABILITY -> liveStabilitySection(vm, s)
                     SettingsSection.PLAYER_CONTROLS -> playerControlsSection(vm, s)
-                    SettingsSection.ANIMATIONS -> animationSection(vm, s)
                     SettingsSection.INTRO -> introSection(vm, s)
                     SettingsSection.AUDIO -> audioSection(vm, s)
                     SettingsSection.PLAYBACK -> { playbackSection(vm, s); playbackExtras(vm, s, x) }
                     SettingsSection.QUALITY -> qualitySection(vm, s)
-                    SettingsSection.UPSCALING -> upscalingSection(vm, s)
                     SettingsSection.SMART_SKIP -> smartSkipSection(vm, s)
                     SettingsSection.EPG -> epgSection(vm, s)
                     SettingsSection.PROFILES -> item { ProfilesSection() }
@@ -207,7 +200,7 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
                     SettingsSection.NETWORK -> networkDiagSection(x, s, vm)
                     SettingsSection.DIAGNOSTICS -> diagnosticsSection(vm, s)
                     SettingsSection.ABOUT -> aboutSection(vm)
-                    SettingsSection.THEMES, SettingsSection.STUDIO -> Unit
+                    SettingsSection.THEMES -> Unit
                 }
             }
         }
@@ -246,8 +239,6 @@ private fun LazyListScope.appearanceSection(vm: SettingsViewModel, s: AppSetting
                 val vals = ThemeEngine.accentPresets.map { it.second }
                 vm.set(Keys.ACCENT, cycle(vals, if (s.accentArgb in vals) s.accentArgb else 0L))
             })
-            ToggleRow("Performance-Modus", s.perfMode, { vm.set(Keys.PERF_MODE, it) },
-                subtitle = "Empfohlen für Fire TV: ruhiger Hintergrund, schlanke Animationen – maximal flüssiges Scrollen")
             ChoiceRow("UI-Größe", pct(s.uiScale), { vm.set(Keys.UI_SCALE, cycle(DesignOptions.scaleValues, s.uiScale.takeIf { it in DesignOptions.scaleValues } ?: 1f)) },
                 subtitle = "Skaliert die gesamte Oberfläche – größer für weite Sitzabstände")
             FontPicker(s.fontStyle) { vm.set(Keys.FONT_STYLE, it) }
@@ -271,24 +262,6 @@ private fun LazyListScope.appearanceSection(vm: SettingsViewModel, s: AppSetting
     }
 }
 
-private fun LazyListScope.animationSection(vm: SettingsViewModel, s: AppSettings) {
-    item {
-        Column {
-            ToggleRow("Automatisch nach Gerät", s.animationAuto, { vm.set(Keys.ANIM_AUTO, it) },
-                subtitle = "Empfohlen für dieses Gerät: ${vm.device.recommendedAnimation.label} (Profil ${vm.device.tier.label})")
-            ChoiceRow("Animationsprofil", s.animationProfile.label, {
-                vm.set(Keys.ANIM_AUTO, false); vm.set(Keys.ANIM_PROFILE, cycle(AnimationProfile.entries, s.animationProfile).name)
-            }, subtitle = "ECONOMY: minimale Effekte · BALANCED: flüssig · ULTRA: volle Effekte")
-            ToggleRow("Bewegung reduzieren", s.reduceMotion, { vm.set(Keys.REDUCE_MOTION, it) }, subtitle = "Keine Hintergrundbewegung, keine Übergangsanimationen")
-            ToggleRow("Hintergrundanimation", s.backgroundAnimation, { vm.set(Keys.BG_ANIM, it) })
-            ChoiceRow("Animationsintensität", pct(s.animationIntensity), { vm.set(Keys.ANIM_INTENSITY, cycle(listOf(0.25f, 0.5f, 0.75f, 1f, 1.25f), s.animationIntensity)) })
-            ChoiceRow("Partikelintensität", pct(s.particleIntensity), { vm.set(Keys.PARTICLE_INTENSITY, cycle(listOf(0f, 0.25f, 0.5f, 0.75f, 1f, 1.25f), s.particleIntensity)) })
-            Text("Effekte pausieren automatisch, wenn die App im Hintergrund ist oder ein Video läuft.", color = LocalUltraTheme.current.palette.textDim,
-                fontSize = 12.sp, modifier = Modifier.padding(8.dp))
-        }
-    }
-}
-
 private fun LazyListScope.introSection(vm: SettingsViewModel, s: AppSettings) {
     item {
         Column {
@@ -307,7 +280,6 @@ private fun LazyListScope.audioSection(vm: SettingsViewModel, s: AppSettings) {
         val a = vm.device.audioCaps
         Column {
             ToggleRow("Menü-Sounds", s.uiSounds, { vm.set(Keys.UI_SOUNDS, it) })
-            ToggleRow("Theme-spezifische Sounds", s.themeSounds, { vm.set(Keys.THEME_SOUNDS, it) })
             ChoiceRow("UI-Lautstärke", pct(s.uiVolume), { vm.set(Keys.UI_VOLUME, cycle(listOf(0.1f, 0.25f, 0.5f, 0.75f, 1f), s.uiVolume)) })
             SectionHeader("Audio-Ausgabe (gemessen)")
             InfoRow("Dolby Digital (AC-3)", if (a.ac3) "Passthrough möglich" else "Nicht unterstützt → PCM", Accuracy.MEASURED)
@@ -365,17 +337,6 @@ private fun LazyListScope.qualitySection(vm: SettingsViewModel, s: AppSettings) 
             InfoRow("HDR", vm.device.hdrTypes().ifEmpty { listOf("Kein HDR vom Display gemeldet") }.joinToString(", "), Accuracy.MEASURED)
             Text("Es wird nie eine höhere Auflösung oder Bildrate angezeigt, als tatsächlich dekodiert und ausgegeben wird.",
                 color = LocalUltraTheme.current.palette.textDim, fontSize = 12.sp, modifier = Modifier.padding(8.dp))
-        }
-    }
-}
-
-private fun LazyListScope.upscalingSection(vm: SettingsViewModel, s: AppSettings) {
-    item {
-        val st = vm.upscalingStatus
-        Column {
-            ToggleRow("KI-Upscaling", s.upscalingRequested && st.available, { vm.set(Keys.UPSCALING, it) }, enabled = st.available,
-                subtitle = st.headline)
-            st.reasons.forEach { r -> InfoRow("•", r, if (st.available) Accuracy.MEASURED else Accuracy.UNAVAILABLE) }
         }
     }
 }
@@ -442,7 +403,6 @@ private fun LazyListScope.diagnosticsSection(vm: SettingsViewModel, s: AppSettin
         SectionHeader("App")
         val th = ThemeEngine.profileFor(s, vm.device.tier)
         InfoRow("Animations-Leistungsmodus", "${th.label}${if (s.animationAuto) " (automatisch)" else ""}", Accuracy.MEASURED)
-        InfoRow("KI-Upscaling", vm.upscalingStatus.headline, Accuracy.MEASURED)
         InfoRow("Intro überspringen", if (s.smartSkipEnabled) (if (s.skipManualOnly) "Aktiv – nur manuell" else "Aktiv – automatisch ab 80 % Sicherheit") else "Deaktiviert", Accuracy.MEASURED)
         InfoRow("Zugangsdaten verschlüsselt", if (vm.encryption) "Ja" else "Nein", Accuracy.MEASURED)
     }
@@ -497,13 +457,6 @@ private fun ThemeGallery(vm: SettingsViewModel, s: AppSettings) {
                             modifier = Modifier.align(Alignment.TopEnd).padding(10.dp))
                     }
                     Text(spec.tagline, color = p.textDim, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
-                }
-            }
-            item {
-                Column {
-                    ToggleRow("Theme-Sounds", s.themeSounds, { vm.set(Keys.THEME_SOUNDS, it) })
-                    ChoiceRow("Partikel", pct(s.particleIntensity), { vm.set(Keys.PARTICLE_INTENSITY, cycle(listOf(0f, 0.25f, 0.5f, 0.75f, 1f, 1.25f), s.particleIntensity)) })
-                    ToggleRow("Hintergrundbewegung", s.backgroundAnimation, { vm.set(Keys.BG_ANIM, it) })
                 }
             }
         }
