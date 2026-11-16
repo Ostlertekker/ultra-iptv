@@ -164,7 +164,7 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
 
     Row(Modifier.fillMaxSize().padding(20.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
         LazyColumn(Modifier.width(200.dp).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            item { Text("EINSTELLUNGEN", color = p.text, fontSize = 26.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily,
+            item { Text("EINSTELLUNGEN", color = p.text, fontSize = 21.sp, maxLines = 1, softWrap = false, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily,
                 modifier = Modifier.padding(bottom = 10.dp)) }
             items(SettingsSection.entries, key = { it.name }) { sec ->
                 var focused by remember { mutableStateOf(false) }
