@@ -142,9 +142,6 @@ fun SectionHeader(text: String, modifier: Modifier = Modifier) {
         fontFamily = theme.spec.fontFamily, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, letterSpacing = 1.5.sp)
 }
 
-/** Gemeinsame Fokus-Logik: Skalierung, Leuchtrand und Fokus-Klang. */
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
 /** true = Performance-Modus (schlanke Darstellung, keine Dauer-Animationen). */
 val LocalPerfMode = androidx.compose.runtime.staticCompositionLocalOf { true }
 
@@ -155,6 +152,8 @@ private fun Modifier.lightFocus(focused: Boolean, scale: Float, scaleOnFocus: Bo
     return this.graphicsLayer { scaleX = s; scaleY = s }
 }
 
+/** Gemeinsame Fokus-Logik: Skalierung, Leuchtrand und Fokus-Klang. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun Modifier.tvFocusable(
     shape: RoundedCornerShape,
