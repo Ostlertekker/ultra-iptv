@@ -51,7 +51,9 @@ class ThemeEngineTest {
         assertEquals(AnimationProfile.BALANCED, manual.anim.profile)
         val eco = ThemeEngine.resolve(AppSettings(animationAuto = false, animationProfile = AnimationProfile.ECONOMY), DeviceTier.ENTRY).anim.particleFactor
         val ultra = ThemeEngine.resolve(AppSettings(animationAuto = false, animationProfile = AnimationProfile.ULTRA), DeviceTier.ENTRY).anim.particleFactor
-        assertTrue(eco < ultra)
+        // Effekte sind entfernt: unabhängig vom Profil keine Partikel, kein bewegter Hintergrund
+        assertEquals(0f, eco); assertEquals(0f, ultra)
+        assertFalse(ThemeEngine.resolve(AppSettings(), DeviceTier.HIGH_PERFORMANCE).anim.backgroundMotion)
     }
 
     @Test fun reduceMotionStopsBackground() {
