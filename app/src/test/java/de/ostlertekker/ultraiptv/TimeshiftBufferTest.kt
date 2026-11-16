@@ -1,39 +1,47 @@
 package de.ostlertekker.ultraiptv
 
-import com.sun.net.httpserver.HttpServer
 import de.ostlertekker.ultraiptv.core.player.TimeshiftBuffer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.net.InetSocketAddress
+import java.net.ServerSocket
 import java.nio.file.Files
 
 /** Zeitversatz-Puffer: liest lückenlos über Verbindungsabbrüche hinweg, findet Zeitpunkte, löscht Ältestes. */
 class TimeshiftBufferTest {
-    private lateinit var server: HttpServer
+    private lateinit var server: ServerSocket
+    @Volatile private var running = true
     private var counter = 0
 
     @Before fun setUp() {
-        server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-        server.createContext("/live.ts") { ex ->
-            ex.sendResponseHeaders(200, 0)
-            ex.responseBody.use { out ->
-                // 20 Pakete à 188 Byte, dann beendet der „Server“ die Verbindung (wie echte Anbieter)
-                repeat(20) {
-                    val pkt = ByteArray(188) { i -> if (i == 0) 0x47 else (counter and 0xFF).toByte() }
-                    counter++
-                    out.write(pkt); out.flush(); Thread.sleep(15)
-                }
+        server = ServerSocket(0, 50, java.net.InetAddress.getByName("127.0.0.1"))
+        Thread {
+            while (running) {
+                val sock = runCatching { server.accept() }.getOrNull() ?: break
+                Thread {
+                    sock.use { sk ->
+                        val input = sk.getInputStream().bufferedReader()
+                        while (true) { val line = input.readLine() ?: break; if (line.isEmpty()) break }
+                        val out = sk.getOutputStream()
+                        out.write("HTTP/1.1 200 OK\r\nContent-Type: video/mp2t\r\nConnection: close\r\n\r\n".toByteArray())
+                        // 20 Pakete à 188 Byte, dann beendet der „Server“ die Verbindung (wie echte Anbieter)
+                        repeat(20) {
+                            val pkt = ByteArray(188) { i -> if (i == 0) 0x47 else (counter and 0xFF).toByte() }
+                            counter++
+                            runCatching { out.write(pkt); out.flush() }
+                            Thread.sleep(15)
+                        }
+                    }
+                }.start()
             }
-        }
-        server.start()
+        }.apply { isDaemon = true }.start()
     }
 
-    @After fun tearDown() { server.stop(0) }
+    @After fun tearDown() { running = false; server.close() }
 
-    private fun url() = "http://127.0.0.1:${server.address.port}/live.ts"
+    private fun url() = "http://127.0.0.1:${server.localPort}/live.ts"
 
     @Test fun readsContinuouslyAcrossReconnects() {
         val dir = Files.createTempDirectory("ts").toFile()
