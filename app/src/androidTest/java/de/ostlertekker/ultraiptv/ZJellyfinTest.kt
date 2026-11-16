@@ -208,11 +208,13 @@ class ZJellyfinTest {
 
             open(Routes.jfMovie("m1")).use {
                 Thread.sleep(2500); shot("film")
-                key("Favorit + gesehen", R, R, OK, R, OK, L, L, L, pauseMs = 400)
-                key("Film fortsetzen", OK); Thread.sleep(8000); responsive("Jellyfin-Film im Player"); shot("film_player")
+                key("Favorit + gesehen", R, R, OK, R, OK, pauseMs = 400)
+                Thread.sleep(1200); shot("film_nach_gesehen") // Fokus springt automatisch zurück auf „Abspielen“
+                key("Film abspielen", OK); Thread.sleep(8000); responsive("Jellyfin-Film im Player"); shot("film_player")
                 key("Player Overlay + Spulen", OK, BACK, R, R, L, pauseMs = 500); Thread.sleep(2000)
                 key("Player schließen", BACK, BACK); Thread.sleep(2500)
             }
+            android.util.Log.i("UiSmoke", "Jellyfin-Anfragen nach Film: " + requests.distinct().joinToString(" | "))
             assertTrue("PlaybackInfo abgefragt", requests.any { it.endsWith("/Items/m1/PlaybackInfo") })
             assertTrue("Wiedergabestart an Jellyfin gemeldet", requests.contains("POST /Sessions/Playing"))
             assertTrue("Wiedergabe-Ende an Jellyfin gemeldet", requests.contains("POST /Sessions/Playing/Stopped"))

@@ -265,7 +265,11 @@ class PlayerViewModel @Inject constructor(
         // Alten Titel beim Server abmelden (Folgenwechsel)
         val prev = jfPlayback; val prevId = jfId
         if (prev != null && prevId != null && prevId != id) jellyfin.reportStopped(prevId, prev, engine.player?.currentPosition ?: 0L)
-        val pb = try { jellyfin.playback(id, 0, forceTranscode) } catch (e: Exception) { return fail(e.message ?: "Wiedergabe nicht möglich") }
+        val pb = try { jellyfin.playback(id, 0, forceTranscode) } catch (e: Exception) {
+            android.util.Log.w("UltraJellyfin", "Jellyfin-Wiedergabe fehlgeschlagen: ${e.message}")
+            return fail(e.message ?: "Wiedergabe nicht möglich")
+        }
+        android.util.Log.i("UltraJellyfin", "Jellyfin-Wiedergabe: ${pb.method}, Untertitel ${pb.subtitles.size}")
         jfPlayback = pb; jfId = id
         currentStreamUrl = pb.url
         engine.play(pb.url, start, settings.bufferProfile, isLive = false,
