@@ -325,7 +325,9 @@ class PlayerEngine @Inject constructor(
         val b = tsBuffer ?: return
         val p = exo ?: return
         val now = System.currentTimeMillis()
-        val target = wall.coerceIn(b.oldestWall(), now - LIVE_MARGIN_MS)
+        // Puffer kann jünger als der Sicherheitsabstand sein (direkt nach dem Umschalten) → Bereich nie leer
+        val oldest = b.oldestWall()
+        val target = wall.coerceIn(oldest, maxOf(oldest, now - LIVE_MARGIN_MS))
         val offset = b.offsetForWall(target)
         tsStartWall = b.wallForOffset(offset)
         val keepPlaying = p.playWhenReady
