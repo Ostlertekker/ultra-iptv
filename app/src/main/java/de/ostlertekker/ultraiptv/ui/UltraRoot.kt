@@ -151,10 +151,11 @@ fun UltraRoot(startRoute: String? = null, vm: RootViewModel = hiltViewModel()) {
 private fun railRouteFor(route: String): String = when {
     route.startsWith("movie/") -> Routes.MOVIES
     route.startsWith("seriesDetail/") -> Routes.SERIES
-    route.startsWith(Routes.EPG) -> Routes.LIVE
+    route.startsWith(Routes.EPG) -> Routes.EPG
+    route.startsWith(Routes.EVENTS) || route.startsWith(Routes.SPORTS) -> Routes.EVENTS
     route.startsWith(Routes.SETUP) -> Routes.SETTINGS
     route.startsWith(Routes.SETUP_NEW) -> Routes.SETTINGS
-    listOf(Routes.WHATSON, "radar", "timemachine", Routes.EVENTS, Routes.SPORTS, Routes.MYTV, Routes.LISTS)
+    listOf(Routes.WHATSON, "radar", "timemachine", Routes.MYTV, Routes.LISTS)
         .any { route.startsWith(it) } -> Routes.EXPLORE
     else -> route
 }
@@ -169,11 +170,11 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
     val railFocus = remember { FocusRequester() }
     val items = remember {
         listOf(
-            NavItem(Routes.HOME, "Start"), NavItem(Routes.LIVE, "Live-TV"), NavItem(Routes.MOVIES, "Filme"),
-            NavItem(Routes.SERIES, "Serien"), NavItem(Routes.FAVORITES, "Favoriten"), NavItem(Routes.EXPLORE, "Entdecken"),
+            NavItem(Routes.HOME, "Start"), NavItem(Routes.LIVE, "Live-TV"), NavItem(Routes.EPG, "TV-Programm"), NavItem(Routes.MOVIES, "Filme"),
+            NavItem(Routes.SERIES, "Serien"), NavItem(Routes.EVENTS, "Sport"), NavItem(Routes.FAVORITES, "Favoriten"), NavItem(Routes.EXPLORE, "Mehr"),
         )
     }
-    val utility = remember { listOf(NavItem(Routes.SEARCH, "🔍 Suche"), NavItem(Routes.SETTINGS, "⚙")) }
+    val utility = remember { listOf(NavItem(Routes.SEARCH, "🔍"), NavItem(Routes.SETTINGS, "⚙")) }
     LaunchedEffect(Unit) { delay(150); runCatching { railFocus.requestFocus() } }
     // Direkter Einstieg in eine Seite (z. B. für automatische Oberflächentests)
     LaunchedEffect(startRoute) {
@@ -202,7 +203,7 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
         val videoActive = (mini != null || vm.engine.owner == "preview") && engineState == androidx.media3.common.Player.STATE_READY
         ThemeBackground(theme, Modifier.fillMaxSize(), animate = !videoActive, customImage = customBackground)
         // Startseite läuft wie bei Apple TV bis unter die Menüleiste, alle anderen Seiten beginnen darunter
-        val topPad = if (route == Routes.HOME) 0.dp else 92.dp
+        val topPad = if (route == Routes.HOME) 0.dp else 66.dp
         Box(Modifier.fillMaxSize().padding(top = topPad)) {
             PageTransitionHost(key = entry?.id, modifier = Modifier.fillMaxSize()) {
                 NavHost(nav, startDestination = Routes.HOME, enterTransition = { enter }, exitTransition = { exit },

@@ -572,12 +572,12 @@ fun formatClock(ms: Long, h24: Boolean): String =
     java.text.SimpleDateFormat(if (h24) "HH:mm" else "h:mm a", java.util.Locale.getDefault()).format(java.util.Date(ms))
 
 @Composable
-private fun RailClock(modifier: Modifier) {
+private fun RailClock(modifier: Modifier, small: Boolean = false) {
     val p = LocalUltraTheme.current.palette
     val h24 = de.ostlertekker.ultraiptv.core.design.LocalUiPrefs.current.clock24h
     var now by remember { androidx.compose.runtime.mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) { while (true) { now = System.currentTimeMillis(); kotlinx.coroutines.delay(20_000) } }
-    Text(formatClock(now, h24), color = p.text, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = modifier)
+    Text(formatClock(now, h24), color = p.text, fontSize = if (small) 15.sp else 20.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = modifier)
 }
 
 
@@ -605,13 +605,13 @@ fun TopNavBar(items: List<NavItem>, utility: List<NavItem>, selectedRoute: Strin
     Row(
         modifier.fillMaxWidth()
             .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.78f), Color.Black.copy(alpha = 0.35f), Color.Transparent)))
-            .padding(start = 48.dp, end = 40.dp, top = 22.dp, bottom = 26.dp),
+            .padding(start = 36.dp, end = 32.dp, top = 14.dp, bottom = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("OSTLERTEKKER", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold, letterSpacing = 4.sp,
+        Text("OSTLERTEKKER", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp,
             fontFamily = de.ostlertekker.ultraiptv.core.design.AppFonts.Inter, maxLines = 1)
         Spacer(Modifier.weight(1f))
-        Row(Modifier.background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(50)).padding(4.dp),
+        Row(Modifier.padding(start = 16.dp).background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(50)).padding(3.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             items.forEachIndexed { i, item ->
                 val focusHere = if (items.any { it.route == selectedRoute }) item.route == selectedRoute else i == 0
@@ -621,7 +621,7 @@ fun TopNavBar(items: List<NavItem>, utility: List<NavItem>, selectedRoute: Strin
         Spacer(Modifier.weight(1f))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             utility.forEach { item -> TopNavPill(item.label, item.route == selectedRoute, { onSelect(item.route) }, null) }
-            if (de.ostlertekker.ultraiptv.core.design.LocalUiPrefs.current.menuClock) RailClock(Modifier.padding(start = 12.dp))
+            if (de.ostlertekker.ultraiptv.core.design.LocalUiPrefs.current.menuClock) RailClock(Modifier.padding(start = 8.dp), small = true)
         }
     }
 }
@@ -642,9 +642,9 @@ private fun TopNavPill(label: String, selected: Boolean, onClick: () -> Unit, fo
                 onClick = { sounds?.select(); onClick() })
             .background(
                 when { focused -> Color.White; selected -> Color.White.copy(alpha = 0.18f); else -> Color.Transparent }, shape)
-            .padding(horizontal = 20.dp, vertical = 9.dp),
+            .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
         Text(label, color = if (focused) Color(0xFF111111) else if (selected) Color.White else Color.White.copy(alpha = 0.72f),
-            fontSize = 17.sp, fontWeight = if (focused || selected) FontWeight.SemiBold else FontWeight.Medium, maxLines = 1)
+            fontSize = 14.sp, fontWeight = if (focused || selected) FontWeight.SemiBold else FontWeight.Medium, maxLines = 1, softWrap = false)
     }
 }
