@@ -40,6 +40,16 @@ object AppModule {
         Room.databaseBuilder(context, UltraDatabase::class.java, "ultra.db")
             .addMigrations(Migrations.MIGRATION_1_2, Migrations.MIGRATION_2_3)
             .fallbackToDestructiveMigration()
+            .addCallback(object : androidx.room.RoomDatabase.Callback() {
+                // Beim Öffnen übergroße Anbieter-Einträge kürzen (verhindert Abstürze in Filme/Serien)
+                override fun onOpen(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                    // Einmal pro App-Version (neue Daten werden direkt nach jedem Sync bereinigt)
+                    val prefs = context.getSharedPreferences("db_maintenance", Context.MODE_PRIVATE)
+                    if (prefs.getInt("sanitized", 0) == de.ostlertekker.ultraiptv.BuildConfig.VERSION_CODE) return
+                    Migrations.SANITIZE.forEach { runCatching { db.execSQL(it) } }
+                    prefs.edit().putInt("sanitized", de.ostlertekker.ultraiptv.BuildConfig.VERSION_CODE).apply()
+                }
+            })
             .build()
 
     @Provides fun contentDao(db: UltraDatabase): ContentDao = db.content()

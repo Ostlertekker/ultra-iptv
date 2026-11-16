@@ -34,7 +34,11 @@ class UltraApp : Application(), ImageLoaderFactory {
                     .maxSizeBytes(if (low) 64L * 1024 * 1024 else 200L * 1024 * 1024)
                     .build()
             }
-            .allowRgb565(low)
+            // Posterbilder ohne Transparenz brauchen nur halb so viel Speicher (Logos mit Alpha bleiben ARGB)
+            .allowRgb565(true)
+            // Nicht 64 riesige Poster gleichzeitig decodieren – das sprengt auf Fire-TV-Sticks den Speicher
+            .fetcherDispatcher(kotlinx.coroutines.Dispatchers.IO.limitedParallelism(if (low) 4 else 6))
+            .decoderDispatcher(kotlinx.coroutines.Dispatchers.Default.limitedParallelism(if (low) 1 else 2))
             .crossfade(if (low) 0 else 120)
             .respectCacheHeaders(false)
             .build()

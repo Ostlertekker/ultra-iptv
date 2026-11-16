@@ -53,6 +53,15 @@ class MigrationSchemaTest {
         }
     }
 
+    @Test fun sanitizeStatementsReferenceRealColumns() {
+        for (sql in Migrations.SANITIZE) {
+            val m = Regex("""UPDATE (\w+) SET (\w+) = .* WHERE length\((\w+)\)""").find(sql)!!
+            val (table, col, col2) = m.destructured
+            assertEquals(sql, col, col2)
+            field(table, col) // wirft, wenn Tabelle/Spalte nicht existiert
+        }
+    }
+
     @Test fun migration2to3MatchesRoomSchema() {
         assertEquals(2, Migrations.SQL_2_3.count { it.startsWith("CREATE TABLE") })
         checkCreates(Migrations.SQL_2_3)

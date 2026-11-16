@@ -108,6 +108,7 @@ class SyncRepository @Inject constructor(
                     ProviderType.M3U -> m3uEpg = syncM3u(cfg)
                     ProviderType.XTREAM -> syncXtream(cfg)
                 }
+                runCatching { db.openHelper.writableDatabase.let { w -> de.ostlertekker.ultraiptv.core.database.Migrations.SANITIZE.forEach { w.execSQL(it) } } }
                 settings.set(Keys.LAST_SYNC, System.currentTimeMillis())
                 if (includeEpg) syncEpgInternal(cfg, m3uEpg)
                 _state.value = SyncState(false, "Synchronisation abgeschlossen")

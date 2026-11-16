@@ -326,6 +326,32 @@ object Migrations {
         "CREATE TABLE IF NOT EXISTS `virtual_lists` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `profileId` INTEGER NOT NULL, `name` TEXT NOT NULL, `rulesJson` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)",
     )
 
+    /**
+     * Kürzt übergroße Einträge mancher Anbieter (eingebettete Bilder, riesige Beschreibungen).
+     * Eine einzelne Zeile über ~2 MB lässt sonst das Laden ganzer Film-/Serienseiten abstürzen.
+     */
+    val SANITIZE = listOf(
+        "UPDATE movies SET poster = NULL WHERE length(poster) > 2048",
+        "UPDATE movies SET backdrop = NULL WHERE length(backdrop) > 2048",
+        "UPDATE movies SET plot = substr(plot, 1, 4000) WHERE length(plot) > 4000",
+        "UPDATE movies SET actors = substr(actors, 1, 1000) WHERE length(actors) > 1000",
+        "UPDATE movies SET director = substr(director, 1, 300) WHERE length(director) > 300",
+        "UPDATE movies SET genre = substr(genre, 1, 200) WHERE length(genre) > 200",
+        "UPDATE movies SET name = substr(name, 1, 300) WHERE length(name) > 300",
+        "UPDATE series SET poster = NULL WHERE length(poster) > 2048",
+        "UPDATE series SET backdrop = NULL WHERE length(backdrop) > 2048",
+        "UPDATE series SET plot = substr(plot, 1, 4000) WHERE length(plot) > 4000",
+        "UPDATE series SET actors = substr(actors, 1, 1000) WHERE length(actors) > 1000",
+        "UPDATE series SET genre = substr(genre, 1, 200) WHERE length(genre) > 200",
+        "UPDATE series SET name = substr(name, 1, 300) WHERE length(name) > 300",
+        "UPDATE episodes SET image = NULL WHERE length(image) > 2048",
+        "UPDATE episodes SET plot = substr(plot, 1, 4000) WHERE length(plot) > 4000",
+        "UPDATE episodes SET title = substr(title, 1, 300) WHERE length(title) > 300",
+        "UPDATE channels SET logo = NULL WHERE length(logo) > 2048",
+        "UPDATE channels SET name = substr(name, 1, 300) WHERE length(name) > 300",
+        "UPDATE epg SET description = substr(description, 1, 2000) WHERE length(description) > 2000",
+    )
+
     val MIGRATION_2_3 = object : Migration(2, 3) {
         override fun migrate(db: SupportSQLiteDatabase) { SQL_2_3.forEach { db.execSQL(it) } }
     }
