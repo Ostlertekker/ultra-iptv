@@ -73,11 +73,15 @@ object SmartSearch {
 
     private val stopWords = setOf("mit", "with", "und", "and", "der", "die", "das", "den", "ein", "eine", "von", "the", "a", "aus", "in", "im", "zeig", "zeige", "mir", "suche", "alle", "beste", "besten", "gute")
 
+    private val MARKS = Regex("\\p{Mn}+")
+    private val NON_ALNUM = Regex("[^a-z0-9+]+")
+    private val SPACES = Regex("\\s+")
+
     fun normalize(s: String): String {
         val lower = s.lowercase()
             .replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss")
-        val noMarks = Normalizer.normalize(lower, Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
-        return noMarks.replace(Regex("[^a-z0-9+]+"), " ").trim().replace(Regex("\\s+"), " ")
+        val noMarks = Normalizer.normalize(lower, Normalizer.Form.NFD).replace(MARKS, "")
+        return noMarks.replace(NON_ALNUM, " ").trim().replace(SPACES, " ")
     }
 
     fun parse(query: String): ParsedQuery {
@@ -174,10 +178,16 @@ object SmartSearch {
     }
 
     /** Gemeinsame Genres/Darsteller als Ähnlichkeitsmaß (0–1). */
-    fun similarity(genreA: String?, genreB: String?, castA: String?, castB: String?, categoryA: String?, categoryB: String?): Float {
-        fun parts(s: String?) = s?.split(',', '/', '|')?.map { normalize(it) }?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
-        val g = parts(genreA).intersect(parts(genreB)).size
-        val c = parts(castA).intersect(parts(castB)).size
+    /** Genre/Darsteller-Teile einmalig aufbereiten (begrenzt, damit riesige Anbieter-Felder nichts blockieren). */
+    fun parts(s: String?): Set<String> = s?.take(600)?.split(',', '/', '|')?.asSequence()?.take(20)
+        ?.map { normalize(it) }?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
+
+    fun similarity(genreA: String?, genreB: String?, castA: String?, castB: String?, categoryA: String?, categoryB: String?): Float =
+        similarity(parts(genreA), parts(genreB), parts(castA), parts(castB), categoryA, categoryB)
+
+    fun similarity(gA: Set<String>, gB: Set<String>, cA: Set<String>, cB: Set<String>, categoryA: String?, categoryB: String?): Float {
+        val g = gA.count { it in gB }
+        val c = cA.count { it in cB }
         val cat = if (categoryA != null && categoryA == categoryB) 1 else 0
         return (g * 0.25f + c * 0.35f + cat * 0.15f).coerceAtMost(1f)
     }

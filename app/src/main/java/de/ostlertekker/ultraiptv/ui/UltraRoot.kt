@@ -1,5 +1,11 @@
 package de.ostlertekker.ultraiptv.ui
 
+import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.EnterTransition
@@ -140,7 +146,7 @@ fun UltraRoot(startRoute: String? = null, vm: RootViewModel = hiltViewModel()) {
                     LaunchedEffect(Unit) { delay(50); phase = Phase.MAIN }
                 }
             }
-            Phase.MAIN -> MainScaffold(s.customBackgroundUrl, vm, startRoute)
+            Phase.MAIN -> Box(Modifier.fillMaxSize()) { MainScaffold(s.customBackgroundUrl, vm, startRoute); CrashReportDialog() }
         }
     }
 }
@@ -259,5 +265,44 @@ private fun navigateTop(nav: NavHostController, route: String) {
         popUpTo(Routes.HOME) { saveState = true }
         launchSingleTop = true
         restoreState = true
+    }
+}
+
+
+/**
+ * Nach einem Absturz/Hänger zeigt die App beim nächsten Start einmalig den Bericht – mit genauer Code-Stelle.
+ * Ein Foto davon genügt, um den Fehler gezielt zu beheben.
+ */
+@Composable
+private fun CrashReportDialog() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val prefs = remember { context.getSharedPreferences("crash_ui", android.content.Context.MODE_PRIVATE) }
+    val time = remember { de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.reportTime(context) }
+    var visible by remember { mutableStateOf(time > 0 && prefs.getLong("seen", 0) < time) }
+    if (!visible) return
+    val text = remember {
+        listOfNotNull(
+            de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.lastCrash(context)?.let { "ABSTURZ\n$it" },
+            de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.lastFreeze(context)?.let { "HÄNGER\n$it" },
+        ).joinToString("\n\n").lines().filter { it.isNotBlank() }.take(34).joinToString("\n")
+    }
+    val close = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(Unit) { kotlinx.coroutines.delay(300); runCatching { close.requestFocus() } }
+    androidx.activity.compose.BackHandler { prefs.edit().putLong("seen", time).apply(); visible = false }
+    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.88f)).padding(36.dp)) {
+        Column {
+            Text("ULTRA IPTV wurde beim letzten Mal unerwartet beendet", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text("Bitte ein Foto von diesem Bildschirm schicken – es zeigt genau, wo der Fehler liegt.", color = Color(0xFFB6FF1A), fontSize = 14.sp,
+                modifier = Modifier.padding(vertical = 8.dp))
+            Text(text, color = Color.White, fontSize = 11.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                modifier = Modifier.weight(1f).fillMaxWidth().background(Color(0xFF111111)).padding(10.dp))
+            Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                de.ostlertekker.ultraiptv.core.ui.TvButton("Schließen", onClick = { prefs.edit().putLong("seen", time).apply(); visible = false },
+                    primary = true, focusRequester = close)
+                de.ostlertekker.ultraiptv.core.ui.TvButton("Bericht löschen", onClick = {
+                    de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.clear(context); prefs.edit().putLong("seen", time).apply(); visible = false
+                })
+            }
+        }
     }
 }

@@ -67,5 +67,8 @@ object StabilityGuard {
 
     fun lastCrash(context: Context): String? = File(context.filesDir, CRASH).takeIf { it.exists() }?.readText()
     fun lastFreeze(context: Context): String? = File(context.filesDir, FREEZE).takeIf { it.exists() }?.readText()
+    /** Zeitpunkt des neuesten Berichts (0 = keiner). */
+    fun reportTime(context: Context): Long = listOf(CRASH, FREEZE).map { File(context.filesDir, it) }.filter { it.exists() }.maxOfOrNull { it.lastModified() } ?: 0L
+
     fun clear(context: Context) { File(context.filesDir, CRASH).delete(); File(context.filesDir, FREEZE).delete() }
 }

@@ -1,5 +1,7 @@
 package de.ostlertekker.ultraiptv.core.search
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import androidx.sqlite.db.SimpleSQLiteQuery
 import de.ostlertekker.ultraiptv.core.data.UserRepository
 import de.ostlertekker.ultraiptv.core.database.ChannelEntity
@@ -35,7 +37,9 @@ class SearchRepository @Inject constructor(
     private suspend fun adult() = user.filter.map { it.showAdult }.first()
 
     /** Universelle Suche über Live-TV, Filme, Serien und Episoden mit Verständnis natürlicher Anfragen. */
-    suspend fun search(query: String): SmartResults {
+    suspend fun search(query: String): SmartResults = withContext(Dispatchers.Default) { searchImpl(query) }
+
+    private suspend fun searchImpl(query: String): SmartResults {
         val q = SmartSearch.parse(query)
         if (q.terms.isEmpty() && !q.hasFilters) return SmartResults(q)
         val showAdult = adult()
@@ -140,7 +144,9 @@ class SearchRepository @Inject constructor(
     }
 
     /** Vorschläge während der Eingabe: passende Titel, Genres, Sprachen und Verlauf. */
-    suspend fun suggestions(input: String, history: List<String>): List<Suggestion> {
+    suspend fun suggestions(input: String, history: List<String>): List<Suggestion> = withContext(Dispatchers.Default) { suggestionsImpl(input, history) }
+
+    private suspend fun suggestionsImpl(input: String, history: List<String>): List<Suggestion> {
         val text = input.trim()
         val out = LinkedHashMap<String, Suggestion>()
         history.filter { text.isBlank() || it.startsWith(text, true) }.take(4).forEach { out[it.lowercase()] = Suggestion("⟲ $it", it) }
@@ -168,26 +174,33 @@ class SearchRepository @Inject constructor(
     suspend fun similarMovies(m: MovieEntity, limit: Int = 20): List<MovieEntity> {
         val args = ArrayList<Any>()
         val conds = ArrayList<String>()
-        m.genre?.split(',', '/', '|')?.map { it.trim() }?.filter { it.length > 2 }?.take(3)?.forEach { conds += "genre LIKE ?"; args += "%$it%" }
-        m.actors?.split(',')?.map { it.trim() }?.filter { it.length > 3 }?.take(3)?.forEach { conds += "actors LIKE ?"; args += "%$it%" }
+        m.genre?.take(600)?.split(',', '/', '|')?.map { it.trim() }?.filter { it.length > 2 }?.take(3)?.forEach { conds += "genre LIKE ?"; args += "%$it%" }
+        m.actors?.take(600)?.split(',')?.map { it.trim() }?.filter { it.length > 3 }?.take(3)?.forEach { conds += "actors LIKE ?"; args += "%$it%" }
         conds += "category = ?"; args += m.category
         val adult = if (adult()) "" else " AND adult = 0"
         args += m.id
         val list = dao.rawMovies(SimpleSQLiteQuery("SELECT * FROM movies WHERE (${conds.joinToString(" OR ")})$adult AND id != ? LIMIT 200", args.toTypedArray()))
-        return list.sortedByDescending { SmartSearch.similarity(m.genre, it.genre, m.actors, it.actors, m.category, it.category) + ((it.rating ?: 0.0) / 50.0).toFloat() }
-            .take(limit)
+        // Bewertung je Titel genau einmal und abseits des UI-Threads (vorher: im Sortiervergleich → Hänger)
+        return withContext(Dispatchers.Default) {
+            val g = SmartSearch.parts(m.genre); val c = SmartSearch.parts(m.actors)
+            list.map { it to SmartSearch.similarity(g, SmartSearch.parts(it.genre), c, SmartSearch.parts(it.actors), m.category, it.category) + ((it.rating ?: 0.0) / 50.0).toFloat() }
+                .sortedByDescending { it.second }.take(limit).map { it.first }
+        }
     }
 
     suspend fun similarSeries(s: SeriesEntity, limit: Int = 20): List<SeriesEntity> {
         val args = ArrayList<Any>()
         val conds = ArrayList<String>()
-        s.genre?.split(',', '/', '|')?.map { it.trim() }?.filter { it.length > 2 }?.take(3)?.forEach { conds += "genre LIKE ?"; args += "%$it%" }
-        s.actors?.split(',')?.map { it.trim() }?.filter { it.length > 3 }?.take(3)?.forEach { conds += "actors LIKE ?"; args += "%$it%" }
+        s.genre?.take(600)?.split(',', '/', '|')?.map { it.trim() }?.filter { it.length > 2 }?.take(3)?.forEach { conds += "genre LIKE ?"; args += "%$it%" }
+        s.actors?.take(600)?.split(',')?.map { it.trim() }?.filter { it.length > 3 }?.take(3)?.forEach { conds += "actors LIKE ?"; args += "%$it%" }
         conds += "category = ?"; args += s.category
         val adult = if (adult()) "" else " AND adult = 0"
         args += s.id
         val list = dao.rawSeries(SimpleSQLiteQuery("SELECT * FROM series WHERE (${conds.joinToString(" OR ")})$adult AND id != ? LIMIT 200", args.toTypedArray()))
-        return list.sortedByDescending { SmartSearch.similarity(s.genre, it.genre, s.actors, it.actors, s.category, it.category) + ((it.rating ?: 0.0) / 50.0).toFloat() }
-            .take(limit)
+        return withContext(Dispatchers.Default) {
+            val g = SmartSearch.parts(s.genre); val c = SmartSearch.parts(s.actors)
+            list.map { it to SmartSearch.similarity(g, SmartSearch.parts(it.genre), c, SmartSearch.parts(it.actors), s.category, it.category) + ((it.rating ?: 0.0) / 50.0).toFloat() }
+                .sortedByDescending { it.second }.take(limit).map { it.first }
+        }
     }
 }
