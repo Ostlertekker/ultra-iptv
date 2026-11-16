@@ -121,6 +121,14 @@ class JellyfinViewModel @Inject constructor(val repo: JellyfinRepository) : View
         busy.value = false
     }
 
+    val found = MutableStateFlow<List<Pair<String, String>>?>(null)
+    val searching = MutableStateFlow(false)
+    fun searchLan() = viewModelScope.launch {
+        searching.value = true; found.value = null
+        found.value = runCatching { repo.discover() }.getOrDefault(emptyList())
+        searching.value = false
+    }
+
     fun logout() = viewModelScope.launch { repo.logout(); rows.value = emptyList(); libraries.value = emptyList() }
 
     fun refresh() { repo.invalidate(); load() }
@@ -184,7 +192,8 @@ fun JellyfinScreen(nav: NavController, vm: JellyfinViewModel = hiltViewModel()) 
             Column {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Jellyfin", color = p.text, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                    Text("${session?.serverName ?: ""} · ${session?.userName ?: ""}", color = p.textDim, fontSize = 13.sp, modifier = Modifier.padding(end = 10.dp))
+                    Text("${session?.serverName ?: ""} · ${session?.userName ?: ""} · ${session?.server?.substringAfter("://") ?: ""}", color = p.textDim, fontSize = 13.sp,
+                        maxLines = 1, modifier = Modifier.padding(end = 10.dp))
                     libs.forEach { l -> TvChip(l.name, false, { nav.navigate(Routes.jfLibrary(l.id, l.name)) }) }
                     TvChip("↻ Aktualisieren", false, { vm.refresh() })
                     TvChip("Abmelden", false, { vm.logout() })
@@ -205,16 +214,25 @@ private fun JellyfinLogin(vm: JellyfinViewModel) {
     var pw by remember { mutableStateOf("") }
     val busy by vm.busy.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
+    val found by vm.found.collectAsStateWithLifecycle()
+    val searching by vm.searching.collectAsStateWithLifecycle()
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(Modifier.width(560.dp).background(p.surface, RoundedCornerShape(18.dp)).padding(28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Mit Jellyfin verbinden", color = p.text, fontSize = 28.sp, fontWeight = FontWeight.Bold)
             Text("Deine eigene Mediathek direkt in ULTRA IPTV – Filme und Serien laufen im eingebauten Player.", color = p.textDim, fontSize = 14.sp)
-            TvTextField(server, { server = it }, "Serveradresse (z. B. 192.168.1.10:8096)", modifier = Modifier.fillMaxWidth())
+            TvTextField(server, { server = it }, "Serveradresse – wie in der Jellyfin-App (z. B. meinserver.de oder 192.168.1.10:8096)", modifier = Modifier.fillMaxWidth())
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                TvChip(if (searching) "Suche …" else "🔎 Im Heimnetz suchen", false, { if (!searching) vm.searchLan() })
+                found?.let { list ->
+                    if (list.isEmpty()) Text("Kein Server im Heimnetz gefunden", color = p.textDim, fontSize = 13.sp)
+                    list.forEach { (addr, name) -> TvChip("$name · ${addr.substringAfter("://")}", server == addr, { server = addr }) }
+                }
+            }
             TvTextField(user, { user = it }, "Benutzername", modifier = Modifier.fillMaxWidth())
             TvTextField(pw, { pw = it }, "Passwort", modifier = Modifier.fillMaxWidth(), password = true)
             error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 14.sp) }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                TvButton(if (busy) "Verbinde …" else "Verbinden", onClick = { if (!busy) vm.login(server, user, pw) }, primary = true)
+                TvButton(if (busy) "Verbinde … (prüfe Adressen)" else "Verbinden", onClick = { if (!busy) vm.login(server, user, pw) }, primary = true)
                 Text("Zugangsdaten werden verschlüsselt auf dem Gerät gespeichert.", color = p.textDim, fontSize = 12.sp)
             }
         }

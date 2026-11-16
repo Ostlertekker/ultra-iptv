@@ -188,12 +188,29 @@ class JellyfinRepository @Inject constructor(
         return try {
             call(method, s.server + path, body, s.token)
         } catch (e: JellyfinException) {
+            if (e.code == 0) throw e
             if (e.code != 401) throw e
             val user = prefs.getString("login_user", null); val pw = prefs.getString("login_pw", null)
             if (user == null || pw == null) { clearSession(); throw e }
-            val fresh = login(s.server, user, pw)
+            val fresh = login(prefs.getString("server_input", null) ?: s.server, user, pw)
             call(method, fresh.server + path, body, fresh.token)
+        } catch (e: IOException) {
+            // Verbindung weg (z. B. Heimnetz ↔ unterwegs): Adresse neu ermitteln und einmal wiederholen
+            val input = prefs.getString("server_input", null) ?: throw JellyfinException(friendly(e))
+            val (server, _) = runCatching { resolveServer(input) }.getOrElse { throw JellyfinException(friendly(e)) }
+            if (server == s.server) throw JellyfinException(friendly(e))
+            prefs.edit().putString("server", server).apply()
+            _session.value = s.copy(server = server)
+            call(method, server + path, body, s.token)
         }
+    }
+
+    private fun friendly(e: Throwable): String = when (e) {
+        is java.net.SocketTimeoutException -> "Jellyfin antwortet nicht (Zeitüberschreitung)"
+        is java.net.UnknownHostException -> "Serveradresse unbekannt – Schreibweise prüfen"
+        is java.net.ConnectException -> "Verbindung zum Jellyfin-Server abgelehnt"
+        is javax.net.ssl.SSLException -> "Sichere Verbindung (HTTPS) fehlgeschlagen"
+        else -> e.message ?: "Jellyfin nicht erreichbar"
     }
 
     // ------------------------------------------------------------------ Cache (Metadaten)
@@ -220,9 +237,95 @@ class JellyfinRepository @Inject constructor(
         return info?.get("ServerName")?.str() ?: "Jellyfin"
     }
 
+    /** Schneller Erreichbarkeits-Test einer Adresse (4 s) – liefert den Servernamen oder null. */
+    private suspend fun probe(base: String): String? = withContext(Dispatchers.IO) {
+        runCatching {
+            val c = http.newBuilder().connectTimeout(4, TimeUnit.SECONDS).readTimeout(6, TimeUnit.SECONDS).build()
+            c.newCall(Request.Builder().url("$base/System/Info/Public").header("Accept", "application/json").build()).execute().use { r ->
+                if (!r.isSuccessful) return@runCatching null
+                val o = runCatching { json.parseToJsonElement(r.body?.string().orEmpty()).jsonObject }.getOrNull() ?: return@runCatching null
+                // Nur echte Jellyfin-Server akzeptieren (die Antwort enthält Name/Version/Id)
+                if (o["Id"] == null && o["Version"] == null) null else o["ServerName"]?.str() ?: "Jellyfin"
+            }
+        }.getOrNull()
+    }
+
+    /**
+     * Jellyfin-Server im Heimnetz finden (offizielle Server-Erkennung: UDP-Broadcast auf Port 7359).
+     * Liefert Adresse + Name aller antwortenden Server.
+     */
+    suspend fun discover(timeoutMs: Int = 2500): List<Pair<String, String>> = withContext(Dispatchers.IO) {
+        val found = LinkedHashMap<String, String>()
+        val lock = runCatching {
+            (context.applicationContext.getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager)
+                .createMulticastLock("ultra-jellyfin").apply { setReferenceCounted(false); acquire() }
+        }.getOrNull()
+        try {
+            java.net.DatagramSocket().use { sock ->
+                sock.broadcast = true
+                sock.soTimeout = 400
+                val msg = "who is JellyfinServer?".toByteArray()
+                val targets = buildList {
+                    add(java.net.InetAddress.getByName("255.255.255.255"))
+                    // Zusätzlich die Broadcast-Adressen aller aktiven Netzwerkschnittstellen (manche Router verwerfen 255.255.255.255)
+                    runCatching {
+                        java.net.NetworkInterface.getNetworkInterfaces().toList().filter { it.isUp && !it.isLoopback }
+                            .flatMap { it.interfaceAddresses }.mapNotNull { it.broadcast }.forEach { add(it) }
+                    }
+                }.distinct()
+                repeat(2) { targets.forEach { t -> runCatching { sock.send(java.net.DatagramPacket(msg, msg.size, t, 7359)) } } }
+                val end = System.currentTimeMillis() + timeoutMs
+                val buf = ByteArray(4096)
+                while (System.currentTimeMillis() < end) {
+                    val pkt = java.net.DatagramPacket(buf, buf.size)
+                    try { sock.receive(pkt) } catch (e: java.net.SocketTimeoutException) { continue }
+                    val o = runCatching { json.parseToJsonElement(String(pkt.data, 0, pkt.length)).jsonObject }.getOrNull() ?: continue
+                    val addr = o["Address"]?.str()?.trimEnd('/') ?: "http://${pkt.address.hostAddress}:8096"
+                    found[addr] = o["Name"]?.str() ?: "Jellyfin"
+                }
+            }
+        } catch (e: Exception) {
+            // Kein WLAN/Broadcast möglich → einfach keine Treffer
+        } finally {
+            runCatching { lock?.release() }
+        }
+        found.map { it.key to it.value }
+    }
+
+    /** Mögliche Schreibweisen einer eingegebenen Adresse – die erste erreichbare wird genommen. */
+    private fun candidates(input: String): List<String> {
+        val raw = input.trim().trimEnd('/')
+        val hasScheme = raw.startsWith("http://") || raw.startsWith("https://")
+        val noScheme = raw.substringAfter("://")
+        val host = noScheme.substringBefore('/').substringBefore(':')
+        val port = noScheme.substringBefore('/').substringAfter(':', "").toIntOrNull()
+        val path = noScheme.substringAfter('/', "").let { if (it.isBlank()) "" else "/$it" }
+        return buildList {
+            add(normalizeServer(raw))
+            if (!hasScheme) add("https://$noScheme")
+            if (raw.startsWith("http://")) add("https://$noScheme")
+            if (raw.startsWith("https://")) add("http://$noScheme")
+            add("https://$host$path")                    // Reverse Proxy (443)
+            if (port != 8096) add("http://$host:8096$path")
+            if (port != 8920) add("https://$host:8920$path")  // Jellyfin-HTTPS-Standardport
+            add("http://$host$path")
+        }.distinct()
+    }
+
+    /** Erste erreichbare Adresse finden: Eingabe + Varianten, danach Server im Heimnetz. */
+    suspend fun resolveServer(input: String): Pair<String, String> {
+        for (c in candidates(input)) probe(c)?.let { return c to it }
+        val lan = discover()
+        // Gibt es genau einen Server im Heimnetz (oder einen mit passendem Namen), wird er genommen
+        lan.firstOrNull()?.let { (addr, name) -> probe(addr)?.let { return addr to (it.ifBlank { name }) } }
+        throw JellyfinException(
+            "Server nicht erreichbar. Geprüft: ${candidates(input).size} Adressvarianten und die Suche im Heimnetz. " +
+                "Steht der Server bei dir zu Hause, trage seine lokale Adresse ein (z. B. http://192.168.1.x:8096) oder nutze „Im Heimnetz suchen“. " +
+                "Von außen muss der Port im Router freigegeben sein.")
+    }
+
     suspend fun login(serverInput: String, user: String, password: String): JfSession {
-        val server = normalizeServer(serverInput)
-        val name = runCatching { serverName(server) }.getOrElse { throw JellyfinException("Server nicht erreichbar: ${it.message ?: server}") }
+        val (server, name) = resolveServer(serverInput)
         val body = buildJsonObject { put("Username", user); put("Pw", password) }
         val res = try {
             call("POST", "$server/Users/AuthenticateByName", body, token = null)?.jsonObject
@@ -232,8 +335,9 @@ class JellyfinRepository @Inject constructor(
         val token = res["AccessToken"]?.str() ?: throw JellyfinException("Kein Zugangstoken erhalten")
         val u = res["User"]?.jsonObject
         val session = JfSession(server, u?.get("Id")?.str() ?: "", u?.get("Name")?.str() ?: user, token, name)
-        prefs.edit().putString("server", server).putString("user_id", session.userId).putString("user_name", session.userName)
-            .putString("token", token).putString("server_name", name).putString("login_user", user).putString("login_pw", password).apply()
+        prefs.edit().putString("server", server).putString("server_input", serverInput.trim()).putString("user_id", session.userId)
+            .putString("user_name", session.userName).putString("token", token).putString("server_name", name)
+            .putString("login_user", user).putString("login_pw", password).apply()
         loaded = true
         _session.value = session
         invalidate()
