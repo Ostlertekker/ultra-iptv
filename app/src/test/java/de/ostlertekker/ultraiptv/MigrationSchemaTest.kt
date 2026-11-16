@@ -13,14 +13,14 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Prüft die handgeschriebenen Migrationen v1→v2→v3 gegen das von Room erzeugte Schema (app/schemas/…/3.json).
+ * Prüft die handgeschriebenen Migrationen v1→v2→v3 gegen das von Room erzeugte Schema (app/schemas/…/4.json).
  * Verhindert, dass ein Update bestehende Favoriten/Verläufe löscht oder beim Start abstürzt.
  */
 class MigrationSchemaTest {
     private fun norm(s: String) = s.replace(Regex("\\s+"), " ").trim()
 
     private val entities: Map<String, JsonObject> by lazy {
-        val file = File("schemas/de.ostlertekker.ultraiptv.core.database.UltraDatabase/3.json")
+        val file = File("schemas/de.ostlertekker.ultraiptv.core.database.UltraDatabase/4.json")
         assertTrue("Room-Schema fehlt: ${file.absolutePath}", file.exists())
         Json.parseToJsonElement(file.readText()).jsonObject["database"]!!.jsonObject["entities"]!!.jsonArray
             .associate { it.jsonObject["tableName"]!!.jsonPrimitive.content to it.jsonObject }
@@ -70,5 +70,21 @@ class MigrationSchemaTest {
         assertEquals(true, archive["notNull"]!!.jsonPrimitive.boolean)
         assertEquals("0", archive["defaultValue"]!!.jsonPrimitive.content)
         for (c in listOf("catchupMode", "catchupSource")) assertEquals(false, field("channels", c)["notNull"]!!.jsonPrimitive.boolean)
+    }
+
+    @Test fun migration3to4CreatesRoomIndices() {
+        val executed = ArrayList<String>()
+        val recorder = java.lang.reflect.Proxy.newProxyInstance(javaClass.classLoader, arrayOf(androidx.sqlite.db.SupportSQLiteDatabase::class.java)) { _, m, args ->
+            if (m.name == "execSQL") executed += args!![0] as String; null
+        } as androidx.sqlite.db.SupportSQLiteDatabase
+        Migrations.MIGRATION_3_4.migrate(recorder)
+        for (table in listOf("movies", "series")) {
+            for (idx in entities[table]!!["indices"]!!.jsonArray) {
+                val create = idx.jsonObject["createSql"]!!.jsonPrimitive.content.replace("\${TABLE_NAME}", table)
+                val name = idx.jsonObject["name"]!!.jsonPrimitive.content
+                if (name.endsWith("_rating") || name == "index_series_addedAt")
+                    assertTrue("Index fehlt in Migration 3→4: $create", executed.any { norm(it) == norm(create) })
+            }
+        }
     }
 }
