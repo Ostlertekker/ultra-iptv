@@ -318,8 +318,13 @@ class JellyfinRepository @Inject constructor(
         val lan = discover()
         // Gibt es genau einen Server im Heimnetz (oder einen mit passendem Namen), wird er genommen
         lan.firstOrNull()?.let { (addr, name) -> probe(addr)?.let { return addr to (it.ifBlank { name }) } }
+        val host = input.trim().substringAfter("://").substringBefore('/').substringBefore(':')
+        val dns = withContext(Dispatchers.IO) {
+            runCatching { java.net.InetAddress.getAllByName(host).joinToString(", ") { (if (it is java.net.Inet6Address) "IPv6 " else "IPv4 ") + it.hostAddress } }
+                .getOrElse { "nicht auflösbar" }
+        }
         throw JellyfinException(
-            "Server nicht erreichbar. Geprüft: ${candidates(input).size} Adressvarianten und die Suche im Heimnetz. " +
+            "Server nicht erreichbar ($host → $dns). Geprüft: ${candidates(input).joinToString(", ") { it.substringBefore("://") + ":" + (it.substringAfter("://").substringBefore('/').substringAfter(':', "").ifBlank { "Standard" }) }} und die Suche im Heimnetz. " +
                 "Steht der Server bei dir zu Hause, trage seine lokale Adresse ein (z. B. http://192.168.1.x:8096) oder nutze „Im Heimnetz suchen“. " +
                 "Von außen muss der Port im Router freigegeben sein.")
     }
