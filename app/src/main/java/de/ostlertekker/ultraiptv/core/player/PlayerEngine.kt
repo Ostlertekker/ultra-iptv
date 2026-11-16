@@ -356,7 +356,15 @@ class PlayerEngine @Inject constructor(
         )
     }
 
-    private fun mediaItem(url: String) = MediaItem.Builder().setUri(url).apply { mimeFor(url)?.let { setMimeType(it) } }.build()
+    private fun mediaItem(url: String, subtitles: List<ExternalSubtitle> = emptyList()) = MediaItem.Builder().setUri(url).apply {
+        mimeFor(url)?.let { setMimeType(it) }
+        // Externe Untertitel (z. B. aus Jellyfin) als eigene Spuren – wählbar wie eingebettete
+        if (subtitles.isNotEmpty()) setSubtitleConfigurations(subtitles.map { st ->
+            MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(st.url))
+                .setMimeType(if (st.format == "vtt") androidx.media3.common.MimeTypes.TEXT_VTT else androidx.media3.common.MimeTypes.APPLICATION_SUBRIP)
+                .setLanguage(st.language).setLabel(st.label).build()
+        })
+    }.build()
     private var fpsLastCount = -1
     private var fpsLastTime = 0L
 
@@ -442,7 +450,8 @@ class PlayerEngine @Inject constructor(
         return p
     }
 
-    fun play(url: String, startMs: Long, profile: BufferProfile, who: String = "player", isLive: Boolean = false) {
+    fun play(url: String, startMs: Long, profile: BufferProfile, who: String = "player", isLive: Boolean = false,
+             subtitles: List<ExternalSubtitle> = emptyList()) {
         owner = who
         live = isLive
         startWatchdog()
@@ -465,7 +474,7 @@ class PlayerEngine @Inject constructor(
         graceUntil = now + 12_000 // erster Verbindungsaufbau darf länger dauern
         lastProgressAt = now; lastPos = Long.MIN_VALUE
         if (canTimeshift(url, who, isLive)) p.setMediaItem(startTimeshift(url))
-        else { stopTimeshift(); p.setMediaItem(mediaItem(url), startMs.coerceAtLeast(0)) }
+        else { stopTimeshift(); p.setMediaItem(mediaItem(url, subtitles), startMs.coerceAtLeast(0)) }
         p.prepare()
         p.playWhenReady = true
     }
@@ -720,3 +729,7 @@ class PlayerEngine @Inject constructor(
         }
     }
 }
+
+
+/** Externe Untertiteldatei (SRT/VTT), die zusammen mit dem Video geladen wird. */
+data class ExternalSubtitle(val url: String, val language: String?, val label: String, val format: String)

@@ -95,6 +95,8 @@ val aspectNames = listOf("Original (Einpassen)", "Strecken", "Zoom (Füllen)", "
 /** Bis zu diesem Abstand gilt die Wiedergabe als „live“ (Puffer-Vorlauf). */
 private const val LIVE_TOLERANCE_MS = 9_000L
 
+private const val JF = "jf:"
+
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
     savedState: SavedStateHandle,
@@ -109,6 +111,7 @@ class PlayerViewModel @Inject constructor(
     private val extras: ExtrasDao,
     private val discover: de.ostlertekker.ultraiptv.core.discover.DiscoverRepository,
     private val sports: de.ostlertekker.ultraiptv.core.discover.SportsRepository,
+    private val jellyfin: de.ostlertekker.ultraiptv.core.jellyfin.JellyfinRepository,
 ) : ViewModel() {
 
     private val kind = runCatching { ContentKind.valueOf(savedState.get<String>(PlayerActivity.EXTRA_KIND) ?: "") }.getOrDefault(ContentKind.MOVIE)
@@ -131,6 +134,10 @@ class PlayerViewModel @Inject constructor(
     private var movie: MovieEntity? = null
     private var episode: EpisodeEntity? = null
     private var nextEpisode: EpisodeEntity? = null
+    // Jellyfin: aktuelle Wiedergabe-Sitzung (für Fortschrittsmeldung an den Server und Rückfall auf Transkodierung)
+    private var jfPlayback: de.ostlertekker.ultraiptv.core.jellyfin.JfPlayback? = null
+    private var jfId: String? = null
+    private val isJellyfin get() = itemId.startsWith(JF)
     private var image: String? = null
     private val skip = SmartSkipEngine()
     private var segments: List<SkipSegment> = emptyList()
@@ -187,6 +194,7 @@ class PlayerViewModel @Inject constructor(
     private fun settingsOrNull(): AppSettings? = if (this::settings.isInitialized) settings else null
 
     private suspend fun loadAndPlay(start: Long) {
+        if (itemId.startsWith(JF)) { loadJellyfin(start); return }
         when (kind) {
             ContentKind.LIVE -> {
                 val ch = content.channel(itemId) ?: return fail("Sender nicht gefunden")
@@ -208,6 +216,78 @@ class PlayerViewModel @Inject constructor(
             }
             ContentKind.SERIES -> fail("Bitte eine Episode wählen")
         }
+    }
+
+    // ---------------------------------------------------- Jellyfin (im eigenen Player, ohne externe App)
+
+    private suspend fun loadJellyfin(start: Long) {
+        val id = itemId.removePrefix(JF)
+        val it = try { jellyfin.item(id) } catch (e: Exception) { return fail(e.message ?: "Jellyfin nicht erreichbar") } ?: return fail("Titel nicht gefunden")
+        val poster = jellyfin.image(it)
+        if (it.isEpisode && it.seriesId != null) {
+            val all = runCatching { jellyfin.episodes(it.seriesId) }.getOrDefault(listOf(it))
+            val list = all.map { e -> jfEpisode(e) }
+            val ep = list.firstOrNull { e -> e.id == itemId } ?: jfEpisode(it)
+            playJfEpisode(ep, list, start)
+        } else {
+            movie = MovieEntity(itemId, it.name, "Jellyfin", poster, jellyfin.image(it, "Backdrop"), it.overview, it.genres.firstOrNull(),
+                it.year?.toString(), it.rating, it.runtimeMs / 1000, "", 0L, false)
+            image = poster
+            logName = it.name; logCategory = it.genres.firstOrNull() ?: "Jellyfin"
+            _ui.update { u -> u.copy(title = it.name, subtitle = listOfNotNull(it.year?.toString(), it.genres.firstOrNull()).joinToString(" · ")) }
+            playJf(id, start)
+        }
+    }
+
+    private var jfEpisodes: List<EpisodeEntity> = emptyList()
+
+    private fun jfEpisode(e: de.ostlertekker.ultraiptv.core.jellyfin.JfItem) = EpisodeEntity(
+        JF + e.id, JF + (e.seriesId ?: ""), e.parentIndex ?: 0, e.index ?: 0, e.name, e.overview, jellyfin.image(e, width = 480),
+        e.runtimeMs / 1000, "")
+
+    private suspend fun playJfEpisode(ep: EpisodeEntity, list: List<EpisodeEntity>, start: Long) {
+        logWatch()
+        jfEpisodes = list
+        episode = ep; itemId = ep.id; image = ep.image
+        logName = ep.title; logCategory = "Serie"
+        skip.reset(); countdownCancelled = false; countdownJob?.cancel(); segments = emptyList()
+        val idx = list.indexOfFirst { it.id == ep.id }
+        nextEpisode = if (idx >= 0) list.getOrNull(idx + 1) else null
+        val seriesName = runCatching { jellyfin.item(ep.seriesId.removePrefix(JF))?.name }.getOrNull()
+        _ui.update {
+            it.copy(title = seriesName ?: ep.title, subtitle = "S${ep.season} E${ep.episode} · ${ep.title}", hasNext = nextEpisode != null,
+                countdown = null, skipOffer = null, ended = false, segments = segments, pendingMarkStart = null)
+        }
+        playJf(ep.id.removePrefix(JF), start)
+    }
+
+    private suspend fun playJf(id: String, start: Long, forceTranscode: Boolean = false) {
+        // Alten Titel beim Server abmelden (Folgenwechsel)
+        val prev = jfPlayback; val prevId = jfId
+        if (prev != null && prevId != null && prevId != id) jellyfin.reportStopped(prevId, prev, engine.player?.currentPosition ?: 0L)
+        val pb = try { jellyfin.playback(id, 0, forceTranscode) } catch (e: Exception) { return fail(e.message ?: "Wiedergabe nicht möglich") }
+        jfPlayback = pb; jfId = id
+        currentStreamUrl = pb.url
+        engine.play(pb.url, start, settings.bufferProfile, isLive = false,
+            subtitles = pb.subtitles.map { de.ostlertekker.ultraiptv.core.player.ExternalSubtitle(it.url, it.language, it.label, it.format) })
+        viewModelScope.launch { applyQuality() }
+        if (pb.method == "Transcode") _ui.update { it.copy(qualityNote = "Jellyfin transkodiert für dieses Gerät") }
+        jellyfin.reportStart(id, pb, start)
+    }
+
+    private fun reportJfProgress() {
+        val pb = jfPlayback ?: return; val id = jfId ?: return
+        val p = engine.player ?: return
+        val pos = p.currentPosition; val paused = !p.isPlaying
+        viewModelScope.launch { jellyfin.reportProgress(id, pb, pos, paused) }
+    }
+
+    private fun stopJf() {
+        val pb = jfPlayback ?: return; val id = jfId ?: return
+        val pos = engine.player?.currentPosition ?: 0L
+        jfPlayback = null; jfId = null
+        // Eigener Scope: die Abmeldung beim Server soll auch nach dem Schließen des Players noch rausgehen
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { jellyfin.reportStopped(id, pb, pos) }
     }
 
     private fun fail(msg: String) { _ui.update { it.copy(error = msg, buffering = false) } }
@@ -363,6 +443,7 @@ class PlayerViewModel @Inject constructor(
         countdownJob?.cancel(); countdownJob = null
         viewModelScope.launch {
             saveProgress()
+            if (next.id.startsWith(JF)) { playJfEpisode(next, jfEpisodes, 0); return@launch }
             val pr = user.progress(ContentKind.EPISODE, next.id)
             val resume = if (pr != null && pr.durationMs > 0 && pr.positionMs < pr.durationMs * 0.95) pr.positionMs else 0L
             playEpisode(next, resume)
@@ -689,6 +770,7 @@ class PlayerViewModel @Inject constructor(
         val p = engine.player ?: return
         val dur = p.duration.takeIf { it != C.TIME_UNSET && it > 0 } ?: return
         val pos = p.currentPosition
+        if (isJellyfin) { reportJfProgress(); return }
         when (kind) {
             ContentKind.MOVIE -> movie?.let { user.saveProgress(ContentKind.MOVIE, it.id, pos, dur, it.name, image) }
             ContentKind.EPISODE -> episode?.let { user.saveProgress(ContentKind.EPISODE, it.id, pos, dur, _ui.value.title + " · S${it.season}E${it.episode}", image, it.seriesId) }
@@ -721,11 +803,13 @@ class PlayerViewModel @Inject constructor(
 
     fun onExit() {
         saveChannelQuality()
+        stopJf()
         if (!keepEngine) engine.stop()
     }
 
     override fun onCleared() {
         logWatch()
+        stopJf()
         if (!keepEngine) engine.stop()
         super.onCleared()
     }
@@ -788,6 +872,14 @@ class PlayerViewModel @Inject constructor(
     )
 
     private fun onFatal() {
+        // Jellyfin: Direct Play klappt auf diesem Gerät nicht → automatisch auf Transkodierung (HLS) wechseln
+        val pb = jfPlayback; val id = jfId
+        if (pb != null && id != null && pb.method != "Transcode") {
+            val pos = engine.player?.currentPosition ?: 0L
+            toast("Format nicht direkt abspielbar – Jellyfin transkodiert")
+            viewModelScope.launch { playJf(id, pos, forceTranscode = true) }
+            return
+        }
         if (kind != ContentKind.LIVE || !settings.autoFailover) return
         val cur = channels.getOrNull(channelIndex) ?: return
         triedChannels += cur.id

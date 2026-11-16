@@ -610,10 +610,10 @@ fun TopNavBar(items: List<NavItem>, utility: List<NavItem>, selectedRoute: Strin
             .padding(start = 28.dp, end = 24.dp, top = 14.dp, bottom = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("OSTLERTEKKER", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp,
+        Text("OSTLERTEKKER", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp,
             fontFamily = de.ostlertekker.ultraiptv.core.design.AppFonts.Inter, maxLines = 1)
         Spacer(Modifier.weight(1f))
-        Row(Modifier.padding(start = 16.dp).background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(50)).padding(3.dp),
+        Row(Modifier.padding(start = 10.dp).background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(50)).padding(3.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             items.forEachIndexed { i, item ->
                 val focusHere = if (items.any { it.route == selectedRoute }) item.route == selectedRoute else i == 0
@@ -644,7 +644,7 @@ private fun TopNavPill(label: String, selected: Boolean, onClick: () -> Unit, fo
                 onClick = { sounds?.select(); onClick() })
             .background(
                 when { focused -> Color.White; selected -> Color.White.copy(alpha = 0.18f); else -> Color.Transparent }, shape)
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .padding(horizontal = 8.dp, vertical = 6.dp),
     ) {
         Text(label, color = if (focused) Color(0xFF111111) else if (selected) Color.White else Color.White.copy(alpha = 0.72f),
             fontSize = 14.sp, fontWeight = if (focused || selected) FontWeight.SemiBold else FontWeight.Medium, maxLines = 1, softWrap = false)

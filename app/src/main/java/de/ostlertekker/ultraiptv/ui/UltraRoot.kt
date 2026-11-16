@@ -90,6 +90,10 @@ object Routes {
 
     // Entdecken-Funktionen
     const val EXPLORE = "explore"
+    const val JELLYFIN = "jellyfin"
+    fun jfMovie(id: String) = "jfMovie/${Uri.encode(id)}"
+    fun jfSeries(id: String) = "jfSeries/${Uri.encode(id)}"
+    fun jfLibrary(id: String, name: String) = "jfLibrary/${Uri.encode(id)}?name=${Uri.encode(name)}"
     const val WHATSON = "whatson"
     const val EVENTS = "events"
     const val SPORTS = "sports"
@@ -152,6 +156,7 @@ private fun railRouteFor(route: String): String = when {
     route.startsWith("movie/") -> Routes.MOVIES
     route.startsWith("seriesDetail/") -> Routes.SERIES
     route.startsWith(Routes.EPG) -> Routes.EPG
+    route.startsWith("jf") || route.startsWith(Routes.JELLYFIN) -> Routes.JELLYFIN
     route.startsWith(Routes.EVENTS) || route.startsWith(Routes.SPORTS) -> Routes.EVENTS
     route.startsWith(Routes.SETUP) -> Routes.SETTINGS
     route.startsWith(Routes.SETUP_NEW) -> Routes.SETTINGS
@@ -171,7 +176,7 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
     val items = remember {
         listOf(
             NavItem(Routes.HOME, "Start"), NavItem(Routes.LIVE, "Live-TV"), NavItem(Routes.EPG, "TV-Programm"), NavItem(Routes.MOVIES, "Filme"),
-            NavItem(Routes.SERIES, "Serien"), NavItem(Routes.EVENTS, "Sport"), NavItem(Routes.FAVORITES, "Favoriten"), NavItem(Routes.EXPLORE, "Mehr"),
+            NavItem(Routes.SERIES, "Serien"), NavItem(Routes.EVENTS, "Sport"), NavItem(Routes.FAVORITES, "Favoriten"), NavItem(Routes.JELLYFIN, "Jellyfin"), NavItem(Routes.EXPLORE, "Mehr"),
         )
     }
     val utility = remember { listOf(NavItem(Routes.SEARCH, "🔍"), NavItem(Routes.SETTINGS, "⚙")) }
@@ -233,6 +238,17 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
                     composable(Routes.SPORTS) { de.ostlertekker.ultraiptv.feature.discover.SportsScreen(nav) }
                     composable(Routes.MYTV) { de.ostlertekker.ultraiptv.feature.discover.MyTvScreen() }
                     composable(Routes.LISTS) { de.ostlertekker.ultraiptv.feature.discover.ListsScreen() }
+                    composable(Routes.JELLYFIN) { de.ostlertekker.ultraiptv.feature.jellyfin.JellyfinScreen(nav) }
+                    composable("jfMovie/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) {
+                        de.ostlertekker.ultraiptv.feature.jellyfin.JellyfinMovieScreen(nav)
+                    }
+                    composable("jfSeries/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) {
+                        de.ostlertekker.ultraiptv.feature.jellyfin.JellyfinSeriesScreen(nav)
+                    }
+                    composable("jfLibrary/{id}?name={name}", arguments = listOf(navArgument("id") { type = NavType.StringType },
+                        navArgument("name") { type = NavType.StringType; defaultValue = "Bibliothek" })) {
+                        de.ostlertekker.ultraiptv.feature.jellyfin.JellyfinLibraryScreen(nav)
+                    }
                     composable(Routes.SETUP_NEW) { ProviderSetupScreen(onDone = { nav.popBackStack() }, firstRun = false, newAccount = true) }
                     composable(Routes.SETUP) { ProviderSetupScreen(onDone = { nav.popBackStack() }, firstRun = false) }
                 }

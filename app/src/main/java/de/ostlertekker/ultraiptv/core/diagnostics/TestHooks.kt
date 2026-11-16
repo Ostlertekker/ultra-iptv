@@ -18,4 +18,5 @@ interface TestHooks {
     fun sync(): SyncRepository
     fun user(): UserRepository
     fun content(): ContentRepository
+    fun jellyfin(): de.ostlertekker.ultraiptv.core.jellyfin.JellyfinRepository
 }
