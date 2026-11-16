@@ -100,7 +100,9 @@ fun HoloGuideScreen(vm: DiscoverViewModel = hiltViewModel()) {
     val rows by vm.holoChannels.collectAsStateWithLifecycle()
     val loading by vm.loading.collectAsStateWithLifecycle()
     val act = rememberProgramAction(vm)
-    val clock = rememberAnimationClock(true, fps = 30, pauseOnInput = true)
+    // Performance-Modus: Holo-Raster steht still (keine Dauerlast); Inhalt bleibt voll bedienbar
+    val perf = de.ostlertekker.ultraiptv.core.ui.LocalPerfMode.current
+    val clock = rememberAnimationClock(!perf, fps = 30, pauseOnInput = true)
     LaunchedEffect(Unit) { vm.loadHolo() }
     val now = remember(rows) { System.currentTimeMillis() }
     val from = now - 10 * 60_000L
@@ -130,9 +132,9 @@ fun HoloGuideScreen(vm: DiscoverViewModel = hiltViewModel()) {
             if (loading && rows.isEmpty()) UltraLoader(Modifier.align(Alignment.CenterHorizontally))
             if (!loading && rows.isEmpty()) Text("Keine Programmdaten vorhanden.", color = pal.textDim)
             // Räumliche Neigung: die Liste kippt leicht nach hinten weg
-            Box(Modifier.fillMaxSize().graphicsLayer {
+            Box(Modifier.fillMaxSize().then(if (perf) Modifier else Modifier.graphicsLayer {
                 rotationX = 12f; cameraDistance = 18f * density; transformOrigin = TransformOrigin(0.5f, 0f)
-            }) {
+            })) {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     item { HoloRuler(from, to, now) }
                     itemsIndexed(rows, key = { _, r -> r.first.id }) { _, (ch, progs) -> HoloRow(ch, progs, from, to, now) { act(it) } }
@@ -221,7 +223,8 @@ fun UniverseScreen(vm: DiscoverViewModel = hiltViewModel()) {
     var nowTitle by remember { mutableStateOf<String?>(null) }
     val focus = remember { FocusRequester() }
     val measurer = rememberTextMeasurer()
-    val clock = rememberAnimationClock(true, fps = 30, pauseOnInput = false)
+    val perf = de.ostlertekker.ultraiptv.core.ui.LocalPerfMode.current
+    val clock = rememberAnimationClock(!perf, fps = 30, pauseOnInput = false)
     val camX by animateFloatAsState(ci.toFloat(), tween(700), label = "cam")
     LaunchedEffect(Unit) { vm.loadUniverse() }
     LaunchedEffect(clusters.isNotEmpty()) { if (clusters.isNotEmpty()) { delay(150); runCatching { focus.requestFocus() } } }
