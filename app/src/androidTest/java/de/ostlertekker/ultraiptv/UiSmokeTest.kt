@@ -29,6 +29,8 @@ import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.junit.FixMethodOrder
+import org.junit.runners.MethodSorters
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -38,15 +40,22 @@ import java.util.concurrent.TimeUnit
  * startet Sender/Filme und prüft dabei laufend, dass die App nicht abstürzt und nicht hängt.
  */
 @RunWith(AndroidJUnit4::class)
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
 class UiSmokeTest {
     private val instr = InstrumentationRegistry.getInstrumentation()
     private val context = instr.targetContext
     private val device = UiDevice.getInstance(instr)
-    private lateinit var server: MockWebServer
+    companion object {
+        /** Mock-Server und Testdaten werden einmal pro Testlauf angelegt (gleiche Sender-IDs für alle Abschnitte). */
+        lateinit var server: MockWebServer
+        var seeded = false
+    }
     private val hooks by lazy { EntryPointAccessors.fromApplication(context.applicationContext, TestHooks::class.java) }
 
     @Before fun setUp() {
         StabilityGuard.clear(context)
+        if (seeded) return
+        seeded = true
         server = MockWebServer()
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
@@ -85,7 +94,7 @@ class UiSmokeTest {
     }
 
     @After fun tearDown() {
-        runCatching { server.shutdown() }
+        // Server bleibt für die folgenden Abschnitte aktiv; der Prozess endet nach dem Testlauf
     }
 
     private fun playlist(): String = buildString {
@@ -148,11 +157,21 @@ class UiSmokeTest {
     }
 
     private fun keys(step: String, vararg codes: Int, pauseMs: Long = 220) {
-        for (c in codes) { device.pressKeyCode(c); Thread.sleep(pauseMs) }
+        android.util.Log.i("UiSmoke", "Schritt: $step")
+        // Tasten direkt einspeisen (ohne auf Barrierefreiheits-Ruhe zu warten – Animationen laufen dauerhaft)
+        for (c in codes) {
+            val t = android.os.SystemClock.uptimeMillis()
+            instr.uiAutomation.injectInputEvent(KeyEvent(t, t, KeyEvent.ACTION_DOWN, c, 0), true)
+            instr.uiAutomation.injectInputEvent(KeyEvent(t, t + 30, KeyEvent.ACTION_UP, c, 0), true)
+            Thread.sleep(pauseMs)
+        }
         assertResponsive(step)
     }
 
+    @get:org.junit.Rule val timeout: org.junit.rules.Timeout = org.junit.rules.Timeout.seconds(420)
+
     private fun openRoute(route: String): ActivityScenario<MainActivity> {
+        android.util.Log.i("UiSmoke", "Öffne Seite: $route")
         val intent = Intent(context, MainActivity::class.java).putExtra(MainActivity.EXTRA_ROUTE, route)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         val sc = ActivityScenario.launch<MainActivity>(intent)
@@ -170,7 +189,7 @@ class UiSmokeTest {
 
     // ------------------------------------------------------------- Test
 
-    @Test fun everyScreenWorksWithRemote() {
+    @Test fun a_favorites() {
         // Favoriten (gemeldetes Problem) – mehrfach rein, bedienen, Sender starten, zurück
         repeat(3) { round ->
             openRoute(Routes.FAVORITES).use {
@@ -186,6 +205,10 @@ class UiSmokeTest {
                 keys("Favoriten nach Player", R, D, U, L, L)
             }
         }
+        finish()
+    }
+
+    @Test fun b_liveTvAndPlayer() {
         // Live TV: Kategorien, schnelles Scrollen mit Vorschau, Fehler-Sender (404/403), Player
         openRoute(Routes.LIVE).use {
             shot("live_tv")
@@ -201,6 +224,10 @@ class UiSmokeTest {
             keys("Overlay + Menüs", R, R, R, OK, BACK, BACK); Thread.sleep(1000)
             keys("Player zu", BACK, BACK); Thread.sleep(1500)
         }
+        finish()
+    }
+
+    @Test fun c_classicScreens() {
         for (route in listOf(Routes.HOME, Routes.MOVIES, Routes.SERIES, Routes.WORLD, Routes.SEARCH, Routes.EPG)) {
             openRoute(route).use {
                 shot(route)
@@ -210,6 +237,10 @@ class UiSmokeTest {
                 keys("$route nach Zurück", D, R, U)
             }
         }
+        finish()
+    }
+
+    @Test fun d_discoverScreens() {
         // Neue Entdecken-Funktionen: jede Seite öffnen, bedienen, Aktion auslösen
         val past = System.currentTimeMillis() - 2 * 3_600_000L
         for (route in listOf(Routes.EXPLORE, Routes.WHATSON, Routes.radar("Fußball"), Routes.timeMachine(past), Routes.EVENTS, Routes.SPORTS,
@@ -226,6 +257,10 @@ class UiSmokeTest {
                 keys("$name nach Zurück", D, U)
             }
         }
+        finish()
+    }
+
+    @Test fun e_multiView() {
         // Multi-View mit 4 Sendern
         val ids = runBlocking { hooks.content().channelsAllOnce(4).map { it.id } }
         ActivityScenario.launch<de.ostlertekker.ultraiptv.feature.multiview.MultiViewActivity>(
@@ -240,6 +275,10 @@ class UiSmokeTest {
             keys("Multi-View Layout", U, U, R, R, OK, pauseMs = 500); Thread.sleep(3000)
             assertResponsive("Multi-View")
         }
+        finish()
+    }
+
+    @Test fun f_settingsAndIntro() {
         // Einstellungen: jede Sektion einmal rendern
         openRoute(Routes.SETTINGS).use {
             keys("Einstellungen betreten", R)
@@ -259,6 +298,10 @@ class UiSmokeTest {
             Thread.sleep(4000); shot("hauptmenue_nach_intro")
             assertResponsive("Intro")
         }
+        finish()
+    }
+
+    private fun finish() {
         StabilityGuard.lastCrash(context)?.let { fail("Absturz aufgezeichnet:\n$it") }
         StabilityGuard.lastFreeze(context)?.let { fail("Hänger aufgezeichnet:\n$it") }
     }
