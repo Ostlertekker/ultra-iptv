@@ -18,6 +18,7 @@ class UltraApp : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.install(this)
         credentialStore.init()
     }
 

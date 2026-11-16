@@ -77,6 +77,61 @@ jobs:
           name: UltraIPTV-apks
           path: out/*.apk
 
+  # Echter Android-Emulator (TV-Auflösung 1080p): App mit Testquelle starten, alle Seiten per
+  # Fernbedienungstasten bedienen, Sender/Filme abspielen – Abstürze und Hänger lassen den Test scheitern.
+  ui-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      VERSION_CODE: ${{ github.run_number }}
+      VERSION_NAME: 1.0.${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: KVM aktivieren
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Test-APKs vorbereiten
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleDebug assembleDebugAndroidTest
+      - name: Oberflächentest im Emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: tv_1080p
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: ./gradlew --no-daemon connectedDebugAndroidTest > uitest.log 2>&1 || (adb logcat -d > logcat.txt; exit 1)
+      - name: UI-Test-Log bei Fehler veröffentlichen (Branch ci-logs)
+        if: failure()
+        run: |
+          mkdir -p /tmp/logs
+          cp uitest.log logcat.txt /tmp/logs/ 2>/dev/null || true
+          find app/build/outputs/androidTest-results -name '*.xml' -exec cp {} /tmp/logs/ \; 2>/dev/null || true
+          grep -E "FATAL|AndroidRuntime|ANR in|Hänger|hängt|Absturz" -A30 /tmp/logs/logcat.txt > /tmp/logs/crashes.txt 2>/dev/null || true
+          cd /tmp/logs
+          git init -q
+          git checkout -q -b ci-logs
+          git add .
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "UI test log run ${{ github.run_number }}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ci-logs
+
+  release:
+    needs: [build, ui-test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: UltraIPTV-apks
+          path: out
       - name: GitHub Release veröffentlichen
         uses: softprops/action-gh-release@v2
         with:
@@ -85,6 +140,7 @@ jobs:
           make_latest: true
           body: |
             OSTLERTEKKER PRESENTS – ULTRA IPTV
+            Automatisch geprüft: Build, Unit-Tests und Oberflächentest im Android-Emulator.
 
             Installation auf Fire TV: App „Downloader“ öffnen und diese Adresse eingeben:
             https://github.com/${{ github.repository }}/releases/latest/download/UltraIPTV.apk

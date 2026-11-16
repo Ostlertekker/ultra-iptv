@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.Canvas
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
+import androidx.compose.ui.geometry.Offset
 import de.ostlertekker.ultraiptv.core.animation.hash01
 import de.ostlertekker.ultraiptv.core.audio.AudioExperienceEngine
 import de.ostlertekker.ultraiptv.core.design.ResolvedTheme
@@ -155,15 +156,33 @@ fun IntroScreen(full: Boolean, soundEnabled: Boolean, sounds: AudioExperienceEng
             val left = (w - boxW) / 2; val top = h * 0.40f - boxH / 2
             val dst = RectF(left, top, left + boxW, top + boxH)
 
+            // 1. Der giftige Planet: wächst heran, bekommt Risse und explodiert – aus den Trümmern entsteht das Logo
+            val planetC = Offset(w / 2, h * 0.40f)
+            val planetR = h * 0.16f
+            val grow = ramp(0.0f, 0.5f)
+            val crackP = ramp(0.6f, 1.6f)
+            val boomP = ramp(1.6f, 2.7f)
+            if (boomP < 1f) {
+                val easeGrow = 1f - (1f - grow) * (1f - grow) * (1f - grow)
+                with(de.ostlertekker.ultraiptv.core.ui.ToxicPlanet) {
+                    drawToxicPlanet(planetC, planetR, t, crackP, boomP, reform = easeGrow,
+                        detail = theme.anim.profile != AnimationProfile.ECONOMY)
+                }
+            }
             drawIntoCanvas { c ->
                 val nc = c.nativeCanvas
                 // 2. Atmosphärische Partikel + 4. Montage zum Logo
                 val n = min(asset.points.size / 2, 1500)
-                val appear = ramp(0.6f, 1.6f)
+                val appear = ramp(1.6f, 1.8f)
+                val blastRaw = ramp(1.6f, 2.4f)
+                val blast = 1f - (1f - blastRaw) * (1f - blastRaw)
                 val logoSolid = ramp(3.7f, 4.5f)
                 if (appear > 0f && logoSolid < 1f) {
                     for (i in 0 until n) {
-                        val sx = hash01(i, 1) * w; val sy = hash01(i, 2) * h
+                        // Startpunkt: Trümmerwolke der Planetenexplosion
+                        val ang = hash01(i, 1) * 6.2832f
+                        val dist = planetR * (0.2f + 3.6f * hash01(i, 2)) * blast
+                        val sx = planetC.x + kotlin.math.cos(ang) * dist; val sy = planetC.y + kotlin.math.sin(ang) * dist
                         val tx = left + asset.points[i * 2] * boxW; val ty = top + asset.points[i * 2 + 1] * boxH
                         val delay = hash01(i, 3) * 0.7f
                         val raw = ((t - T(2.0f + delay)) / T(1.5f)).coerceIn(0f, 1f)

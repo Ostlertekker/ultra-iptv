@@ -36,9 +36,12 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
     @Inject lateinit var playerEngine: PlayerEngine
 
+    companion object { const val EXTRA_ROUTE = "ultra_route" }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { UltraRoot() }
+        val startRoute = intent?.getStringExtra(EXTRA_ROUTE)
+        setContent { UltraRoot(startRoute) }
         // Läuft eine Vorschau oder der Mini-Player, darf der Bildschirmschoner die Wiedergabe nicht unterbrechen
         lifecycleScope.launch {
             playerEngine.playing.collect { on ->

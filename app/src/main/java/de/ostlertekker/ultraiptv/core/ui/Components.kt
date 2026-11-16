@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -360,9 +361,13 @@ fun NavRail(items: List<NavItem>, selectedRoute: String, onSelect: (String) -> U
             .drawBehind {
                 if (theme.spec.menuFx.shootingStars) drawShootingStars(p.particle, railClock.value * 1.3f + 3f, 1)
             }
+            .verticalScroll(androidx.compose.foundation.rememberScrollState())
             .padding(vertical = 18.dp, horizontal = 14.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
+        // Animiertes App-Logo: giftiger Planet, der regelmäßig explodiert und sich neu formt
+        ToxicPlanetLogo(Modifier.padding(start = 4.dp).size(58.dp), running = theme.anim.backgroundMotion,
+            detail = theme.anim.profile != AnimationProfile.ECONOMY)
         Text("OSTLERTEKKER", color = p.textDim, fontSize = 11.sp, letterSpacing = 4.sp, modifier = Modifier.padding(start = 10.dp))
         Text("ULTRA IPTV", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, fontFamily = theme.spec.fontFamily,
             style = TextStyle(brush = Brush.linearGradient(listOf(p.primary, Color.White, p.secondary))), letterSpacing = 2.sp,

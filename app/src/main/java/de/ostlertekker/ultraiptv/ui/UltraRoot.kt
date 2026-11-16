@@ -87,7 +87,7 @@ object Routes {
 private enum class Phase { INTRO, SETUP, PROFILES, MAIN }
 
 @Composable
-fun UltraRoot(vm: RootViewModel = hiltViewModel()) {
+fun UltraRoot(startRoute: String? = null, vm: RootViewModel = hiltViewModel()) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val hasProvider by vm.hasProvider.collectAsStateWithLifecycle()
     val profiles by vm.profiles.collectAsStateWithLifecycle()
@@ -128,7 +128,7 @@ fun UltraRoot(vm: RootViewModel = hiltViewModel()) {
                     LaunchedEffect(Unit) { delay(50); phase = Phase.MAIN }
                 }
             }
-            Phase.MAIN -> MainScaffold(s.customBackgroundUrl, vm)
+            Phase.MAIN -> MainScaffold(s.customBackgroundUrl, vm, startRoute)
         }
     }
 }
@@ -144,7 +144,7 @@ private fun railRouteFor(route: String): String = when {
 }
 
 @Composable
-private fun MainScaffold(customBackground: String, vm: RootViewModel) {
+private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute: String? = null) {
     val theme = LocalUltraTheme.current
     val sounds = LocalUiSounds.current
     val nav = rememberNavController()
@@ -159,6 +159,11 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel) {
         )
     }
     LaunchedEffect(Unit) { delay(150); runCatching { railFocus.requestFocus() } }
+    // Direkter Einstieg in eine Seite (z. B. für automatische Oberflächentests)
+    LaunchedEffect(startRoute) {
+        val r = startRoute ?: return@LaunchedEffect
+        if (r != Routes.HOME) runCatching { navigateTop(nav, r) }
+    }
     BackHandler(enabled = route != Routes.HOME) {
         sounds?.back()
         if (!nav.popBackStack()) nav.navigate(Routes.HOME)

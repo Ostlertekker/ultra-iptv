@@ -432,6 +432,7 @@ private fun LazyListScope.networkSection(vm: SettingsViewModel, s: AppSettings) 
 }
 
 private fun LazyListScope.diagnosticsSection(vm: SettingsViewModel, s: AppSettings) {
+    item { ErrorReportBlock() }
     item { SectionHeader("Gerät") }
     items(vm.deviceReport) { InfoRow(it.label, it.value, it.accuracy) }
     item { SectionHeader("Letzte Wiedergabe") }
@@ -649,6 +650,32 @@ private fun LazyListScope.playerControlsSection(vm: SettingsViewModel, s: AppSet
             ChoiceRow("Beim Start automatisch", if (s.sleepTimerMin == 0) "Aus" else "${s.sleepTimerMin} min",
                 { vm.set(Keys.SLEEP_TIMER, cycle(listOf(0, 15, 30, 45, 60, 90, 120), s.sleepTimerMin.takeIf { it in listOf(0, 15, 30, 45, 60, 90, 120) } ?: 0)) },
                 subtitle = "Im Player jederzeit über „☾ Sleep-Timer“ änderbar")
+        }
+    }
+}
+
+
+/** Zeigt den zuletzt aufgezeichneten Absturz bzw. Hänger – mit genauer Code-Stelle. */
+@Composable
+private fun ErrorReportBlock() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val p = LocalUltraTheme.current.palette
+    var version by remember { mutableStateOf(0) }
+    val crash = remember(version) { de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.lastCrash(context) }
+    val freeze = remember(version) { de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.lastFreeze(context) }
+    Column {
+        SectionHeader("Fehlerprotokoll")
+        if (crash == null && freeze == null) {
+            InfoRow("Status", "Keine Abstürze oder Hänger aufgezeichnet ✓", Accuracy.MEASURED)
+        } else {
+            Text("Bitte ein Foto dieses Protokolls schicken – es zeigt genau, wo das Problem liegt.", color = p.textDim, fontSize = 13.sp)
+            listOfNotNull(crash?.let { "ABSTURZ" to it }, freeze?.let { "HÄNGER" to it }).forEach { (title, text) ->
+                Text(title, color = p.primary, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp))
+                Text(text.lines().take(28).joinToString("\n"), color = p.text, fontSize = 11.sp,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    modifier = Modifier.fillMaxWidth().background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.45f), RoundedCornerShape(8.dp)).padding(10.dp))
+            }
+            ActionRow("Protokoll löschen", { de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.clear(context); version++ })
         }
     }
 }
