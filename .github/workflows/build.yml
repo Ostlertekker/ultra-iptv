@@ -110,7 +110,16 @@ jobs:
           profile: tv_1080p
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: ./gradlew --no-daemon connectedDebugAndroidTest > uitest.log 2>&1 || (adb logcat -d > logcat.txt; exit 1)
+          script: ./gradlew --no-daemon connectedDebugAndroidTest > uitest.log 2>&1; r=$?; mkdir -p shots; adb pull /data/local/tmp/shots shots || true; adb logcat -d > logcat.txt; grep -E 'Tests? |tests completed|FAILED|BUILD' uitest.log | tail -15; exit $r
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-test-report
+          path: |
+            shots/
+            uitest.log
+            logcat.txt
+            app/build/outputs/androidTest-results/
       - name: UI-Test-Log bei Fehler veröffentlichen (Branch ci-logs)
         if: failure()
         run: |

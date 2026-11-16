@@ -125,6 +125,14 @@ class UiSmokeTest {
         StabilityGuard.lastFreeze(context)?.let { fail("Hänger aufgezeichnet nach „$step“:\n$it") }
     }
 
+    /** Bildschirmfoto (als Shell aufgenommen → überlebt die Deinstallation, CI lädt es hoch). */
+    private var shotNo = 0
+    private fun shot(name: String) {
+        shotNo++
+        runCatching { device.executeShellCommand("mkdir -p /data/local/tmp/shots") }
+        runCatching { device.executeShellCommand("screencap -p /data/local/tmp/shots/%02d_%s.png".format(shotNo, name)) }
+    }
+
     private fun keys(step: String, vararg codes: Int, pauseMs: Long = 220) {
         for (c in codes) { device.pressKeyCode(c); Thread.sleep(pauseMs) }
         assertResponsive(step)
@@ -152,8 +160,11 @@ class UiSmokeTest {
         // Favoriten (gemeldetes Problem) – mehrfach rein, bedienen, Sender starten, zurück
         repeat(3) { round ->
             openRoute(Routes.FAVORITES).use {
+                if (round == 0) shot("favoriten")
                 keys("Favoriten Runde $round betreten", R, R, D, R, R, L)
+                if (round == 0) shot("favoriten_fokus")
                 keys("Favoriten Sender starten", OK); Thread.sleep(6000); assertResponsive("Favoriten → Player")
+                if (round == 0) shot("player_aus_favoriten")
                 keys("Player zappen", D, D, U); Thread.sleep(3000)
                 keys("Player verlassen", BACK, BACK); Thread.sleep(1500)
                 keys("Favoriten nach Player", R, D, U, L, L)
@@ -161,18 +172,22 @@ class UiSmokeTest {
         }
         // Live TV: Kategorien, schnelles Scrollen mit Vorschau, Fehler-Sender (404/403), Player
         openRoute(Routes.LIVE).use {
+            shot("live_tv")
             keys("Live Kategorien", D, D, D, OK, R)
             keys("Live Dauer-Scrollen", *IntArray(25) { D }, pauseMs = 60)
             Thread.sleep(2500)
+            shot("live_tv_vorschau")
             keys("Live hoch", *IntArray(10) { U }, pauseMs = 80)
             keys("Live Sender öffnen", OK); Thread.sleep(6000); assertResponsive("Live Player")
             keys("Live zappen inkl. Fehlersender", D, D, D, D, pauseMs = 1500); Thread.sleep(4000)
             keys("Ziffern-Direktwahl", KeyEvent.KEYCODE_1, KeyEvent.KEYCODE_2); Thread.sleep(3000)
-            keys("Overlay + Menüs", OK, R, R, R, OK, BACK, BACK); Thread.sleep(1000)
+            keys("Overlay öffnen", OK); Thread.sleep(600); shot("player_overlay")
+            keys("Overlay + Menüs", R, R, R, OK, BACK, BACK); Thread.sleep(1000)
             keys("Player zu", BACK, BACK); Thread.sleep(1500)
         }
         for (route in listOf(Routes.HOME, Routes.MOVIES, Routes.SERIES, Routes.WORLD, Routes.SEARCH, Routes.EPG)) {
             openRoute(route).use {
+                shot(route)
                 keys("$route bedienen", R, R, D, D, R, R, D, U, U, L)
                 keys("$route öffnen", OK); Thread.sleep(3500); assertResponsive("$route Detail")
                 keys("$route zurück", BACK); Thread.sleep(1500)
@@ -182,8 +197,21 @@ class UiSmokeTest {
         // Einstellungen: jede Sektion einmal rendern
         openRoute(Routes.SETTINGS).use {
             keys("Einstellungen betreten", R)
-            keys("Alle Sektionen", *IntArray(32) { D }, pauseMs = 350)
+            for (i in 0 until 32) {
+                keys("Sektion $i", D, pauseMs = 350)
+                if (i in listOf(4, 5, 11, 12, 13, 23, 24)) shot("einstellungen_$i")
+            }
             keys("Sektionen zurück", *IntArray(32) { U }, pauseMs = 120)
+        }
+        // Volles Intro mit explodierendem Planeten
+        runBlocking { hooks.settings().set(Keys.INTRO, true); hooks.settings().set(Keys.INTRO_PLAYED, false) }
+        val intent = Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        ActivityScenario.launch<MainActivity>(intent).use {
+            Thread.sleep(700)
+            var prev = 0L
+            for (ms in listOf(0L, 600L, 1100L, 1500L, 1900L, 2400L, 4200L)) { Thread.sleep(ms - prev); prev = ms; shot("intro_$ms") }
+            Thread.sleep(4000); shot("hauptmenue_nach_intro")
+            assertResponsive("Intro")
         }
         StabilityGuard.lastCrash(context)?.let { fail("Absturz aufgezeichnet:\n$it") }
         StabilityGuard.lastFreeze(context)?.let { fail("Hänger aufgezeichnet:\n$it") }
