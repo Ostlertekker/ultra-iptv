@@ -61,6 +61,9 @@ class WebAppActivity : ComponentActivity() {
     companion object {
         const val EXTRA_APP = "app"
         const val EXTRA_URL = "url"
+        /** Nur für automatische Tests: Seitenzustand dauerhaft einblenden / TV-Ansicht abschalten. */
+        const val EXTRA_DEBUG = "debug"
+        const val EXTRA_NO_TV = "noTv"
         fun open(context: Context, app: WebApp) =
             context.startActivity(Intent(context, WebAppActivity::class.java).putExtra(EXTRA_APP, app.name))
 
@@ -114,7 +117,7 @@ class WebAppActivity : ComponentActivity() {
                 override fun onPageFinished(view: WebView, url: String?) {
                     CookieManager.getInstance().flush()
                     // Falls das Start-Skript auf älteren WebViews nicht unterstützt wird: nachträglich einfügen
-                    if (app == WebApp.SPOTIFY) view.evaluateJavascript(SpotifyTv.SCRIPT, null)
+                    if (app == WebApp.SPOTIFY && !intent.getBooleanExtra(EXTRA_NO_TV, false)) view.evaluateJavascript(SpotifyTv.SCRIPT, null)
                 }
                 // Werbeblocker (YouTube): Anfragen an Werbe-/Tracking-Server gar nicht erst laden
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): android.webkit.WebResourceResponse? {
@@ -205,7 +208,15 @@ class WebAppActivity : ComponentActivity() {
             runCatching { androidx.webkit.WebViewCompat.addDocumentStartJavaScript(web, SponsorBlock.SCRIPT, setOf("https://www.youtube.com")) }
         }
         // Spotify: Fernseh-Ansicht + Pfeiltasten-Navigation (auch auf der Spotify-Anmeldeseite)
-        if (app == WebApp.SPOTIFY && androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
+        val tvMode = app == WebApp.SPOTIFY && !intent.getBooleanExtra(EXTRA_NO_TV, false)
+        if (intent.getBooleanExtra(EXTRA_DEBUG, false)) {
+            val r = object : Runnable { override fun run() {
+                web.evaluateJavascript("(function(){var b=document.body;return location.href+' | '+document.readyState+' | Text:'+(b?b.innerText.length:0)+' | '+(b?b.innerText.replace(/\\s+/g,' ').slice(0,160):'')+' | UA:'+navigator.userAgent.slice(-40)})()") { v ->
+                    hint.animate().cancel(); hint.alpha = 1f; hint.text = "DEBUG " + v }
+                hint.postDelayed(this, 2000) } }
+            hint.postDelayed(r, 2000)
+        }
+        if (tvMode && androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
             runCatching { androidx.webkit.WebViewCompat.addDocumentStartJavaScript(web, SpotifyTv.SCRIPT, setOf("https://*.spotify.com")) }
         }
         if (savedInstanceState != null) web.restoreState(savedInstanceState) else web.loadUrl(intent.getStringExtra(EXTRA_URL) ?: app.url)

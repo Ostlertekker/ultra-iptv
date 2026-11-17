@@ -44,8 +44,9 @@ class ZWebAppsTest {
         Thread.sleep(500)
     }
 
-    private fun launch(app: WebApp) = ActivityScenario.launch<WebAppActivity>(
+    private fun launch(app: WebApp, noTv: Boolean = false) = ActivityScenario.launch<WebAppActivity>(
         Intent(context, WebAppActivity::class.java).putExtra(WebAppActivity.EXTRA_APP, app.name)
+            .putExtra(WebAppActivity.EXTRA_DEBUG, app == WebApp.SPOTIFY).putExtra(WebAppActivity.EXTRA_NO_TV, noTv)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
 
     @Test fun youtubeAndSpotifyEmbedded() {
@@ -58,12 +59,14 @@ class ZWebAppsTest {
             Thread.sleep(1500); shot("youtube_zurueck")
         }
         launch(WebApp.SPOTIFY).use {
-            Thread.sleep(15_000); shot("spotify_start")
+            Thread.sleep(20_000); shot("spotify_start")
             key("Spotify Pfeiltasten-Navigation", KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_RIGHT, pauseMs = 400)
             Thread.sleep(800); shot("spotify_fokus")
             key("Spotify klicken", KeyEvent.KEYCODE_DPAD_CENTER)
             Thread.sleep(3000); shot("spotify_klick")
             key("Spotify Wiedergabe-Taste", KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
         }
+        // Vergleich ohne TV-Ansicht (Diagnose)
+        launch(WebApp.SPOTIFY, noTv = true).use { Thread.sleep(20_000); shot("spotify_ohne_tv") }
     }
 }
