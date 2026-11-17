@@ -161,11 +161,9 @@ private fun railRouteFor(route: String): String = when {
     route.startsWith("seriesDetail/") -> Routes.SERIES
     route.startsWith(Routes.EPG) -> Routes.EPG
     route.startsWith("jf") || route.startsWith(Routes.JELLYFIN) -> Routes.JELLYFIN
-    route.startsWith(Routes.SPORTS) -> Routes.SPORTS
+    route.startsWith(Routes.SPORTS) || route.startsWith("radar") -> Routes.SPORTS
     route.startsWith(Routes.SETUP) -> Routes.SETTINGS
     route.startsWith(Routes.SETUP_NEW) -> Routes.SETTINGS
-    listOf(Routes.WHATSON, "radar", "timemachine", Routes.MYTV, Routes.LISTS, Routes.EVENTS)
-        .any { route.startsWith(it) } -> Routes.EXPLORE
     else -> route
 }
 
@@ -243,18 +241,12 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
                     composable(Routes.FAVORITES) { FavoritesScreen(nav) }
                     composable(Routes.SEARCH) { SearchScreen(nav) }
                     composable(Routes.SETTINGS) { SettingsScreen(nav) }
-                    composable(Routes.EXPLORE) { de.ostlertekker.ultraiptv.feature.discover.ExploreHub(nav) }
-                    composable(Routes.WHATSON) { de.ostlertekker.ultraiptv.feature.discover.WhatsOnScreen(nav) }
+                    // „Mehr“: Menüpunkt bleibt, Inhalte vorerst entfernt
+                    composable(Routes.EXPLORE) { Box(Modifier.fillMaxSize()) }
                     composable("radar?q={q}", arguments = listOf(navArgument("q") { type = NavType.StringType; defaultValue = "" })) { e ->
                         de.ostlertekker.ultraiptv.feature.discover.RadarScreen(e.arguments?.getString("q") ?: "")
                     }
-                    composable("timemachine?at={at}", arguments = listOf(navArgument("at") { type = NavType.LongType; defaultValue = 0L })) { e ->
-                        de.ostlertekker.ultraiptv.feature.discover.TimeMachineScreen(e.arguments?.getLong("at") ?: 0L)
-                    }
-                    composable(Routes.EVENTS) { de.ostlertekker.ultraiptv.feature.discover.EventsScreen(nav) }
                     composable(Routes.SPORTS) { de.ostlertekker.ultraiptv.feature.discover.SportsScreen(nav) }
-                    composable(Routes.MYTV) { de.ostlertekker.ultraiptv.feature.discover.MyTvScreen() }
-                    composable(Routes.LISTS) { de.ostlertekker.ultraiptv.feature.discover.ListsScreen() }
                     composable(Routes.SPOTIFY) { de.ostlertekker.ultraiptv.feature.spotify.SpotifyScreen() }
                     composable(Routes.JELLYFIN) { de.ostlertekker.ultraiptv.feature.jellyfin.JellyfinScreen(nav) }
                     composable("jfMovie/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) {
