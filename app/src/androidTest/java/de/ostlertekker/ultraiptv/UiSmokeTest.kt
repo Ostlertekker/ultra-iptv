@@ -310,7 +310,7 @@ class UiSmokeTest {
     @Test fun d_discoverScreens() {
         // Neue Entdecken-Funktionen: jede Seite öffnen, bedienen, Aktion auslösen
         val past = System.currentTimeMillis() - 2 * 3_600_000L
-        for (route in listOf(Routes.EXPLORE, Routes.radar("Fußball"), Routes.SPORTS)) {
+        for (route in listOf(Routes.EXPLORE, Routes.SPORTS)) {
             val name = route.substringBefore('?')
             openRoute(route).use {
                 Thread.sleep(1500)

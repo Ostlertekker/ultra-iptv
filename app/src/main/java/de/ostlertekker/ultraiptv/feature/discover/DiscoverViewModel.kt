@@ -19,6 +19,7 @@ import de.ostlertekker.ultraiptv.core.discover.ListRules
 import de.ostlertekker.ultraiptv.core.discover.MatchDetail
 import de.ostlertekker.ultraiptv.core.discover.Mood
 import de.ostlertekker.ultraiptv.core.discover.ScoreBoard
+import de.ostlertekker.ultraiptv.core.discover.ScoreEvent
 import de.ostlertekker.ultraiptv.core.discover.SportEvent
 import de.ostlertekker.ultraiptv.core.discover.SportsRepository
 import de.ostlertekker.ultraiptv.core.discover.WatchStats
@@ -99,6 +100,8 @@ class DiscoverViewModel @Inject constructor(
         viewModelScope.launch { settings.set(Keys.SPORTS_LEAGUES, f.value.joinToString(",") { it.name }) }
         startScores()
     }
+    val onTv = MutableStateFlow<List<AiringProgram>?>(null)
+    fun findOnTv(e: ScoreEvent) { onTv.value = null; load(onTv) { runCatching { repo.whereOnTv(e) }.getOrDefault(emptyList()) } }
     fun loadDetail(league: League, id: String) { detail.value = null; viewModelScope.launch { detail.value = sports.detail(league, id) } }
 
     // --------------------------------------------------- Mein TV

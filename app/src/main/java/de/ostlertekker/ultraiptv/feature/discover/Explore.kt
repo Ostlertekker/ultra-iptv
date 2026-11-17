@@ -469,7 +469,7 @@ fun SportsScreen(nav: NavController, vm: DiscoverViewModel = hiltViewModel()) {
             Column(Modifier.weight(0.5f).fillMaxHeight().background(pal.surface, RoundedCornerShape(14.dp)).padding(14.dp)) {
                 val e = selected
                 if (e == null) EmptyHint("Spiel auswählen für Ereignisse, Aufstellungen und Statistiken.")
-                else MatchPanel(e, detail, onWhere = { nav.navigate(Routes.radar(e.competitors.firstOrNull()?.short ?: e.competitors.firstOrNull()?.name ?: e.title)) })
+                else MatchPanel(e, detail, vm)
             }
         }
     }
@@ -502,13 +502,29 @@ private fun ScoreRow(e: ScoreEvent, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun MatchPanel(e: ScoreEvent, d: de.ostlertekker.ultraiptv.core.discover.MatchDetail?, onWhere: () -> Unit) {
+private fun MatchPanel(e: ScoreEvent, d: de.ostlertekker.ultraiptv.core.discover.MatchDetail?, vm: DiscoverViewModel) {
     val pal = LocalUltraTheme.current.palette
+    val onTv by vm.onTv.collectAsStateWithLifecycle()
+    var asked by remember(e.id) { mutableStateOf(false) }
+    val act = rememberProgramAction(vm)
+    LaunchedEffect(e.id) { vm.onTv.value = null }
     LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         item {
             Text(e.scoreLine, color = pal.text, fontSize = 20.sp, fontWeight = FontWeight.Black)
             Text(listOfNotNull(e.detail.takeIf { it.isNotBlank() }, e.clock?.takeIf { e.live }, e.venue).joinToString(" · "), color = pal.textDim, fontSize = 12.sp)
-            TvButton("📡 Wo läuft das im TV?", onClick = onWhere, modifier = Modifier.padding(vertical = 6.dp))
+            TvButton("📡 Wo läuft das im TV?", onClick = { asked = true; vm.findOnTv(e) }, modifier = Modifier.padding(vertical = 6.dp))
+        }
+        if (asked) {
+            val list = onTv
+            if (list == null) item { Text("Suche im TV-Programm …", color = pal.textDim, fontSize = 12.sp) }
+            else if (list.isEmpty()) item {
+                Text("Im TV-Programm deiner Sender wurde zu diesem Spiel nichts gefunden (weder Teams/Spieler noch Wettbewerb).",
+                    color = pal.textDim, fontSize = 12.sp)
+            } else {
+                item { SectionHeader("Im TV (${list.size})") }
+                val now = System.currentTimeMillis()
+                items(list, key = { "tv" + it.channelId + it.startMs }) { p -> ProgramRow(p, now, programBadge(p, now), { act(p) }) }
+            }
         }
         if (d == null) item { Text("Lade Spieldetails …", color = pal.textDim, fontSize = 12.sp) }
         else {

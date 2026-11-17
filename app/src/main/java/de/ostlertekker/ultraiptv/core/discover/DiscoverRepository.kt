@@ -104,6 +104,34 @@ class DiscoverRepository @Inject constructor(
         if (q.isBlank()) emptyList() else epg.searchPrograms(q.trim(), from, to, adult(), limit)
     }
 
+    /**
+     * „Wo läuft das im TV?“ für ein Spiel aus den Live-Spielständen.
+     * Durchsucht das TV-Programm rund um die Anstoßzeit und bewertet jede Sendung nach Team-/Spielernamen
+     * (inkl. deutscher Schreibweisen) und Wettbewerb – statt eines einzelnen wörtlichen Suchbegriffs.
+     */
+    suspend fun whereOnTv(e: ScoreEvent): List<AiringProgram> = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        val (from, to) = when (e.state) {
+            "in" -> now to now + 60_000L
+            "post" -> e.startMs to e.startMs + 3 * 3_600_000L
+            else -> (e.startMs - 45 * 60_000L) to (e.startMs + 30 * 60_000L)
+        }
+        val programs = epg.window(from, to, adult(), 40_000)
+        val teams = e.competitors.map { c -> TvMatch.tokens(listOfNotNull(c.name, c.short)) }.filter { it.isNotEmpty() }
+        val leagueKw = TvMatch.leagueKeywords(e.league)
+        programs.mapNotNull { p ->
+            val text = TvMatch.norm(p.title + " " + (p.description ?: ""))
+            val channel = TvMatch.norm(p.channelName)
+            val teamHits = teams.count { toks -> toks.any { TvMatch.containsWord(text, it) } }
+            val leagueHit = leagueKw.any { text.contains(it) }
+            val channelHit = leagueKw.any { channel.contains(it) }
+            val score = teamHits * 10 + (if (leagueHit) 4 else 0) + (if (channelHit) 2 else 0)
+            // Mindestens ein Team/Spieler oder der Wettbewerb muss im Programm stehen
+            if (teamHits == 0 && !leagueHit && !(channelHit && e.state == "in")) null else p to score
+        }.sortedWith(compareByDescending<Pair<AiringProgram, Int>> { it.second }.thenBy { kotlin.math.abs(it.first.startMs - e.startMs) })
+            .map { it.first }.distinctBy { it.channelId + it.startMs }.take(40)
+    }
+
     /** Sportereignisse im Zeitfenster (Live Event Tracker) – aus EPG-Titeln/Beschreibungen erkannt. */
     suspend fun sportEvents(from: Long, to: Long): List<SportEvent> = withContext(Dispatchers.IO) {
         epg.window(from, to, adult(), 40_000).mapNotNull { p ->

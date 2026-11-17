@@ -161,7 +161,7 @@ private fun railRouteFor(route: String): String = when {
     route.startsWith("seriesDetail/") -> Routes.SERIES
     route.startsWith(Routes.EPG) -> Routes.EPG
     route.startsWith("jf") || route.startsWith(Routes.JELLYFIN) -> Routes.JELLYFIN
-    route.startsWith(Routes.SPORTS) || route.startsWith("radar") -> Routes.SPORTS
+    route.startsWith(Routes.SPORTS) -> Routes.SPORTS
     route.startsWith(Routes.SETUP) -> Routes.SETTINGS
     route.startsWith(Routes.SETUP_NEW) -> Routes.SETTINGS
     else -> route
@@ -243,9 +243,6 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
                     composable(Routes.SETTINGS) { SettingsScreen(nav) }
                     // „Mehr“: Menüpunkt bleibt, Inhalte vorerst entfernt
                     composable(Routes.EXPLORE) { Box(Modifier.fillMaxSize()) }
-                    composable("radar?q={q}", arguments = listOf(navArgument("q") { type = NavType.StringType; defaultValue = "" })) { e ->
-                        de.ostlertekker.ultraiptv.feature.discover.RadarScreen(e.arguments?.getString("q") ?: "")
-                    }
                     composable(Routes.SPORTS) { de.ostlertekker.ultraiptv.feature.discover.SportsScreen(nav) }
                     composable(Routes.SPOTIFY) { de.ostlertekker.ultraiptv.feature.spotify.SpotifyScreen() }
                     composable(Routes.JELLYFIN) { de.ostlertekker.ultraiptv.feature.jellyfin.JellyfinScreen(nav) }
