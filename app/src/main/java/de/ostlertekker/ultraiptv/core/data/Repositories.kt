@@ -108,6 +108,20 @@ class UserRepository @Inject constructor(
         else dao.addFavorite(FavoriteEntity(pid, kind.name, id, System.currentTimeMillis()))
     }
 
+    /** Favoriten-Reihenfolge ändern: um [delta] Plätze nach vorne (−) bzw. hinten (+) verschieben. */
+    suspend fun moveFavorite(kind: ContentKind, id: String, delta: Int) {
+        val pid = filter.first().profileId
+        val list = dao.favoritesOrdered(pid, kind.name).toMutableList()
+        val from = list.indexOfFirst { it.itemId == id }
+        if (from < 0) return
+        val to = (from + delta).coerceIn(0, list.lastIndex)
+        if (to == from) return
+        list.add(to, list.removeAt(from))
+        // Neu durchnummerieren (absteigend, da nach addedAt DESC sortiert wird)
+        val base = System.currentTimeMillis()
+        dao.putFavorites(list.mapIndexed { i, f -> f.copy(addedAt = base - i) })
+    }
+
     // Fortschritt
     suspend fun saveProgress(kind: ContentKind, id: String, positionMs: Long, durationMs: Long, title: String, image: String?, seriesId: String? = null) {
         val pid = filter.first().profileId

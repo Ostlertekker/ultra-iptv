@@ -201,6 +201,7 @@ class LiveTvViewModel @Inject constructor(
     }
 
     fun toggleFavorite(ch: ChannelEntity) = viewModelScope.launch { user.toggleFavorite(ContentKind.LIVE, ch.id) }
+    fun moveFavorite(ch: ChannelEntity, delta: Int) = viewModelScope.launch { user.moveFavorite(ContentKind.LIVE, ch.id, delta) }
 
     fun toggleReminder(ch: ChannelEntity, p: EpgProgramEntity) = viewModelScope.launch {
         val on = notifications.toggleReminder(ch.id, ch.name, p.title, p.startMs)
@@ -254,6 +255,8 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
         onDispose { lifecycle.removeObserver(obs); vm.stopPreview() }
     }
 
+    var favMenu by remember { mutableStateOf<ChannelEntity?>(null) }
+    Box(Modifier.fillMaxSize()) {
     Row(Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         // Anteilige Breiten: die Senderliste behält auf jedem Bildschirm genug Platz für die Sendernamen
         LazyColumn(Modifier.weight(0.25f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -284,12 +287,22 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
                         focusRequester = if (index == 0) firstChannel else null,
                         onFocus = { vm.onFocus(ch) },
                         onClick = { vm.open(context, ch) },
-                        onLongClick = { vm.toggleFavorite(ch) })
+                        // In „Favoriten“: lange OK öffnet Entfernen/Verschieben, sonst Favorit an/aus
+                        onLongClick = { if (current == CAT_FAVORITES) favMenu = ch else vm.toggleFavorite(ch) })
                 }
             }
         }
         // Eigener Recomposition-Bereich: ein Fokuswechsel aktualisiert nur dieses Panel, nicht die Senderliste
         RightPanel(vm, favs, Modifier.weight(0.33f).fillMaxHeight())
+    }
+    favMenu?.let { ch ->
+        de.ostlertekker.ultraiptv.core.ui.ActionDialog(ch.name, listOf(
+            "Aus Favoriten entfernen" to { vm.toggleFavorite(ch) },
+            "▲ Nach oben verschieben" to { vm.moveFavorite(ch, -1) },
+            "▼ Nach unten verschieben" to { vm.moveFavorite(ch, 1) },
+            "Ganz nach oben" to { vm.moveFavorite(ch, -10_000) },
+        )) { favMenu = null }
+    }
     }
 }
 
@@ -364,6 +377,7 @@ private fun PreviewBox(vm: LiveTvViewModel, ch: ChannelEntity?) {
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun FocusedInfo(vm: LiveTvViewModel, ch: ChannelEntity, favs: Set<String>, context: Context) {
     val p = LocalUltraTheme.current.palette
@@ -401,9 +415,11 @@ private fun FocusedInfo(vm: LiveTvViewModel, ch: ChannelEntity, favs: Set<String
                 }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+        // Umbrechende Knopfzeile: bei schmaler Vorschau rutschen Knöpfe in die nächste Zeile statt abgeschnitten zu werden
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(top = 8.dp)) {
             TvButton("▶ Vollbild", onClick = { vm.open(context, ch) }, primary = true)
-            TvButton(if (ch.id in favs) "★" else "☆ Favorit", onClick = { vm.toggleFavorite(ch) })
+            TvButton(if (ch.id in favs) "★ Favorit entfernen" else "☆ Favorit", onClick = { vm.toggleFavorite(ch) })
             val next = nn.firstOrNull { it.startMs > now }
             if (next != null) TvButton(if (next.startMs in reminders) "⏰ Aus" else "⏰ Erinnern", onClick = { vm.toggleReminder(ch, next) })
         }

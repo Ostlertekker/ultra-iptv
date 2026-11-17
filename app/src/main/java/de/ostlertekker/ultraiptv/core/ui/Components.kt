@@ -544,6 +544,24 @@ fun TvTextField(
     }
 }
 
+/** Auswahl-Dialog mit Aktionen (z. B. lange OK auf einem Favoriten). Zurück schließt. */
+@Composable
+fun ActionDialog(title: String, actions: List<Pair<String, () -> Unit>>, onDismiss: () -> Unit) {
+    val p = LocalUltraTheme.current.palette
+    val focus = remember { FocusRequester() }
+    androidx.activity.compose.BackHandler { onDismiss() }
+    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.75f)), contentAlignment = Alignment.Center) {
+        Column(Modifier.width(420.dp).background(p.bgBottom, RoundedCornerShape(20.dp)).padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, color = p.text, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 2, modifier = Modifier.padding(bottom = 6.dp))
+            actions.forEachIndexed { i, (label, act) ->
+                TvButton(label, onClick = { act(); onDismiss() }, modifier = Modifier.fillMaxWidth(), focusRequester = if (i == 0) focus else null)
+            }
+            TvButton("Abbrechen", onClick = onDismiss, modifier = Modifier.fillMaxWidth())
+        }
+    }
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+}
+
 /** Overlay-Dialog für die PIN-Abfrage. */
 @Composable
 fun PinDialog(title: String, onSubmit: (String) -> Boolean, onDismiss: () -> Unit) {

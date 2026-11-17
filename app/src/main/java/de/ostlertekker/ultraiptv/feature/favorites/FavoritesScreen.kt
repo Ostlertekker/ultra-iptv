@@ -1,5 +1,9 @@
 package de.ostlertekker.ultraiptv.feature.favorites
 
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -37,7 +41,9 @@ import javax.inject.Inject
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
-class FavoritesViewModel @Inject constructor(content: ContentRepository, user: UserRepository) : ViewModel() {
+class FavoritesViewModel @Inject constructor(content: ContentRepository, private val user: UserRepository) : ViewModel() {
+    fun remove(kind: ContentKind, id: String) = viewModelScope.launch { user.toggleFavorite(kind, id) }
+    fun move(kind: ContentKind, id: String, delta: Int) = viewModelScope.launch { user.moveFavorite(kind, id, delta) }
     val channels = user.favoriteIds(ContentKind.LIVE).flatMapLatest { content.channelsByIds(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val movies = user.favoriteIds(ContentKind.MOVIE).flatMapLatest { content.moviesByIds(it) }
@@ -53,8 +59,11 @@ fun FavoritesScreen(nav: NavController, vm: FavoritesViewModel = hiltViewModel()
     val channels by vm.channels.collectAsStateWithLifecycle()
     val movies by vm.movies.collectAsStateWithLifecycle()
     val series by vm.series.collectAsStateWithLifecycle()
+    // Lange OK auf einer Karte: entfernen oder Reihenfolge ändern
+    var menu by remember { mutableStateOf<Triple<ContentKind, String, String>?>(null) }
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(24.dp)) {
-        item { ScreenTitle("Favoriten", subtitle = "Sender, Merkliste und Serien deines Profils") }
+        item { ScreenTitle("Favoriten", subtitle = "Lange OK auf einem Eintrag: entfernen oder Reihenfolge ändern") }
         if (channels.isEmpty() && movies.isEmpty() && series.isEmpty()) item {
             Text("Noch keine Favoriten. In Live TV, bei Filmen oder Serien „Favorit“ wählen.", color = p.textDim, fontSize = 16.sp)
         }
@@ -63,21 +72,30 @@ fun FavoritesScreen(nav: NavController, vm: FavoritesViewModel = hiltViewModel()
             LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 items(channels, key = { it.id }) { c ->
                     FocusCard(c.name, c.logo, 200.dp, 112.dp, onClick = { context.openPlayer(ContentKind.LIVE, c.id, category = c.category) },
-                        contentScale = ContentScale.Fit, subtitle = c.category)
+                        contentScale = ContentScale.Fit, subtitle = c.category, onLongClick = { menu = Triple(ContentKind.LIVE, c.id, c.name) })
                 }
             }
         }
         if (movies.isNotEmpty()) item {
             SectionHeader("Merkliste – Filme")
             LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                items(movies, key = { it.id }) { m -> FocusCard(m.name, m.poster, 150.dp, 222.dp, onClick = { nav.navigate(Routes.movie(m.id)) }) }
+                items(movies, key = { it.id }) { m -> FocusCard(m.name, m.poster, 150.dp, 222.dp, onClick = { nav.navigate(Routes.movie(m.id)) }, onLongClick = { menu = Triple(ContentKind.MOVIE, m.id, m.name) }) }
             }
         }
         if (series.isNotEmpty()) item {
             SectionHeader("Serien")
             LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                items(series, key = { it.id }) { s -> FocusCard(s.name, s.poster, 150.dp, 222.dp, onClick = { nav.navigate(Routes.seriesDetail(s.id)) }) }
+                items(series, key = { it.id }) { s -> FocusCard(s.name, s.poster, 150.dp, 222.dp, onClick = { nav.navigate(Routes.seriesDetail(s.id)) }, onLongClick = { menu = Triple(ContentKind.SERIES, s.id, s.name) }) }
             }
         }
+    }
+    menu?.let { (kind, id, name) ->
+        de.ostlertekker.ultraiptv.core.ui.ActionDialog(name, listOf(
+            "Aus Favoriten entfernen" to { vm.remove(kind, id) },
+            "← Nach vorne verschieben" to { vm.move(kind, id, -1) },
+            "Nach hinten verschieben →" to { vm.move(kind, id, 1) },
+            "Ganz an den Anfang" to { vm.move(kind, id, -10_000) },
+        )) { menu = null }
+    }
     }
 }

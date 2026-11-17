@@ -226,6 +226,9 @@ interface UserDao {
     fun favoriteIds(profileId: Long, kind: String): Flow<List<String>>
     @Query("SELECT COUNT(*) FROM favorites WHERE profileId = :profileId AND kind = :kind AND itemId = :itemId")
     fun favoriteCount(profileId: Long, kind: String, itemId: String): Flow<Int>
+    @Query("SELECT * FROM favorites WHERE profileId = :profileId AND kind = :kind ORDER BY addedAt DESC")
+    suspend fun favoritesOrdered(profileId: Long, kind: String): List<FavoriteEntity>
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun putFavorites(f: List<FavoriteEntity>)
     @Query("DELETE FROM favorites WHERE profileId = :profileId") suspend fun clearFavorites(profileId: Long)
 
     // Fortschritt / Verlauf
