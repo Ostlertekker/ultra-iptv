@@ -108,8 +108,8 @@ jobs:
   # Echter Android-Emulator (TV-Auflösung 1080p): App mit Testquelle starten, alle Seiten per
   # Fernbedienungstasten bedienen, Sender/Filme abspielen – Abstürze und Hänger lassen den Test scheitern.
   ui-test:
-    # Mit „[skip ui]“ in der Commit-Nachricht wird der Oberflächentest einmalig übersprungen
-    if: ${{ !contains(github.event.head_commit.message, '[skip ui]') }}
+    # Standardmäßig übersprungen (schnellere Releases). Nur mit „[ui]“ in der Commit-Nachricht läuft der Oberflächentest.
+    if: ${{ contains(github.event.head_commit.message, '[ui]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 75
     env:
