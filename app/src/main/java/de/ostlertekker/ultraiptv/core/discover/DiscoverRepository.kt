@@ -88,12 +88,13 @@ data class WatchStats(
 @OptIn(ExperimentalCoroutinesApi::class)
 /** Ein Sender-Vorschlag für ein Spiel: woher er stammt und wie sicher er ist. */
 data class TvHit(val program: AiringProgram, val source: Source, val country: String?, val score: Int) {
-    enum class Source(val label: String) { CONFIRMED("✓ bestätigt"), RIGHTS("Rechteinhaber"), EPG("TV-Programm") }
+    enum class Source(val label: String) { LISTING("📺 zeigt dieses Spiel"), CONFIRMED("✓ bestätigt"), RIGHTS("Rechteinhaber"), EPG("TV-Programm") }
 }
 
 class DiscoverRepository @Inject constructor(
     private val epg: EpgDao,
     private val content: ContentDao,
+    private val sports: SportsRepository,
     private val dao: DiscoverDao,
     private val extras: ExtrasDao,
     private val user: UserRepository,
@@ -148,15 +149,22 @@ class DiscoverRepository @Inject constructor(
         }
         val epgByChannel = programs.groupBy { it.channelId }
 
+        // 0) TV-Plan pro Spiel (welcher Sender zeigt genau dieses Spiel, je Land)
+        val listings = runCatching { sports.tvListings(e) }.getOrDefault(emptyList())
+            .map { (ch, c) -> ChannelCountry.listingKey(ch) to (ChannelCountry.fromCountryName(c) ?: ChannelCountry.detect(ch, "")) }
+            .filter { it.first.trim().length >= 2 }
+        val listedCountries = listings.mapNotNull { it.second }.toSet()
+        val allChannels = content.channelsAllOnce(adult(), 60_000)
+
         // 1) Rechteinhaber → Sender der Playlist
         val holders = TvRights.holders(e.league).map { (c, b) -> c to ChannelCountry.brandKey(b) } +
             e.broadcasters.map { "*" to ChannelCountry.brandKey(it) }
         val rightsHits = if (holders.isEmpty()) emptyList() else {
-            content.channelsAllOnce(adult(), 60_000).mapNotNull { ch ->
+            allChannels.mapNotNull { ch ->
                 val clean = ChannelCountry.cleanName(ch.name)
                 val country = ChannelCountry.detect(ch.name, ch.category)
                 val match = holders.firstOrNull { (c, brand) ->
-                    brand.length > 3 && clean.contains(brand) && (c == "*" || country == null || country == c)
+                    brand.length > 2 && ChannelCountry.matches(clean, brand) && (c == "*" || country == null || country == c)
                 } ?: return@mapNotNull null
                 val cur = epgByChannel[ch.id]?.firstOrNull { it.startMs <= maxOf(now, from) && it.endMs > maxOf(now, from) }
                     ?: epgByChannel[ch.id]?.firstOrNull()
@@ -165,14 +173,25 @@ class DiscoverRepository @Inject constructor(
                 val prog = cur ?: AiringProgram(ch.id, ch.name, ch.logo, ch.category, ch.number, ch.archiveDays,
                     "${e.league.label} (laut Rechteinhaber)", null, minOf(now, e.startMs), maxOf(now, e.startMs) + 3 * 3_600_000L)
                 val countryLabel = if (match.first == "*") "ESPN" else match.first
+                // Gibt es für dieses Land einen TV-Plan pro Spiel, zählen nur noch die dort genannten Sender (außer TV-Programm bestätigt es)
+                if (score <= 0 && (country ?: match.first) in listedCountries) return@mapNotNull null
                 TvHit(prog, if (score > 0) TvHit.Source.CONFIRMED else TvHit.Source.RIGHTS, countryLabel,
                     (if (score > 0) 1000 + score else 100) + (if (country == match.first) 50 else 0))
             }
         }
+        val listingHits = if (listings.isEmpty()) emptyList() else allChannels.mapNotNull { ch ->
+            val clean = ChannelCountry.cleanName(ch.name)
+            val country = ChannelCountry.detect(ch.name, ch.category)
+            val l = listings.firstOrNull { (key, c) -> ChannelCountry.matches(clean, key) && (c == null || country == null || c == country) } ?: return@mapNotNull null
+            val cur = epgByChannel[ch.id]?.firstOrNull { it.startMs <= maxOf(now, from) && it.endMs > maxOf(now, from) } ?: epgByChannel[ch.id]?.firstOrNull()
+            val prog = cur ?: AiringProgram(ch.id, ch.name, ch.logo, ch.category, ch.number, ch.archiveDays,
+                e.title.ifBlank { e.league.label }, null, minOf(now, e.startMs), maxOf(now, e.startMs) + 3 * 3_600_000L)
+            TvHit(prog, TvHit.Source.LISTING, l.second, 3000 + (if (country != null && country == l.second) 50 else 0) + (cur?.let { matchScore(it) }?.coerceAtLeast(0) ?: 0))
+        }
         // 2) TV-Programm-Scan aller Sender
         val epgHits = programs.mapNotNull { p -> matchScore(p).takeIf { it > 0 }?.let { TvHit(p, TvHit.Source.EPG, null, 500 + it) } }
 
-        (rightsHits + epgHits)
+        (listingHits + rightsHits + epgHits)
             .sortedWith(compareByDescending<TvHit> { it.score }.thenBy { kotlin.math.abs(it.program.startMs - e.startMs) }.thenBy { it.program.number })
             .distinctBy { it.program.channelId }
             .take(40)

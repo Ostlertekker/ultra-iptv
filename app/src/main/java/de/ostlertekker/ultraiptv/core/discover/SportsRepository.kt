@@ -201,6 +201,41 @@ class SportsRepository @Inject constructor(http: OkHttpClient) {
         MatchDetail(keyEvents, rosters, stats, System.currentTimeMillis())
     }
 
+    private val tvCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, List<JsonObject>>>()
+
+    /**
+     * Sender, die genau dieses Spiel zeigen, laut öffentlichem TV-Plan von TheSportsDB (Sender + Land, pro Spiel).
+     * Liefert (Sendername, Land) – leer, wenn der Dienst nichts hat oder nicht erreichbar ist.
+     */
+    suspend fun tvListings(e: ScoreEvent): List<Pair<String, String>> = withContext(Dispatchers.IO) {
+        val sport = when (e.league.sport) { Sport.F1 -> "Motorsport"; Sport.TENNIS -> "Tennis"; Sport.BASKETBALL -> "Basketball"; else -> "Soccer" }
+        val fmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        val days = listOf(TimeZone.getTimeZone("UTC"), TimeZone.getDefault()).map { tz -> fmt.apply { timeZone = tz }.format(java.util.Date(e.startMs)) }.distinct()
+        val rows = days.flatMap { d ->
+            val key = "$d|$sport"
+            tvCache[key]?.takeIf { System.currentTimeMillis() - it.first < 30 * 60_000L }?.second
+                ?: runCatching { get("https://www.thesportsdb.com/api/v1/json/123/eventstv.php?d=$d&s=$sport") }.getOrNull()
+                    ?.arr("tvevents")?.mapNotNull { it as? JsonObject }?.also { tvCache[key] = System.currentTimeMillis() to it }
+                ?: emptyList()
+        }
+        val teams = when (e.league.sport) {
+            Sport.F1 -> emptyList()
+            Sport.TENNIS -> e.competitors.map { TvMatch.surname(it.name) }.filter { it.isNotEmpty() }
+            else -> e.competitors.map { TvMatch.tokens(listOfNotNull(it.name, it.short)) }.filter { it.isNotEmpty() }
+        }
+        rows.filter { r ->
+            val title = TvMatch.norm(listOfNotNull(r.s("strEvent"), r.s("strEventAlternate"), r.s("strLeague")).joinToString(" "))
+            val ts = parseDate(r.s("strTimestamp") ?: r.s("strTimeStamp"))
+                .takeIf { it > 0 } ?: runCatching { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }.parse("${r.s("dateEvent")} ${r.s("strTime")}")!!.time }.getOrDefault(0L)
+            val timeOk = ts == 0L || kotlin.math.abs(ts - e.startMs) < 4 * 3_600_000L
+            val hits = teams.count { toks -> toks.any { TvMatch.containsWord(title, it) } }
+            timeOk && when (e.league.sport) {
+                Sport.F1 -> title.contains(" grand prix ") || title.contains(" formula 1 ") || title.contains(" f1 ")
+                else -> hits >= minOf(2, teams.size) && hits > 0
+            }
+        }.mapNotNull { r -> r.s("strChannel")?.takeIf { it.isNotBlank() }?.let { it to (r.s("strCountry") ?: "") } }.distinct()
+    }
+
     /** Ordnet eine EPG-Sendung einem Live-Spiel zu (Teamnamen im Titel). */
     fun matchProgram(title: String, events: List<ScoreEvent>): ScoreEvent? {
         val t = normalize(title)
@@ -214,7 +249,7 @@ class SportsRepository @Inject constructor(http: OkHttpClient) {
 
     private fun parseDate(s: String?): Long {
         if (s == null) return 0L
-        for (p in listOf("yyyy-MM-dd'T'HH:mm'Z'", "yyyy-MM-dd'T'HH:mm:ss'Z'", "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")) {
+        for (p in listOf("yyyy-MM-dd'T'HH:mm:ssXXX", "yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd'T'HH:mm'Z'", "yyyy-MM-dd'T'HH:mm:ss'Z'", "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")) {
             runCatching { return SimpleDateFormat(p, Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }.parse(s)!!.time }
         }
         return 0L

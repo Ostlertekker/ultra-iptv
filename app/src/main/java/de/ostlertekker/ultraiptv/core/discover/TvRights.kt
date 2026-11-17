@@ -125,5 +125,31 @@ object ChannelCountry {
         return " " + n.replace(Regex("\\s+"), " ").trim() + " "
     }
 
+    /** Land aus einem ausgeschriebenen Ländernamen („Germany“, „Poland“, „United Kingdom“). */
+    fun fromCountryName(name: String): String? = byAlias[TvMatch.norm(name).trim()]
+
+    /** Wörter, die hinter einem Sendernamen stehen dürfen, ohne dass es ein anderer Sender wird (Nummer, Sport-Zusatz, Land). */
+    private val fillers = setOf("sport", "sports", "bundesliga", "premium", "top", "event", "extra", "live", "football", "fussball", "futbol", "calcio",
+        "f1", "tennis", "plus", "max", "mix", "arena", "uhd", "fhd", "hd", "sd", "4k", "tv", "channel", "kanal", "ppv", "premier", "league", "liga", "action")
+
+    /**
+     * Strenger Abgleich: Der Sender muss mit dem Namen beginnen und darf danach nur Nummern/Sport-Zusätze/Land haben.
+     * „RTL“ trifft „RTL“, aber nicht „RTL Nitro“, „RTL Crime“ oder „Super RTL“. Enthält [key] eine Nummer, muss sie übereinstimmen.
+     */
+    fun matches(clean: String, key: String): Boolean {
+        if (key.isBlank() || !clean.startsWith(key)) return false
+        val rest = clean.removePrefix(key).trim().split(' ').filter { it.isNotEmpty() }
+        if (!rest.all { it.all(Char::isDigit) || it in fillers || it in byAlias }) return false
+        val kn = Regex("\d+").findAll(key).map { it.value }.toList()
+        val cn = Regex("\d+").findAll(clean).map { it.value }.toList()
+        return kn.isEmpty() || kn == cn
+    }
+
+    /** Sendername aus einem TV-Plan („DAZN 1 Germany“, „Sky Sport Bundesliga 3 HD“) als Abgleich-Schlüssel ohne Land/Qualität. */
+    fun listingKey(channel: String): String {
+        val words = cleanName(channel).trim().split(' ').filter { it.isNotEmpty() && it !in byAlias }
+        return " " + words.joinToString(" ") + " "
+    }
+
     fun brandKey(brand: String): String = " " + TvMatch.norm(brand.replace("+", " plus ")).trim() + " "
 }

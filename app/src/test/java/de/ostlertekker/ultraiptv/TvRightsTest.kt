@@ -26,6 +26,25 @@ class TvRightsTest {
         assertFalse(ChannelCountry.cleanName("DE: Sky Cinema Action HD").contains(ChannelCountry.brandKey("Sky Sport")))
     }
 
+    @Test fun strengerSenderAbgleich() {
+        fun m(ch: String, brand: String) = ChannelCountry.matches(ChannelCountry.cleanName(ch), ChannelCountry.brandKey(brand))
+        assertTrue(m("DE: RTL HD", "RTL"))
+        assertFalse(m("DE: RTL Nitro HD", "RTL"))
+        assertFalse(m("DE: RTL Crime", "RTL"))
+        assertFalse(m("DE: Super RTL", "RTL"))
+        assertTrue(m("DE: Sky Sport Bundesliga 3 FHD", "Sky Sport"))
+        assertFalse(m("DE: Sky Sport News", "Sky Sport"))
+        assertTrue(m("|PL| Canal+ Sport 2", "Canal+"))
+        assertFalse(m("|PL| Canal+ Film", "Canal+"))
+        assertFalse(m("DE: ZDFneo", "ZDF"))
+        // TV-Plan nennt einen konkreten Sender → Nummer muss passen
+        val k = ChannelCountry.listingKey("Sky Sport Bundesliga 3 Germany")
+        assertTrue(ChannelCountry.matches(ChannelCountry.cleanName("DE: Sky Sport Bundesliga 3 HD"), k))
+        assertFalse(ChannelCountry.matches(ChannelCountry.cleanName("DE: Sky Sport Bundesliga 1 HD"), k))
+        assertEquals("PL", ChannelCountry.fromCountryName("Poland"))
+        assertEquals("UK", ChannelCountry.fromCountryName("United Kingdom"))
+    }
+
     @Test fun rechteTabelle() {
         assertTrue(TvRights.holders(League.CHAMPIONS).contains("PL" to "Canal+"))
         assertTrue(TvRights.holders(League.PREMIER).contains("DE" to "Sky Sport"))
