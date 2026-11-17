@@ -393,8 +393,25 @@ internal object AdBlock {
             if(Array.isArray(o)) for(var j=0;j<o.length&&j<8;j++) strip(o[j],d+1);
             return o; }
           var jp=JSON.parse; JSON.parse=function(){ var r=jp.apply(this,arguments); try{ strip(r,0); }catch(e){} return r; };
-          if(window.Response&&Response.prototype.json){ var rj=Response.prototype.json;
-            Response.prototype.json=function(){ return rj.apply(this,arguments).then(function(r){ try{ strip(r,0); }catch(e){} return r; }); }; }
+          var RX=/"(adPlacements|playerAds|adSlots|adBreakHeartbeatParams)"/;
+          function fixText(t){ if(typeof t!=='string'||!RX.test(t)) return t;
+            try{ var pre=''; var body=t; if(body.indexOf(")]}'")===0){ pre=body.substring(0,body.indexOf('\n')+1); body=body.substring(pre.length); }
+              return pre+JSON.stringify(strip(jp(body),0)); }catch(e){ return t; } }
+          // fetch(): .json() und .text()
+          if(window.Response){ var rj=Response.prototype.json, rt=Response.prototype.text;
+            Response.prototype.json=function(){ return rj.apply(this,arguments).then(function(r){ try{ strip(r,0); }catch(e){} return r; }); };
+            Response.prototype.text=function(){ return rt.apply(this,arguments).then(fixText); }; }
+          // XMLHttpRequest: die TV-Oberfläche lädt Player-Daten per XHR (responseText bzw. responseType 'json')
+          try{ var X=XMLHttpRequest.prototype, dT=Object.getOwnPropertyDescriptor(X,'responseText'), dR=Object.getOwnPropertyDescriptor(X,'response');
+            var cache=new WeakMap();
+            Object.defineProperty(X,'responseText',{configurable:true,get:function(){ var t=dT.get.call(this);
+              if(this.readyState!==4) return t; var c=cache.get(this); if(c&&c.src===t) return c.out; var o=fixText(t); cache.set(this,{src:t,out:o}); return o; }});
+            Object.defineProperty(X,'response',{configurable:true,get:function(){ var r=dR.get.call(this);
+              if(this.readyState!==4||r==null) return r;
+              if(typeof r==='string'){ var c=cache.get(this); if(c&&c.src===r) return c.out; var o=fixText(r); cache.set(this,{src:r,out:o}); return o; }
+              if(typeof r==='object'&&!(r instanceof ArrayBuffer)&&!(window.Blob&&r instanceof Blob)&&!(window.Document&&r instanceof Document)) strip(r,0);
+              return r; }});
+          }catch(e){}
           ['ytInitialPlayerResponse','ytInitialData'].forEach(function(n){ var v;
             try{ Object.defineProperty(window,n,{configurable:true,get:function(){return v;},set:function(x){v=strip(x,0);}}); }catch(e){} });
         }catch(e){}})();
