@@ -287,11 +287,14 @@ private fun SpotifyHome(vm: SpotifyViewModel) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Spotify", color = SpotifyGreen, fontSize = 26.sp, fontWeight = FontWeight.Bold)
                 user?.let { Text(it, color = p.textDim, fontSize = 13.sp) }
-                Box(Modifier.weight(1f)) { TvTextField(query, { query = it; if (it.length >= 2 || it.isEmpty()) vm.doSearch(it) }, "Suchen: Titel, Künstler, Alben, Playlists") }
-                TvChip("↻", false, { vm.load() })
+                Spacer(Modifier.weight(1f))
+                TvChip("↻ Aktualisieren", false, { vm.load() })
                 TvChip("Web-Player", false, { de.ostlertekker.ultraiptv.feature.web.WebAppActivity.open(context, de.ostlertekker.ultraiptv.feature.web.WebApp.SPOTIFY) })
                 TvChip("Abmelden", false, { vm.logout() })
             }
+            // Suche in eigener Zeile über die volle Breite
+            TvTextField(query, { query = it; if (it.length >= 2 || it.isEmpty()) vm.doSearch(it) }, "Suchen: Titel, Künstler, Alben, Playlists",
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
             error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp)) }
             val c = collection
             when {
@@ -334,33 +337,33 @@ private fun NowPlaying(vm: SpotifyViewModel, pb: SpPlayback?, modifier: Modifier
             }
         }
         Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-            CtrlButton(if (pb?.shuffle == true) "🔀•" else "🔀") { vm.shuffle() }
-            CtrlButton("⏮") { vm.previous() }
-            CtrlButton(if (pb?.playing == true) "⏸" else "▶", big = true) { vm.toggle() }
-            CtrlButton("⏭") { vm.next() }
-            CtrlButton(when (pb?.repeat) { "track" -> "🔂"; "context" -> "🔁•"; else -> "🔁" }) { vm.repeat() }
+            CtrlButton("⇄", active = pb?.shuffle == true) { vm.shuffle() }
+            CtrlButton("⏮\uFE0E") { vm.previous() }
+            CtrlButton(if (pb?.playing == true) "❚❚" else "▶\uFE0E", big = true) { vm.toggle() }
+            CtrlButton("⏭\uFE0E") { vm.next() }
+            CtrlButton(when (pb?.repeat) { "track" -> "↻1"; else -> "↻" }, active = pb?.repeat == "track" || pb?.repeat == "context") { vm.repeat() }
         }
         Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             CtrlButton("−10 s") { vm.seekBy(-10_000) }
             CtrlButton("+10 s") { vm.seekBy(10_000) }
-            CtrlButton("🔉") { vm.volume(-10) }
-            CtrlButton("🔊") { vm.volume(10) }
+            CtrlButton("Leiser") { vm.volume(-10) }
+            CtrlButton("Lauter") { vm.volume(10) }
         }
         Row(Modifier.padding(top = 8.dp)) {
-            TvChip("📡 " + (pb?.device?.name ?: "Gerät wählen") + (pb?.device?.volume?.let { " · $it %" } ?: ""), false, onDevices)
+            TvChip("Gerät: " + (pb?.device?.name ?: "wählen") + (pb?.device?.volume?.let { " · $it %" } ?: ""), false, onDevices)
         }
     }
 }
 
 @Composable
-private fun CtrlButton(label: String, big: Boolean = false, onClick: () -> Unit) {
+private fun CtrlButton(label: String, big: Boolean = false, active: Boolean = false, onClick: () -> Unit) {
     val p = LocalUltraTheme.current.palette
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(50)
     Box(Modifier.tvFocusable(shape, onClick, scaleOnFocus = true, onFocus = { focused = it })
         .background(if (big) SpotifyGreen else if (focused) Color.White.copy(alpha = 0.22f) else p.surface, shape)
         .padding(horizontal = if (big) 20.dp else 12.dp, vertical = if (big) 12.dp else 8.dp), contentAlignment = Alignment.Center) {
-        Text(label, color = if (big) Color.Black else p.text, fontSize = if (big) 20.sp else 15.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = if (big) Color.Black else if (active) SpotifyGreen else p.text, fontSize = if (big) 20.sp else 15.sp, fontWeight = FontWeight.Bold)
     }
 }
 
