@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.movies
 
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.setValue
@@ -252,17 +255,21 @@ fun MovieDetailScreen(nav: NavController, vm: MovieDetailViewModel = hiltViewMod
         AsyncImage(m.backdrop ?: m.poster, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), alpha = 0.75f)
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.95f), 0.55f to Color.Black.copy(alpha = 0.65f), 1f to Color.Black.copy(alpha = 0.2f))))
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.6f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.85f))))
-        Row(Modifier.fillMaxSize().padding(start = 40.dp, end = 40.dp, top = 30.dp, bottom = if (similar.isNotEmpty()) 200.dp else 40.dp),
-            verticalAlignment = Alignment.CenterVertically) {
+        // Inhalt und „Ähnliche Titel“ untereinander statt übereinander gelegt: Die Beschreibung kürzt sich bei Platzmangel,
+        // die Knöpfe bleiben immer sichtbar.
+        Column(Modifier.fillMaxSize().padding(start = 40.dp, end = 40.dp, top = 30.dp, bottom = 16.dp)) {
+        Row(Modifier.weight(1f).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             AsyncImage(m.poster, m.name, contentScale = ContentScale.Crop,
-                modifier = Modifier.size(240.dp, 356.dp).clip(RoundedCornerShape(theme.spec.corner.coerceAtMost(18.dp))))
+                modifier = Modifier.heightIn(max = 356.dp).fillMaxHeight().aspectRatio(240f / 356f, matchHeightConstraintsFirst = true)
+                    .clip(RoundedCornerShape(theme.spec.corner.coerceAtMost(18.dp))))
             Spacer(Modifier.width(36.dp))
-            Column(Modifier.width(640.dp)) {
-                Text(m.name, color = Color.White, fontSize = 38.sp, fontWeight = FontWeight.Bold)
+            Column(Modifier.width(640.dp).fillMaxHeight(), verticalArrangement = Arrangement.Center) {
+                Text(m.name, color = Color.White, fontSize = 38.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 42.sp)
                 val meta = listOfNotNull(m.year, m.genre, m.rating?.takeIf { it > 0 }?.let { de.ostlertekker.ultraiptv.core.ui.ratingLabel(it) },
                     m.durationSec?.takeIf { it > 0 }?.let { "${it / 60} Min." }, m.category).joinToString("  ·  ")
                 Text(meta, color = p.primary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(vertical = 10.dp))
-                Text(m.plot ?: "Keine Beschreibung verfügbar.", color = p.textDim, fontSize = 16.sp, maxLines = 6)
+                Text(m.plot ?: "Keine Beschreibung verfügbar.", color = p.textDim, fontSize = 16.sp, maxLines = 6, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false))
                 if (!m.actors.isNullOrBlank()) Text("Mit: ${m.actors}", color = p.text, fontSize = 14.sp, maxLines = 2, modifier = Modifier.padding(top = 8.dp))
                 if (!m.director.isNullOrBlank()) Text("Regie: ${m.director}", color = p.textDim, fontSize = 13.sp, maxLines = 1)
                 Spacer(Modifier.height(24.dp))
@@ -279,11 +286,12 @@ fun MovieDetailScreen(nav: NavController, vm: MovieDetailViewModel = hiltViewMod
                 }
             }
         }
-        if (similar.isNotEmpty()) Column(Modifier.align(Alignment.BottomStart).padding(start = 40.dp, bottom = 16.dp)) {
+        if (similar.isNotEmpty()) Column(Modifier.padding(top = 12.dp)) {
             Text("Ähnliche Titel", color = p.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(similar, key = { it.id }) { sm -> FocusCard(sm.name, sm.poster, 96.dp, 142.dp, onClick = { nav.navigate(Routes.movie(sm.id)) }) }
             }
+        }
         }
     }
 }
