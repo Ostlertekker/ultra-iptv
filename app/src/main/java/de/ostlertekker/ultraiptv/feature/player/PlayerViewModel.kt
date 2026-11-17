@@ -643,6 +643,12 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    fun seekTo(positionMs: Long) {
+        val p = engine.player ?: return
+        if (!p.isCurrentMediaItemSeekable) return
+        p.seekTo(if (p.duration > 0) positionMs.coerceIn(0, p.duration - 1000) else positionMs.coerceAtLeast(0))
+    }
+
     fun seekBy(deltaMs: Long) {
         val p = engine.player ?: return
         if (kind == ContentKind.LIVE && !p.isCurrentMediaItemSeekable) return
@@ -740,7 +746,8 @@ class PlayerViewModel @Inject constructor(
 
     fun onStopped(keepPlaying: Boolean) {
         viewModelScope.launch { saveProgress() }
-        if (keepPlaying) return
+        // Übergabe an den Mini-Player: Stream läuft weiter
+        if (keepPlaying || keepEngine) return
         ticker?.cancel()
         engine.player?.pause()
     }

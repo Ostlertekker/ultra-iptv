@@ -283,7 +283,7 @@ fun Preferences.toSettings(): AppSettings {
         timeshiftMin = this[Keys.TIMESHIFT_MIN] ?: d.timeshiftMin,
         perfMode = this[Keys.PERF_MODE] ?: d.perfMode,
         subDelayMs = this[Keys.SUB_DELAY] ?: d.subDelayMs,
-        cinemaMode = this[Keys.CINEMA_MODE] ?: d.cinemaMode,
+        cinemaMode = false, // Kinomodus entfernt
         cinemaSound = this[Keys.CINEMA_SOUND] ?: d.cinemaSound,
         picBrightness = this[Keys.PIC_BRIGHTNESS] ?: d.picBrightness,
         picContrast = this[Keys.PIC_CONTRAST] ?: d.picContrast,

@@ -121,10 +121,8 @@ class LiveTvViewModel @Inject constructor(
 
     val categories: StateFlow<List<String>> = content.channelCategories()
         .combine(settingsRepo.settings.map { s -> s.hiddenGroups.split('\n').filter { it.isNotBlank() }.toSet() }) { cats, hidden -> cats.filter { it !in hidden } }
-        .combine(discover.lists()) { cats, lists ->
-            listOf(CAT_FAVORITES, CAT_RECENT) + cats + lists.map { CAT_LIST_PREFIX + it.name } +
-                de.ostlertekker.ultraiptv.core.discover.SmartGroup.entries.map { CAT_SMART_PREFIX + it.label }
-        }
+        // Nur echte Gruppen der Playlist (die früheren automatisch erzeugten Kategorien sind entfernt)
+        .map { cats -> listOf(CAT_FAVORITES, CAT_RECENT) + cats }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val favoriteIds: StateFlow<Set<String>> = user.favoriteIds(ContentKind.LIVE).map { it.toSet() }
@@ -135,16 +133,7 @@ class LiveTvViewModel @Inject constructor(
             when (cat) {
                 CAT_FAVORITES -> user.favoriteIds(ContentKind.LIVE).flatMapLatest { content.channelsByIds(it) }
                 CAT_RECENT -> user.recentChannels.flatMapLatest { list -> content.channelsByIds(list.map { it.itemId }) }
-                else -> when {
-                    cat.startsWith(CAT_SMART_PREFIX) -> kotlinx.coroutines.flow.flow {
-                        val g = de.ostlertekker.ultraiptv.core.discover.SmartGroup.entries.firstOrNull { CAT_SMART_PREFIX + it.label == cat }
-                        emit(if (g == null) emptyList() else discover.smartGroups()[g] ?: emptyList())
-                    }
-                    cat.startsWith(CAT_LIST_PREFIX) -> discover.lists().map { ls -> ls.firstOrNull { CAT_LIST_PREFIX + it.name == cat } }
-                        .distinctUntilChanged()
-                        .flatMapLatest { l -> kotlinx.coroutines.flow.flow { emit(if (l == null) emptyList() else discover.resolveList(de.ostlertekker.ultraiptv.core.discover.ListRules.fromJson(l.rulesJson))) } }
-                    else -> content.channelsIn(cat)
-                }
+                else -> content.channelsIn(cat)
             }
         }
         .combine(sortByName) { list, byName -> if (byName) list.sortedBy { it.name.lowercase() } else list }

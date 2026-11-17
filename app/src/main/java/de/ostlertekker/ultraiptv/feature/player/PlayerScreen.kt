@@ -31,6 +31,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.input.key.nativeKeyEvent
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -121,6 +123,7 @@ fun PlayerScreen(
     var seekHint by remember { mutableStateOf<String?>(null) }
     val rootFocus = remember { FocusRequester() }
     val playFocus = remember { FocusRequester() }
+    val seekFocus = remember { FocusRequester() }
     val panelFocus = remember { FocusRequester() }
     val countdownFocus = remember { FocusRequester() }
     val isLive = ui.kind == ContentKind.LIVE
@@ -144,6 +147,8 @@ fun PlayerScreen(
             when {
                 ui.countdown != null -> countdownFocus.requestFocus()
                 panel != null -> panelFocus.requestFocus()
+                // Filme/Serien: wie bei TiviMate steht der Fokus zuerst auf der Zeitleiste (◀ ▶ spulen)
+                overlay && !isLive && ui.durationMs > 0 -> seekFocus.requestFocus()
                 overlay -> playFocus.requestFocus()
                 else -> rootFocus.requestFocus()
             }
@@ -210,8 +215,9 @@ fun PlayerScreen(
                 if (!down) return@onPreviewKeyEvent true
                 when (ev.key) {
                     Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> if (ui.skipOffer != null) vm.acceptSkip() else if (isLive && settings.okAction == 1) { overlay = true; panel = Panel.CHANNELS } else overlay = true
-                    Key.DirectionLeft -> if (isLive) overlay = true else { vm.seekBy(-10_000); seekHint = "−10 s" }
-                    Key.DirectionRight -> if (isLive) overlay = true else { vm.seekBy(10_000); seekHint = "+10 s" }
+                    // Filme/Serien: ◀ ▶ spult sofort 10 s und blendet die Zeitleiste ein (dort weiter spulen, gedrückt halten = schneller)
+                    Key.DirectionLeft -> if (isLive) overlay = true else { vm.seekBy(-10_000); seekHint = "−10 s"; overlay = true }
+                    Key.DirectionRight -> if (isLive) overlay = true else { vm.seekBy(10_000); seekHint = "+10 s"; overlay = true }
                     Key.DirectionUp -> if (isLive && settings.upDownAction == 1) { overlay = true; panel = Panel.CHANNELS } else if (isLive) vm.switchChannel(-1 * zapDir) else overlay = true
                     Key.DirectionDown -> if (isLive && settings.upDownAction == 1) { overlay = true; panel = Panel.CHANNELS } else if (isLive) vm.switchChannel(1 * zapDir) else overlay = true
                     Key.Menu -> { overlay = true; panel = if (isLive) Panel.CHANNELS else Panel.AUDIO }
@@ -341,7 +347,7 @@ fun PlayerScreen(
                     .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.80f), Color.Black.copy(alpha = 0.95f)))))
                 var ctlLabel by remember { mutableStateOf<String?>(null) }
                 Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 48.dp, end = 48.dp, bottom = 18.dp).crazyEntrance(0, overlayShown)) {
-                    InfoPanel(ui, stats, settings, isLive)
+                    InfoPanel(ui, stats, settings, isLive, seekFocus, onSeekTo = { vm.seekTo(it) })
                     Spacer(Modifier.height(12.dp))
                     if (moreOpen) {
                         androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth().padding(bottom = 10.dp),
@@ -350,7 +356,6 @@ fun PlayerScreen(
                             PlayerCtl("Bildformat", onClick = { panel = Panel.ASPECT })
                             if (!isLive || ui.shiftBehindMs > 0) PlayerCtl("Tempo ${ui.speed}×", onClick = { panel = Panel.SPEED })
                             PlayerCtl("Sync", onClick = { panel = Panel.SYNC })
-                            PlayerCtl(if (settings.cinemaMode) "Kino: an" else "Kinomodus", onClick = { panel = Panel.CINEMA }, active = settings.cinemaMode)
                             PlayerCtl(if (health) "Zustand aus" else "Stream-Zustand", onClick = { health = !health }, active = health)
                             if (ui.kind == ContentKind.EPISODE) PlayerCtl("Intro überspringen", onClick = { panel = Panel.SMART_SKIP })
                             val left = if (ui.sleepAt > 0) ((ui.sleepAt - System.currentTimeMillis()) / 60_000L + 1).coerceAtLeast(1) else 0
@@ -579,7 +584,8 @@ private fun PlayerCtl(label: String, onClick: () -> Unit, focusRequester: FocusR
 
 /** Info-Panel im TiviMate-Stil: Logo/Poster links, Titel + Sendung + Fortschritt in der Mitte, Uhr und Bildinfo rechts. */
 @Composable
-private fun InfoPanel(ui: PlayerUi, stats: de.ostlertekker.ultraiptv.core.player.PlaybackStats, settings: AppSettings, isLive: Boolean) {
+private fun InfoPanel(ui: PlayerUi, stats: de.ostlertekker.ultraiptv.core.player.PlaybackStats, settings: AppSettings, isLive: Boolean,
+                      seekFocus: FocusRequester? = null, onSeekTo: ((Long) -> Unit)? = null) {
     val p = LocalUltraTheme.current.palette
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
         val artW = if (isLive) 132.dp else 84.dp
@@ -606,11 +612,14 @@ private fun InfoPanel(ui: PlayerUi, stats: de.ostlertekker.ultraiptv.core.player
                 } else Text("Keine Programminformationen", color = Color.White.copy(alpha = 0.55f), fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
             } else if (ui.durationMs > 0) {
                 Spacer(Modifier.height(8.dp))
-                ProgressBar(ui.positionMs.toFloat() / ui.durationMs, (ui.positionMs + ui.bufferedMs).toFloat() / ui.durationMs)
-                Row(Modifier.fillMaxWidth()) {
-                    Text(fmt(ui.positionMs), color = Color.White, fontSize = 13.sp)
-                    Spacer(Modifier.weight(1f))
-                    Text("−" + fmt((ui.durationMs - ui.positionMs).coerceAtLeast(0)) + "  ·  " + fmt(ui.durationMs), color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp)
+                if (onSeekTo != null) SeekBar(ui, seekFocus, onSeekTo)
+                else {
+                    ProgressBar(ui.positionMs.toFloat() / ui.durationMs, (ui.positionMs + ui.bufferedMs).toFloat() / ui.durationMs)
+                    Row(Modifier.fillMaxWidth()) {
+                        Text(fmt(ui.positionMs), color = Color.White, fontSize = 13.sp)
+                        Spacer(Modifier.weight(1f))
+                        Text("−" + fmt((ui.durationMs - ui.positionMs).coerceAtLeast(0)) + "  ·  " + fmt(ui.durationMs), color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp)
+                    }
                 }
             }
         }
@@ -672,4 +681,67 @@ private fun NextGlyph(c: Color) = Canvas(Modifier.size(18.dp)) {
 @Composable
 private fun CcGlyph(c: Color) = Box(Modifier.border(1.6.dp, c, RoundedCornerShape(3.dp)).padding(horizontal = 3.dp)) {
     Text("CC", color = c, fontSize = 10.sp, fontWeight = FontWeight.Black)
+}
+
+
+/**
+ * Fokussierbare Zeitleiste (Filme/Serien): ◀ ▶ verschiebt die Zielposition – gedrückt halten wird schneller
+ * (10 s → 30 s → 1 min → 2 min). Nach kurzer Pause oder mit OK wird dorthin gesprungen.
+ */
+@Composable
+private fun SeekBar(ui: PlayerUi, focusRequester: FocusRequester?, onSeekTo: (Long) -> Unit) {
+    val p = LocalUltraTheme.current.palette
+    var focused by remember { mutableStateOf(false) }
+    var scrub by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(scrub) {
+        val t = scrub ?: return@LaunchedEffect
+        kotlinx.coroutines.delay(700)
+        onSeekTo(t)
+        kotlinx.coroutines.delay(500)
+        scrub = null
+    }
+    val dur = ui.durationMs.coerceAtLeast(1)
+    val pos = scrub ?: ui.positionMs
+    Column(
+        Modifier.fillMaxWidth()
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .onFocusChanged { focused = it.isFocused }
+            .onPreviewKeyEvent { ev ->
+                if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                when (ev.key) {
+                    Key.DirectionLeft, Key.DirectionRight -> {
+                        val rep = ev.nativeKeyEvent.repeatCount
+                        val step = when { rep > 24 -> 120_000L; rep > 10 -> 60_000L; rep > 3 -> 30_000L; else -> 10_000L }
+                        val sign = if (ev.key == Key.DirectionLeft) -1 else 1
+                        scrub = ((scrub ?: ui.positionMs) + sign * step).coerceIn(0, (dur - 1000).coerceAtLeast(0))
+                        true
+                    }
+                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
+                        val t = scrub
+                        if (t != null) { onSeekTo(t); scrub = null; true } else false
+                    }
+                    else -> false
+                }
+            }
+            .focusable()
+            .padding(vertical = 4.dp),
+    ) {
+        val h = if (focused) 8.dp else 5.dp
+        Box(Modifier.fillMaxWidth().height(14.dp), contentAlignment = Alignment.CenterStart) {
+            Box(Modifier.fillMaxWidth().height(h).background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(4.dp)))
+            Box(Modifier.fillMaxWidth(((ui.positionMs + ui.bufferedMs).toFloat() / dur).coerceIn(0f, 1f)).height(h)
+                .background(Color.White.copy(alpha = 0.3f), RoundedCornerShape(4.dp)))
+            Box(Modifier.fillMaxWidth((pos.toFloat() / dur).coerceIn(0f, 1f)).height(h).background(p.primary, RoundedCornerShape(4.dp)))
+            if (focused) androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val x = maxWidth * (pos.toFloat() / dur).coerceIn(0f, 1f)
+                Box(Modifier.padding(start = (x - 7.dp).coerceAtLeast(0.dp)).size(14.dp).background(Color.White, RoundedCornerShape(50)))
+            }
+        }
+        Row(Modifier.fillMaxWidth()) {
+            Text(fmt(pos), color = if (scrub != null) p.primary else Color.White, fontSize = if (scrub != null) 15.sp else 13.sp, fontWeight = FontWeight.Bold)
+            if (focused) Text("   ◀ ▶ spulen · gedrückt halten = schneller", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+            Spacer(Modifier.weight(1f))
+            Text("−" + fmt((ui.durationMs - pos).coerceAtLeast(0)) + "  ·  " + fmt(ui.durationMs), color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp)
+        }
+    }
 }
