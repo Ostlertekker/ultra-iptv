@@ -139,20 +139,6 @@ class DiscoverRepository @Inject constructor(
         }.distinctBy { it.program.channelId + it.program.startMs }
     }
 
-    /** Stimmungs-Empfehlungen: laufende + kommende Sendungen und Filme, nach Passung sortiert. */
-    suspend fun moodPicks(moods: List<Mood>, now: Long): Pair<List<Pair<AiringProgram, Float>>, List<Pair<MovieEntity, Float>>> = withContext(Dispatchers.IO) {
-        val programs = epg.window(now, now + 3 * 3_600_000L, adult(), 30_000)
-            .map { it to MoodEngine.score(moods, it.title + " " + (it.description ?: "") + " " + it.category) }
-            .filter { it.second > 0f }
-            .sortedWith(compareByDescending<Pair<AiringProgram, Float>> { it.second }.thenBy { if (it.first.startMs <= now) 0 else 1 })
-            .distinctBy { it.first.channelId }
-            .take(60)
-        val movies = content.moviesAllOnce(adult(), 4000)
-            .map { it to MoodEngine.score(moods, it.name + " " + (it.genre ?: "") + " " + it.category + " " + (it.plot ?: "")) }
-            .filter { it.second > 0f }.sortedByDescending { it.second }.take(40)
-        programs to movies
-    }
-
     // ------------------------------------------------------------------ Sender
     suspend fun allChannels(): List<ChannelEntity> = withContext(Dispatchers.IO) { content.channelsAllOnce(adult(), 60_000) }
 
@@ -165,29 +151,6 @@ class DiscoverRepository @Inject constructor(
         SmartGroup.entries.forEach { out[it] = ArrayList() }
         allChannels().forEach { c -> SmartGroup.detect(c.name, c.category).forEach { g -> out[g]!!.add(c) } }
         out.filterValues { it.isNotEmpty() }.also { groupCache = System.currentTimeMillis() to it }
-    }
-
-    /** Channel Comparison: gleiche Sendung bzw. gleicher Sender in anderen Varianten (HD/FHD/Backup …). */
-    suspend fun comparisonFor(channelId: String, now: Long): List<ChannelEntity> = withContext(Dispatchers.IO) {
-        val ch = content.channel(channelId) ?: return@withContext emptyList()
-        val base = SmartGroup.baseName(ch.name)
-        val all = allChannels()
-        val sameName = all.filter { it.id != ch.id && base.isNotBlank() && SmartGroup.baseName(it.name) == base }
-        val title = epg.nowNext(ch.epgId ?: "", now).firstOrNull { it.startMs <= now }?.title
-        val sameShow = if (title.isNullOrBlank()) emptyList() else epg.airingAt(now, adult(), 5000)
-            .filter { it.title.equals(title, true) && it.channelId != ch.id }.mapNotNull { a -> all.firstOrNull { it.id == a.channelId } }
-        (listOf(ch) + sameName + sameShow).distinctBy { it.id }.take(16)
-    }
-
-    /** Bester verfügbarer Sender aus einer Liste – nach gemessener Qualität und Stabilität. */
-    suspend fun bestOf(ids: List<String>): String? = withContext(Dispatchers.IO) {
-        if (ids.isEmpty()) return@withContext null
-        ids.maxByOrNull { id ->
-            val q = extras.quality(id)
-            var score = 0.0
-            if (q != null) score += q.height / 100.0 - q.rebuffers * 2 - q.errors * 5 - q.droppedFrames / 500.0
-            score
-        }
     }
 
     /** Archiv-URL (roh, wird vom StreamResolver aufgelöst) für eine vergangene Sendung – null wenn nicht möglich. */
@@ -203,10 +166,8 @@ class DiscoverRepository @Inject constructor(
 
     // ------------------------------------------------------------------ Eigene Senderlisten (AI Channel Cloning)
     fun lists(): Flow<List<VirtualListEntity>> = user.filter.map { it.profileId }.flatMapLatest { dao.lists(it) }
-    suspend fun listsOnce(): List<VirtualListEntity> = dao.listsOnce(profileId())
     suspend fun saveList(id: Long, name: String, rules: ListRules): Long =
         dao.saveList(VirtualListEntity(id = id, profileId = profileId(), name = name.ifBlank { "Meine Liste" }, rulesJson = rules.toJson(), createdAt = System.currentTimeMillis()))
-    suspend fun deleteList(id: Long) = dao.deleteList(id)
     suspend fun list(id: Long) = dao.list(id)
 
     /** Wendet die Regeln auf die echten Sender an. */
@@ -234,8 +195,6 @@ class DiscoverRepository @Inject constructor(
             dao.purgeWatch(System.currentTimeMillis() - 180L * Catchup.DAY_MS)
         }
     }
-
-    suspend fun clearStats() = dao.clearWatch(profileId())
 
     suspend fun stats(now: Long = System.currentTimeMillis()): WatchStats = withContext(Dispatchers.IO) {
         val log = dao.watchSince(profileId(), now - 30L * Catchup.DAY_MS)

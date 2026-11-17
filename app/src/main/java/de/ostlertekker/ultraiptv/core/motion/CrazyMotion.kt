@@ -112,57 +112,6 @@ object MotionBus {
     }
 }
 
-/** Zeichnet Fokus-Spuren und Hover-Explosionen über der ganzen App. Läuft nur, solange Effekte aktiv sind. */
-@Composable
-fun MotionOverlay(modifier: Modifier = Modifier) {
-    val spec = LocalMotion.current
-    if (!spec.enabled) return
-    val p = LocalUltraTheme.current.palette
-    var frame by remember { mutableStateOf(0L) }
-    val active = MotionBus.events.isNotEmpty()
-    LaunchedEffect(active) {
-        while (MotionBus.events.isNotEmpty()) {
-            withFrameNanos { now ->
-                frame = now
-                MotionBus.events.removeAll { (now - it.start) / 1_000_000 > it.durationMs }
-            }
-        }
-    }
-    if (!active) return
-    Canvas(modifier.fillMaxSize()) {
-        val now = frame
-        for (e in MotionBus.events) {
-            val t = clamp01(((now - e.start) / 1_000_000f) / e.durationMs)
-            when (e.kind) {
-                MotionEvent.TRAIL -> {
-                    // Leuchtspur vom alten zum neuen Fokus, die sich zum Ziel zusammenzieht
-                    val tail = Offset(e.from.x + (e.to.x - e.from.x) * easeOutCubic(t), e.from.y + (e.to.y - e.from.y) * easeOutCubic(t))
-                    val a = 1f - t
-                    drawLine(Brush.linearGradient(listOf(Color.Transparent, p.glow.copy(alpha = a)), tail, e.to), tail, e.to,
-                        strokeWidth = 10f * a + 2f, cap = StrokeCap.Round)
-                    val n = spec.particleCount(10)
-                    for (i in 0 until n) {
-                        val f = i / n.toFloat()
-                        val pos = Offset(tail.x + (e.to.x - tail.x) * f, tail.y + (e.to.y - tail.y) * f)
-                        drawCircle(p.particle.copy(alpha = a * (1f - f * 0.5f)), 2f + 3f * hash(e.seed, i) * a, pos)
-                    }
-                }
-                MotionEvent.EXPLOSION -> {
-                    val n = spec.particleCount(18)
-                    val a = 1f - t
-                    for (i in 0 until n) {
-                        val ang = hash(e.seed, i) * 2f * PI.toFloat()
-                        val dist = (40f + 120f * hash(e.seed, i + 50)) * easeOutCubic(t) * spec.intensity
-                        val pos = Offset(e.to.x + cos(ang) * dist, e.to.y + sin(ang) * dist + 60f * t * t)   // leichte Gravitation
-                        drawCircle((if (i % 3 == 0) p.secondary else p.particle).copy(alpha = a), 2.5f + 2f * a, pos)
-                    }
-                    drawCircle(p.glow.copy(alpha = 0.35f * a), 30f + 90f * t, e.to, style = Stroke(3f * a + 0.5f))
-                }
-            }
-        }
-    }
-}
-
 // --------------------------------------------------------------------------------------------
 // MENU ENTRANCE
 // --------------------------------------------------------------------------------------------

@@ -37,7 +37,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** Gemeinsames ViewModel der Entdecken-Seiten. Jede Seite ruft nur die Teile auf, die sie braucht. */
+/** ViewModel der Sport-Seite (Live-Spielstände, Spieldetails, „Läuft im TV“). */
 @HiltViewModel
 class DiscoverViewModel @Inject constructor(
     val repo: DiscoverRepository,
@@ -55,19 +55,6 @@ class DiscoverViewModel @Inject constructor(
         runCatching { target.value = block() }
         loading.value = false
     }
-
-    // --------------------------------------------------- Jetzt läuft / Zeitreise / Radar
-    val airing = MutableStateFlow<List<AiringProgram>>(emptyList())
-    val airingAt = MutableStateFlow(System.currentTimeMillis())
-    fun loadAiring(at: Long = airingAt.value) { airingAt.value = at; load(airing) { repo.airingAt(at) } }
-
-    val searchResults = MutableStateFlow<List<AiringProgram>>(emptyList())
-    val query = MutableStateFlow("")
-    fun search(q: String, from: Long, to: Long) { query.value = q; load(searchResults) { repo.search(q, from, to) } }
-
-    // --------------------------------------------------- Event Tracker
-    val events = MutableStateFlow<List<SportEvent>>(emptyList())
-    fun loadEvents() { val now = System.currentTimeMillis(); load(events) { repo.sportEvents(now - 3 * 3_600_000L, now + 36 * 3_600_000L) } }
 
     suspend fun toggleReminder(p: AiringProgram): Boolean = notifications.toggleReminder(p.channelId, p.channelName, p.title, p.startMs)
 
@@ -118,33 +105,4 @@ class DiscoverViewModel @Inject constructor(
         }
     }
 
-    // --------------------------------------------------- Mein TV
-    val stats = MutableStateFlow<WatchStats?>(null)
-    val forYou = MutableStateFlow<List<AiringProgram>>(emptyList())
-    fun loadStats() = viewModelScope.launch {
-        val s = repo.stats(); stats.value = s
-        forYou.value = repo.forYou(s, System.currentTimeMillis())
-    }
-    fun clearStats() = viewModelScope.launch { repo.clearStats(); loadStats() }
-
-    suspend fun nowOn(ch: ChannelEntity): String? = epg.nowNext(ch.epgId).firstOrNull { it.startMs <= System.currentTimeMillis() }?.title
-
-    // --------------------------------------------------- Eigene Listen
-    val lists: StateFlow<List<VirtualListEntity>> = repo.lists().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    val categories: StateFlow<List<String>> = content.channelCategories().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    val preview = MutableStateFlow<List<ChannelEntity>>(emptyList())
-    fun previewRules(r: ListRules) = load(preview) { repo.resolveList(r) }
-    fun saveList(id: Long, name: String, r: ListRules) = viewModelScope.launch { repo.saveList(id, name, r) }
-    fun deleteList(id: Long) = viewModelScope.launch { repo.deleteList(id) }
-
-    // --------------------------------------------------- Smart Remote
-    suspend fun bestSportChannel(): AiringProgram? {
-        val now = System.currentTimeMillis()
-        val live = repo.sportEvents(now, now + 60_000).map { it.program }
-        val best = repo.bestOf(live.map { it.channelId })
-        return live.firstOrNull { it.channelId == best } ?: live.firstOrNull()
-    }
-    suspend fun previousChannelId(): String? = user.recentChannels.first().getOrNull(0)?.itemId
-    suspend fun findChannel(q: String, number: Int?): ChannelEntity? =
-        number?.let { content.channelByNumber(it) } ?: content.channelsNamed(q).minByOrNull { it.name.length }
 }

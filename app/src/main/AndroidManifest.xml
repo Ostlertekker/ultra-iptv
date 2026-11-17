@@ -55,12 +55,6 @@
             android:hardwareAccelerated="true"
             android:screenOrientation="landscape" />
 
-        <activity
-            android:name=".feature.multiview.MultiViewActivity"
-            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
-            android:exported="false"
-            android:screenOrientation="landscape" />
-
         <service
             android:name=".core.player.PlaybackService"
             android:exported="true"

@@ -325,24 +325,6 @@ class UiSmokeTest {
         finish()
     }
 
-    @Test fun e_multiView() {
-        // Multi-View mit 4 Sendern
-        val ids = runBlocking { hooks.content().channelsAllOnce(4).map { it.id } }
-        ActivityScenario.launch<de.ostlertekker.ultraiptv.feature.multiview.MultiViewActivity>(
-            Intent(context, de.ostlertekker.ultraiptv.feature.multiview.MultiViewActivity::class.java)
-                .putStringArrayListExtra(de.ostlertekker.ultraiptv.feature.multiview.MultiViewActivity.EXTRA_IDS, ArrayList(ids))
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)).use {
-            Thread.sleep(6000)
-            shot("multiview")
-            keys("Multi-View bedienen", R, D, L, U, pauseMs = 500)
-            keys("Multi-View Senderwahl", KeyEvent.KEYCODE_MENU); Thread.sleep(1500); shot("multiview_picker")
-            keys("Multi-View Sender zuweisen", D, D, OK); Thread.sleep(4000)
-            keys("Multi-View Layout", U, U, R, R, OK, pauseMs = 500); Thread.sleep(3000)
-            assertResponsive("Multi-View")
-        }
-        finish()
-    }
-
     @Test fun f_settingsAndIntro() {
         // Einstellungen: jede Sektion einmal rendern
         openRoute(Routes.SETTINGS).use {

@@ -553,51 +553,6 @@ class PlayerViewModel @Inject constructor(
     private var pendingShift = 0L
     private var shiftJob: Job? = null
 
-    private fun queueShift(deltaMs: Long) {
-        pendingShift += deltaMs
-        val behindNow = (System.currentTimeMillis() - engine.timeshiftWall()).coerceAtLeast(0)
-        val maxBack = _ui.value.tsBufferedMs
-        val preview = (behindNow - pendingShift).coerceIn(0, maxBack.coerceAtLeast(0))
-        _ui.update { it.copy(seekPreviewMs = preview) }
-        shiftJob?.cancel()
-        shiftJob = viewModelScope.launch {
-            delay(450)
-            val d = pendingShift; pendingShift = 0
-            val target = engine.timeshiftWall() + d
-            val ch = liveChannel
-            val oldest = System.currentTimeMillis() - _ui.value.tsBufferedMs
-            if (d < 0 && target < oldest - 5_000 && ch != null && ch.archiveDays > 0) {
-                // Älter als der lokale Puffer → Archiv des Anbieters (falls vorhanden)
-                engine.stop(); startCatchup(target, null)
-            } else engine.timeshiftBy(d)
-            _ui.update { it.copy(seekPreviewMs = null, livePaused = false) }
-        }
-    }
-
-    fun rewindLive(ms: Long) {
-        if (engine.timeshiftActive && shiftStartWall == 0L) { queueShift(-ms); return }
-        val p = engine.player ?: return
-        if (shiftStartWall == 0L && p.isCurrentMediaItemDynamic && p.isCurrentMediaItemSeekable && p.currentPosition - ms > 0) {
-            p.seekTo(p.currentPosition - ms)
-            _ui.update { it.copy(shiftBehindMs = it.shiftBehindMs + ms) }
-            return
-        }
-        if (shiftStartWall > 0) {
-            val target = p.currentPosition - ms
-            if (target >= 0) { p.seekTo(target); updateShift(); return }
-        }
-        if (!_ui.value.canTimeshift) { toast("Dieser Sender bietet kein Archiv – Zurückspulen nicht möglich"); return }
-        startCatchup(currentWall() - ms, null)
-    }
-
-    fun forwardShift(ms: Long) {
-        if (engine.timeshiftActive && shiftStartWall == 0L) { queueShift(ms); return }
-        val p = engine.player ?: return
-        if (shiftStartWall == 0L) { if (p.isCurrentMediaItemSeekable) p.seekTo(p.currentPosition + ms); return }
-        if (currentWall() + ms >= System.currentTimeMillis() - 15_000) { goLive(); return }
-        p.seekTo(p.currentPosition + ms); updateShift()
-    }
-
     fun goLive() {
         if (engine.timeshiftActive && shiftStartWall == 0L) {
             shiftJob?.cancel(); pendingShift = 0
@@ -703,8 +658,6 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun channelList(): List<ChannelEntity> = channels
-
-    fun currentItemId(): String = itemId
 
     /** Einstellung direkt aus dem Player ändern (Kinomodus, Bildregler, Sync). */
     fun <T> setPref(key: androidx.datastore.preferences.core.Preferences.Key<T>, value: T) {

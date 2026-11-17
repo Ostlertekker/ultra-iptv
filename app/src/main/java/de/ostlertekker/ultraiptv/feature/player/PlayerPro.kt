@@ -246,17 +246,6 @@ fun ScoreChip(ui: PlayerUi, modifier: Modifier) {
     }
 }
 
-/** Timeshift-Hinweis („zeitversetzt −12:30“). */
-@Composable
-fun TimeshiftBadge(ui: PlayerUi, modifier: Modifier) {
-    if (ui.shiftBehindMs < 5_000 && !ui.livePaused) return
-    val p = LocalUltraTheme.current.palette
-    val s = ui.shiftBehindMs / 1000
-    val txt = if (ui.livePaused) "❚❚ LIVE PAUSIERT" else "⏪ ZEITVERSETZT −%d:%02d".format(s / 60, s % 60)
-    androidx.compose.material3.Text(txt, color = Color.Black, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-        modifier = modifier.background(p.primary, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 5.dp))
-}
-
 /** Einzelbild-Hinweis mit aktueller Position. */
 @Composable
 fun FrameStepHint(ui: PlayerUi, modifier: Modifier) {

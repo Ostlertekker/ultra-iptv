@@ -67,7 +67,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
@@ -377,7 +377,7 @@ fun PlayerScreen(
                                 if (ui.shiftBehindMs > 0) item { PlayerCtl("● LIVE", onClick = { vm.goLive() }, primary = true) }
                                 item { TmIcon("Sender hoch", { vm.switchChannel(-1) }, lbl("Sender hoch")) { c -> Icon(Icons.Default.KeyboardArrowUp, null, tint = c, modifier = Modifier.size(26.dp)) } }
                                 item { TmIcon("Sender runter", { vm.switchChannel(1) }, lbl("Sender runter")) { c -> Icon(Icons.Default.KeyboardArrowDown, null, tint = c, modifier = Modifier.size(26.dp)) } }
-                                item { TmIcon("Senderliste", { panel = Panel.CHANNELS }, lbl("Senderliste")) { c -> Icon(Icons.Default.List, null, tint = c, modifier = Modifier.size(22.dp)) } }
+                                item { TmIcon("Senderliste", { panel = Panel.CHANNELS }, lbl("Senderliste")) { c -> Icon(Icons.AutoMirrored.Filled.List, null, tint = c, modifier = Modifier.size(22.dp)) } }
                             }
                         }
                         Row(Modifier.padding(start = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -554,28 +554,6 @@ private fun PlayerClock(h24: Boolean, modifier: Modifier) {
 
 private fun cyclePct(v: Int): Int = listOf(70, 80, 90, 100, 110, 120, 130).let { l -> l[(l.indexOf(v).coerceAtLeast(0) + 1) % l.size] }
 
-
-/** Zeitleiste des Live-Puffers: links ältester Stand, rechts LIVE, Markierung = aktuelle Position. */
-@Composable
-private fun LiveTimeline(ui: PlayerUi) {
-    val p = LocalUltraTheme.current.palette
-    val buffered = ui.tsBufferedMs.coerceAtLeast(1)
-    val behind = (ui.seekPreviewMs ?: ui.shiftBehindMs).coerceIn(0, buffered)
-    val pos = 1f - behind.toFloat() / buffered
-    Column(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
-        Box(Modifier.fillMaxWidth().height(6.dp).background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(3.dp))) {
-            Box(Modifier.fillMaxWidth(pos.coerceIn(0.01f, 1f)).height(6.dp).background(p.primary, RoundedCornerShape(3.dp)))
-        }
-        Row(Modifier.fillMaxWidth().padding(top = 3.dp)) {
-            Text("−%d:%02d".format(buffered / 60_000, (buffered / 1000) % 60), color = p.textDim, fontSize = 11.sp)
-            Spacer(Modifier.weight(1f))
-            Text(if (behind < 1000) "● LIVE" else "−%d:%02d hinter Live".format(behind / 60_000, (behind / 1000) % 60),
-                color = if (behind < 1000) Color(0xFFFF5050) else p.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.weight(1f))
-            Text("◀ ▶ = 10 s · ⏪ ⏩ = 30 s", color = p.textDim, fontSize = 11.sp)
-        }
-    }
-}
 
 /** Kompakter Player-Knopf im Stil der Navigationspillen: dezent, flach, Fokus = weiße Pille. */
 @Composable

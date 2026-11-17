@@ -91,19 +91,8 @@ class SettingsExtrasViewModel @Inject constructor(
     val reminders = notifications.upcomingReminders().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val channelNames = MutableStateFlow<Map<String, String>>(emptyMap())
 
-    fun loadNames(ids: List<String>) = viewModelScope.launch {
-        if (ids.isEmpty()) return@launch
-        channelNames.value = content.channels(ids.take(400)).associate { it.id to it.name }
-    }
-
     fun checkUpdate() = viewModelScope.launch { updates.check(); settings.set(Keys.LAST_UPDATE_CHECK, System.currentTimeMillis()) }
     fun downloadUpdate(a: UpdateState.Available) = viewModelScope.launch { updates.download(a) }
-
-    fun runConnection() = viewModelScope.launch {
-        connectionRunning.value = true
-        connection.value = net.connectionReport()
-        connectionRunning.value = false
-    }
 
     fun runSpeedTest(includeProvider: Boolean) = viewModelScope.launch {
         var url: String? = null
@@ -148,14 +137,8 @@ class SettingsExtrasViewModel @Inject constructor(
 
     fun removeAccount(id: String) { creds.remove(id) }
 
-    fun setAutoUpdate(hours: Int) = viewModelScope.launch {
-        settings.set(Keys.AUTO_UPDATE_HOURS, hours)
-        NotificationCenter.scheduleAutoUpdate(context, hours)
-    }
-
     fun markRead() = viewModelScope.launch { notifications.markAllRead() }
     fun clearNotifications() = viewModelScope.launch { notifications.clearAll() }
-    suspend fun firstHealthIds() = health.first().map { it.channelId }
 }
 
 private fun date(ms: Long) = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(ms))
@@ -276,80 +259,7 @@ fun LazyListScope.notificationsSection(x: SettingsExtrasViewModel) {
 
 // ------------------------------------------------------------------ Netzwerk & Speedtest
 
-fun LazyListScope.networkDiagSection(x: SettingsExtrasViewModel, s: AppSettings, vm: SettingsViewModel) {
-    item {
-        val p = LocalUltraTheme.current.palette
-        val report by x.connection.collectAsStateWithLifecycle()
-        val running by x.connectionRunning.collectAsStateWithLifecycle()
-        val speed by x.net.speed.collectAsStateWithLifecycle()
-        Column {
-            SectionHeader("Internetgeschwindigkeit")
-            when (val sp = speed) {
-                is SpeedTestState.Running -> UltraLoader(label = "${sp.phase} … ${(sp.progress * 100).toInt()} %")
-                is SpeedTestState.Done -> {
-                    val r = sp.result
-                    if (r.error != null) InfoRow("Fehler", r.error, Accuracy.MEASURED)
-                    InfoRow("Ping / Jitter", r.pingMs?.let { "$it ms / ${r.jitterMs ?: "?"} ms" } ?: "–", if (r.pingMs != null) Accuracy.MEASURED else Accuracy.UNAVAILABLE)
-                    InfoRow("Download", r.downloadMbps?.let { "%.1f Mbit/s".format(it) } ?: "–", if (r.downloadMbps != null) Accuracy.MEASURED else Accuracy.UNAVAILABLE)
-                    InfoRow("Upload", r.uploadMbps?.let { "%.1f Mbit/s".format(it) } ?: "–", if (r.uploadMbps != null) Accuracy.MEASURED else Accuracy.UNAVAILABLE)
-                    if (r.providerMbps != null) InfoRow("Durchsatz eines Anbieter-Streams", "%.1f Mbit/s (Stream-Bitrate begrenzt den Wert)".format(r.providerMbps), Accuracy.MEASURED)
-                    InfoRow("Messserver", r.server + (r.location?.let { " · Standort $it" } ?: ""), Accuracy.MEASURED)
-                    Text(r.verdict, color = p.primary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(8.dp))
-                }
-                SpeedTestState.Idle -> Unit
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                TvButton("Speedtest starten", onClick = { x.runSpeedTest(false) }, primary = true)
-                TvButton("Mit Anbieter-Stream", onClick = { x.runSpeedTest(true) })
-            }
-            SectionHeader("Verbindungsdiagnose")
-            if (running) UltraLoader(label = "Prüfe Verbindung …")
-            report?.forEach { InfoRow(it.label, it.value, it.accuracy) }
-            ActionRow("Verbindung prüfen", { x.runConnection() }, subtitle = "Netzwerk, DNS, Anbieter-Server, Anmeldung und Konto-Limits")
-            SectionHeader("Wiedergabe-Netzwerk")
-            ChoiceRow("Live-Stream-Format", if (s.liveFormat == "m3u8") "HLS (m3u8)" else "MPEG-TS (ts)", { vm.set(Keys.LIVE_FORMAT, if (s.liveFormat == "ts") "m3u8" else "ts") })
-            InfoRow("Automatische Wiederholung", "Bis zu 5 Versuche mit wachsender Wartezeit", Accuracy.MEASURED)
-        }
-    }
-}
-
 // ------------------------------------------------------------------ Sender-Analyse
-
-fun LazyListScope.channelAnalysisSection(x: SettingsExtrasViewModel) {
-    item {
-        val p = LocalUltraTheme.current.palette
-        val quality by x.quality.collectAsStateWithLifecycle()
-        val health by x.health.collectAsStateWithLifecycle()
-        val names by x.channelNames.collectAsStateWithLifecycle()
-        LaunchedEffect(quality.size, health.size) { x.loadNames((quality.map { it.channelId } + health.map { it.channelId }).distinct()) }
-        Column {
-            Text("Qualität aus echter Wiedergabe (gemessen).",
-                color = p.textDim, fontSize = 12.sp, modifier = Modifier.padding(bottom = 6.dp))
-            SectionHeader("Sender-Qualität & Buffering-Analyse")
-            if (quality.isEmpty()) Text("Noch keine Daten – einfach Sender schauen.", color = p.textDim, fontSize = 14.sp)
-            quality.take(40).forEach { q ->
-                val min = (q.watchMs / 60_000).coerceAtLeast(1)
-                val perTen = q.rebuffers * 10.0 / min
-                val verdict = when {
-                    q.errors > 2 -> "instabil (Fehler)"
-                    perTen >= 3 -> "häufiges Nachladen → Puffer „Groß“ oder Datensparer"
-                    perTen >= 1 -> "gelegentliches Nachladen"
-                    else -> "stabil"
-                }
-                InfoRow(names[q.channelId] ?: q.channelId,
-                    "${if (q.height > 0) "${q.width}×${q.height}" else "?"} · ${if (q.fps > 0) "%.0f fps".format(q.fps) else "? fps"} · ${q.codec?.substringAfter('/') ?: "?"} · " +
-                        "${q.rebuffers}× nachgeladen in $min Min. · $verdict", Accuracy.MEASURED)
-            }
-            SectionHeader("Stream-Gesundheit (zuletzt geprüft)")
-            if (health.isEmpty()) Text("Noch keine Prüfung durchgeführt.", color = p.textDim, fontSize = 14.sp)
-            health.take(60).forEach { h ->
-                InfoRow(names[h.channelId] ?: h.channelId,
-                    if (h.ok) "✓ online · Antwort ${h.latencyMs} ms" + (if (h.bitrateKbps > 0) " · %.1f Mbit/s".format(h.bitrateKbps / 1000.0) else "") + (h.resolution?.let { " · $it" } ?: "")
-                    else "✗ ${h.error ?: "Fehler"}", Accuracy.MEASURED)
-            }
-        }
-    }
-}
 
 // ------------------------------------------------------------------ Backup & Sync
 
@@ -393,27 +303,3 @@ fun LazyListScope.backupSection(x: SettingsExtrasViewModel) {
 
 // ------------------------------------------------------------------ Wiedergabe-Zusatzoptionen
 
-fun LazyListScope.playbackExtras(vm: SettingsViewModel, s: AppSettings, x: SettingsExtrasViewModel) {
-    item {
-        val p = LocalUltraTheme.current.palette
-        Column {
-            SectionHeader("Automatik")
-            ToggleRow("Automatische Qualitätsoptimierung", s.autoQuality, { vm.set(Keys.AUTO_QUALITY, it) },
-                subtitle = "Senkt die Auflösung bei häufigem Nachladen oder Bildaussetzern")
-            ToggleRow("Automatische Fehlererkennung & Ausweichsender", s.autoFailover, { vm.set(Keys.AUTO_FAILOVER, it) },
-                subtitle = "Bei gestörtem Sender automatisch auf eine gleichnamige Alternative (z. B. HD ↔ FHD) wechseln")
-            ToggleRow("Hintergrund-Audio", s.backgroundAudio, { vm.set(Keys.BG_AUDIO, it) },
-                subtitle = "Ton läuft weiter, wenn du den Player mit der Home-Taste verlässt (sofern vom Gerät unterstützt)")
-            SectionHeader("Untertitel-Stil")
-            ChoiceRow("Schriftgröße", "${(s.subtitleScale * 100).toInt()} %", { vm.set(Keys.SUB_SCALE, listOf(0.75f, 1f, 1.25f, 1.5f, 2f).let { l -> l[(l.indexOf(s.subtitleScale) + 1).mod(l.size)] }) })
-            ChoiceRow("Farbe", listOf("Weiß", "Gelb", "Cyan")[s.subtitleColor.coerceIn(0, 2)], { vm.set(Keys.SUB_COLOR, (s.subtitleColor + 1) % 3) })
-            ChoiceRow("Hintergrund", listOf("Keiner", "Halbtransparent", "Schwarz")[s.subtitleBackground.coerceIn(0, 2)], { vm.set(Keys.SUB_BG, (s.subtitleBackground + 1) % 3) })
-            SectionHeader("Playlist")
-            ChoiceRow("Automatische Playlist-Aktualisierung", if (s.autoUpdateHours <= 0) "Aus" else "alle ${s.autoUpdateHours} h",
-                { x.setAutoUpdate(listOf(0, 6, 12, 24, 48).let { l -> l[(l.indexOf(s.autoUpdateHours) + 1).mod(l.size)] }) },
-                subtitle = "Lädt Sender, Filme, Serien und EPG im Hintergrund neu und meldet neue Folgen")
-            Text("Bild-in-Bild: nutzbar auf Geräten, die es unterstützen. Sonst bietet der Player einen In-App-Mini-Player.",
-                color = p.textDim, fontSize = 11.sp, modifier = Modifier.padding(8.dp))
-        }
-    }
-}

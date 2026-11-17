@@ -6,7 +6,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Notifications
@@ -100,7 +100,7 @@ import javax.inject.Inject
 
 /** Einstellungs-Kategorien nach dem Vorbild von TiviMate Premium (plus App-Updates und Über). */
 enum class SettingsCategory(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    PLAYLISTS("Playlists", Icons.Default.List),
+    PLAYLISTS("Playlists", Icons.AutoMirrored.Filled.List),
     EPG("EPG", Icons.Default.DateRange),
     APPEARANCE("Erscheinungsbild", Icons.Default.Edit),
     PLAYBACK("Wiedergabe", Icons.Default.PlayArrow),
@@ -150,37 +150,12 @@ class SettingsViewModel @Inject constructor(
         user.activeProfileOnce()?.let { user.updateProfile(it.copy(themeId = id)) }
     }
 
-    fun playbackReport(): List<InfoEntry> {
-        val st = player.lastSessionStats ?: player.stats.value
-        val any = st.videoMime != null || st.audioMime != null
-        fun e(label: String, v: String?, acc: Accuracy = Accuracy.MEASURED) =
-            InfoEntry(label, v ?: "Nicht verfügbar", if (v == null) Accuracy.UNAVAILABLE else acc)
-        if (!any) return listOf(InfoEntry("Wiedergabe", "Noch keine Wiedergabe in dieser Sitzung", Accuracy.UNAVAILABLE))
-        val mode = device.currentDisplayMode()
-        return listOf(
-            e("Video-Codec", listOfNotNull(st.videoMime, st.videoCodecs).joinToString(" / ").ifBlank { null }),
-            e("Video-Decoder", st.videoDecoder),
-            e("Quellauflösung", if (st.sourceWidth > 0) UltraQualityEngine.resolutionLabel(st.sourceWidth, st.sourceHeight) else null),
-            e("Dekodierte Auflösung", if (st.decodedWidth > 0) UltraQualityEngine.resolutionLabel(st.decodedWidth, st.decodedHeight) else null),
-            e("Ausgabeauflösung (Display)", mode?.let { "${it.width}×${it.height}" }),
-            e("Quell-Bildrate", if (st.sourceFps > 0) "%.3f fps".format(st.sourceFps) else null),
-            e("Display-Bildwiederholrate", mode?.let { "%.2f Hz".format(it.refreshRate) }),
-            e("HDR", st.hdr ?: "SDR (kein HDR-Signal in der Quelle)"),
-            e("Video-Bitrate (Manifest)", if (st.videoBitrate > 0) "${st.videoBitrate / 1000} kbit/s" else null, Accuracy.ESTIMATED),
-            e("Audio", listOfNotNull(st.audioMime, st.audioChannels.takeIf { it > 0 }?.let { "$it Kanäle" }).joinToString(" · ").ifBlank { null }),
-            e("Audio-Decoder", st.audioDecoder),
-            e("Verworfene Frames", st.droppedFrames.toString()),
-            e("Netzwerkdurchsatz", if (st.bandwidthBps > 0) "%.1f Mbit/s".format(st.bandwidthBps / 1_000_000.0) else null, Accuracy.ESTIMATED),
-            e("Wiedergabefehler / Wiederherstellungen", "${st.errors} / ${st.recoveries}" + (st.lastError?.let { " (zuletzt: $it)" } ?: "")),
-        )
-    }
 }
 
 
 private fun <T> cycle(list: List<T>, current: T): T = list[(list.indexOf(current) + 1).mod(list.size)]
 
 private val languages = listOf("" to "Automatisch", "de" to "Deutsch", "en" to "Englisch", "fr" to "Französisch", "es" to "Spanisch", "it" to "Italienisch", "tr" to "Türkisch")
-private fun onOff(b: Boolean) = if (b) "An" else "Aus"
 
 @Composable
 fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), x: SettingsExtrasViewModel = hiltViewModel()) {
