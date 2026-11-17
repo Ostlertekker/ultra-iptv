@@ -119,7 +119,14 @@ class SportsRepository @Inject constructor(http: OkHttpClient) {
                 .ifEmpty { ev.arr("competitions").toList() }
             val single = comps.size <= 1 || l.sport != Sport.TENNIS
             val list = if (l.sport == Sport.F1) listOfNotNull(comps.lastOrNull { c -> (c as? JsonObject)?.obj("status")?.obj("type")?.s("state") == "in" } ?: comps.lastOrNull())
-            else if (single) comps.take(1) else comps.take(30)
+            else if (single) comps.take(1)
+            else {
+                // Turniere (Tennis) liefern alle Matches der Woche: laufende zuerst, dann die zeitlich nächsten
+                val now = System.currentTimeMillis()
+                comps.sortedWith(compareBy<kotlinx.serialization.json.JsonElement> { c ->
+                    when ((c as? JsonObject)?.obj("status")?.obj("type")?.s("state")) { "in" -> 0; else -> 1 }
+                }.thenBy { c -> kotlin.math.abs(parseDate((c as? JsonObject)?.s("date")) - now) }).take(30)
+            }
             for (c in list) {
                 val comp = c as? JsonObject ?: continue
                 val status = comp.obj("status") ?: ev.obj("status")

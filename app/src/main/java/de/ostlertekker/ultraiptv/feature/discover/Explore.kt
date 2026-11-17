@@ -491,7 +491,9 @@ private fun ScoreRow(e: ScoreEvent, selected: Boolean, onClick: () -> Unit) {
         .background(if (focused || selected) pal.surfaceFocused else pal.surface, shape).padding(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("${e.league.sport.emoji} ${e.league.label}", color = pal.textDim, fontSize = 11.sp, modifier = Modifier.weight(1f))
-            Text(when (e.state) { "in" -> "● LIVE ${e.clock ?: ""}"; "post" -> e.detail.ifBlank { "Beendet" }; else -> formatTime(e.startMs) },
+            Text(when (e.state) { "in" -> "● LIVE ${e.clock ?: ""}"; "post" -> e.detail.ifBlank { "Beendet" }
+                else -> if (android.text.format.DateUtils.isToday(e.startMs)) formatTime(e.startMs)
+                    else java.text.SimpleDateFormat("EE HH:mm", java.util.Locale.GERMAN).format(java.util.Date(e.startMs)) },
                 color = if (e.live) Color(0xFFFF5050) else pal.textDim, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
         if (e.competitors.size == 2) e.competitors.forEach { c ->
