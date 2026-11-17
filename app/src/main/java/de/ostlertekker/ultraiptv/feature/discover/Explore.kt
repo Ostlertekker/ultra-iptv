@@ -459,8 +459,6 @@ fun SportsScreen(nav: NavController, vm: DiscoverViewModel = hiltViewModel()) {
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(League.entries) { l -> TvChip(l.label, l in leagues, { vm.toggleLeague(l) }) }
         }
-        Text("Boxen: Für Boxkämpfe gibt es keine frei zugängliche Live-Datenquelle – Termine findest du im Live Event Tracker.", color = pal.textDim, fontSize = 11.sp,
-            modifier = Modifier.padding(top = 4.dp))
         board?.failedLeagues?.takeIf { it.isNotEmpty() }?.let { Text("Nicht erreichbar: " + it.joinToString { l -> l.label }, color = Color(0xFFFFB060), fontSize = 11.sp) }
         Row(Modifier.fillMaxSize().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             LazyColumn(Modifier.weight(0.5f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
