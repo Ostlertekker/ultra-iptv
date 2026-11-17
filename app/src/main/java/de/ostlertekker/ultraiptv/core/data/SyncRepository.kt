@@ -19,7 +19,6 @@ import de.ostlertekker.ultraiptv.core.network.XmltvParser
 import de.ostlertekker.ultraiptv.core.network.XtreamUrls
 import de.ostlertekker.ultraiptv.core.security.CredentialStore
 import de.ostlertekker.ultraiptv.core.security.StreamResolver
-import de.ostlertekker.ultraiptv.di.XtreamApi
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -79,7 +78,6 @@ data class AccountInfo(
 @Singleton
 class SyncRepository @Inject constructor(
     private val db: UltraDatabase,
-    private val api: XtreamApi,
     private val http: OkHttpClient,
     private val creds: CredentialStore,
     private val settings: SettingsRepository,
@@ -205,9 +203,16 @@ class SyncRepository @Inject constructor(
 
     // --------------------------------------------------------------- Xtream
 
+    /** Antwort direkt über OkHttp streamen (große Kataloge werden nie komplett in den Speicher geladen). */
+    private suspend fun fetch(url: String): okhttp3.ResponseBody = withContext(Dispatchers.IO) {
+        val resp = http.newCall(Request.Builder().url(url).build()).execute()
+        if (!resp.isSuccessful) { val c = resp.code; resp.close(); throw java.io.IOException("HTTP $c") }
+        resp.body ?: run { resp.close(); throw java.io.IOException("Leere Antwort") }
+    }
+
     @OptIn(ExperimentalSerializationApi::class)
     private suspend fun <T> readArray(url: String, map: (JsonObject) -> T?): List<T> {
-        val body = api.stream(url)
+        val body = fetch(url)
         return body.use { b ->
             b.byteStream().use { input ->
                 json.decodeToSequence<JsonElement>(input, DecodeSequenceMode.AUTO_DETECT)
@@ -218,7 +223,7 @@ class SyncRepository @Inject constructor(
     }
 
     private suspend fun readObject(url: String): JsonObject? {
-        val text = api.stream(url).use { it.string() }
+        val text = fetch(url).use { it.string() }
         return runCatching { json.parseToJsonElement(text) as? JsonObject }.getOrNull()
     }
 

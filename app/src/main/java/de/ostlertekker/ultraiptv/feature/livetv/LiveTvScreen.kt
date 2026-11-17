@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.feature.livetv
 
+import kotlinx.coroutines.flow.collectLatest
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -150,7 +151,8 @@ class LiveTvViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            channels.collect { list ->
+            // collectLatest: beim schnellen Kategoriewechsel wird die veraltete EPG-Abfrage abgebrochen
+            channels.collectLatest { list ->
                 val now = System.currentTimeMillis()
                 programs.value = epg.programs(list.mapNotNull { it.epgId }.take(800), now, now + 6 * 3_600_000L)
             }

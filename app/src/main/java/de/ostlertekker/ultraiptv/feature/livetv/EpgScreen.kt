@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.feature.livetv
 
+import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -88,7 +89,7 @@ class EpgViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             channels.value = if (category != null) content.channelsInOnce(category).take(200) else content.channelsAllOnce(200)
-            combine(channels, windowStart) { c, w -> c to w }.collect { (c, w) ->
+            combine(channels, windowStart) { c, w -> c to w }.collectLatest { (c, w) ->
                 programs.value = epg.programs(c.mapNotNull { it.epgId }, w, w + WINDOW)
                 loading.value = false
             }

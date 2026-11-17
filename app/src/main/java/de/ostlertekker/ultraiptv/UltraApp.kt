@@ -15,6 +15,7 @@ import javax.inject.Inject
 class UltraApp : Application(), ImageLoaderFactory {
 
     @Inject lateinit var credentialStore: CredentialStore
+    @Inject lateinit var http: okhttp3.OkHttpClient
 
     override fun onCreate() {
         super.onCreate()
@@ -41,6 +42,8 @@ class UltraApp : Application(), ImageLoaderFactory {
             .decoderDispatcher(kotlinx.coroutines.Dispatchers.Default.limitedParallelism(if (low) 1 else 2))
             // Kein Überblenden: jedes Bild wäre sonst 120 ms lang zusätzliche Zeichenarbeit beim Scrollen
             .crossfade(false)
+            // Gemeinsamer Verbindungs-Pool mit der übrigen App statt eines zweiten OkHttp-Clients
+            .okHttpClient { http }
             .respectCacheHeaders(false)
             .build()
     }

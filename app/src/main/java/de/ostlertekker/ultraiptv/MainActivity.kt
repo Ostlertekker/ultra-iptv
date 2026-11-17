@@ -18,7 +18,6 @@ import de.ostlertekker.ultraiptv.core.data.SettingsRepository
 import de.ostlertekker.ultraiptv.core.data.SyncRepository
 import de.ostlertekker.ultraiptv.core.data.UserRepository
 import de.ostlertekker.ultraiptv.core.device.DeviceCapabilityManager
-import de.ostlertekker.ultraiptv.core.lan.LanHub
 import de.ostlertekker.ultraiptv.core.notify.NotificationCenter
 import de.ostlertekker.ultraiptv.core.player.PlayerEngine
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -67,7 +66,6 @@ class RootViewModel @Inject constructor(
     private val sync: SyncRepository,
     private val user: UserRepository,
     val engine: PlayerEngine,
-    val lan: LanHub,
     private val notifications: NotificationCenter,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {

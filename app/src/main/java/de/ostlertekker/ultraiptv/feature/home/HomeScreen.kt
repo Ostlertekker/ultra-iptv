@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.feature.home
 
+import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -124,7 +125,7 @@ class HomeViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            combine(content.movieCount, content.channelCount, user.filter) { m, c, f -> Triple(m, c, f.showAdult) }.collect { (_, _, adult) ->
+            combine(content.movieCount, content.channelCount, user.filter) { m, c, f -> Triple(m, c, f.showAdult) }.collectLatest { (_, _, adult) ->
                 dynamicRows.value = buildDynamicRows(adult)
             }
         }

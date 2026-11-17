@@ -112,7 +112,6 @@ dependencies {
     ksp(libs.room.compiler)
 
     implementation(libs.datastore.preferences)
-    implementation(libs.retrofit)
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)

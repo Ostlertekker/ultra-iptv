@@ -5,10 +5,6 @@
 -keepnames class de.ostlertekker.ultraiptv.** { *; }
 -keepattributes Signature, InnerClasses, EnclosingMethod, *Annotation*, SourceFile, LineNumberTable, Exceptions
 
-# Retrofit (Streaming-Interface mit suspend-Funktionen)
--keep,allowobfuscation interface de.ostlertekker.ultraiptv.di.XtreamApi
--keep,allowshrinking,allowobfuscation class kotlin.coroutines.Continuation
--dontwarn retrofit2.**
 -dontwarn okhttp3.**
 -dontwarn okio.**
 
