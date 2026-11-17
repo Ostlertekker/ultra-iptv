@@ -161,10 +161,10 @@ private fun railRouteFor(route: String): String = when {
     route.startsWith("seriesDetail/") -> Routes.SERIES
     route.startsWith(Routes.EPG) -> Routes.EPG
     route.startsWith("jf") || route.startsWith(Routes.JELLYFIN) -> Routes.JELLYFIN
-    route.startsWith(Routes.EVENTS) || route.startsWith(Routes.SPORTS) -> Routes.EVENTS
+    route.startsWith(Routes.SPORTS) -> Routes.SPORTS
     route.startsWith(Routes.SETUP) -> Routes.SETTINGS
     route.startsWith(Routes.SETUP_NEW) -> Routes.SETTINGS
-    listOf(Routes.WHATSON, "radar", "timemachine", Routes.MYTV, Routes.LISTS)
+    listOf(Routes.WHATSON, "radar", "timemachine", Routes.MYTV, Routes.LISTS, Routes.EVENTS)
         .any { route.startsWith(it) } -> Routes.EXPLORE
     else -> route
 }
@@ -180,7 +180,7 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
     val items = remember {
         listOf(
             NavItem(Routes.HOME, "Start"), NavItem(Routes.LIVE, "Live-TV"), NavItem(Routes.EPG, "Programm"), NavItem(Routes.MOVIES, "Filme"),
-            NavItem(Routes.SERIES, "Serien"), NavItem(Routes.EVENTS, "Sport"), NavItem(Routes.FAVORITES, "Favoriten"), NavItem(Routes.JELLYFIN, "Jellyfin"), NavItem("app:YOUTUBE", "YouTube"), NavItem(Routes.SPOTIFY, "Spotify"),
+            NavItem(Routes.SERIES, "Serien"), NavItem(Routes.SPORTS, "Sport"), NavItem(Routes.FAVORITES, "Favoriten"), NavItem(Routes.JELLYFIN, "Jellyfin"), NavItem("app:YOUTUBE", "YouTube"), NavItem(Routes.SPOTIFY, "Spotify"),
             NavItem(Routes.EXPLORE, "Mehr"),
         )
     }

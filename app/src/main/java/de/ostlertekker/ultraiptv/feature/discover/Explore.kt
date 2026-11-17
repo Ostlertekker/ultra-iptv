@@ -455,7 +455,7 @@ fun SportsScreen(nav: NavController, vm: DiscoverViewModel = hiltViewModel()) {
     LaunchedEffect(Unit) { vm.startScores() }
     LaunchedEffect(selected?.id) { selected?.let { vm.loadDetail(it.league, it.id) } }
     Column(Modifier.fillMaxSize().padding(24.dp)) {
-        ScreenTitle("Sport-Dashboard", subtitle = board?.let { "Stand ${formatTime(it.fetchedAt)} · Quelle: ESPN (öffentliche Live-Daten) · aktualisiert alle 30 s" } ?: "Lade Live-Daten …")
+        ScreenTitle("Live-Spielstände", subtitle = board?.let { "Stand ${formatTime(it.fetchedAt)} · Quelle: ESPN (öffentliche Live-Daten) · aktualisiert alle 30 s" } ?: "Lade Live-Daten …")
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(League.entries) { l -> TvChip(l.label, l in leagues, { vm.toggleLeague(l) }) }
         }
