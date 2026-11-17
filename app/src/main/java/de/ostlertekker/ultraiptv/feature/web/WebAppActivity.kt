@@ -148,7 +148,14 @@ class WebAppActivity : ComponentActivity() {
         // Die Android-WebView meldet 1920×1080 und kennt die TV-Parameter width/height/framerate nicht → nur bis 1080p.
         // Wir melden deshalb die echte Fähigkeit des Hardware-Decoders (gemessen über MediaCodecList).
         val dec = decoderMax()
-        if (app == WebApp.YOUTUBE && dec.first >= 3840 && maxDisplayHeight() >= 2160 &&
+        val dispH = maxDisplayHeight()
+        // Diagnose direkt im Bild: zeigt, ob 4K angeboten werden kann und woran es ggf. scheitert
+        if (app == WebApp.YOUTUBE) hint.text = hint.text.toString() + "\n" + when {
+            dec.first < 3840 -> "4K aus: Hardware-Decoder meldet kein VP9/AV1 in 4K"
+            dispH < 2160 -> "4K aus: Gerät meldet keinen 4K-Bildmodus (max. ${dispH}p) – TV/HDMI prüfen"
+            else -> "4K aktiv: Decoder 3840×2160 @ ${dec.third} fps · Display ${dispH}p"
+        }
+        if (app == WebApp.YOUTUBE && dec.first >= 3840 && dispH >= 2160 &&
             androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
             val js = """
                 (function(){try{
@@ -156,8 +163,10 @@ class WebAppActivity : ComponentActivity() {
                   ['width','availWidth'].forEach(function(k){Object.defineProperty(screen,k,{get:function(){return w}})});
                   ['height','availHeight'].forEach(function(k){Object.defineProperty(screen,k,{get:function(){return h}})});
                   Object.defineProperty(window,'devicePixelRatio',{get:function(){return w/Math.max(1,window.innerWidth)}});
-                  function wrap(obj,name){ if(!obj||!obj[name]) return; var orig=obj[name].bind(obj);
-                    obj[name]=function(t){ try{
+                  // Wichtig: Original mit dem richtigen „this“ aufrufen – canPlayType ist eine Methode des Video-Elements,
+                  // ein bind() auf den Prototyp warf „Illegal invocation“ und YouTube wertete das als „nicht unterstützt“.
+                  function wrap(obj,name){ if(!obj||!obj[name]) return; var orig0=obj[name];
+                    obj[name]=function(t){ var self=this; var orig=function(x){ return orig0.call(self,x); }; try{
                       var s=String(t), g=function(k){var m=new RegExp(k+'=([0-9.]+)').exec(s); return m?parseFloat(m[1]):0;};
                       if(g('width')>MW||g('height')>MH||g('framerate')>MF) return name==='canPlayType'?'':false;
                       var base=s.replace(/;\s*(width|height|framerate|bitrate|eotf|channels|decode-to-texture|cryptoblockformat|features)=[^;]*/gi,'');
