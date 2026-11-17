@@ -282,6 +282,10 @@ class UiSmokeTest {
                 keys("$route zurück", BACK); Thread.sleep(1500)
             }
         }
+        // Serien › „Alle Serien“: Unterkategorien links untereinander (wie Live-TV)
+        openRoute(Routes.SERIES).use {
+            device.findObject(androidx.test.uiautomator.By.text("Alle Serien"))?.click(); Thread.sleep(2000); shot("serien_alle_kategorien")
+        }
         // Filme › „Alle Filme“: Unterkategorien links untereinander (wie Live-TV)
         openRoute(Routes.MOVIES).use {
             device.findObject(androidx.test.uiautomator.By.text("Alle Filme"))?.click(); Thread.sleep(2000); shot("movies_alle_kategorien")

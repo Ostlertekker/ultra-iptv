@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.feature.series
 
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -154,13 +155,20 @@ fun SeriesScreen(nav: NavController, vm: SeriesViewModel = hiltViewModel()) {
             })
         return
     }
-    Column(Modifier.fillMaxSize().padding(start = 20.dp, top = 12.dp, end = 20.dp)) {
+    // Unterkategorien links untereinander – gleicher Aufbau wie bei Live-TV und Filme
+    Row(Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(Modifier.weight(0.25f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        item {
+            Text("Serien", color = p.text, fontSize = 24.sp, fontWeight = LocalUltraTheme.current.spec.titleWeight, fontFamily = LocalUltraTheme.current.spec.fontFamily,
+                modifier = Modifier.padding(bottom = 10.dp))
+        }
+        item(key = "__overview") { de.ostlertekker.ultraiptv.feature.livetv.CategoryItem("Übersicht", false) { overviewMode = true } }
+        item(key = "__all") { de.ostlertekker.ultraiptv.feature.livetv.CategoryItem("Alle", cat == null) { vm.category.value = null } }
+        items(cats, key = { it }) { c -> de.ostlertekker.ultraiptv.feature.livetv.CategoryItem(c, c == cat) { vm.category.value = c } }
+    }
+    Column(Modifier.weight(0.75f).fillMaxHeight()) {
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            item { TvChip("Übersicht", false, { overviewMode = true }) }
             items(SortOrder.entries, key = { it.name }) { s -> TvChip("↕ ${s.label}", s == sort, { vm.sort.value = s }) }
-            item { Spacer(Modifier.width(16.dp)) }
-            item { TvChip("Alle", cat == null, { vm.category.value = null }) }
-            items(cats, key = { it }) { c -> TvChip(c, c == cat, { vm.category.value = c }) }
         }
         Spacer(Modifier.height(12.dp))
         if (list.isEmpty()) Text("Keine Serien gefunden.", color = p.textDim)
@@ -174,6 +182,7 @@ fun SeriesScreen(nav: NavController, vm: SeriesViewModel = hiltViewModel()) {
                 FocusCard(s.name, s.poster, 150.dp, 222.dp, onClick = { nav.navigate(Routes.seriesDetail(s.id)) }, subtitle = s.year, entranceIndex = i % 8)
             }
         }
+    }
     }
 }
 
