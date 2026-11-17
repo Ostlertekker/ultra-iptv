@@ -48,6 +48,7 @@ enum class WebApp(val title: String, val url: String, val userAgent: String, val
 @AndroidEntryPoint
 class WebAppActivity : ComponentActivity() {
     @Inject lateinit var engine: PlayerEngine
+    @Inject lateinit var http: okhttp3.OkHttpClient
 
     private lateinit var web: WebView
     private lateinit var app: WebApp
@@ -182,6 +183,9 @@ class WebAppActivity : ComponentActivity() {
         // Werbeblocker: Werbedaten aus den Antworten des YouTube-Players entfernen (Pre-/Mid-Rolls, Banner)
         if (app == WebApp.YOUTUBE && androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
             runCatching { androidx.webkit.WebViewCompat.addDocumentStartJavaScript(web, AdBlock.SCRIPT, setOf("https://www.youtube.com")) }
+            // SponsorBlock: Sponsoren-/Eigenwerbe-Abschnitte automatisch überspringen (Daten von sponsor.ajay.app)
+            web.addJavascriptInterface(SponsorBlock(http) { msg -> runOnUiThread { showHint(msg) } }, "UltraSB")
+            runCatching { androidx.webkit.WebViewCompat.addDocumentStartJavaScript(web, SponsorBlock.SCRIPT, setOf("https://www.youtube.com")) }
         }
         if (savedInstanceState != null) web.restoreState(savedInstanceState) else web.loadUrl(intent.getStringExtra(EXTRA_URL) ?: app.url)
         web.requestFocus()
@@ -233,6 +237,12 @@ class WebAppActivity : ComponentActivity() {
         @Suppress("DEPRECATION") val d = windowManager.defaultDisplay
         d.supportedModes.maxOf { maxOf(it.physicalHeight, it.physicalWidth * 9 / 16) }
     }.getOrDefault(1080)
+
+    private fun showHint(text: String) {
+        hint.text = text
+        hint.animate().cancel(); hint.alpha = 1f
+        hint.postDelayed({ hint.animate().alpha(0f).setDuration(600).start() }, 2500)
+    }
 
     override fun onSaveInstanceState(outState: Bundle) { super.onSaveInstanceState(outState); web.saveState(outState) }
 
@@ -416,4 +426,52 @@ internal object AdBlock {
             try{ Object.defineProperty(window,n,{configurable:true,get:function(){return v;},set:function(x){v=strip(x,0);}}); }catch(e){} });
         }catch(e){}})();
     """
+}
+
+
+/**
+ * SponsorBlock (Community-Datenbank sponsor.ajay.app, wie in SmartTube): überspringt gesponserte Abschnitte,
+ * Eigenwerbung, Abo-Aufforderungen und musikfremde Teile in Musikvideos. Die Abschnitte werden pro Video einmal geladen.
+ */
+internal class SponsorBlock(private val http: okhttp3.OkHttpClient, private val onSkip: (String) -> Unit) {
+    private val client = http.newBuilder().connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS).readTimeout(6, java.util.concurrent.TimeUnit.SECONDS).build()
+
+    @android.webkit.JavascriptInterface
+    fun segments(videoId: String): String {
+        if (!Regex("[A-Za-z0-9_-]{11}").matches(videoId)) return "[]"
+        val cats = android.net.Uri.encode("[\"sponsor\",\"selfpromo\",\"interaction\",\"music_offtopic\"]")
+        return runCatching {
+            client.newCall(okhttp3.Request.Builder().url("https://sponsor.ajay.app/api/skipSegments?videoID=$videoId&categories=$cats").build())
+                .execute().use { r -> if (r.isSuccessful) r.body?.string() ?: "[]" else "[]" }
+        }.getOrDefault("[]")
+    }
+
+    @android.webkit.JavascriptInterface
+    fun skipped(category: String) {
+        onSkip(when (category) {
+            "sponsor" -> "Sponsor übersprungen"; "selfpromo" -> "Eigenwerbung übersprungen"
+            "interaction" -> "Abo-Aufforderung übersprungen"; "music_offtopic" -> "Nicht-Musik-Teil übersprungen"
+            else -> "Abschnitt übersprungen"
+        })
+    }
+
+    companion object {
+        const val SCRIPT = """
+            (function(){ if(window.__ultraSB) return; window.__ultraSB=true;
+              var vid=null, segs=[], done={};
+              function currentId(){ var m=/[?&#/]v=([A-Za-z0-9_-]{11})/.exec(location.href); return m?m[1]:null; }
+              setInterval(function(){ try{
+                var id=currentId();
+                if(id!==vid){ vid=id; segs=[]; done={};
+                  if(id&&window.UltraSB){ setTimeout(function(){ try{ var r=JSON.parse(UltraSB.segments(id));
+                    if(vid===id&&Array.isArray(r)) segs=r.filter(function(s){return s&&s.segment&&s.actionType!=='mute';}); }catch(e){} },0); } }
+                if(!segs.length) return;
+                var v=document.querySelector('video'); if(!v||v.paused&&v.currentTime===0) return;
+                var t=v.currentTime;
+                for(var i=0;i<segs.length;i++){ var s=segs[i].segment;
+                  if(t>=s[0]&&t<s[1]-0.5&&!done[i]){ done[i]=true; v.currentTime=s[1]; try{UltraSB.skipped(segs[i].category);}catch(e){} break; } }
+              }catch(e){} },500);
+            })();
+        """
+    }
 }
