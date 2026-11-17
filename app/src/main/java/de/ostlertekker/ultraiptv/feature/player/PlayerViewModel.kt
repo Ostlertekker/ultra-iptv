@@ -42,6 +42,8 @@ import javax.inject.Inject
 
 data class PlayerUi(
     val title: String = "",
+    /** Senderlogo bzw. Poster für das Info-Panel. */
+    val artwork: String? = null,
     val subtitle: String = "",
     val kind: ContentKind = ContentKind.MOVIE,
     val positionMs: Long = 0,
@@ -207,7 +209,7 @@ class PlayerViewModel @Inject constructor(
                 val m = content.movieOnce(itemId) ?: return fail("Film nicht gefunden")
                 movie = m; image = m.poster
                 logName = m.name; logCategory = m.genre ?: m.category
-                _ui.update { it.copy(title = m.name, subtitle = listOfNotNull(m.year, m.genre).joinToString(" · ")) }
+                _ui.update { it.copy(title = m.name, artwork = m.poster, subtitle = listOfNotNull(m.year, m.genre).joinToString(" · ")) }
                 play(m.streamUrl, start)
             }
             ContentKind.EPISODE -> {
@@ -234,7 +236,7 @@ class PlayerViewModel @Inject constructor(
                 it.year?.toString(), it.rating, it.runtimeMs / 1000, "", 0L, false)
             image = poster
             logName = it.name; logCategory = it.genres.firstOrNull() ?: "Jellyfin"
-            _ui.update { u -> u.copy(title = it.name, subtitle = listOfNotNull(it.year?.toString(), it.genres.firstOrNull()).joinToString(" · ")) }
+            _ui.update { u -> u.copy(title = it.name, artwork = poster, subtitle = listOfNotNull(it.year?.toString(), it.genres.firstOrNull()).joinToString(" · ")) }
             playJf(id, start)
         }
     }
@@ -255,7 +257,7 @@ class PlayerViewModel @Inject constructor(
         nextEpisode = if (idx >= 0) list.getOrNull(idx + 1) else null
         val seriesName = runCatching { jellyfin.item(ep.seriesId.removePrefix(JF))?.name }.getOrNull()
         _ui.update {
-            it.copy(title = seriesName ?: ep.title, subtitle = "S${ep.season} E${ep.episode} · ${ep.title}", hasNext = nextEpisode != null,
+            it.copy(title = seriesName ?: ep.title, artwork = image, subtitle = "S${ep.season} E${ep.episode} · ${ep.title}", hasNext = nextEpisode != null,
                 countdown = null, skipOffer = null, ended = false, segments = segments, pendingMarkStart = null)
         }
         playJf(ep.id.removePrefix(JF), start)
@@ -323,7 +325,7 @@ class PlayerViewModel @Inject constructor(
         _ui.update { it.copy(shiftBehindMs = 0, livePaused = false, canTimeshift = ch.archiveDays > 0, score = null, scoreFlash = null) }
         itemId = ch.id; image = ch.logo
         _ui.update { it.copy(zapAt = System.currentTimeMillis(), qualityNote = null) }
-        _ui.update { it.copy(title = ch.name, subtitle = (if (ch.number > 0) "${ch.number} · " else "") + ch.category, nowTitle = null, nextTitle = null, programProgress = null) }
+        _ui.update { it.copy(title = ch.name, artwork = ch.logo, subtitle = (if (ch.number > 0) "${ch.number} · " else "") + ch.category, nowTitle = null, nextTitle = null, programProgress = null) }
         play(ch.streamUrl, 0)
         viewModelScope.launch {
             user.saveProgress(ContentKind.LIVE, ch.id, 0, 0, ch.name, ch.logo)
@@ -359,7 +361,7 @@ class PlayerViewModel @Inject constructor(
         if (image == null) image = series?.poster
         segments = skipRepo.segmentsFor(ep)
         _ui.update {
-            it.copy(title = series?.name ?: ep.title, subtitle = "S${ep.season} E${ep.episode} · ${ep.title}", hasNext = nextEpisode != null,
+            it.copy(title = series?.name ?: ep.title, artwork = image, subtitle = "S${ep.season} E${ep.episode} · ${ep.title}", hasNext = nextEpisode != null,
                 countdown = null, skipOffer = null, ended = false, segments = segments, pendingMarkStart = null)
         }
         play(ep.streamUrl, start)

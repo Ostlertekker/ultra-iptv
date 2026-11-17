@@ -62,6 +62,23 @@ import de.ostlertekker.ultraiptv.core.player.TrackOption
 import de.ostlertekker.ultraiptv.core.player.UltraQualityEngine
 import de.ostlertekker.ultraiptv.core.ui.TvButton
 import de.ostlertekker.ultraiptv.core.ui.tvFocusable
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.border
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import de.ostlertekker.ultraiptv.core.ui.UltraLoader
 import de.ostlertekker.ultraiptv.feature.smartskip.SegmentType
 import kotlinx.coroutines.delay
@@ -277,9 +294,6 @@ fun PlayerScreen(
             if (health) HealthMonitor(vm, Modifier.align(Alignment.Center).fillMaxWidth(0.86f))
         }
         // Uhr im Player
-        if (settings.playerClock && !inPip && overlay && !settings.cinemaMode) {
-            PlayerClock(settings.clock24h, Modifier.align(Alignment.TopCenter).padding(top = 36.dp))
-        }
 
         ui.error?.let { err ->
             Column(Modifier.align(Alignment.Center).background(Color.Black.copy(alpha = 0.8f), RoundedCornerShape(16.dp)).padding(24.dp),
@@ -318,60 +332,23 @@ fun PlayerScreen(
             if (ui.zapAt > 0 && settings.zapBanner) { bannerVisible = true; delay(settings.osdSeconds.coerceIn(2, 30) * 800L); bannerVisible = false }
         }
         if (bannerVisible && !overlay && !inPip && isLive) {
-            Column(Modifier.align(Alignment.BottomStart).padding(36.dp).width(560.dp)
-                .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(14.dp)).padding(18.dp)) {
-                Text(ui.subtitle, color = p.primary, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                Text(ui.title, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                if (ui.nowTitle != null) {
-                    Text("${ui.nowTime ?: ""}  ${ui.nowTitle}", color = Color.White, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    ProgressBar(ui.programProgress ?: 0f, null)
-                }
-                ui.nextTitle?.let { Text("Danach: $it", color = p.textDim, fontSize = 13.sp, maxLines = 1) }
-            }
+            Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(260.dp)
+                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.80f), Color.Black.copy(alpha = 0.95f)))))
+            Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 48.dp, end = 48.dp, bottom = 36.dp)) { InfoPanel(ui, stats, settings, true) }
         }
 
         AnimatedVisibility(overlay && ui.countdown == null && !inPip, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.fillMaxSize()) {
+            // TiviMate-Stil: alles in einem Info-Panel am unteren Rand, darunter eine Reihe runder Symbol-Knöpfe
             Box(Modifier.fillMaxSize()) {
-                Box(Modifier.fillMaxWidth().height(160.dp).background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.85f), Color.Transparent))))
-                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(if (moreOpen) 240.dp else 190.dp).background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.92f)))))
-                Column(Modifier.padding(36.dp).crazyEntrance(0, overlayShown)) {
-                    Text(ui.title, color = Color.White, fontSize = 28.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily, maxLines = 1)
-                    Text(ui.subtitle, color = p.textDim, fontSize = 15.sp, maxLines = 1)
-                }
-                // Auflösung / Bildrate / HDR des laufenden Videos (gemessen)
-                val badge = buildList {
-                    if (stats.decodedHeight > 0) add(when {
-                        stats.decodedHeight >= 2100 -> "4K"; stats.decodedHeight >= 1060 -> "FULL HD"; stats.decodedHeight >= 700 -> "HD"; else -> "SD"
-                    } + " ${stats.decodedWidth}×${stats.decodedHeight}")
-                    if (stats.measuredFps > 0) add("%.0f fps".format(stats.measuredFps)) else if (stats.sourceFps > 0) add("%.0f fps".format(stats.sourceFps))
-                    stats.hdr?.let { add(it.substringBefore(" (")) }
-                }.joinToString("  ·  ")
-                if (badge.isNotEmpty()) Text(badge, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(36.dp).background(Color.White.copy(alpha = 0.12f), RoundedCornerShape(6.dp))
-                        .padding(horizontal = 10.dp, vertical = 4.dp))
-                ui.qualityNote?.let { Text(it, color = p.primary, fontSize = 12.sp, modifier = Modifier.align(Alignment.TopEnd).padding(top = 72.dp, end = 36.dp)) }
-                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal = 36.dp, vertical = 20.dp)) {
-                    if (isLive && ui.tsBufferedMs > 0) LiveTimeline(ui)
-                    if (isLive) {
-                        if (ui.nowTitle != null) {
-                            Text("JETZT  ${ui.nowTime ?: ""}", color = p.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            Text(ui.nowTitle ?: "", color = Color.White, fontSize = 18.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            ProgressBar(ui.programProgress ?: 0f, null)
-                            ui.nextTitle?.let { Text("DANACH  $it", color = p.textDim, fontSize = 13.sp, maxLines = 1) }
-                        } else Text("Keine Programminformationen", color = p.textDim, fontSize = 13.sp)
-                    } else if (ui.durationMs > 0) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(fmt(ui.positionMs), color = Color.White, fontSize = 13.sp, modifier = Modifier.width(70.dp))
-                            Box(Modifier.weight(1f)) {
-                                ProgressBar(ui.positionMs.toFloat() / ui.durationMs, (ui.positionMs + ui.bufferedMs).toFloat() / ui.durationMs)
-                            }
-                            Text(fmt(ui.durationMs), color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(start = 12.dp))
-                        }
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    // Kompakte Steuerleiste: wichtige Funktionen in einer Zeile, alles Weitere unter „Mehr“ (ohne Scrollen sichtbar)
+                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(if (moreOpen) 400.dp else 330.dp)
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.80f), Color.Black.copy(alpha = 0.95f)))))
+                var ctlLabel by remember { mutableStateOf<String?>(null) }
+                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 48.dp, end = 48.dp, bottom = 18.dp).crazyEntrance(0, overlayShown)) {
+                    InfoPanel(ui, stats, settings, isLive)
+                    if (isLive && ui.tsBufferedMs > 0) Box(Modifier.padding(top = 10.dp)) { LiveTimeline(ui) }
+                    Spacer(Modifier.height(12.dp))
                     if (moreOpen) {
-                        androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth().padding(bottom = 10.dp),
                             horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             if (isLive) {
                                 PlayerCtl("Letzter Sender", onClick = { vm.lastChannel() })
@@ -391,36 +368,45 @@ fun PlayerScreen(
                             if (pipSupported) PlayerCtl("Bild-in-Bild", onClick = { if (!onPip()) onMini() })
                         }
                     }
+                    val lbl: (String) -> (Boolean) -> Unit = { name -> { f -> if (f) ctlLabel = name else if (ctlLabel == name) ctlLabel = null } }
                     Row(Modifier.fillMaxWidth().crazyEntrance(1, overlayShown), verticalAlignment = Alignment.CenterVertically) {
-                        LazyRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            item { PlayerCtl(if (ui.isPlaying) "❚❚" else "▶\uFE0E", onClick = { vm.togglePlay() }, focusRequester = playFocus, icon = true) }
+                        LazyRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            item {
+                                TmIcon(if (ui.isPlaying) "Pause" else "Wiedergabe", { vm.togglePlay() }, lbl(if (ui.isPlaying) "Pause" else "Wiedergabe"), playFocus) { c ->
+                                    if (ui.isPlaying) PauseGlyph(c) else Icon(Icons.Default.PlayArrow, null, tint = c, modifier = Modifier.size(24.dp))
+                                }
+                            }
                             if (offer != null) item { PlayerCtl("${offer.segment.type.label} überspringen", onClick = { vm.acceptSkip() }, primary = true) }
                             if (!isLive) {
-                                item { PlayerCtl("−10 s", onClick = { vm.seekBy(-10_000) }) }
-                                item { PlayerCtl("+30 s", onClick = { vm.seekBy(30_000) }) }
-                                if (ui.kind == ContentKind.EPISODE && ui.hasNext) item { PlayerCtl("Nächste Folge", onClick = { vm.playNext() }) }
+                                item { TmIcon("10 s zurück", { vm.seekBy(-10_000) }, lbl("10 s zurück")) { c -> TmText("−10", c) } }
+                                item { TmIcon("30 s vor", { vm.seekBy(30_000) }, lbl("30 s vor")) { c -> TmText("+30", c) } }
+                                if (ui.kind == ContentKind.EPISODE && ui.hasNext) item { TmIcon("Nächste Folge", { vm.playNext() }, lbl("Nächste Folge")) { c -> NextGlyph(c) } }
                             } else {
                                 if (ui.shiftBehindMs > 0) item { PlayerCtl("● LIVE", onClick = { vm.goLive() }, primary = true) }
-                                item { PlayerCtl("▲", onClick = { vm.switchChannel(-1) }, icon = true) }
-                                item { PlayerCtl("▼", onClick = { vm.switchChannel(1) }, icon = true) }
-                                item { PlayerCtl("Senderliste", onClick = { panel = Panel.CHANNELS }) }
+                                item { TmIcon("Sender hoch", { vm.switchChannel(-1) }, lbl("Sender hoch")) { c -> Icon(Icons.Default.KeyboardArrowUp, null, tint = c, modifier = Modifier.size(26.dp)) } }
+                                item { TmIcon("Sender runter", { vm.switchChannel(1) }, lbl("Sender runter")) { c -> Icon(Icons.Default.KeyboardArrowDown, null, tint = c, modifier = Modifier.size(26.dp)) } }
+                                item { TmIcon("Senderliste", { panel = Panel.CHANNELS }, lbl("Senderliste")) { c -> Icon(Icons.Default.List, null, tint = c, modifier = Modifier.size(22.dp)) } }
                                 if (ui.canTimeshift || ui.shiftBehindMs > 0) {
-                                    item { PlayerCtl("−10 s", onClick = { vm.rewindLive(10_000) }) }
-                                    item { PlayerCtl("−30 s", onClick = { vm.rewindLive(30_000) }) }
-                                    item { PlayerCtl("−5 min", onClick = { vm.rewindLive(300_000) }) }
+                                    item { TmIcon("10 s zurück", { vm.rewindLive(10_000) }, lbl("10 s zurück")) { c -> TmText("−10", c) } }
+                                    item { TmIcon("30 s zurück", { vm.rewindLive(30_000) }, lbl("30 s zurück")) { c -> TmText("−30", c) } }
+                                    item { TmIcon("5 min zurück", { vm.rewindLive(300_000) }, lbl("5 min zurück")) { c -> TmText("−5m", c) } }
                                     if (ui.shiftBehindMs > 0) {
-                                        item { PlayerCtl("+10 s", onClick = { vm.forwardShift(10_000) }) }
-                                        item { PlayerCtl("+30 s", onClick = { vm.forwardShift(30_000) }) }
+                                        item { TmIcon("10 s vor", { vm.forwardShift(10_000) }, lbl("10 s vor")) { c -> TmText("+10", c) } }
+                                        item { TmIcon("30 s vor", { vm.forwardShift(30_000) }, lbl("30 s vor")) { c -> TmText("+30", c) } }
                                     }
                                 }
                             }
                         }
-                        Row(Modifier.padding(start = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            PlayerCtl("Audio", onClick = { panel = Panel.AUDIO })
-                            PlayerCtl("Untertitel", onClick = { panel = Panel.SUBTITLES })
-                            PlayerCtl(if (moreOpen) "Weniger" else "Mehr", onClick = { moreOpen = !moreOpen }, active = moreOpen)
+                        Row(Modifier.padding(start = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TmIcon("Audiospur", { panel = Panel.AUDIO }, lbl("Audiospur")) { c -> TmText("♫\uFE0E", c, 18) }
+                            TmIcon("Untertitel", { panel = Panel.SUBTITLES }, lbl("Untertitel")) { c -> CcGlyph(c) }
+                            TmIcon(if (moreOpen) "Weniger" else "Weitere Optionen", { moreOpen = !moreOpen }, lbl(if (moreOpen) "Weniger" else "Weitere Optionen"), active = moreOpen) { c ->
+                                Icon(Icons.Default.MoreVert, null, tint = c, modifier = Modifier.size(22.dp))
+                            }
                         }
                     }
+                    Text(ctlLabel ?: "", color = Color.White.copy(alpha = 0.75f), fontSize = 12.sp, maxLines = 1,
+                        modifier = Modifier.padding(top = 6.dp).height(16.dp))
                 }
             }
         }
@@ -627,4 +613,102 @@ private fun PlayerCtl(label: String, onClick: () -> Unit, focusRequester: FocusR
         Text(label, color = if (focused) Color(0xFF111111) else Color.White, fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
     }
+}
+
+
+/** Info-Panel im TiviMate-Stil: Logo/Poster links, Titel + Sendung + Fortschritt in der Mitte, Uhr und Bildinfo rechts. */
+@Composable
+private fun InfoPanel(ui: PlayerUi, stats: de.ostlertekker.ultraiptv.core.player.PlaybackStats, settings: AppSettings, isLive: Boolean) {
+    val p = LocalUltraTheme.current.palette
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        val artW = if (isLive) 132.dp else 84.dp
+        val artH = if (isLive) 88.dp else 124.dp
+        Box(Modifier.size(artW, artH).background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+            var ok by remember(ui.artwork) { mutableStateOf(false) }
+            if (!ok) Text(de.ostlertekker.ultraiptv.core.ui.initialsOf(ui.title), color = Color.White.copy(alpha = 0.6f), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            if (ui.artwork != null) AsyncImage(ui.artwork, null, contentScale = if (isLive) ContentScale.Fit else ContentScale.Crop,
+                modifier = Modifier.fillMaxSize().padding(if (isLive) 10.dp else 0.dp).then(if (isLive) Modifier else Modifier.background(Color.Transparent, RoundedCornerShape(10.dp))),
+                onSuccess = { ok = true }, onError = { ok = false })
+        }
+        Spacer(Modifier.width(22.dp))
+        Column(Modifier.weight(1f)) {
+            Text(ui.subtitle, color = p.primary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(ui.title, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (isLive) {
+                if (ui.nowTitle != null) {
+                    Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(ui.nowTime ?: "", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp, modifier = Modifier.padding(end = 10.dp))
+                        Text(ui.nowTitle, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    ProgressBar(ui.programProgress ?: 0f, null)
+                    ui.nextTitle?.let { Text("Danach:  $it", color = Color.White.copy(alpha = 0.55f), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                } else Text("Keine Programminformationen", color = Color.White.copy(alpha = 0.55f), fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+            } else if (ui.durationMs > 0) {
+                Spacer(Modifier.height(8.dp))
+                ProgressBar(ui.positionMs.toFloat() / ui.durationMs, (ui.positionMs + ui.bufferedMs).toFloat() / ui.durationMs)
+                Row(Modifier.fillMaxWidth()) {
+                    Text(fmt(ui.positionMs), color = Color.White, fontSize = 13.sp)
+                    Spacer(Modifier.weight(1f))
+                    Text("−" + fmt((ui.durationMs - ui.positionMs).coerceAtLeast(0)) + "  ·  " + fmt(ui.durationMs), color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp)
+                }
+            }
+        }
+        Spacer(Modifier.width(22.dp))
+        Column(horizontalAlignment = Alignment.End) {
+            if (settings.playerClock && !settings.cinemaMode) PlayerClock(settings.clock24h, Modifier)
+            // Auflösung / Bildrate / HDR des laufenden Videos (gemessen)
+            val badges = buildList {
+                if (stats.decodedHeight > 0) add(when {
+                    stats.decodedHeight >= 2100 -> "4K"; stats.decodedHeight >= 1060 -> "FHD"; stats.decodedHeight >= 700 -> "HD"; else -> "SD"
+                })
+                if (stats.decodedHeight > 0) add("${stats.decodedWidth}×${stats.decodedHeight}")
+                if (stats.measuredFps > 0) add("%.0f fps".format(stats.measuredFps)) else if (stats.sourceFps > 0) add("%.0f fps".format(stats.sourceFps))
+                stats.hdr?.let { add(it.substringBefore(" (")) }
+            }
+            if (badges.isNotEmpty()) Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                badges.forEach { b ->
+                    Text(b, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.border(1.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 1.dp))
+                }
+            }
+            ui.qualityNote?.let { Text(it, color = p.primary, fontSize = 12.sp, maxLines = 1, modifier = Modifier.padding(top = 4.dp)) }
+        }
+    }
+}
+
+/** Runder Symbol-Knopf (TiviMate-Stil). Die Beschriftung erscheint unter der Knopfreihe, solange der Knopf fokussiert ist. */
+@Composable
+private fun TmIcon(label: String, onClick: () -> Unit, onFocusLabel: (Boolean) -> Unit, focusRequester: FocusRequester? = null,
+                   active: Boolean = false, content: @Composable (Color) -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(50)
+    Box(
+        Modifier.size(44.dp)
+            .semantics { contentDescription = label }
+            .tvFocusable(shape, onClick, focusRequester = focusRequester, scaleOnFocus = false, onFocus = { focused = it; onFocusLabel(it) })
+            .background(when { focused -> Color.White; active -> Color.White.copy(alpha = 0.24f); else -> Color.White.copy(alpha = 0.10f) }, shape),
+        contentAlignment = Alignment.Center,
+    ) { content(if (focused) Color(0xFF111111) else Color.White) }
+}
+
+@Composable
+private fun TmText(t: String, c: Color, size: Int = 13) = Text(t, color = c, fontSize = size.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+
+@Composable
+private fun PauseGlyph(c: Color) = Canvas(Modifier.size(18.dp)) {
+    val w = size.width * 0.28f
+    drawRoundRect(c, Offset(size.width * 0.14f, 0f), Size(w, size.height), androidx.compose.ui.geometry.CornerRadius(2f))
+    drawRoundRect(c, Offset(size.width * 0.58f, 0f), Size(w, size.height), androidx.compose.ui.geometry.CornerRadius(2f))
+}
+
+@Composable
+private fun NextGlyph(c: Color) = Canvas(Modifier.size(18.dp)) {
+    val path = Path().apply { moveTo(0f, 0f); lineTo(size.width * 0.72f, size.height / 2); lineTo(0f, size.height); close() }
+    drawPath(path, c)
+    drawRect(c, Offset(size.width * 0.80f, 0f), Size(size.width * 0.18f, size.height))
+}
+
+@Composable
+private fun CcGlyph(c: Color) = Box(Modifier.border(1.6.dp, c, RoundedCornerShape(3.dp)).padding(horizontal = 3.dp)) {
+    Text("CC", color = c, fontSize = 10.sp, fontWeight = FontWeight.Black)
 }

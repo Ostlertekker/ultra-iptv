@@ -284,8 +284,8 @@ class UiSmokeTest {
         }
         // Filme › „Alle Filme“: Unterkategorien links untereinander (wie Live-TV)
         openRoute(Routes.MOVIES).use {
-            keys("Filme: Alle Filme", *IntArray(6) { U }, D, R, OK, pauseMs = 400); Thread.sleep(1500); shot("movies_alle_kategorien")
-            keys("Filme: Kategorien", L, L, D, D, D, OK, pauseMs = 300); Thread.sleep(1500); shot("movies_kategorie_gewaehlt")
+            device.findObject(androidx.test.uiautomator.By.text("Alle Filme"))?.click(); Thread.sleep(2000); shot("movies_alle_kategorien")
+            device.findObject(androidx.test.uiautomator.By.text("Filme Kategorie 2"))?.click(); Thread.sleep(2000); shot("movies_kategorie_gewaehlt")
         }
         for (route in listOf(Routes.HOME, Routes.MOVIES, Routes.SERIES, Routes.SEARCH, Routes.EPG)) {
             openRoute(route).use {
