@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.feature.movies
 
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.heightIn
