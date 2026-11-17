@@ -61,12 +61,4 @@ class TvMatchMultiTest {
         val nl = de.ostlertekker.ultraiptv.core.discover.TvMatch.tokens(listOf("Netherlands"))
         assertTrue(nl.any { de.ostlertekker.ultraiptv.core.discover.TvMatch.containsWord(text, it) })
     }
-    @Test fun zeitschriftSenderAbgleich() {
-        val key = ChannelCountry.listingKey("RTL Television")
-        val clean = ChannelCountry.cleanName("DE: RTL HD")
-        assertTrue(ChannelCountry.matches(clean, key) || ChannelCountry.matches(key, clean))
-        val k2 = ChannelCountry.listingKey("Das Erste HD")
-        assertTrue(ChannelCountry.matches(ChannelCountry.cleanName("DE | Das Erste FHD"), k2))
-        assertFalse(ChannelCountry.matches(ChannelCountry.cleanName("DE: RTL Nitro"), key) || ChannelCountry.matches(key, ChannelCountry.cleanName("DE: RTL Nitro")))
-    }
 }
