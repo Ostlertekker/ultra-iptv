@@ -406,7 +406,7 @@ fun PlayerScreen(
                         }
                     }
                     Text(ctlLabel ?: "", color = Color.White.copy(alpha = 0.75f), fontSize = 12.sp, maxLines = 1,
-                        modifier = Modifier.padding(top = 6.dp).height(16.dp))
+                        modifier = Modifier.padding(top = 6.dp).height(20.dp))
                 }
             }
         }
