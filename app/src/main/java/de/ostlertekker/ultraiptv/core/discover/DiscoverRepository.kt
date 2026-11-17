@@ -88,7 +88,7 @@ data class WatchStats(
 @OptIn(ExperimentalCoroutinesApi::class)
 /** Ein Sender-Vorschlag für ein Spiel: woher er stammt und wie sicher er ist. */
 data class TvHit(val program: AiringProgram, val source: Source, val country: String?, val score: Int) {
-    enum class Source(val label: String) { LISTING("📺 zeigt dieses Spiel"), CONFIRMED("✓ bestätigt"), RIGHTS("Rechteinhaber"), EPG("TV-Programm") }
+    enum class Source(val label: String) { LISTING("📺 zeigt dieses Spiel"), CONFIRMED("✓ bestätigt"), LIKELY("wahrscheinlich (Sport läuft)"), RIGHTS("Rechteinhaber"), EPG("TV-Programm") }
 }
 
 class DiscoverRepository @Inject constructor(
@@ -150,7 +150,7 @@ class DiscoverRepository @Inject constructor(
         val epgByChannel = programs.groupBy { it.channelId }
 
         // 0) TV-Plan pro Spiel (welcher Sender zeigt genau dieses Spiel, je Land)
-        val listings = runCatching { sports.tvListings(e) }.getOrDefault(emptyList())
+        val listings = runCatching { sports.tvListings(e, settings.current().sportsDbKey) }.getOrDefault(emptyList())
             .map { (ch, c) -> ChannelCountry.listingKey(ch) to (ChannelCountry.fromCountryName(c) ?: ChannelCountry.detect(ch, "")) }
             .filter { it.first.trim().length >= 2 }
         val listedCountries = listings.mapNotNull { it.second }.toSet()
@@ -170,13 +170,17 @@ class DiscoverRepository @Inject constructor(
                     ?: epgByChannel[ch.id]?.firstOrNull()
                 val score = cur?.let { matchScore(it) } ?: 0
                 if (score < 0) return@mapNotNull null // läuft gerade nachweislich eine andere Sportart
+                // Sender hat EPG für die Zeit, aber dort läuft kein Sport (Film, Show, Nachrichten) → nicht vorschlagen
+                val curSport = cur?.let { Sport.detect(it.title + " " + (it.description ?: "")) }
+                if (cur != null && score == 0 && curSport == null) return@mapNotNull null
                 val prog = cur ?: AiringProgram(ch.id, ch.name, ch.logo, ch.category, ch.number, ch.archiveDays,
                     "${e.league.label} (laut Rechteinhaber)", null, minOf(now, e.startMs), maxOf(now, e.startMs) + 3 * 3_600_000L)
                 val countryLabel = if (match.first == "*") "ESPN" else match.first
                 // Gibt es für dieses Land einen TV-Plan pro Spiel, zählen nur noch die dort genannten Sender (außer TV-Programm bestätigt es)
                 if (score <= 0 && (country ?: match.first) in listedCountries) return@mapNotNull null
-                TvHit(prog, if (score > 0) TvHit.Source.CONFIRMED else TvHit.Source.RIGHTS, countryLabel,
-                    (if (score > 0) 1000 + score else 100) + (if (country == match.first) 50 else 0))
+                val src = when { score > 0 -> TvHit.Source.CONFIRMED; curSport != null -> TvHit.Source.LIKELY; else -> TvHit.Source.RIGHTS }
+                TvHit(prog, src, countryLabel,
+                    (when (src) { TvHit.Source.CONFIRMED -> 1000 + score; TvHit.Source.LIKELY -> 300; else -> 100 }) + (if (country == match.first) 50 else 0))
             }
         }
         val listingHits = if (listings.isEmpty()) emptyList() else allChannels.mapNotNull { ch ->

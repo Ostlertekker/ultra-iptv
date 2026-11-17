@@ -207,14 +207,15 @@ class SportsRepository @Inject constructor(http: OkHttpClient) {
      * Sender, die genau dieses Spiel zeigen, laut öffentlichem TV-Plan von TheSportsDB (Sender + Land, pro Spiel).
      * Liefert (Sendername, Land) – leer, wenn der Dienst nichts hat oder nicht erreichbar ist.
      */
-    suspend fun tvListings(e: ScoreEvent): List<Pair<String, String>> = withContext(Dispatchers.IO) {
+    suspend fun tvListings(e: ScoreEvent, apiKey: String): List<Pair<String, String>> = withContext(Dispatchers.IO) {
+        if (apiKey.isBlank()) return@withContext emptyList() // kostenloser Schlüssel liefert nur 1 Eintrag pro Tag → nutzlos
         val sport = when (e.league.sport) { Sport.F1 -> "Motorsport"; Sport.TENNIS -> "Tennis"; Sport.BASKETBALL -> "Basketball"; else -> "Soccer" }
         val fmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         val days = listOf(TimeZone.getTimeZone("UTC"), TimeZone.getDefault()).map { tz -> fmt.apply { timeZone = tz }.format(java.util.Date(e.startMs)) }.distinct()
         val rows = days.flatMap { d ->
-            val key = "$d|$sport"
+            val key = "$d|$sport|${apiKey.hashCode()}"
             tvCache[key]?.takeIf { System.currentTimeMillis() - it.first < 30 * 60_000L }?.second
-                ?: runCatching { get("https://www.thesportsdb.com/api/v1/json/123/eventstv.php?d=$d&s=$sport") }.getOrNull()
+                ?: runCatching { get("https://www.thesportsdb.com/api/v1/json/$apiKey/eventstv.php?d=$d&s=$sport") }.getOrNull()
                     ?.arr("tvevents")?.mapNotNull { it as? JsonObject }?.also { tvCache[key] = System.currentTimeMillis() to it }
                 ?: emptyList()
         }

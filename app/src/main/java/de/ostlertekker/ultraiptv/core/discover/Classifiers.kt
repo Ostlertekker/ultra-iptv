@@ -8,7 +8,7 @@ enum class Sport(val label: String, val emoji: String, val keywords: List<String
     CHAMPIONS("Champions League", "🏆", listOf("champions league", "uefa champions", "königsklasse")),
     FOOTBALL("Fußball", "⚽", listOf("fußball", "fussball", "bundesliga", "dfb-pokal", "dfb pokal", "premier league", "la liga", "laliga",
         "serie a", "ligue 1", "länderspiel", "europa league", "conference league", "3. liga", "wm-qualifikation", "em-qualifikation",
-        "nations league", "soccer", "football:", "fc bayern", "borussia dortmund")),
+        "nations league", "soccer", "football:", "piłka nożna", "pilka nozna", "liga narodów", "liga narodow", "fútbol", "futbol", "calcio", "voetbal", "fotboll", "fodbold", "fotball", "ligue des nations", "uefa", "futebol", "nogomet", "fudbal", "labdarúgás", "fotbal", "fc bayern", "borussia dortmund")),
     F1("Formel 1", "🏎", listOf("formel 1", "formula 1", "formel-1", "grand prix", "großer preis", "f1:", "f1 -", "f1 –")),
     TENNIS("Tennis", "🎾", listOf("tennis", "atp", "wta", "wimbledon", "us open", "roland garros", "french open", "australian open", "davis cup", "billie jean king cup")),
     BASKETBALL("Basketball", "🏀", listOf("basketball", "nba", "euroleague", "easycredit bbl", "bbl:")),
