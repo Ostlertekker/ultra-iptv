@@ -407,6 +407,8 @@ fun JellyfinMovieScreen(nav: NavController, vm: JellyfinItemViewModel = hiltView
                     }
                     TvButton(if (m.favorite) "♥ Favorit" else "♡ Favorit", onClick = { vm.toggleFavorite() })
                     TvButton(if (m.played) "Als ungesehen markieren" else "✓ Gesehen", onClick = { vm.togglePlayed(m) })
+                    val scope = androidx.compose.runtime.rememberCoroutineScope()
+                    TvButton("Trailer", onClick = { scope.launch { openJfTrailer(context, vm.repo, m) } })
                 }
                 error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)) }
             }
@@ -459,6 +461,8 @@ fun JellyfinSeriesScreen(nav: NavController, vm: JellyfinItemViewModel = hiltVie
                     (if (resume.positionMs > 0) "▶ Weiter: " else "▶ ") + "S${resume.parentIndex ?: 0} E${resume.index ?: 0}",
                     onClick = { context.openPlayer(ContentKind.EPISODE, JF_PREFIX + resume.id, if (resume.played) 0 else resume.positionMs) }, primary = true)
                 TvButton(if (s.favorite) "♥ Favorit" else "♡ Favorit", onClick = { vm.toggleFavorite() })
+                val scope = androidx.compose.runtime.rememberCoroutineScope()
+                TvButton("Trailer", onClick = { scope.launch { openJfTrailer(context, vm.repo, s) } })
                 Text("Lange OK auf einer Folge: gesehen / ungesehen", color = p.textDim, fontSize = 12.sp)
             }
             error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 13.sp) }
@@ -509,4 +513,12 @@ private fun JfEpisodeRow(ep: JfItem, image: String?, onLongClick: () -> Unit, on
             ep.overview?.let { Text(it, color = p.textDim, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis) }
         }
     }
+}
+
+
+/** Trailer: lokale Trailer-Datei vom Jellyfin-Server, sonst hinterlegter Online-Trailer, sonst YouTube-Suche – alles in der App. */
+private suspend fun openJfTrailer(context: android.content.Context, repo: de.ostlertekker.ultraiptv.core.jellyfin.JellyfinRepository, item: de.ostlertekker.ultraiptv.core.jellyfin.JfItem) {
+    val local = if (item.localTrailers > 0) runCatching { repo.localTrailerId(item.id) }.getOrNull() else null
+    if (local != null) context.openPlayer(ContentKind.MOVIE, JF_PREFIX + local, 0)
+    else de.ostlertekker.ultraiptv.feature.web.WebAppActivity.openTrailer(context, item.remoteTrailer, item.name)
 }

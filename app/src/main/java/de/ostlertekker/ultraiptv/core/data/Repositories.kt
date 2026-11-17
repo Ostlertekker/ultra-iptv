@@ -228,6 +228,9 @@ class ContentRepository @Inject constructor(
 
 @Singleton
 class EpgRepository @Inject constructor(private val dao: EpgDao) {
+    /** Bis wann das gespeicherte TV-Programm reicht (0 = keins). */
+    suspend fun coverageEnd(): Long = dao.maxEnd() ?: 0L
+
     suspend fun nowNext(epgId: String?): List<EpgProgramEntity> =
         if (epgId.isNullOrBlank()) emptyList() else dao.nowNext(epgId, System.currentTimeMillis())
 

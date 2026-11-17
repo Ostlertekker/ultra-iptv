@@ -424,8 +424,10 @@ class SyncRepository @Inject constructor(
         if (url == null) return
         status("TV-Programm (EPG) wird geladen …")
         val now = System.currentTimeMillis()
-        val from = now - 3 * 3_600_000L
-        val to = now + s.epgDays.coerceIn(1, 7) * 86_400_000L
+        // Gestern (für „Gestern“/Catch-up) bis „eingestellte Tage + 1“ voraus – so reicht das Programm
+        // auch kurz vor der nächsten Aktualisierung noch für die eingestellte Anzahl an Tagen
+        val from = now - 86_400_000L
+        val to = now + (s.epgDays.coerceIn(1, 7) + 1) * 86_400_000L
         val offset = s.epgOffsetHours * 3_600_000L
         val request = Request.Builder().url(url).build()
         http.newCall(request).execute().use { resp ->

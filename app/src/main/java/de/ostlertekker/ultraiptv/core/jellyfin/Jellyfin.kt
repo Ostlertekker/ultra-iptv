@@ -69,6 +69,9 @@ data class JfItem(
     val childCount: Int? = null,
     val people: List<String> = emptyList(),
     val directors: List<String> = emptyList(),
+    /** Trailer: Link (meist YouTube) aus den Metadaten bzw. Anzahl lokaler Trailer-Dateien auf dem Server. */
+    val remoteTrailer: String? = null,
+    val localTrailers: Int = 0,
 ) {
     val isSeries get() = type == "Series"
     val isEpisode get() = type == "Episode"
@@ -420,6 +423,9 @@ class JellyfinRepository @Inject constructor(
     suspend fun seasons(seriesId: String) = itemsOf(cachedGet("/Shows/$seriesId/Seasons?userId=${uid()}&Fields=$fields"))
     suspend fun episodes(seriesId: String, seasonId: String? = null): List<JfItem> =
         itemsOf(authed("GET", "/Shows/$seriesId/Episodes?userId=${uid()}&Fields=$fields" + (seasonId?.let { "&SeasonId=$it" } ?: "")))
+    /** Erste lokale Trailer-Datei eines Films/einer Serie (falls auf dem Server vorhanden). */
+    suspend fun localTrailerId(id: String): String? = itemsOf(authed("GET", "/Users/${uid()}/Items/$id/LocalTrailers")).firstOrNull()?.id
+
     suspend fun similar(id: String) = itemsOf(cachedGet("/Items/$id/Similar?userId=${uid()}&Limit=16&Fields=$fields"))
 
     suspend fun setPlayed(id: String, played: Boolean) { authed(if (played) "POST" else "DELETE", "/Users/${uid()}/PlayedItems/$id"); invalidate() }
@@ -548,6 +554,8 @@ class JellyfinRepository @Inject constructor(
             childCount = o["ChildCount"]?.int(),
             people = people.filter { it["Type"]?.str() == "Actor" }.mapNotNull { it["Name"]?.str() }.take(8),
             directors = people.filter { it["Type"]?.str() == "Director" }.mapNotNull { it["Name"]?.str() },
+            remoteTrailer = (o["RemoteTrailers"] as? JsonArray)?.firstNotNullOfOrNull { (it as? JsonObject)?.get("Url")?.str() },
+            localTrailers = o["LocalTrailerCount"]?.int() ?: 0,
         )
     }
 }

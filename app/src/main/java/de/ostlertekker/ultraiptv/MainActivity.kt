@@ -67,6 +67,7 @@ class RootViewModel @Inject constructor(
     private val user: UserRepository,
     val engine: PlayerEngine,
     private val notifications: NotificationCenter,
+    private val epg: de.ostlertekker.ultraiptv.core.data.EpgRepository,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
@@ -101,7 +102,9 @@ class RootViewModel @Inject constructor(
             if (creds.load() == null) return@launch
             if (now - s.lastSyncMs > 24 * 3_600_000L) notifications.syncWithChecks()
             else {
-                if (now - s.lastEpgSyncMs > s.epgRefreshHours * 3_600_000L) sync.syncEpg()
+                // Auch neu laden, wenn das gespeicherte Programm nicht mehr die eingestellten Tage im Voraus abdeckt
+                val shortCoverage = runCatching { epg.coverageEnd() }.getOrDefault(0L) < now + s.epgDays.coerceIn(1, 7) * 86_400_000L - 6 * 3_600_000L
+                if (now - s.lastEpgSyncMs > s.epgRefreshHours * 3_600_000L || shortCoverage) sync.syncEpg()
                 sync.refreshAccountInfo(); notifications.checkAccount()
             }
         }

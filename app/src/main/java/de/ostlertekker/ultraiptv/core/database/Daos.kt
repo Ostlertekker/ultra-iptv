@@ -146,6 +146,9 @@ interface EpgDao {
     @Query("DELETE FROM epg") suspend fun clear()
     @Query("SELECT COUNT(*) FROM epg") suspend fun count(): Int
 
+    @Query("SELECT MAX(endMs) FROM epg")
+    suspend fun maxEnd(): Long?
+
     @Query("SELECT * FROM epg WHERE channelEpgId = :epgId AND endMs > :now ORDER BY startMs LIMIT 2")
     suspend fun nowNext(epgId: String, now: Long): List<EpgProgramEntity>
 
