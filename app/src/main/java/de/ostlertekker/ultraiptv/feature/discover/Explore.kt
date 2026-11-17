@@ -231,7 +231,7 @@ private fun MatchPanel(e: ScoreEvent, d: de.ostlertekker.ultraiptv.core.discover
             Text(e.scoreLine, color = pal.text, fontSize = 20.sp, fontWeight = FontWeight.Black)
             Text(listOfNotNull(e.detail.takeIf { it.isNotBlank() }, e.clock?.takeIf { e.live }, e.venue).joinToString(" · "), color = pal.textDim, fontSize = 12.sp)
         }
-        item { SectionHeader("Läuft im TV") }
+        item { SectionHeader("Läuft im TV – die 5 wahrscheinlichsten Sender") }
         run {
             val list = onTv
             if (list == null) item { Text("Suche im TV-Programm …", color = pal.textDim, fontSize = 12.sp) }

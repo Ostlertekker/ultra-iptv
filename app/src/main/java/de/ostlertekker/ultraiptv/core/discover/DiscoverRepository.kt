@@ -88,7 +88,7 @@ data class WatchStats(
 @OptIn(ExperimentalCoroutinesApi::class)
 /** Ein Sender-Vorschlag für ein Spiel: woher er stammt und wie sicher er ist. */
 data class TvHit(val program: AiringProgram, val source: Source, val country: String?, val score: Int) {
-    enum class Source(val label: String) { CONFIRMED("✓ bestätigt"), LIKELY("wahrscheinlich (Sport läuft)"), RIGHTS("Rechteinhaber"), EPG("TV-Programm") }
+    enum class Source(val label: String) { VERY("sehr wahrscheinlich"), LIKELY("wahrscheinlich"), POSSIBLE("möglich") }
 }
 
 class DiscoverRepository @Inject constructor(
@@ -150,38 +150,52 @@ class DiscoverRepository @Inject constructor(
 
         val allChannels = content.channelsAllOnce(adult(), 60_000)
 
-        // 1) Rechteinhaber → Sender der Playlist
+        // Wahrscheinlichkeit je Sender – weltweit: Rechteinhaber aller Länder (Land des Senders muss passen),
+        // Wettbewerb im Sendernamen, Hauptkanal, EPG (Teams > Wettbewerb > Sportart). Ausgegeben werden die 5 besten.
         val holders = TvRights.holders(e.league).map { (c, b) -> c to ChannelCountry.brandKey(b) } +
             e.broadcasters.map { "*" to ChannelCountry.brandKey(it) }
-        val rightsHits = if (holders.isEmpty()) emptyList() else {
-            allChannels.mapNotNull { ch ->
-                val clean = ChannelCountry.cleanName(ch.name)
-                val country = ChannelCountry.detect(ch.name, ch.category)
-                val match = holders.firstOrNull { (c, brand) ->
-                    brand.length > 2 && ChannelCountry.matches(clean, brand) && (c == "*" || country == null || country == c)
-                } ?: return@mapNotNull null
-                val cur = epgByChannel[ch.id]?.firstOrNull { it.startMs <= maxOf(now, from) && it.endMs > maxOf(now, from) }
-                    ?: epgByChannel[ch.id]?.firstOrNull()
-                val score = cur?.let { matchScore(it) } ?: 0
-                if (score < 0) return@mapNotNull null // läuft gerade nachweislich eine andere Sportart
-                // Sender hat EPG für die Zeit, aber dort läuft kein Sport (Film, Show, Nachrichten) → nicht vorschlagen
-                val curSport = cur?.let { Sport.detect(it.title + " " + (it.description ?: "")) }
-                if (cur != null && score == 0 && curSport == null) return@mapNotNull null
-                val prog = cur ?: AiringProgram(ch.id, ch.name, ch.logo, ch.category, ch.number, ch.archiveDays,
-                    "${e.league.label} (laut Rechteinhaber)", null, minOf(now, e.startMs), maxOf(now, e.startMs) + 3 * 3_600_000L)
-                val countryLabel = if (match.first == "*") "ESPN" else match.first
-                val src = when { score > 0 -> TvHit.Source.CONFIRMED; curSport != null -> TvHit.Source.LIKELY; else -> TvHit.Source.RIGHTS }
-                TvHit(prog, src, countryLabel,
-                    (when (src) { TvHit.Source.CONFIRMED -> 1000 + score; TvHit.Source.LIKELY -> 300; else -> 100 }) + (if (country == match.first) 50 else 0))
-            }
-        }
-        // 2) TV-Programm-Scan aller Sender
-        val epgHits = programs.mapNotNull { p -> matchScore(p).takeIf { it > 0 }?.let { TvHit(p, TvHit.Source.EPG, null, 500 + it) } }
+        val countryOf = allChannels.associate { it.id to ChannelCountry.detect(it.name, it.category) }
+        val mainCountry = countryOf.values.filterNotNull().groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
+        val nameKw = (TvMatch.leagueKeywords(e.league) + when (e.league) {
+            League.F1 -> listOf(" f1 ", " formula ", " formel ")
+            League.PREMIER -> listOf(" premier ", " pl ")
+            League.SERIE_A -> listOf(" calcio ", " serie a ")
+            League.CHAMPIONS -> listOf(" champions ", " ucl ")
+            League.ATP, League.WTA -> listOf(" tennis ")
+            League.NBA -> listOf(" nba ")
+            League.BUNDESLIGA, League.BUNDESLIGA2 -> listOf(" bundesliga ")
+            League.LALIGA -> listOf(" laliga ", " la liga ")
+            else -> emptyList()
+        }).distinct()
+        fun current(chId: String) = epgByChannel[chId]?.firstOrNull { it.startMs <= maxOf(now, from) && it.endMs > maxOf(now, from) }
+            ?: epgByChannel[chId]?.firstOrNull()
 
-        (rightsHits + epgHits)
-            .sortedWith(compareByDescending<TvHit> { it.score }.thenBy { kotlin.math.abs(it.program.startMs - e.startMs) }.thenBy { it.program.number })
-            .distinctBy { it.program.channelId }
-            .take(40)
+        val epgHitIds = programs.filter { matchScore(it) > 0 }.map { it.channelId }.toSet()
+        val hits = allChannels.mapNotNull { ch ->
+            val clean = ChannelCountry.cleanName(ch.name)
+            val country = countryOf[ch.id]
+            val right = holders.firstOrNull { (c, brand) ->
+                brand.length > 2 && ChannelCountry.matches(clean, brand) && (c == "*" || country == null || country == c)
+            }
+            if (right == null && ch.id !in epgHitIds) return@mapNotNull null
+            val cur = current(ch.id)
+            val epgScore = cur?.let { matchScore(it) } ?: 0
+            if (epgScore < 0) return@mapNotNull null // andere Sportart läuft
+            val curSport = cur?.let { Sport.detect(it.title + " " + (it.description ?: "")) }
+            if (cur != null && epgScore == 0 && curSport == null) return@mapNotNull null // Film/Show/Nachrichten laut EPG
+            var p = 0
+            if (right != null) p += 30 + (if (country != null && country == right.first) 10 else 0)
+            if (country != null && country == mainCountry) p += 5
+            if (nameKw.any { clean.contains(it) }) p += 20
+            val num = Regex("""\b(\d{1,2})\b""").find(clean)?.groupValues?.get(1)?.toIntOrNull()
+            p += when { num == null || num == 1 -> 4; num == 2 -> 2; else -> 0 }
+            p += when { epgScore >= 10 -> 50 + epgScore; epgScore > 0 -> 35; curSport != null -> 12; else -> 0 }
+            val level = when { epgScore >= 10 -> TvHit.Source.VERY; p >= 45 -> TvHit.Source.LIKELY; else -> TvHit.Source.POSSIBLE }
+            val prog = cur ?: AiringProgram(ch.id, ch.name, ch.logo, ch.category, ch.number, ch.archiveDays,
+                "${e.league.label} – Rechteinhaber", null, minOf(now, e.startMs), maxOf(now, e.startMs) + 3 * 3_600_000L)
+            TvHit(prog, level, right?.first?.let { if (it == "*") "ESPN" else it } ?: country, p)
+        }
+        hits.sortedWith(compareByDescending<TvHit> { it.score }.thenBy { it.program.number }).take(5)
     }
 
     /** Sportereignisse im Zeitfenster (Live Event Tracker) – aus EPG-Titeln/Beschreibungen erkannt. */
