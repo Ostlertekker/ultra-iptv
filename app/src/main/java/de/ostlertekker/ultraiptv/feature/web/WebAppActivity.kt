@@ -89,6 +89,8 @@ class WebAppActivity : ComponentActivity() {
                 // Alles bleibt in der App: nur http(s) laden, App-Links (intent://, spotify:) ignorieren
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val s = request.url.scheme ?: return true
+                    // Google sperrt Anmeldungen in eingebetteten Browsern („nicht sichere App“) – statt der Fehlerseite den richtigen Weg zeigen
+                    if (request.url.host?.endsWith("accounts.google.com") == true) { showLoginHelp(); return true }
                     return s != "http" && s != "https"
                 }
                 override fun onPageFinished(view: WebView, url: String?) { CookieManager.getInstance().flush() }
@@ -119,9 +121,52 @@ class WebAppActivity : ComponentActivity() {
         hint.postDelayed({ hint.animate().alpha(0f).setDuration(600).start() }, 7000)
         setContentView(root)
 
+        // YouTube bietet 4K nur an, wenn der Bildschirm 4K meldet – die eingebettete Ansicht meldet sonst 1920×1080
+        if (app == WebApp.YOUTUBE && maxDisplayHeight() >= 2160 &&
+            androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            val js = """
+                (function(){try{
+                  var w=3840,h=2160;
+                  ['width','availWidth'].forEach(function(k){Object.defineProperty(screen,k,{get:function(){return w}})});
+                  ['height','availHeight'].forEach(function(k){Object.defineProperty(screen,k,{get:function(){return h}})});
+                  Object.defineProperty(window,'devicePixelRatio',{get:function(){return w/Math.max(1,window.innerWidth)}});
+                }catch(e){}})();
+            """.trimIndent()
+            runCatching { androidx.webkit.WebViewCompat.addDocumentStartJavaScript(web, js, setOf("https://www.youtube.com")) }
+        }
         if (savedInstanceState != null) web.restoreState(savedInstanceState) else web.loadUrl(app.url)
         web.requestFocus()
     }
+
+    private var helpView: TextView? = null
+
+    private fun showLoginHelp() {
+        if (helpView != null) return
+        val root = web.parent as? FrameLayout ?: return
+        helpView = TextView(this).apply {
+            text = if (app == WebApp.YOUTUBE)
+                "Google erlaubt die Anmeldung nicht in eingebetteten Apps.\n\nSo geht es: In YouTube „Anmelden“ → „Mit dem Telefon anmelden“ wählen.\n" +
+                    "Dann am Handy yt.be/activate öffnen und den Code vom Fernseher eingeben.\n\n(OK oder Zurück schließt diesen Hinweis)"
+            else
+                "Google erlaubt die Anmeldung nicht in eingebetteten Apps.\n\nSo geht es: Bei Spotify „Mit E-Mail-Adresse anmelden“ wählen –\n" +
+                    "ohne Passwort bekommst du einen Einmal-Code per Mail. Ist dein Konto mit Google verknüpft,\nfunktioniert die E-Mail-Adresse deines Google-Kontos.\n\n(OK oder Zurück schließt diesen Hinweis)"
+            setTextColor(Color.WHITE); textSize = 18f; gravity = Gravity.CENTER
+            setBackgroundColor(Color.argb(235, 10, 12, 16)); setPadding(80, 60, 80, 60)
+        }
+        root.addView(helpView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+    }
+
+    private fun hideLoginHelp(): Boolean {
+        val h = helpView ?: return false
+        (h.parent as? ViewGroup)?.removeView(h); helpView = null
+        return true
+    }
+
+    /** Höchste Auflösung, die der Fernseher über HDMI ausgeben kann (Fire TV läuft in der Oberfläche oft nur mit 1080p). */
+    private fun maxDisplayHeight(): Int = runCatching {
+        @Suppress("DEPRECATION") val d = windowManager.defaultDisplay
+        d.supportedModes.maxOf { maxOf(it.physicalHeight, it.physicalWidth * 9 / 16) }
+    }.getOrDefault(1080)
 
     override fun onSaveInstanceState(outState: Bundle) { super.onSaveInstanceState(outState); web.saveState(outState) }
 
@@ -147,6 +192,10 @@ class WebAppActivity : ComponentActivity() {
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val code = event.keyCode
+        if (helpView != null && (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER)) {
+            if (event.action == KeyEvent.ACTION_UP) { hideLoginHelp(); if (web.canGoBack()) web.goBack() }
+            return true
+        }
         // Zurück: kurz = Zurück im Dienst, lang (≥ 0,7 s) = zurück zu ULTRA IPTV
         if (code == KeyEvent.KEYCODE_BACK) {
             if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) backDownAt = SystemClock.uptimeMillis()
