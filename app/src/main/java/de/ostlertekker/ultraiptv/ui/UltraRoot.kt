@@ -160,7 +160,7 @@ fun UltraRoot(startRoute: String? = null, vm: RootViewModel = hiltViewModel()) {
 private fun railRouteFor(route: String): String = when {
     route.startsWith("movie/") -> Routes.MOVIES
     route.startsWith("seriesDetail/") -> Routes.SERIES
-    route.startsWith(Routes.EPG) -> Routes.EPG
+    route.startsWith(Routes.EPG) -> Routes.LIVE
     route.startsWith("jf") || route.startsWith(Routes.JELLYFIN) -> Routes.JELLYFIN
     route.startsWith(Routes.SPORTS) -> Routes.SPORTS
     route.startsWith(Routes.SETUP) -> Routes.SETTINGS
@@ -178,7 +178,7 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
     val railFocus = remember { FocusRequester() }
     val items = remember {
         listOf(
-            NavItem(Routes.HOME, "Start"), NavItem(Routes.LIVE, "Live-TV"), NavItem(Routes.EPG, "Programm"), NavItem(Routes.MOVIES, "Filme"),
+            NavItem(Routes.HOME, "Start"), NavItem(Routes.LIVE, "Live-TV"), NavItem(Routes.MOVIES, "Filme"),
             NavItem(Routes.SERIES, "Serien"), NavItem(Routes.SPORTS, "Sport"), NavItem(Routes.RADIO, "Radio"), NavItem(Routes.FAVORITES, "Favoriten"), NavItem(Routes.JELLYFIN, "Jellyfin"), NavItem("app:YOUTUBE", "YouTube"), NavItem(Routes.SPOTIFY, "Spotify"),
             NavItem(Routes.EXPLORE, "Mehr"),
         )
