@@ -516,21 +516,22 @@ class PlayerViewModel @Inject constructor(
         val p = engine.player ?: return
         if (kind == ContentKind.LIVE && engine.timeshiftActive) {
             // Lokaler Puffer: Pause hält nur das Bild an, der Sender wird im Hintergrund weiter aufgezeichnet
-            if (p.isPlaying) p.pause() else p.play()
+            if (p.isPlaying) engine.pauseLive() else engine.resumeLive()
             _ui.update { it.copy(livePaused = !p.playWhenReady) }
             return
         }
         if (kind == ContentKind.LIVE && _ui.value.canTimeshift) {
             // Live pausieren: beim Fortsetzen geht es ab der Pausenstelle weiter (Archiv des Anbieters)
-            if (p.isPlaying) { livePausedAt = System.currentTimeMillis(); p.pause(); _ui.update { it.copy(livePaused = true) }; return }
+            if (p.isPlaying) { livePausedAt = System.currentTimeMillis(); engine.pauseLive(); _ui.update { it.copy(livePaused = true) }; return }
             val pausedAt = livePausedAt
             livePausedAt = 0L; _ui.update { it.copy(livePaused = false) }
             if (pausedAt > 0 && System.currentTimeMillis() - pausedAt > 8_000) {
                 val wall = if (shiftStartWall > 0) shiftStartWall + p.currentPosition else pausedAt
-                startCatchup(wall, null); return
+                engine.resumeLive(); startCatchup(wall, null); return
             }
-            p.play(); return
+            engine.resumeLive(); return
         }
+        if (kind == ContentKind.LIVE) { if (p.isPlaying) { engine.pauseLive(); _ui.update { it.copy(livePaused = true) } } else { engine.resumeLive(); _ui.update { it.copy(livePaused = false) } }; return }
         if (p.isPlaying) p.pause() else p.play()
     }
 

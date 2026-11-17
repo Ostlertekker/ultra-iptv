@@ -203,17 +203,15 @@ fun PlayerScreen(
                     }
                     return@onPreviewKeyEvent true
                 }
-                if (isLive && (ev.key == Key.MediaRewind || ev.key == Key.MediaFastForward)) {
-                    if (down) { if (ev.key == Key.MediaRewind) vm.rewindLive(30_000) else vm.forwardShift(30_000) }
-                    return@onPreviewKeyEvent true
-                }
+                // Live-TV: kein Zurück-/Vorspulen
+                if (isLive && (ev.key == Key.MediaRewind || ev.key == Key.MediaFastForward)) return@onPreviewKeyEvent true
                 if (ui.countdown != null || panel != null || overlay) return@onPreviewKeyEvent false
                 // Overlay ausgeblendet: Schnellsteuerung
                 if (!down) return@onPreviewKeyEvent true
                 when (ev.key) {
                     Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> if (ui.skipOffer != null) vm.acceptSkip() else if (isLive && settings.okAction == 1) { overlay = true; panel = Panel.CHANNELS } else overlay = true
-                    Key.DirectionLeft -> if (isLive) { if (ui.canTimeshift) vm.rewindLive(10_000) else overlay = true } else { vm.seekBy(-10_000); seekHint = "−10 s" }
-                    Key.DirectionRight -> if (isLive) { if (ui.canTimeshift) vm.forwardShift(10_000) else overlay = true } else { vm.seekBy(10_000); seekHint = "+10 s" }
+                    Key.DirectionLeft -> if (isLive) overlay = true else { vm.seekBy(-10_000); seekHint = "−10 s" }
+                    Key.DirectionRight -> if (isLive) overlay = true else { vm.seekBy(10_000); seekHint = "+10 s" }
                     Key.DirectionUp -> if (isLive && settings.upDownAction == 1) { overlay = true; panel = Panel.CHANNELS } else if (isLive) vm.switchChannel(-1 * zapDir) else overlay = true
                     Key.DirectionDown -> if (isLive && settings.upDownAction == 1) { overlay = true; panel = Panel.CHANNELS } else if (isLive) vm.switchChannel(1 * zapDir) else overlay = true
                     Key.Menu -> { overlay = true; panel = if (isLive) Panel.CHANNELS else Panel.AUDIO }
@@ -288,8 +286,7 @@ fun PlayerScreen(
         }
         if (!inPip) {
             // Bei geöffneter Info-Leiste zeigt die Zeitleiste den Versatz – Abzeichen würden den Titel überdecken
-            if (!overlay) TimeshiftBadge(ui, Modifier.align(Alignment.TopStart).padding(top = 30.dp, start = 36.dp))
-            if (!overlay) ScoreChip(ui, Modifier.align(Alignment.TopStart).padding(top = if (ui.shiftBehindMs >= 5_000 || ui.livePaused) 66.dp else 30.dp, start = 36.dp))
+            if (!overlay) ScoreChip(ui, Modifier.align(Alignment.TopStart).padding(top = 30.dp, start = 36.dp))
             FrameStepHint(ui, Modifier.align(Alignment.TopCenter).padding(top = 30.dp))
             if (health) HealthMonitor(vm, Modifier.align(Alignment.Center).fillMaxWidth(0.86f))
         }
@@ -345,18 +342,13 @@ fun PlayerScreen(
                 var ctlLabel by remember { mutableStateOf<String?>(null) }
                 Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 48.dp, end = 48.dp, bottom = 18.dp).crazyEntrance(0, overlayShown)) {
                     InfoPanel(ui, stats, settings, isLive)
-                    if (isLive && ui.tsBufferedMs > 0) Box(Modifier.padding(top = 10.dp)) { LiveTimeline(ui) }
                     Spacer(Modifier.height(12.dp))
                     if (moreOpen) {
                         androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth().padding(bottom = 10.dp),
                             horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            if (isLive) {
-                                PlayerCtl("Letzter Sender", onClick = { vm.lastChannel() })
-                                PlayerCtl("Mehrfachansicht", onClick = { de.ostlertekker.ultraiptv.feature.multiview.MultiViewActivity.openWithComparison(context, vm.currentItemId()); onExit() })
-                            }
+                            if (isLive) PlayerCtl("Letzter Sender", onClick = { vm.lastChannel() })
                             PlayerCtl("Bildformat", onClick = { panel = Panel.ASPECT })
                             if (!isLive || ui.shiftBehindMs > 0) PlayerCtl("Tempo ${ui.speed}×", onClick = { panel = Panel.SPEED })
-                            if (!isLive || ui.shiftBehindMs > 0) PlayerCtl("Einzelbild", onClick = { overlay = false; vm.toggleFrameStep() })
                             PlayerCtl("Sync", onClick = { panel = Panel.SYNC })
                             PlayerCtl(if (settings.cinemaMode) "Kino: an" else "Kinomodus", onClick = { panel = Panel.CINEMA }, active = settings.cinemaMode)
                             PlayerCtl(if (health) "Zustand aus" else "Stream-Zustand", onClick = { health = !health }, active = health)
@@ -386,15 +378,6 @@ fun PlayerScreen(
                                 item { TmIcon("Sender hoch", { vm.switchChannel(-1) }, lbl("Sender hoch")) { c -> Icon(Icons.Default.KeyboardArrowUp, null, tint = c, modifier = Modifier.size(26.dp)) } }
                                 item { TmIcon("Sender runter", { vm.switchChannel(1) }, lbl("Sender runter")) { c -> Icon(Icons.Default.KeyboardArrowDown, null, tint = c, modifier = Modifier.size(26.dp)) } }
                                 item { TmIcon("Senderliste", { panel = Panel.CHANNELS }, lbl("Senderliste")) { c -> Icon(Icons.Default.List, null, tint = c, modifier = Modifier.size(22.dp)) } }
-                                if (ui.canTimeshift || ui.shiftBehindMs > 0) {
-                                    item { TmIcon("10 s zurück", { vm.rewindLive(10_000) }, lbl("10 s zurück")) { c -> TmText("−10", c) } }
-                                    item { TmIcon("30 s zurück", { vm.rewindLive(30_000) }, lbl("30 s zurück")) { c -> TmText("−30", c) } }
-                                    item { TmIcon("5 min zurück", { vm.rewindLive(300_000) }, lbl("5 min zurück")) { c -> TmText("−5m", c) } }
-                                    if (ui.shiftBehindMs > 0) {
-                                        item { TmIcon("10 s vor", { vm.forwardShift(10_000) }, lbl("10 s vor")) { c -> TmText("+10", c) } }
-                                        item { TmIcon("30 s vor", { vm.forwardShift(30_000) }, lbl("30 s vor")) { c -> TmText("+30", c) } }
-                                    }
-                                }
                             }
                         }
                         Row(Modifier.padding(start = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

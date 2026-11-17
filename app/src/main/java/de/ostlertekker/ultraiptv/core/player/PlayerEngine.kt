@@ -94,6 +94,10 @@ class PlayerEngine @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var retryJob: Job? = null
     private var retries = 0
+    /** Live vom Nutzer pausiert: keine automatische Wiederverbindung/Wiedergabe, bis er selbst fortsetzt. */
+    @Volatile var userPaused = false
+        private set
+    private var pausedConnectionLost = false
 
     private val _stats = MutableStateFlow(PlaybackStats())
     val stats: StateFlow<PlaybackStats> = _stats.asStateFlow()
@@ -229,6 +233,7 @@ class PlayerEngine @Inject constructor(
 
     private fun checkLive() {
         val p = exo ?: return
+        if (userPaused) { lastProgressAt = SystemClock.elapsedRealtime(); return }
         updateTimeshiftState()
         val now = SystemClock.elapsedRealtime()
         if (!live || !cfg.liveReconnect || currentUrl == null || !p.playWhenReady ||
@@ -247,6 +252,21 @@ class PlayerEngine @Inject constructor(
         if (state == Player.STATE_IDLE) return // Fehlerbehandlung läuft
         val limit = cfg.stallTimeoutSec.coerceIn(3, 60) * 1000L * (1 + consecutiveReconnects.coerceAtMost(3))
         if (now - lastProgressAt > limit) reconnect("Bild steht")
+    }
+
+    /** Live pausieren (Nutzer). Der Wächter hält still, Verbindungsabbrüche lösen keine Wiedergabe aus. */
+    fun pauseLive() { userPaused = true; exo?.pause() }
+
+    /** Live fortsetzen: Ist die Verbindung in der Pause abgerissen, wird sauber neu verbunden. */
+    fun resumeLive() {
+        val p = exo ?: return
+        userPaused = false
+        val lost = pausedConnectionLost || p.playbackState == Player.STATE_IDLE || p.playbackState == Player.STATE_ENDED
+        pausedConnectionLost = false
+        retries = 0
+        lastProgressAt = SystemClock.elapsedRealtime(); graceUntil = SystemClock.elapsedRealtime() + 8_000
+        if (lost && tsBuffer == null) { currentUrl?.let { u -> p.setMediaItem(mediaItem(u)); p.prepare() } }
+        p.play()
     }
 
     private fun reconnect(reason: String) {
@@ -454,6 +474,7 @@ class PlayerEngine @Inject constructor(
              subtitles: List<ExternalSubtitle> = emptyList()) {
         owner = who
         live = isLive
+        userPaused = false; pausedConnectionLost = false
         startWatchdog()
         // Vorschau → Vollbild: denselben Stream weiterverwenden – außer der Zeitversatz-Puffer muss erst starten
         if (isPlayingUrl(url) && bufferProfile == profile && !(canTimeshift(url, who, isLive) && tsBuffer == null)) {
@@ -601,6 +622,7 @@ class PlayerEngine @Inject constructor(
                 _notice.value = null
             }
             // Live-Stream zu Ende (Server schließt Verbindung) → sofort neu verbinden statt anzuhalten
+            if (playbackState == Player.STATE_ENDED && live && userPaused) { pausedConnectionLost = true; return }
             if (playbackState == Player.STATE_ENDED && live && cfg.liveReconnect && currentUrl != null) {
                 scope.launch { delay(300); if (exo?.playbackState == Player.STATE_ENDED) reconnect("Stream wurde vom Server beendet") }
             }
@@ -621,6 +643,8 @@ class PlayerEngine @Inject constructor(
             val p = exo ?: return
             val http = (error.cause as? HttpDataSource.InvalidResponseCodeException)?.responseCode ?: 0
             _stats.update { it.copy(errors = it.errors + 1, lastError = error.errorCodeName, httpCode = http) }
+            // Pausiertes Live-TV: Der Anbieter trennt die ruhende Verbindung – das ist kein Hänger. Erst beim Fortsetzen neu verbinden.
+            if (live && userPaused) { pausedConnectionLost = true; _notice.value = null; return }
             // Live: 401/403 entstehen oft kurz nach dem Umschalten (Verbindungslimit, alte Verbindung noch offen) → erst erneut versuchen
             if (live && (http == 401 || http == 403) && retries < 3) {
                 retries++
