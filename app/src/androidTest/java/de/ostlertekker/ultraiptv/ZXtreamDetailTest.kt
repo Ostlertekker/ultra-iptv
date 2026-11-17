@@ -167,7 +167,7 @@ class ZXtreamDetailTest {
                 open(Routes.movie(m.id)).use {
                     Thread.sleep(2500); responsive("Film ${m.id} Detail")
                     if (m === movies.first()) shot("film_detail")
-                    if (m.id.filter { it.isDigit() }.toIntOrNull()?.let { (it - 5000) % 6 == 3 } == true) shot("film_detail_lange_beschreibung_${m.id}")
+                    if (m.id.filter { it.isDigit() }.toIntOrNull()?.let { (it - 5000) % 6 == 3 } == true) shot("film_detail_lange_beschreibung_" + m.id.filter { it.isLetterOrDigit() })
                     key("Film ${m.id} Merkliste", R, OK, L)
                     key("Film ${m.id} abspielen", OK); Thread.sleep(5000); responsive("Film ${m.id} Player")
                     key("Film ${m.id} Player zu", BACK, BACK); Thread.sleep(1500)

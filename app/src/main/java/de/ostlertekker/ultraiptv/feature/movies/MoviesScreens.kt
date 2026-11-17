@@ -265,15 +265,15 @@ fun MovieDetailScreen(nav: NavController, vm: MovieDetailViewModel = hiltViewMod
                     .clip(RoundedCornerShape(theme.spec.corner.coerceAtMost(18.dp))))
             Spacer(Modifier.width(36.dp))
             Column(Modifier.width(640.dp).fillMaxHeight(), verticalArrangement = Arrangement.Center) {
-                Text(m.name, color = Color.White, fontSize = 38.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 42.sp)
+                Text(m.name, color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val meta = listOfNotNull(m.year, m.genre, m.rating?.takeIf { it > 0 }?.let { de.ostlertekker.ultraiptv.core.ui.ratingLabel(it) },
                     m.durationSec?.takeIf { it > 0 }?.let { "${it / 60} Min." }, m.category).joinToString("  ·  ")
                 Text(meta, color = p.primary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(vertical = 10.dp))
-                Text(m.plot ?: "Keine Beschreibung verfügbar.", color = p.textDim, fontSize = 16.sp, maxLines = 6, overflow = TextOverflow.Ellipsis,
+                Text(m.plot ?: "Keine Beschreibung verfügbar.", color = p.textDim, fontSize = 15.sp, maxLines = 5, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false))
-                if (!m.actors.isNullOrBlank()) Text("Mit: ${m.actors}", color = p.text, fontSize = 14.sp, maxLines = 2, modifier = Modifier.padding(top = 8.dp))
+                if (!m.actors.isNullOrBlank()) Text("Mit: ${m.actors}", color = p.text, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
                 if (!m.director.isNullOrBlank()) Text("Regie: ${m.director}", color = p.textDim, fontSize = 13.sp, maxLines = 1)
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     val pr = progress
                     if (pr != null && pr.positionMs > 30_000 && (pr.durationMs == 0L || pr.positionMs < pr.durationMs * 0.95)) {
@@ -288,9 +288,9 @@ fun MovieDetailScreen(nav: NavController, vm: MovieDetailViewModel = hiltViewMod
             }
         }
         if (similar.isNotEmpty()) Column(Modifier.padding(top = 12.dp)) {
-            Text("Ähnliche Titel", color = p.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
+            Text("Ähnliche Titel", color = p.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 4.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(similar, key = { it.id }) { sm -> FocusCard(sm.name, sm.poster, 96.dp, 142.dp, onClick = { nav.navigate(Routes.movie(sm.id)) }) }
+                items(similar, key = { it.id }) { sm -> FocusCard(sm.name, sm.poster, 84.dp, 124.dp, onClick = { nav.navigate(Routes.movie(sm.id)) }) }
             }
         }
         }
