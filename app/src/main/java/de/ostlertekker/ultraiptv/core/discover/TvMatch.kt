@@ -32,6 +32,10 @@ object TvMatch {
         return out
     }
 
+    /** Nachname eines Spielers (Tennis), z. B. „Alexander Zverev“ → zverev. */
+    fun surname(name: String): Set<String> =
+        norm(name).trim().split(' ').lastOrNull()?.takeIf { it.length >= 3 }?.let { setOf(it) } ?: emptySet()
+
     fun leagueKeywords(l: League): List<String> = when (l) {
         League.BUNDESLIGA -> listOf("bundesliga")
         League.BUNDESLIGA2 -> listOf("2 bundesliga", "zweite liga")

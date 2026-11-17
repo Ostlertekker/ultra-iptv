@@ -78,9 +78,10 @@ class DiscoverViewModel @Inject constructor(
         boardJob = viewModelScope.launch {
             while (true) {
                 loading.value = true
-                val b = runCatching { sports.scoreboard(leagues.value, maxAgeMs = 0) }.getOrNull()
+                // Alle Wettbewerbe abfragen – angezeigt werden nur laufende Spiele
+                val b = runCatching { sports.scoreboard(League.entries, maxAgeMs = 0) }.getOrNull()
                 if (b != null) board.value = b
-                boardFailed.value = b == null || b.failedLeagues.size == leagues.value.size
+                boardFailed.value = b == null || b.failedLeagues.size == League.entries.size
                 loading.value = false
                 nextRefreshAt.value = System.currentTimeMillis() + 30_000
                 delay(30_000)

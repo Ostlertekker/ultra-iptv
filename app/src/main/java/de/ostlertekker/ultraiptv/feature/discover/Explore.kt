@@ -151,7 +151,6 @@ private fun EmptyHint(text: String) {
 fun SportsScreen(nav: NavController, vm: DiscoverViewModel = hiltViewModel()) {
     val pal = LocalUltraTheme.current.palette
     val board by vm.board.collectAsStateWithLifecycle()
-    val leagues by vm.leagues.collectAsStateWithLifecycle()
     val detail by vm.detail.collectAsStateWithLifecycle()
     var selected by remember { mutableStateOf<ScoreEvent?>(null) }
     androidx.compose.runtime.DisposableEffect(Unit) { vm.startScores(); onDispose { vm.stopScores() } }
@@ -173,14 +172,13 @@ fun SportsScreen(nav: NavController, vm: DiscoverViewModel = hiltViewModel()) {
                 (if (failed) " · ⚠ letzte Aktualisierung fehlgeschlagen" else "") +
                 " · nächste in $secs s · Quelle: ESPN"
         } ?: "Lade Live-Daten …")
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(League.entries) { l -> TvChip(l.label, l in leagues, { vm.toggleLeague(l) }) }
-        }
-        board?.failedLeagues?.takeIf { it.isNotEmpty() }?.let { Text("Nicht erreichbar: " + it.joinToString { l -> l.label }, color = Color(0xFFFFB060), fontSize = 11.sp) }
         Row(Modifier.fillMaxSize().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             LazyColumn(Modifier.weight(0.5f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                val evs = board?.events.orEmpty()
-                if (board != null && evs.isEmpty()) item { EmptyHint("Heute keine Spiele in den gewählten Wettbewerben.") }
+                // Nur Spiele, die gerade laufen
+                val evs = board?.events.orEmpty().filter { it.live }
+                if (board != null && evs.isEmpty()) item {
+                    EmptyHint("Gerade läuft kein Spiel. Abgedeckt: " + League.entries.joinToString(", ") { it.label } + ".")
+                }
                 items(evs, key = { it.league.name + it.id }) { e -> ScoreRow(e, selected?.id == e.id) { selected = e } }
             }
             Column(Modifier.weight(0.5f).fillMaxHeight().background(pal.surface, RoundedCornerShape(14.dp)).padding(14.dp)) {

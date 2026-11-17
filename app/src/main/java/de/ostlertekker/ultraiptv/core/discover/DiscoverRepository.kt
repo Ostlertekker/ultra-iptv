@@ -117,17 +117,30 @@ class DiscoverRepository @Inject constructor(
             else -> (e.startMs - 45 * 60_000L) to (e.startMs + 30 * 60_000L)
         }
         val programs = epg.window(from, to, adult(), 40_000)
-        val teams = e.competitors.map { c -> TvMatch.tokens(listOfNotNull(c.name, c.short)) }.filter { it.isNotEmpty() }
+        val sport = e.league.sport
+        val football = sport == Sport.FOOTBALL || sport == Sport.CHAMPIONS
+        // Tennis: nur Nachnamen (Vornamen wie „Alexander“ würden überall treffen); Formel 1: Fahrer zählen nicht
+        val teams = when (sport) {
+            Sport.F1 -> emptyList()
+            Sport.TENNIS -> e.competitors.map { c -> TvMatch.surname(c.name) }.filter { it.isNotEmpty() }
+            else -> e.competitors.map { c -> TvMatch.tokens(listOfNotNull(c.name, c.short)) }.filter { it.isNotEmpty() }
+        }
         val leagueKw = TvMatch.leagueKeywords(e.league)
         programs.mapNotNull { p ->
-            val text = TvMatch.norm(p.title + " " + (p.description ?: ""))
-            val channel = TvMatch.norm(p.channelName)
+            val raw = p.title + " " + (p.description ?: "")
+            val text = TvMatch.norm(raw)
+            // Sendung gehört erkennbar zu einer anderen Sportart → kein Treffer
+            val detected = Sport.detect(raw)
+            if (detected != null && detected != sport && !(football && (detected == Sport.FOOTBALL || detected == Sport.CHAMPIONS))) return@mapNotNull null
             val teamHits = teams.count { toks -> toks.any { TvMatch.containsWord(text, it) } }
             val leagueHit = leagueKw.any { text.contains(it) }
-            val channelHit = leagueKw.any { channel.contains(it) }
-            val score = teamHits * 10 + (if (leagueHit) 4 else 0) + (if (channelHit) 2 else 0)
-            // Mindestens ein Team/Spieler oder der Wettbewerb muss im Programm stehen
-            if (teamHits == 0 && !leagueHit && !(channelHit && e.state == "in")) null else p to score
+            val sportHit = detected != null
+            val ok = when (sport) {
+                Sport.F1 -> leagueHit
+                Sport.TENNIS -> teamHits >= 1 && (teamHits >= 2 || leagueHit || sportHit)
+                else -> teamHits >= 2 || (teamHits == 1 && (leagueHit || sportHit))
+            }
+            if (!ok) null else p to (teamHits * 10 + (if (leagueHit) 4 else 0) + (if (sportHit) 1 else 0))
         }.sortedWith(compareByDescending<Pair<AiringProgram, Int>> { it.second }.thenBy { kotlin.math.abs(it.first.startMs - e.startMs) })
             .map { it.first }.distinctBy { it.channelId + it.startMs }.take(40)
     }

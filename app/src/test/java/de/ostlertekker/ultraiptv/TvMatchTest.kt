@@ -26,4 +26,10 @@ class TvMatchTest {
         assertTrue(TvMatch.leagueKeywords(League.F1).any { TvMatch.norm("Formel 1: Großer Preis von Brasilien").contains(it) })
         assertTrue(TvMatch.leagueKeywords(League.BUNDESLIGA).any { TvMatch.norm("Sky Sport Bundesliga").contains(it) })
     }
+
+    @Test fun tennisNurNachname() {
+        val t = TvMatch.surname("Alexander Zverev")
+        assertTrue(t.contains("zverev"))
+        assertFalse(t.contains("alexander"))
+    }
 }
