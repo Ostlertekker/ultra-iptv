@@ -57,8 +57,23 @@ class WebAppActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_APP = "app"
+        const val EXTRA_URL = "url"
         fun open(context: Context, app: WebApp) =
             context.startActivity(Intent(context, WebAppActivity::class.java).putExtra(EXTRA_APP, app.name))
+
+        /**
+         * Trailer in der eingebetteten YouTube-Oberfläche: mit Video-ID des Anbieters direkt abspielen,
+         * sonst YouTube-Suche nach „<Titel> Trailer“. Zurück führt direkt in die Details.
+         */
+        fun openTrailer(context: Context, trailer: String?, title: String) {
+            val id = trailer?.let { t ->
+                Regex("""(?:v=|youtu\.be/|embed/|shorts/)([A-Za-z0-9_-]{11})""").find(t)?.groupValues?.get(1)
+                    ?: t.takeIf { Regex("""[A-Za-z0-9_-]{11}""").matches(it) }
+            }
+            val url = if (id != null) "https://www.youtube.com/tv#/watch?v=$id"
+                else "https://www.youtube.com/tv#/search?q=" + android.net.Uri.encode("$title Trailer")
+            context.startActivity(Intent(context, WebAppActivity::class.java).putExtra(EXTRA_APP, WebApp.YOUTUBE.name).putExtra(EXTRA_URL, url))
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -134,7 +149,7 @@ class WebAppActivity : ComponentActivity() {
             """.trimIndent()
             runCatching { androidx.webkit.WebViewCompat.addDocumentStartJavaScript(web, js, setOf("https://www.youtube.com")) }
         }
-        if (savedInstanceState != null) web.restoreState(savedInstanceState) else web.loadUrl(app.url)
+        if (savedInstanceState != null) web.restoreState(savedInstanceState) else web.loadUrl(intent.getStringExtra(EXTRA_URL) ?: app.url)
         web.requestFocus()
     }
 
@@ -203,6 +218,7 @@ class WebAppActivity : ComponentActivity() {
             if (event.action == KeyEvent.ACTION_UP) {
                 if (SystemClock.uptimeMillis() - backDownAt > 700) { finish(); return true }
                 when {
+                    intent.hasExtra(EXTRA_URL) -> finish()   // Trailer: Zurück = zurück zu den Details
                     app == WebApp.YOUTUBE -> sendKey(KeyEvent.KEYCODE_ESCAPE)   // YouTube-TV versteht Escape als „Zurück“
                     web.canGoBack() -> web.goBack()
                     else -> finish()

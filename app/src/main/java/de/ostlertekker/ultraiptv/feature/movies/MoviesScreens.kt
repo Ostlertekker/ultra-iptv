@@ -217,10 +217,12 @@ class MovieDetailViewModel @Inject constructor(
     val similar = MutableStateFlow<List<MovieEntity>>(emptyList())
     val favorite = user.isFavorite(ContentKind.MOVIE, id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     val progress = MutableStateFlow<ProgressEntity?>(null)
+    val trailer = MutableStateFlow<String?>(null)
 
     init {
         viewModelScope.launch {
             sync.loadMovieDetails(id)
+            trailer.value = sync.trailers[id]
             content.movieOnce(id)?.let { similar.value = search.similarMovies(it) }
         }
         refreshProgress()
@@ -278,6 +280,8 @@ fun MovieDetailScreen(nav: NavController, vm: MovieDetailViewModel = hiltViewMod
                     } else {
                         TvButton("▶ Abspielen", onClick = { context.openPlayer(ContentKind.MOVIE, m.id, 0) }, primary = true, focusRequester = playFocus)
                     }
+                    val tr by vm.trailer.collectAsStateWithLifecycle()
+                    TvButton("Trailer", onClick = { de.ostlertekker.ultraiptv.feature.web.WebAppActivity.openTrailer(context, tr, m.name) })
                     TvButton(if (fav) "✓ Auf Merkliste" else "+ Merkliste", onClick = { vm.toggleFavorite() })
                 }
             }

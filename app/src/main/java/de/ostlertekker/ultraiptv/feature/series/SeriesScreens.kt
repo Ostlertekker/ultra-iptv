@@ -205,10 +205,12 @@ class SeriesDetailViewModel @Inject constructor(
     val season = MutableStateFlow<Int?>(null)
     val loading = MutableStateFlow(true)
     val loadFailed = MutableStateFlow(false)
+    val trailer = MutableStateFlow<String?>(null)
 
     init {
         viewModelScope.launch {
             loadFailed.value = !sync.loadSeriesEpisodes(id)
+            trailer.value = sync.trailers[id]
             content.seriesOnce(id)?.let { similar.value = search.similarSeries(it) }
             loading.value = false
         }
@@ -270,6 +272,8 @@ fun SeriesDetailScreen(nav: NavController, vm: SeriesDetailViewModel = hiltViewM
                     TvButton(if (pr != null && pr.positionMs > 30_000) "▶ Weiter: S${resume.season} E${resume.episode}" else "▶ S${resume.season} E${resume.episode} abspielen",
                         onClick = { context.openPlayer(ContentKind.EPISODE, resume.id, pr?.positionMs ?: 0) }, primary = true)
                 }
+                val tr by vm.trailer.collectAsStateWithLifecycle()
+                TvButton("Trailer", onClick = { de.ostlertekker.ultraiptv.feature.web.WebAppActivity.openTrailer(context, tr, series.name) })
                 TvButton(if (fav) "✓ Auf Merkliste" else "+ Merkliste", onClick = { vm.toggleFavorite() })
                 Text("Lange OK auf einer Folge: als gesehen markieren", color = p.textDim, fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterVertically))
             }

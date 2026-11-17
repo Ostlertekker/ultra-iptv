@@ -84,6 +84,9 @@ class SyncRepository @Inject constructor(
     private val creds: CredentialStore,
     private val settings: SettingsRepository,
 ) {
+    /** YouTube-Trailer laut Anbieter (Film-/Serien-ID → Video-ID oder Link), wird beim Öffnen der Details geladen. */
+    val trailers = java.util.concurrent.ConcurrentHashMap<String, String>()
+
     private val _accountInfo = MutableStateFlow<AccountInfo?>(null)
     val accountInfo: StateFlow<AccountInfo?> = _accountInfo.asStateFlow()
 
@@ -337,6 +340,7 @@ class SyncRepository @Inject constructor(
                 else -> Unit
             }
             root.obj("info")?.let { info ->
+                (info.str("youtube_trailer") ?: info.str("trailer"))?.trim()?.takeIf { it.isNotBlank() }?.let { trailers[seriesId] = it }
                 val s = db.content().series(seriesId)
                 if (s != null) db.content().upsertSeries(listOf(s.copy(
                     plot = info.str("plot") ?: s.plot, genre = info.str("genre") ?: s.genre, actors = info.str("cast") ?: s.actors,
@@ -364,6 +368,7 @@ class SyncRepository @Inject constructor(
             val root = readObject(XtreamUrls.api(base, cfg.username, cfg.password, "get_vod_info", mapOf("vod_id" to movieId.removePrefix("x:vod:"))))
                 ?: return@withContext
             val info = root.obj("info") ?: return@withContext
+            (info.str("youtube_trailer") ?: info.str("trailer"))?.trim()?.takeIf { it.isNotBlank() }?.let { trailers[movieId] = it }
             val m = db.content().movie(movieId) ?: return@withContext
             db.content().updateMovieDetails(
                 movieId,
