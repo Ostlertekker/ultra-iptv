@@ -136,15 +136,29 @@ class WebAppActivity : ComponentActivity() {
         hint.postDelayed({ hint.animate().alpha(0f).setDuration(600).start() }, 7000)
         setContentView(root)
 
-        // YouTube bietet 4K nur an, wenn der Bildschirm 4K meldet – die eingebettete Ansicht meldet sonst 1920×1080
-        if (app == WebApp.YOUTUBE && maxDisplayHeight() >= 2160 &&
+        // YouTube-TV bietet 4K nur an, wenn (1) der Bildschirm 4K meldet und (2) die Abfrage
+        // MediaSource.isTypeSupported('…; width=3840; height=2160; framerate=60') mit „ja“ beantwortet wird.
+        // Die Android-WebView meldet 1920×1080 und kennt die TV-Parameter width/height/framerate nicht → nur bis 1080p.
+        // Wir melden deshalb die echte Fähigkeit des Hardware-Decoders (gemessen über MediaCodecList).
+        val dec = decoderMax()
+        if (app == WebApp.YOUTUBE && dec.first >= 3840 && maxDisplayHeight() >= 2160 &&
             androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
             val js = """
                 (function(){try{
-                  var w=3840,h=2160;
+                  var w=3840,h=2160, MW=${dec.first}, MH=${dec.second}, MF=${dec.third};
                   ['width','availWidth'].forEach(function(k){Object.defineProperty(screen,k,{get:function(){return w}})});
                   ['height','availHeight'].forEach(function(k){Object.defineProperty(screen,k,{get:function(){return h}})});
                   Object.defineProperty(window,'devicePixelRatio',{get:function(){return w/Math.max(1,window.innerWidth)}});
+                  function wrap(obj,name){ if(!obj||!obj[name]) return; var orig=obj[name].bind(obj);
+                    obj[name]=function(t){ try{
+                      var s=String(t), g=function(k){var m=new RegExp(k+'=([0-9.]+)').exec(s); return m?parseFloat(m[1]):0;};
+                      if(g('width')>MW||g('height')>MH||g('framerate')>MF) return name==='canPlayType'?'':false;
+                      var base=s.replace(/;\s*(width|height|framerate|bitrate|eotf|channels|decode-to-texture|cryptoblockformat|features)=[^;]*/gi,'');
+                      return orig(base);
+                    }catch(e){ return orig(t); } }; }
+                  if(window.MediaSource) wrap(window.MediaSource,'isTypeSupported');
+                  if(window.ManagedMediaSource) wrap(window.ManagedMediaSource,'isTypeSupported');
+                  if(window.HTMLMediaElement) wrap(HTMLMediaElement.prototype,'canPlayType');
                 }catch(e){}})();
             """.trimIndent()
             runCatching { androidx.webkit.WebViewCompat.addDocumentStartJavaScript(web, js, setOf("https://www.youtube.com")) }
@@ -178,6 +192,23 @@ class WebAppActivity : ComponentActivity() {
     }
 
     /** Höchste Auflösung, die der Fernseher über HDMI ausgeben kann (Fire TV läuft in der Oberfläche oft nur mit 1080p). */
+    /** Größte vom Hardware-Decoder unterstützte Auflösung/Bildrate für VP9 bzw. AV1 (YouTube-4K-Codecs). */
+    private fun decoderMax(): Triple<Int, Int, Int> = runCatching {
+        var best = Triple(1920, 1080, 30)
+        for (info in android.media.MediaCodecList(android.media.MediaCodecList.REGULAR_CODECS).codecInfos) {
+            if (info.isEncoder) continue
+            for (type in info.supportedTypes) {
+                if (!type.equals("video/x-vnd.on2.vp9", true) && !type.equals("video/av01", true)) continue
+                val v = info.getCapabilitiesForType(type).videoCapabilities ?: continue
+                if (v.isSizeSupported(3840, 2160)) {
+                    val fps = if (v.areSizeAndRateSupported(3840, 2160, 60.0)) 60 else 30
+                    if (fps >= best.third || best.first < 3840) best = Triple(3840, 2160, fps)
+                }
+            }
+        }
+        best
+    }.getOrDefault(Triple(1920, 1080, 30))
+
     private fun maxDisplayHeight(): Int = runCatching {
         @Suppress("DEPRECATION") val d = windowManager.defaultDisplay
         d.supportedModes.maxOf { maxOf(it.physicalHeight, it.physicalWidth * 9 / 16) }
