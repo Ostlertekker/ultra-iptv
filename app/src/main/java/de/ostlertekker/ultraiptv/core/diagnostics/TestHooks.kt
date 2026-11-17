@@ -19,4 +19,5 @@ interface TestHooks {
     fun user(): UserRepository
     fun content(): ContentRepository
     fun jellyfin(): de.ostlertekker.ultraiptv.core.jellyfin.JellyfinRepository
+    fun spotify(): de.ostlertekker.ultraiptv.core.spotify.SpotifyRepository
 }

@@ -91,6 +91,7 @@ object Routes {
     // Entdecken-Funktionen
     const val EXPLORE = "explore"
     const val JELLYFIN = "jellyfin"
+    const val SPOTIFY = "spotify"
     fun jfMovie(id: String) = "jfMovie/${Uri.encode(id)}"
     fun jfSeries(id: String) = "jfSeries/${Uri.encode(id)}"
     fun jfLibrary(id: String, name: String) = "jfLibrary/${Uri.encode(id)}?name=${Uri.encode(name)}"
@@ -176,7 +177,7 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
     val items = remember {
         listOf(
             NavItem(Routes.HOME, "Start"), NavItem(Routes.LIVE, "Live-TV"), NavItem(Routes.EPG, "Programm"), NavItem(Routes.MOVIES, "Filme"),
-            NavItem(Routes.SERIES, "Serien"), NavItem(Routes.EVENTS, "Sport"), NavItem(Routes.FAVORITES, "Favoriten"), NavItem(Routes.JELLYFIN, "Jellyfin"), NavItem("app:YOUTUBE", "YouTube"), NavItem("app:SPOTIFY", "Spotify"),
+            NavItem(Routes.SERIES, "Serien"), NavItem(Routes.EVENTS, "Sport"), NavItem(Routes.FAVORITES, "Favoriten"), NavItem(Routes.JELLYFIN, "Jellyfin"), NavItem("app:YOUTUBE", "YouTube"), NavItem(Routes.SPOTIFY, "Spotify"),
             NavItem(Routes.EXPLORE, "Mehr"),
         )
     }
@@ -239,6 +240,7 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
                     composable(Routes.SPORTS) { de.ostlertekker.ultraiptv.feature.discover.SportsScreen(nav) }
                     composable(Routes.MYTV) { de.ostlertekker.ultraiptv.feature.discover.MyTvScreen() }
                     composable(Routes.LISTS) { de.ostlertekker.ultraiptv.feature.discover.ListsScreen() }
+                    composable(Routes.SPOTIFY) { de.ostlertekker.ultraiptv.feature.spotify.SpotifyScreen() }
                     composable(Routes.JELLYFIN) { de.ostlertekker.ultraiptv.feature.jellyfin.JellyfinScreen(nav) }
                     composable("jfMovie/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) {
                         de.ostlertekker.ultraiptv.feature.jellyfin.JellyfinMovieScreen(nav)
