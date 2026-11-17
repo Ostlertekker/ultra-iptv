@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.feature.livetv
 
+import androidx.compose.foundation.verticalScroll
 import kotlinx.coroutines.flow.collectLatest
 import android.content.Context
 import androidx.compose.foundation.background
@@ -302,7 +303,8 @@ private fun RightPanel(vm: LiveTvViewModel, favs: Set<String>, modifier: Modifie
     val context = LocalContext.current
     val p = LocalUltraTheme.current.palette
     val focused by vm.focused.collectAsStateWithLifecycle()
-    Column(modifier) {
+    // Scrollbar + Innenabstand: Knöpfe samt Fokusrahmen bleiben immer vollständig sichtbar, auch bei langen Sendungsinfos
+    Column(modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(end = 6.dp, bottom = 12.dp)) {
         val ch = focused
         PreviewBox(vm, ch)
         Spacer(Modifier.height(12.dp))

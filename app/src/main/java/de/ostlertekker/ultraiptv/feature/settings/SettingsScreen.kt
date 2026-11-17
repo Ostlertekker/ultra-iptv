@@ -161,8 +161,9 @@ private val languages = listOf("" to "Automatisch", "de" to "Deutsch", "en" to "
 fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), x: SettingsExtrasViewModel = hiltViewModel()) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
-    var category by remember { mutableStateOf(SettingsCategory.PLAYLISTS) }
-    var errorsOpen by remember { mutableStateOf(false) }
+    // rememberSaveable: Kommt man aus einer Aktion zurück (z. B. Update-Installation), bleibt der gewählte Reiter erhalten
+    var category by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(SettingsCategory.PLAYLISTS) }
+    var errorsOpen by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     androidx.activity.compose.BackHandler(enabled = errorsOpen) { errorsOpen = false }
     val s by vm.settings.collectAsStateWithLifecycle()
 
