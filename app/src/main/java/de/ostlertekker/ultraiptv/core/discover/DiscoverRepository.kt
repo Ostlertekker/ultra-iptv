@@ -190,12 +190,24 @@ class DiscoverRepository @Inject constructor(
             val num = Regex("""\b(\d{1,2})\b""").find(clean)?.groupValues?.get(1)?.toIntOrNull()
             p += when { num == null || num == 1 -> 4; num == 2 -> 2; else -> 0 }
             p += when { epgScore >= 10 -> 50 + epgScore; epgScore > 0 -> 35; curSport != null -> 12; else -> 0 }
+            // Bildqualität: Full HD und HD bevorzugen
+            val q = " " + ch.name.lowercase().replace(Regex("[^a-z0-9]+"), " ") + " "
+            p += when {
+                q.contains(" fhd ") || q.contains(" full hd ") || q.contains(" fullhd ") || q.contains(" 1080p ") || q.contains(" 1080 ") -> 8
+                q.contains(" hd ") || q.contains(" 720p ") -> 6
+                q.contains(" uhd ") || q.contains(" 4k ") -> 2
+                q.contains(" sd ") || q.contains(" low ") -> -4
+                else -> 0
+            }
             val level = when { epgScore >= 10 -> TvHit.Source.VERY; p >= 45 -> TvHit.Source.LIKELY; else -> TvHit.Source.POSSIBLE }
             val prog = cur ?: AiringProgram(ch.id, ch.name, ch.logo, ch.category, ch.number, ch.archiveDays,
                 "${e.league.label} – Rechteinhaber", null, minOf(now, e.startMs), maxOf(now, e.startMs) + 3 * 3_600_000L)
             TvHit(prog, level, right?.first?.let { if (it == "*") "ESPN" else it } ?: country, p)
         }
-        hits.sortedWith(compareByDescending<TvHit> { it.score }.thenBy { it.program.number }).take(5)
+        // Gleicher Sender in mehreren Qualitäten → nur die beste Variante zeigen
+        hits.sortedWith(compareByDescending<TvHit> { it.score }.thenBy { it.program.number })
+            .distinctBy { (countryOf[it.program.channelId] ?: "") + ChannelCountry.cleanName(it.program.channelName) }
+            .take(5)
     }
 
     /** Sportereignisse im Zeitfenster (Live Event Tracker) – aus EPG-Titeln/Beschreibungen erkannt. */
