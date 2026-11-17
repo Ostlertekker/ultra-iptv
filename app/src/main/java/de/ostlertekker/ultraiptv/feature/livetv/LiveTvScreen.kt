@@ -61,12 +61,10 @@ import de.ostlertekker.ultraiptv.core.data.EpgRepository
 import de.ostlertekker.ultraiptv.core.data.SettingsRepository
 import de.ostlertekker.ultraiptv.core.data.UserRepository
 import de.ostlertekker.ultraiptv.core.database.ChannelEntity
-import de.ostlertekker.ultraiptv.core.database.ChannelHealthEntity
 import de.ostlertekker.ultraiptv.core.database.ChannelQualityEntity
 import de.ostlertekker.ultraiptv.core.database.EpgProgramEntity
 import de.ostlertekker.ultraiptv.core.database.ExtrasDao
 import de.ostlertekker.ultraiptv.core.design.LocalUltraTheme
-import de.ostlertekker.ultraiptv.core.diagnostics.StreamHealthChecker
 import de.ostlertekker.ultraiptv.core.model.ContentKind
 import de.ostlertekker.ultraiptv.core.model.Countries
 import de.ostlertekker.ultraiptv.core.notify.NotificationCenter
@@ -114,7 +112,6 @@ class LiveTvViewModel @Inject constructor(
     private val resolver: StreamResolver,
     private val extras: ExtrasDao,
     private val notifications: NotificationCenter,
-    val health: StreamHealthChecker,
     val engine: PlayerEngine,
     private val discover: de.ostlertekker.ultraiptv.core.discover.DiscoverRepository,
 ) : ViewModel() {
@@ -151,11 +148,6 @@ class LiveTvViewModel @Inject constructor(
         }
         .combine(sortByName) { list, byName -> if (byName) list.sortedBy { it.name.lowercase() } else list }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    val healthMap: StateFlow<Map<String, ChannelHealthEntity>> = channels
-        .flatMapLatest { list -> if (list.isEmpty()) flowOf(emptyList()) else extras.healthFor(list.take(500).map { it.id }) }
-        .map { l -> l.associateBy { it.channelId } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     val programs = MutableStateFlow<Map<String, List<EpgProgramEntity>>>(emptyMap())
     val focused = MutableStateFlow<ChannelEntity?>(null)
@@ -214,11 +206,6 @@ class LiveTvViewModel @Inject constructor(
         reminderSet.value = if (on) reminderSet.value + p.startMs else reminderSet.value - p.startMs
     }
 
-    fun checkHealth(category: String) = viewModelScope.launch {
-        stopPreview()
-        health.checkCategory(category)
-    }
-
     fun currentCategory(): String = selected.value ?: categories.value.getOrNull(2) ?: CAT_FAVORITES
 
     fun open(context: Context, ch: ChannelEntity) {
@@ -241,8 +228,6 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
     val favs by vm.favoriteIds.collectAsStateWithLifecycle()
     val programs by vm.programs.collectAsStateWithLifecycle()
     val sortByName by vm.sortByName.collectAsStateWithLifecycle()
-    val healthMap by vm.healthMap.collectAsStateWithLifecycle()
-    val checkProgress by vm.health.progress.collectAsStateWithLifecycle()
     val current = sel ?: cats.getOrNull(2) ?: CAT_FAVORITES
     val now = System.currentTimeMillis()
     val firstChannel = remember { FocusRequester() }
@@ -286,11 +271,6 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
                 item { TvChip(if (sortByName) "↕ A–Z" else "↕ Nummer", false, { vm.sortByName.value = !sortByName }) }
                 item { TvChip("TV-Programm", false, { nav.navigate(Routes.epg(current.takeIf { !isVirtualCategory(it) })) }) }
-                item {
-                    val prog = checkProgress
-                    TvChip(if (prog != null) "Prüfe ${prog.first + 1}/${prog.second} …" else "✚ Sender prüfen", false,
-                        { if (prog == null && !isVirtualCategory(current)) vm.checkHealth(current) })
-                }
             }
             if (channels.isEmpty()) {
                 Text(if (current == CAT_FAVORITES) "Noch keine Lieblingssender. Sender auswählen und „☆ Favorit“ drücken." else "Keine Sender in dieser Kategorie.",
@@ -299,7 +279,7 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 40.dp)) {
                 itemsIndexed(channels, key = { _, c -> c.id }, contentType = { _, _ -> "channel" }) { index, ch ->
                     val nowProg = ch.epgId?.let { id -> programs[id]?.firstOrNull { it.startMs <= now && it.endMs > now } }
-                    ChannelItem(ch, nowProg, ch.id in favs, healthMap[ch.id],
+                    ChannelItem(ch, nowProg, ch.id in favs,
                         focusRequester = if (index == 0) firstChannel else null,
                         onFocus = { vm.onFocus(ch) },
                         onClick = { vm.open(context, ch) },
@@ -387,7 +367,6 @@ private fun PreviewBox(vm: LiveTvViewModel, ch: ChannelEntity?) {
 private fun FocusedInfo(vm: LiveTvViewModel, ch: ChannelEntity, favs: Set<String>, context: Context) {
     val p = LocalUltraTheme.current.palette
     val quality by vm.focusedQuality.collectAsStateWithLifecycle()
-    val healthMap by vm.healthMap.collectAsStateWithLifecycle()
     val reminders by vm.reminderSet.collectAsStateWithLifecycle()
     val now = System.currentTimeMillis()
     Column {
@@ -400,10 +379,6 @@ private fun FocusedInfo(vm: LiveTvViewModel, ch: ChannelEntity, favs: Set<String
             }
         }
         val badges = ArrayList<String>()
-        healthMap[ch.id]?.let { h ->
-            badges += if (h.ok) "✓ Online · ${h.latencyMs} ms" + (if (h.bitrateKbps > 0) " · ${"%.1f".format(h.bitrateKbps / 1000.0)} Mbit/s" else "")
-            else "✗ ${h.error ?: "Offline"}"
-        }
         quality?.let { q -> if (q.height > 0) badges += "Zuletzt ${q.width}×${q.height}" + (if (q.fps > 0) " · ${"%.0f".format(q.fps)} fps" else "") }
         badges.forEach { Text(it, color = p.primary, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp)) }
         val nn = vm.nowNext(ch)
@@ -456,7 +431,6 @@ private fun ChannelItem(
     ch: ChannelEntity,
     now: EpgProgramEntity?,
     favorite: Boolean,
-    health: ChannelHealthEntity?,
     focusRequester: FocusRequester?,
     onFocus: () -> Unit,
     onClick: () -> Unit,
@@ -490,7 +464,6 @@ private fun ChannelItem(
             Text(ch.name, color = p.text, fontSize = nameSize, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (now != null && prefs.showChannelEpg) Text("${formatTime(now.startMs)}  ${now.title}", color = p.textDim, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        if (health != null) Box(Modifier.padding(horizontal = 6.dp).size(9.dp).background(if (health.ok) Color(0xFF2EE59D) else Color(0xFFFF5252), CircleShape))
         val country = Countries.byCode(ch.country)
         if (country != null) Text(country.flag, fontSize = 15.sp, modifier = Modifier.padding(horizontal = 4.dp))
         if (favorite) Text("★", color = p.primary, fontSize = 18.sp)

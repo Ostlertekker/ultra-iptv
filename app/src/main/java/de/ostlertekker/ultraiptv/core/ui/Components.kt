@@ -372,7 +372,7 @@ fun AnimatedMenuLabel(text: String, focused: Boolean, selected: Boolean, modifie
     }
 }
 
-data class NavItem(val route: String, val label: String)
+data class NavItem(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector? = null)
 
 /** Hauptnavigation links – vollständig per D-Pad bedienbar. */
 @Composable
@@ -622,7 +622,10 @@ fun TopNavBar(items: List<NavItem>, utility: List<NavItem>, selectedRoute: Strin
         }
         Spacer(Modifier.weight(1f))
         Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
-            utility.forEach { item -> TopNavPill(item.label, item.route == selectedRoute, { onSelect(item.route) }, null) }
+            utility.forEach { item ->
+                if (item.icon != null) TopNavIconPill(item.icon, item.label, item.route == selectedRoute) { onSelect(item.route) }
+                else TopNavPill(item.label, item.route == selectedRoute, { onSelect(item.route) }, null)
+            }
             if (de.ostlertekker.ultraiptv.core.design.LocalUiPrefs.current.menuClock) RailClock(Modifier.padding(start = 8.dp), small = true)
         }
     }
@@ -651,6 +654,29 @@ private fun TopNavPill(label: String, selected: Boolean, onClick: () -> Unit, fo
     }
 }
 
+
+/** Rundes Symbol-Element der Navigationsleiste (Suche, Einstellungen) – alle exakt gleich groß und gleich gestaltet. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun TopNavIconPill(icon: androidx.compose.ui.graphics.vector.ImageVector, description: String, selected: Boolean, onClick: () -> Unit) {
+    val sounds = LocalUiSounds.current
+    var focused by remember { mutableStateOf(false) }
+    val scale by androidx.compose.animation.core.animateFloatAsState(if (focused) 1.06f else 1f, androidx.compose.animation.core.tween(140), label = "iconpill")
+    val shape = RoundedCornerShape(50)
+    Box(
+        Modifier
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .size(30.dp)
+            .onFocusChanged { if (it.isFocused && !focused) sounds?.focus(); focused = it.isFocused }
+            .combinedClickable(interactionSource = remember { MutableInteractionSource() }, indication = null,
+                onClick = { sounds?.select(); onClick() })
+            .background(when { focused -> Color.White; selected -> Color.White.copy(alpha = 0.18f); else -> Color.Transparent }, shape),
+        contentAlignment = Alignment.Center,
+    ) {
+        androidx.compose.material3.Icon(icon, contentDescription = description, modifier = Modifier.size(17.dp),
+            tint = if (focused) Color(0xFF111111) else if (selected) Color.White else Color.White.copy(alpha = 0.72f))
+    }
+}
 
 /** „★ 7,4“ – schnell ohne String.format (wird für jede Kachel beim Scrollen gebraucht). */
 fun ratingLabel(r: Double): String {

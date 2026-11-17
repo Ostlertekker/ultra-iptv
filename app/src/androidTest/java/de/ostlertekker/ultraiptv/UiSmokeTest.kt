@@ -258,6 +258,9 @@ class UiSmokeTest {
             keys("Ziffern-Direktwahl", KeyEvent.KEYCODE_1, KeyEvent.KEYCODE_2); Thread.sleep(3000)
             keys("Overlay öffnen", OK); Thread.sleep(600); shot("player_overlay")
             keys("Overlay + Menüs", R, R, R, OK, BACK, BACK); Thread.sleep(1000)
+            keys("Overlay für Mehr", OK); Thread.sleep(600)
+            keys("Zu „Mehr“", *IntArray(14) { R }, OK, pauseMs = 120); Thread.sleep(700); shot("player_mehr")
+            keys("Mehr zu", BACK, BACK); Thread.sleep(800)
             keys("Player zu", BACK, BACK); Thread.sleep(1500)
         }
         finish()

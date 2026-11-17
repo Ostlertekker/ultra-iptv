@@ -61,6 +61,7 @@ import de.ostlertekker.ultraiptv.core.model.ContentKind
 import de.ostlertekker.ultraiptv.core.player.TrackOption
 import de.ostlertekker.ultraiptv.core.player.UltraQualityEngine
 import de.ostlertekker.ultraiptv.core.ui.TvButton
+import de.ostlertekker.ultraiptv.core.ui.tvFocusable
 import de.ostlertekker.ultraiptv.core.ui.UltraLoader
 import de.ostlertekker.ultraiptv.feature.smartskip.SegmentType
 import kotlinx.coroutines.delay
@@ -78,6 +79,7 @@ private fun fmt(ms: Long): String {
     return if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec)
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun PlayerScreen(
     vm: PlayerViewModel,
@@ -96,6 +98,7 @@ fun PlayerScreen(
     var overlay by remember { mutableStateOf(true) }
     var panel by remember { mutableStateOf<Panel?>(null) }
     var health by remember { mutableStateOf(false) }
+    var moreOpen by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
     var interaction by remember { mutableLongStateOf(0L) }
     var seekHint by remember { mutableStateOf<String?>(null) }
@@ -129,6 +132,7 @@ fun PlayerScreen(
             }
         }
     }
+    LaunchedEffect(overlay) { if (!overlay) moreOpen = false }
     LaunchedEffect(seekHint) { if (seekHint != null) { delay(900); seekHint = null } }
     LaunchedEffect(ui.ended) { if (ui.ended) onExit() }
 
@@ -148,6 +152,7 @@ fun PlayerScreen(
                             health -> health = false
                             ui.countdown != null -> vm.cancelCountdown()
                             panel != null -> panel = null
+                            overlay && moreOpen -> moreOpen = false
                             overlay -> overlay = false
                             else -> onExit()
                         }
@@ -328,7 +333,7 @@ fun PlayerScreen(
         AnimatedVisibility(overlay && ui.countdown == null && !inPip, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.fillMaxSize()) {
             Box(Modifier.fillMaxSize()) {
                 Box(Modifier.fillMaxWidth().height(160.dp).background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.85f), Color.Transparent))))
-                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(260.dp).background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.92f)))))
+                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(if (moreOpen) 240.dp else 190.dp).background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.92f)))))
                 Column(Modifier.padding(36.dp).crazyEntrance(0, overlayShown)) {
                     Text(ui.title, color = Color.White, fontSize = 28.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily, maxLines = 1)
                     Text(ui.subtitle, color = p.textDim, fontSize = 15.sp, maxLines = 1)
@@ -345,7 +350,7 @@ fun PlayerScreen(
                     modifier = Modifier.align(Alignment.TopEnd).padding(36.dp).background(Color.White.copy(alpha = 0.12f), RoundedCornerShape(6.dp))
                         .padding(horizontal = 10.dp, vertical = 4.dp))
                 ui.qualityNote?.let { Text(it, color = p.primary, fontSize = 12.sp, modifier = Modifier.align(Alignment.TopEnd).padding(top = 72.dp, end = 36.dp)) }
-                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal = 36.dp, vertical = 26.dp)) {
+                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal = 36.dp, vertical = 20.dp)) {
                     if (isLive && ui.tsBufferedMs > 0) LiveTimeline(ui)
                     if (isLive) {
                         if (ui.nowTitle != null) {
@@ -363,49 +368,58 @@ fun PlayerScreen(
                             Text(fmt(ui.durationMs), color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(start = 12.dp))
                         }
                     }
-                    Spacer(Modifier.height(14.dp))
-                    LazyRow(Modifier.crazyEntrance(1, overlayShown), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        if (offer != null) item { TvButton("${offer.segment.type.label} überspringen", onClick = { vm.acceptSkip() }, primary = true) }
-                        item { TvButton(if (ui.isPlaying) "❚❚ Pause" else "▶ Play", onClick = { vm.togglePlay() }, focusRequester = playFocus) }
-                        if (!isLive) {
-                            item { TvButton("−10 s", onClick = { vm.seekBy(-10_000) }) }
-                            item { TvButton("+30 s", onClick = { vm.seekBy(30_000) }) }
-                        } else {
-                            item { TvButton("Kanal ▲", onClick = { vm.switchChannel(-1) }) }
-                            item { TvButton("Kanal ▼", onClick = { vm.switchChannel(1) }) }
-                            item { TvButton("Senderliste", onClick = { panel = Panel.CHANNELS }) }
-                            item { TvButton("↺ Letzter Sender", onClick = { vm.lastChannel() }) }
-                            if (ui.canTimeshift || ui.shiftBehindMs > 0) {
-                                item { TvButton("⏪ −10 s", onClick = { vm.rewindLive(10_000) }) }
-                                item { TvButton("⏪ −30 s", onClick = { vm.rewindLive(30_000) }) }
-                                item { TvButton("⏪ −5 min", onClick = { vm.rewindLive(300_000) }) }
-                                if (ui.shiftBehindMs > 0) {
-                                    item { TvButton("+10 s ⏩", onClick = { vm.forwardShift(10_000) }) }
-                                    item { TvButton("+30 s ⏩", onClick = { vm.forwardShift(30_000) }) }
-                                    item { TvButton("● Zurück zu LIVE", onClick = { vm.goLive() }, primary = true) }
+                    Spacer(Modifier.height(10.dp))
+                    // Kompakte Steuerleiste: wichtige Funktionen in einer Zeile, alles Weitere unter „Mehr“ (ohne Scrollen sichtbar)
+                    if (moreOpen) {
+                        androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            if (isLive) {
+                                PlayerCtl("Letzter Sender", onClick = { vm.lastChannel() })
+                                PlayerCtl("Mehrfachansicht", onClick = { de.ostlertekker.ultraiptv.feature.multiview.MultiViewActivity.openWithComparison(context, vm.currentItemId()); onExit() })
+                            }
+                            PlayerCtl("Bildformat", onClick = { panel = Panel.ASPECT })
+                            if (!isLive || ui.shiftBehindMs > 0) PlayerCtl("Tempo ${ui.speed}×", onClick = { panel = Panel.SPEED })
+                            if (!isLive || ui.shiftBehindMs > 0) PlayerCtl("Einzelbild", onClick = { overlay = false; vm.toggleFrameStep() })
+                            PlayerCtl("Sync", onClick = { panel = Panel.SYNC })
+                            PlayerCtl(if (settings.cinemaMode) "Kino: an" else "Kinomodus", onClick = { panel = Panel.CINEMA }, active = settings.cinemaMode)
+                            PlayerCtl(if (health) "Zustand aus" else "Stream-Zustand", onClick = { health = !health }, active = health)
+                            if (ui.kind == ContentKind.EPISODE) PlayerCtl("Intro überspringen", onClick = { panel = Panel.SMART_SKIP })
+                            val left = if (ui.sleepAt > 0) ((ui.sleepAt - System.currentTimeMillis()) / 60_000L + 1).coerceAtLeast(1) else 0
+                            PlayerCtl(if (left > 0) "Sleep $left min" else "Sleep-Timer", onClick = { vm.cycleSleep() }, active = left > 0)
+                            PlayerCtl(if (ui.showStats) "Statistik aus" else "Statistik", onClick = { vm.toggleStats() }, active = ui.showStats)
+                            PlayerCtl("Mini-Player", onClick = onMini)
+                            if (pipSupported) PlayerCtl("Bild-in-Bild", onClick = { if (!onPip()) onMini() })
+                        }
+                    }
+                    Row(Modifier.fillMaxWidth().crazyEntrance(1, overlayShown), verticalAlignment = Alignment.CenterVertically) {
+                        LazyRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            item { PlayerCtl(if (ui.isPlaying) "❚❚" else "▶\uFE0E", onClick = { vm.togglePlay() }, focusRequester = playFocus, icon = true) }
+                            if (offer != null) item { PlayerCtl("${offer.segment.type.label} überspringen", onClick = { vm.acceptSkip() }, primary = true) }
+                            if (!isLive) {
+                                item { PlayerCtl("−10 s", onClick = { vm.seekBy(-10_000) }) }
+                                item { PlayerCtl("+30 s", onClick = { vm.seekBy(30_000) }) }
+                                if (ui.kind == ContentKind.EPISODE && ui.hasNext) item { PlayerCtl("Nächste Folge", onClick = { vm.playNext() }) }
+                            } else {
+                                item { PlayerCtl("▲", onClick = { vm.switchChannel(-1) }, icon = true) }
+                                item { PlayerCtl("▼", onClick = { vm.switchChannel(1) }, icon = true) }
+                                item { PlayerCtl("Senderliste", onClick = { panel = Panel.CHANNELS }) }
+                                if (ui.canTimeshift || ui.shiftBehindMs > 0) {
+                                    item { PlayerCtl("−10 s", onClick = { vm.rewindLive(10_000) }) }
+                                    item { PlayerCtl("−30 s", onClick = { vm.rewindLive(30_000) }) }
+                                    item { PlayerCtl("−5 min", onClick = { vm.rewindLive(300_000) }) }
+                                    if (ui.shiftBehindMs > 0) {
+                                        item { PlayerCtl("+10 s", onClick = { vm.forwardShift(10_000) }) }
+                                        item { PlayerCtl("+30 s", onClick = { vm.forwardShift(30_000) }) }
+                                        item { PlayerCtl("● LIVE", onClick = { vm.goLive() }, primary = true) }
+                                    }
                                 }
                             }
-                            item { TvButton("⊞ Mehrfachansicht", onClick = { de.ostlertekker.ultraiptv.feature.multiview.MultiViewActivity.openWithComparison(context, vm.currentItemId()); onExit() }) }
                         }
-                        item { TvButton("Audio", onClick = { panel = Panel.AUDIO }) }
-                        item { TvButton("Untertitel", onClick = { panel = Panel.SUBTITLES }) }
-                        item { TvButton("Bildformat", onClick = { panel = Panel.ASPECT }) }
-                        if (!isLive || ui.shiftBehindMs > 0) item { TvButton("Tempo ${ui.speed}×", onClick = { panel = Panel.SPEED }) }
-                        if (!isLive || ui.shiftBehindMs > 0) item { TvButton("Einzelbild", onClick = { overlay = false; vm.toggleFrameStep() }) }
-                        item { TvButton("Sync", onClick = { panel = Panel.SYNC }) }
-                        item { TvButton(if (settings.cinemaMode) "🎬 Kino: AN" else "🎬 Kinomodus", onClick = { panel = Panel.CINEMA }) }
-                        item { TvButton(if (health) "Zustand aus" else "Stream-Zustand", onClick = { health = !health }) }
-                        if (ui.kind == ContentKind.EPISODE) {
-                            item { TvButton("Intro überspringen", onClick = { panel = Panel.SMART_SKIP }) }
-                            if (ui.hasNext) item { TvButton("Nächste Folge ▶▶", onClick = { vm.playNext() }) }
+                        Row(Modifier.padding(start = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            PlayerCtl("Audio", onClick = { panel = Panel.AUDIO })
+                            PlayerCtl("Untertitel", onClick = { panel = Panel.SUBTITLES })
+                            PlayerCtl(if (moreOpen) "Weniger" else "Mehr", onClick = { moreOpen = !moreOpen }, active = moreOpen)
                         }
-                        item {
-                            val left = if (ui.sleepAt > 0) ((ui.sleepAt - System.currentTimeMillis()) / 60_000L + 1).coerceAtLeast(1) else 0
-                            TvButton(if (left > 0) "☾ Sleep $left min" else "☾ Sleep-Timer", onClick = { vm.cycleSleep() })
-                        }
-                        item { TvButton(if (ui.showStats) "Statistik aus" else "Statistik", onClick = { vm.toggleStats() }) }
-                        item { TvButton("Mini-Player", onClick = onMini) }
-                        if (pipSupported) item { TvButton("Bild-in-Bild", onClick = { if (!onPip()) onMini() }) }
                     }
                 }
             }
@@ -591,5 +605,26 @@ private fun LiveTimeline(ui: PlayerUi) {
             Spacer(Modifier.weight(1f))
             Text("◀ ▶ = 10 s · ⏪ ⏩ = 30 s", color = p.textDim, fontSize = 11.sp)
         }
+    }
+}
+
+/** Kompakter Player-Knopf im Stil der Navigationspillen: dezent, flach, Fokus = weiße Pille. */
+@Composable
+private fun PlayerCtl(label: String, onClick: () -> Unit, focusRequester: FocusRequester? = null,
+                      primary: Boolean = false, active: Boolean = false, icon: Boolean = false) {
+    val p = LocalUltraTheme.current.palette
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(50)
+    Box(
+        Modifier
+            .then(if (icon) Modifier.width(40.dp) else Modifier)
+            .height(32.dp)
+            .tvFocusable(shape, onClick, focusRequester = focusRequester, scaleOnFocus = false, onFocus = { focused = it })
+            .background(when { focused -> Color.White; primary -> p.primary.copy(alpha = 0.35f); active -> Color.White.copy(alpha = 0.22f); else -> Color.White.copy(alpha = 0.10f) }, shape)
+            .padding(horizontal = if (icon) 0.dp else 13.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, color = if (focused) Color(0xFF111111) else Color.White, fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
     }
 }

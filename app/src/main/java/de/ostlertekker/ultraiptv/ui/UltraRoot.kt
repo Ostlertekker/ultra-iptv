@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Text
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
@@ -181,7 +184,7 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
             NavItem(Routes.EXPLORE, "Mehr"),
         )
     }
-    val utility = remember { listOf(NavItem(Routes.SEARCH, "🔍"), NavItem(Routes.SETTINGS, "⚙")) }
+    val utility = remember { listOf(NavItem(Routes.SEARCH, "Suche", Icons.Default.Search), NavItem(Routes.SETTINGS, "Einstellungen", Icons.Default.Settings)) }
     LaunchedEffect(Unit) { delay(150); runCatching { railFocus.requestFocus() } }
     // Direkter Einstieg in eine Seite (z. B. für automatische Oberflächentests)
     LaunchedEffect(startRoute) {

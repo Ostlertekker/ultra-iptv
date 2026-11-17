@@ -323,7 +323,7 @@ fun LazyListScope.channelAnalysisSection(x: SettingsExtrasViewModel) {
         val names by x.channelNames.collectAsStateWithLifecycle()
         LaunchedEffect(quality.size, health.size) { x.loadNames((quality.map { it.channelId } + health.map { it.channelId }).distinct()) }
         Column {
-            Text("Qualität aus echter Wiedergabe (gemessen) und Gesundheitsprüfungen (Live TV › „Sender prüfen“).",
+            Text("Qualität aus echter Wiedergabe (gemessen).",
                 color = p.textDim, fontSize = 12.sp, modifier = Modifier.padding(bottom = 6.dp))
             SectionHeader("Sender-Qualität & Buffering-Analyse")
             if (quality.isEmpty()) Text("Noch keine Daten – einfach Sender schauen.", color = p.textDim, fontSize = 14.sp)
