@@ -454,6 +454,12 @@ fun SportsScreen(nav: NavController, vm: DiscoverViewModel = hiltViewModel()) {
     var selected by remember { mutableStateOf<ScoreEvent?>(null) }
     LaunchedEffect(Unit) { vm.startScores() }
     LaunchedEffect(selected?.id) { selected?.let { vm.loadDetail(it.league, it.id) } }
+    // Laufende Spiele: Detail-Feld zeigt immer den aktuellen Stand aus der Live-Liste
+    val current = selected?.let { s -> board?.events?.firstOrNull { it.id == s.id && it.league == s.league } ?: s }
+    // Spieldetails bei laufenden Spielen alle 60 s nachladen
+    LaunchedEffect(selected?.id, current?.live) {
+        while (current?.live == true) { kotlinx.coroutines.delay(60_000); vm.loadDetail(current.league, current.id, refresh = true) }
+    }
     Column(Modifier.fillMaxSize().padding(24.dp)) {
         ScreenTitle("Live-Spielstände", subtitle = board?.let { "Stand ${formatTime(it.fetchedAt)} · Quelle: ESPN (öffentliche Live-Daten) · aktualisiert alle 30 s" } ?: "Lade Live-Daten …")
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -467,7 +473,7 @@ fun SportsScreen(nav: NavController, vm: DiscoverViewModel = hiltViewModel()) {
                 items(evs, key = { it.league.name + it.id }) { e -> ScoreRow(e, selected?.id == e.id) { selected = e } }
             }
             Column(Modifier.weight(0.5f).fillMaxHeight().background(pal.surface, RoundedCornerShape(14.dp)).padding(14.dp)) {
-                val e = selected
+                val e = current
                 if (e == null) EmptyHint("Spiel auswählen für Ereignisse, Aufstellungen und Statistiken.")
                 else MatchPanel(e, detail, vm)
             }
@@ -505,28 +511,28 @@ private fun ScoreRow(e: ScoreEvent, selected: Boolean, onClick: () -> Unit) {
 private fun MatchPanel(e: ScoreEvent, d: de.ostlertekker.ultraiptv.core.discover.MatchDetail?, vm: DiscoverViewModel) {
     val pal = LocalUltraTheme.current.palette
     val onTv by vm.onTv.collectAsStateWithLifecycle()
-    var asked by remember(e.id) { mutableStateOf(false) }
+    val failed by vm.detailFailed.collectAsStateWithLifecycle()
     val act = rememberProgramAction(vm)
-    LaunchedEffect(e.id) { vm.onTv.value = null }
+    // Sender sofort suchen, sobald ein Spiel gewählt wird
+    LaunchedEffect(e.id) { vm.findOnTv(e) }
     LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         item {
             Text(e.scoreLine, color = pal.text, fontSize = 20.sp, fontWeight = FontWeight.Black)
             Text(listOfNotNull(e.detail.takeIf { it.isNotBlank() }, e.clock?.takeIf { e.live }, e.venue).joinToString(" · "), color = pal.textDim, fontSize = 12.sp)
-            TvButton("📡 Wo läuft das im TV?", onClick = { asked = true; vm.findOnTv(e) }, modifier = Modifier.padding(vertical = 6.dp))
         }
-        if (asked) {
+        item { SectionHeader("Läuft im TV") }
+        run {
             val list = onTv
             if (list == null) item { Text("Suche im TV-Programm …", color = pal.textDim, fontSize = 12.sp) }
             else if (list.isEmpty()) item {
                 Text("Im TV-Programm deiner Sender wurde zu diesem Spiel nichts gefunden (weder Teams/Spieler noch Wettbewerb).",
                     color = pal.textDim, fontSize = 12.sp)
             } else {
-                item { SectionHeader("Im TV (${list.size})") }
                 val now = System.currentTimeMillis()
                 items(list, key = { "tv" + it.channelId + it.startMs }) { p -> ProgramRow(p, now, programBadge(p, now), { act(p) }) }
             }
         }
-        if (d == null) item { Text("Lade Spieldetails …", color = pal.textDim, fontSize = 12.sp) }
+        if (d == null) item { Text(if (failed) "Für dieses Spiel liefert die Datenquelle keine weiteren Details." else "Lade Spieldetails …", color = pal.textDim, fontSize = 12.sp) }
         else {
             item { SectionHeader("Ereignisse") }
             if (d.keyEvents.isEmpty()) item { Text("Keine Ereignisdaten von der Quelle.", color = pal.textDim, fontSize = 12.sp) }

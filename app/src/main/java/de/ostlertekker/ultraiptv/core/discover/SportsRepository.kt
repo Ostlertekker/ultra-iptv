@@ -61,7 +61,8 @@ data class ScoreEvent(
     val scoreLine: String get() = if (competitors.size == 2 && competitors.all { it.score != null }) {
         val home = competitors.firstOrNull { it.homeAway == "home" } ?: competitors[0]
         val away = competitors.firstOrNull { it !== home } ?: competitors[1]
-        "${home.name} ${home.score}:${away.score} ${away.name}"
+        if (league.sport == Sport.TENNIS) "${competitors[0].name} (${competitors[0].score}) – ${competitors[1].name} (${competitors[1].score})"
+        else "${home.name} ${home.score}:${away.score} ${away.name}"
     } else title
 }
 
@@ -127,11 +128,16 @@ class SportsRepository @Inject constructor(http: OkHttpClient) {
                     val o = x as? JsonObject ?: return@mapNotNull null
                     val team = o.obj("team"); val ath = o.obj("athlete")
                     val name = team?.s("displayName") ?: ath?.s("displayName") ?: ath?.s("shortName") ?: return@mapNotNull null
-                    val score = when (val sc = o["score"]) {
+                    // Tennis & Co. liefern statt „score“ die Sätze in „linescores“ → „6 4 2“
+                    val sets = o.arr("linescores").mapNotNull { ls ->
+                        val lo = ls as? JsonObject ?: return@mapNotNull null
+                        (lo.s("displayValue") ?: lo.s("value"))?.let { v -> v.toDoubleOrNull()?.let { d -> if (d % 1.0 == 0.0) d.toInt().toString() else v } ?: v }
+                    }.joinToString(" ").takeIf { it.isNotBlank() }
+                    val score = (when (val sc = o["score"]) {
                         is JsonPrimitive -> sc.contentOrNull
                         is JsonObject -> sc.s("displayValue")
                         else -> null
-                    }?.takeIf { it.isNotBlank() }
+                    }?.takeIf { it.isNotBlank() } ?: sets)
                     ScoreCompetitor(name, team?.s("shortDisplayName") ?: team?.s("abbreviation") ?: ath?.s("shortName"), score,
                         team?.s("logo") ?: team?.arr("logos")?.firstOrNull()?.let { (it as? JsonObject)?.s("href") },
                         o.s("homeAway"), o.s("winner") == "true", o.s("order")?.toIntOrNull())

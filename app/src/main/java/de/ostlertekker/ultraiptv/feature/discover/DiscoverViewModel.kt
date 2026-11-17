@@ -102,7 +102,15 @@ class DiscoverViewModel @Inject constructor(
     }
     val onTv = MutableStateFlow<List<AiringProgram>?>(null)
     fun findOnTv(e: ScoreEvent) { onTv.value = null; load(onTv) { runCatching { repo.whereOnTv(e) }.getOrDefault(emptyList()) } }
-    fun loadDetail(league: League, id: String) { detail.value = null; viewModelScope.launch { detail.value = sports.detail(league, id) } }
+    /** true = Quelle liefert für dieses Spiel keine Details (statt endlos „Lade …“). */
+    val detailFailed = MutableStateFlow(false)
+    fun loadDetail(league: League, id: String, refresh: Boolean = false) {
+        if (!refresh) { detail.value = null; detailFailed.value = false }
+        viewModelScope.launch {
+            val d = runCatching { kotlinx.coroutines.withTimeoutOrNull(15_000) { sports.detail(league, id) } }.getOrNull()
+            if (d != null || !refresh) { detail.value = d; detailFailed.value = d == null }
+        }
+    }
 
     // --------------------------------------------------- Mein TV
     val stats = MutableStateFlow<WatchStats?>(null)
