@@ -80,7 +80,8 @@ data class ScoreBoard(val events: List<ScoreEvent>, val fetchedAt: Long, val fai
  */
 @Singleton
 class SportsRepository @Inject constructor(http: OkHttpClient) {
-    private val client = http.newBuilder().connectTimeout(8, TimeUnit.SECONDS).readTimeout(12, TimeUnit.SECONDS).build()
+    // Ohne HTTP-Cache: Live-Spielstände müssen bei jeder Abfrage frisch vom Server kommen
+    private val client = http.newBuilder().cache(null).connectTimeout(8, TimeUnit.SECONDS).readTimeout(12, TimeUnit.SECONDS).build()
     private val base = "https://site.api.espn.com/apis/site/v2/sports/"
     @Volatile private var cache: Pair<Set<League>, ScoreBoard>? = null
 
@@ -100,7 +101,7 @@ class SportsRepository @Inject constructor(http: OkHttpClient) {
     }
 
     private fun get(url: String): JsonObject? {
-        val req = Request.Builder().url(url).header("Accept", "application/json").build()
+        val req = Request.Builder().url(url).header("Accept", "application/json").header("Cache-Control", "no-cache").header("Pragma", "no-cache").build()
         client.newCall(req).execute().use { r ->
             if (!r.isSuccessful) return null
             val body = r.body?.string() ?: return null

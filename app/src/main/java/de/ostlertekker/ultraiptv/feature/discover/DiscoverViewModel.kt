@@ -83,13 +83,19 @@ class DiscoverViewModel @Inject constructor(
         }
     }
     private var boardJob: Job? = null
+    val boardFailed = MutableStateFlow(false)
+    val nextRefreshAt = MutableStateFlow(0L)
+    fun stopScores() { boardJob?.cancel(); boardJob = null }
     fun startScores() {
         boardJob?.cancel()
         boardJob = viewModelScope.launch {
             while (true) {
                 loading.value = true
-                board.value = runCatching { sports.scoreboard(leagues.value) }.getOrNull() ?: board.value
+                val b = runCatching { sports.scoreboard(leagues.value, maxAgeMs = 0) }.getOrNull()
+                if (b != null) board.value = b
+                boardFailed.value = b == null || b.failedLeagues.size == leagues.value.size
                 loading.value = false
+                nextRefreshAt.value = System.currentTimeMillis() + 30_000
                 delay(30_000)
             }
         }

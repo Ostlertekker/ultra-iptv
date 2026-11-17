@@ -452,7 +452,11 @@ fun SportsScreen(nav: NavController, vm: DiscoverViewModel = hiltViewModel()) {
     val leagues by vm.leagues.collectAsStateWithLifecycle()
     val detail by vm.detail.collectAsStateWithLifecycle()
     var selected by remember { mutableStateOf<ScoreEvent?>(null) }
-    LaunchedEffect(Unit) { vm.startScores() }
+    androidx.compose.runtime.DisposableEffect(Unit) { vm.startScores(); onDispose { vm.stopScores() } }
+    val failed by vm.boardFailed.collectAsStateWithLifecycle()
+    val nextAt by vm.nextRefreshAt.collectAsStateWithLifecycle()
+    var tick by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(1000); tick = System.currentTimeMillis() } }
     LaunchedEffect(selected?.id) { selected?.let { vm.loadDetail(it.league, it.id) } }
     // Laufende Spiele: Detail-Feld zeigt immer den aktuellen Stand aus der Live-Liste
     val current = selected?.let { s -> board?.events?.firstOrNull { it.id == s.id && it.league == s.league } ?: s }
@@ -461,7 +465,12 @@ fun SportsScreen(nav: NavController, vm: DiscoverViewModel = hiltViewModel()) {
         while (current?.live == true) { kotlinx.coroutines.delay(60_000); vm.loadDetail(current.league, current.id, refresh = true) }
     }
     Column(Modifier.fillMaxSize().padding(24.dp)) {
-        ScreenTitle("Live-Spielstände", subtitle = board?.let { "Stand ${formatTime(it.fetchedAt)} · Quelle: ESPN (öffentliche Live-Daten) · aktualisiert alle 30 s" } ?: "Lade Live-Daten …")
+        val secs = ((nextAt - tick) / 1000).coerceAtLeast(0)
+        ScreenTitle("Live-Spielstände", subtitle = board?.let {
+            "Stand ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.GERMAN).format(java.util.Date(it.fetchedAt))}" +
+                (if (failed) " · ⚠ letzte Aktualisierung fehlgeschlagen" else "") +
+                " · nächste in $secs s · Quelle: ESPN"
+        } ?: "Lade Live-Daten …")
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(League.entries) { l -> TvChip(l.label, l in leagues, { vm.toggleLeague(l) }) }
         }
