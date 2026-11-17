@@ -52,3 +52,21 @@ class TvRightsTest {
         League.entries.forEach { assertTrue("Rechte fehlen: $it", TvRights.holders(it).isNotEmpty()) }
     }
 }
+
+class TvMatchMultiTest {
+    @Test fun polnischeZeitschrift() {
+        val toks = de.ostlertekker.ultraiptv.core.discover.TvMatch.tokens(listOf("Poland"))
+        val text = de.ostlertekker.ultraiptv.core.discover.TvMatch.norm("Piłka nożna: Liga Narodów – Polska - Holandia")
+        assertTrue(toks.any { de.ostlertekker.ultraiptv.core.discover.TvMatch.containsWord(text, it) })
+        val nl = de.ostlertekker.ultraiptv.core.discover.TvMatch.tokens(listOf("Netherlands"))
+        assertTrue(nl.any { de.ostlertekker.ultraiptv.core.discover.TvMatch.containsWord(text, it) })
+    }
+    @Test fun zeitschriftSenderAbgleich() {
+        val key = ChannelCountry.listingKey("RTL Television")
+        val clean = ChannelCountry.cleanName("DE: RTL HD")
+        assertTrue(ChannelCountry.matches(clean, key) || ChannelCountry.matches(key, clean))
+        val k2 = ChannelCountry.listingKey("Das Erste HD")
+        assertTrue(ChannelCountry.matches(ChannelCountry.cleanName("DE | Das Erste FHD"), k2))
+        assertFalse(ChannelCountry.matches(ChannelCountry.cleanName("DE: RTL Nitro"), key) || ChannelCountry.matches(key, ChannelCountry.cleanName("DE: RTL Nitro")))
+    }
+}

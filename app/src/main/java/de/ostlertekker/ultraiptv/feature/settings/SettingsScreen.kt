@@ -407,13 +407,6 @@ private fun LazyListScope.generalPage(vm: SettingsViewModel, s: AppSettings) {
                 vm.set(Keys.SLEEP_TIMER, cycle(listOf(0, 15, 30, 45, 60, 90, 120), s.sleepTimerMin.takeIf { it in listOf(0, 15, 30, 45, 60, 90, 120) } ?: 0))
             }
             SSwitch("Menü-Töne", s.uiSounds) { vm.set(Keys.UI_SOUNDS, it) }
-            SHeader("Sport – Sender pro Spiel")
-            var sdb by remember { mutableStateOf(s.sportsDbKey) }
-            TvTextField(sdb, { sdb = it.trim() }, "TheSportsDB-Premium-Schlüssel (optional)", password = true,
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
-            SRow("Schlüssel speichern", if (s.sportsDbKey.isBlank()) "Nicht gesetzt – nur Rechte-Tabelle + EPG" else "Gesetzt – genaue Sender pro Spiel") {
-                vm.set(Keys.SPORTSDB_KEY, sdb.filter { it.isLetterOrDigit() })
-            }
             SRow("Erscheinungsbild zurücksetzen", "Design, Farben und Größen auf Standard") { vm.resetAppearance() }
         }
     }

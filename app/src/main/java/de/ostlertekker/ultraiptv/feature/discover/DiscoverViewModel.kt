@@ -74,6 +74,8 @@ class DiscoverViewModel @Inject constructor(
     val nextRefreshAt = MutableStateFlow(0L)
     fun stopScores() { boardJob?.cancel(); boardJob = null }
     fun startScores() {
+        // TV-Zeitschriften im Hintergrund vorladen, damit „Läuft im TV“ sofort Ergebnisse hat
+        viewModelScope.launch { runCatching { repo.warmGuide() } }
         boardJob?.cancel()
         boardJob = viewModelScope.launch {
             while (true) {

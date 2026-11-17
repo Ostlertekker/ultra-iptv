@@ -130,7 +130,7 @@ object ChannelCountry {
 
     /** Wörter, die hinter einem Sendernamen stehen dürfen, ohne dass es ein anderer Sender wird (Nummer, Sport-Zusatz, Land). */
     private val fillers = setOf("sport", "sports", "bundesliga", "premium", "top", "event", "extra", "live", "football", "fussball", "futbol", "calcio",
-        "f1", "tennis", "plus", "max", "mix", "arena", "uhd", "fhd", "hd", "sd", "4k", "tv", "channel", "kanal", "ppv", "premier", "league", "liga", "action")
+        "f1", "tennis", "plus", "max", "mix", "arena", "uhd", "fhd", "hd", "sd", "4k", "tv", "channel", "kanal", "television", "fernsehen", "telewizja", "ppv", "premier", "league", "liga", "action")
 
     /**
      * Strenger Abgleich: Der Sender muss mit dem Namen beginnen und darf danach nur Nummern/Sport-Zusätze/Land haben.
