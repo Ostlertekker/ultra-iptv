@@ -31,7 +31,7 @@ import javax.inject.Inject
 
 /**
  * Eingebettete Web-Dienste (YouTube, Spotify) direkt in ULTRA IPTV – keine externe App.
- * Es werden die offiziellen Weboberflächen der Anbieter geladen; Anmeldung, Werbung und Kopierschutz bleiben unverändert.
+ * Es werden die offiziellen Weboberflächen der Anbieter geladen; Anmeldung und Kopierschutz bleiben unverändert; bei YouTube ist ein Werbeblocker aktiv.
  */
 enum class WebApp(val title: String, val url: String, val userAgent: String, val cursor: Boolean, val keepAudioInBackground: Boolean) {
     // Offizielle YouTube-Fernsehoberfläche (wie auf Smart-TVs): komplett per Fernbedienung bedienbar
@@ -109,6 +109,12 @@ class WebAppActivity : ComponentActivity() {
                     return s != "http" && s != "https"
                 }
                 override fun onPageFinished(view: WebView, url: String?) { CookieManager.getInstance().flush() }
+                // Werbeblocker (YouTube): Anfragen an Werbe-/Tracking-Server gar nicht erst laden
+                override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): android.webkit.WebResourceResponse? {
+                    if (app != WebApp.YOUTUBE) return null
+                    return if (AdBlock.isAd(request.url)) android.webkit.WebResourceResponse("text/plain", "utf-8", 204, "No Content",
+                        emptyMap(), java.io.ByteArrayInputStream(ByteArray(0))) else null
+                }
             }
             webChromeClient = object : WebChromeClient() {
                 // Kopiergeschützte Wiedergabe (Widevine) für Spotify/YouTube erlauben – nur Medienschutz, keine Kamera/Mikrofon
@@ -156,12 +162,26 @@ class WebAppActivity : ComponentActivity() {
                       var base=s.replace(/;\s*(width|height|framerate|bitrate|eotf|channels|decode-to-texture|cryptoblockformat|features)=[^;]*/gi,'');
                       return orig(base);
                     }catch(e){ return orig(t); } }; }
+                  // YouTube fragt zusätzlich mediaCapabilities.decodingInfo – die WebView meldet 4K dort oft als „nicht flüssig“,
+                  // dann deckelt YouTube (je nach Messung) auf 720p/1080p. Die echte Decoder-Grenze ist oben gemessen.
+                  try{ if(navigator.mediaCapabilities&&navigator.mediaCapabilities.decodingInfo){
+                    var di=navigator.mediaCapabilities.decodingInfo.bind(navigator.mediaCapabilities);
+                    navigator.mediaCapabilities.decodingInfo=function(cfg){
+                      return di(cfg).then(function(r){ try{ var v=cfg&&cfg.video;
+                        if(r&&r.supported&&v&&v.width<=MW&&v.height<=MH&&(!v.framerate||v.framerate<=MF))
+                          return {supported:true,smooth:true,powerEfficient:true,configuration:r.configuration||cfg};
+                      }catch(e){} return r; });
+                    }; } }catch(e){}
                   if(window.MediaSource) wrap(window.MediaSource,'isTypeSupported');
                   if(window.ManagedMediaSource) wrap(window.ManagedMediaSource,'isTypeSupported');
                   if(window.HTMLMediaElement) wrap(HTMLMediaElement.prototype,'canPlayType');
                 }catch(e){}})();
             """.trimIndent()
             runCatching { androidx.webkit.WebViewCompat.addDocumentStartJavaScript(web, js, setOf("https://www.youtube.com")) }
+        }
+        // Werbeblocker: Werbedaten aus den Antworten des YouTube-Players entfernen (Pre-/Mid-Rolls, Banner)
+        if (app == WebApp.YOUTUBE && androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            runCatching { androidx.webkit.WebViewCompat.addDocumentStartJavaScript(web, AdBlock.SCRIPT, setOf("https://www.youtube.com")) }
         }
         if (savedInstanceState != null) web.restoreState(savedInstanceState) else web.loadUrl(intent.getStringExtra(EXTRA_URL) ?: app.url)
         web.requestFocus()
@@ -341,4 +361,42 @@ class CursorView(context: Context) : View(context) {
         arrow.lineTo(x + 14 * s, y + 12.5f * s); arrow.close()
         canvas.drawPath(arrow, fill); canvas.drawPath(arrow, stroke)
     }
+}
+
+
+/**
+ * Werbeblocker für die eingebettete YouTube-Oberfläche.
+ * 1. Netzwerk: Werbe-/Tracking-Server werden mit „204 No Content“ beantwortet.
+ * 2. Player-Daten: Werbefelder (adPlacements, playerAds, adSlots) werden aus JSON-Antworten entfernt,
+ *    bevor der YouTube-Player sie liest – dadurch werden keine Werbeclips eingeplant.
+ * YouTube ändert sein Werbesystem regelmäßig; einzelne Werbungen können deshalb trotzdem durchrutschen.
+ */
+internal object AdBlock {
+    private val hosts = listOf("doubleclick.net", "googlesyndication.com", "googleadservices.com", "googletagservices.com",
+        "imasdk.googleapis.com", "google-analytics.com", "adservice.google.com")
+    private val paths = listOf("/pagead/", "/api/stats/ads", "/ptracking", "/get_midroll_", "/youtubei/v1/log_event", "/api/stats/qoe?adformat")
+
+    fun isAd(url: android.net.Uri): Boolean {
+        val h = url.host ?: return false
+        if (hosts.any { h == it || h.endsWith(".$it") }) return true
+        val p = (url.path ?: "") + (url.query?.let { "?$it" } ?: "")
+        return (h.endsWith("youtube.com") || h.endsWith("google.com")) && paths.any { p.contains(it) }
+    }
+
+    const val SCRIPT = """
+        (function(){try{
+          var KEYS=['adPlacements','playerAds','adSlots','adBreakHeartbeatParams','adBreakParams'];
+          function strip(o,d){ if(!o||typeof o!=='object'||d>4) return o;
+            for(var i=0;i<KEYS.length;i++){ if(KEYS[i] in o){ try{ delete o[KEYS[i]]; }catch(e){} } }
+            if(o.playerResponse) strip(o.playerResponse,d+1);
+            if(o.response) strip(o.response,d+1);
+            if(Array.isArray(o)) for(var j=0;j<o.length&&j<8;j++) strip(o[j],d+1);
+            return o; }
+          var jp=JSON.parse; JSON.parse=function(){ var r=jp.apply(this,arguments); try{ strip(r,0); }catch(e){} return r; };
+          if(window.Response&&Response.prototype.json){ var rj=Response.prototype.json;
+            Response.prototype.json=function(){ return rj.apply(this,arguments).then(function(r){ try{ strip(r,0); }catch(e){} return r; }); }; }
+          ['ytInitialPlayerResponse','ytInitialData'].forEach(function(n){ var v;
+            try{ Object.defineProperty(window,n,{configurable:true,get:function(){return v;},set:function(x){v=strip(x,0);}}); }catch(e){} });
+        }catch(e){}})();
+    """
 }
