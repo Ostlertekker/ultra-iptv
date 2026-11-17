@@ -236,11 +236,14 @@ private fun MatchPanel(e: ScoreEvent, d: de.ostlertekker.ultraiptv.core.discover
             val list = onTv
             if (list == null) item { Text("Suche im TV-Programm …", color = pal.textDim, fontSize = 12.sp) }
             else if (list.isEmpty()) item {
-                Text("Im TV-Programm deiner Sender wurde zu diesem Spiel nichts gefunden (weder Teams/Spieler noch Wettbewerb).",
+                Text("Kein passender Sender gefunden – weder ein Rechteinhaber in deiner Senderliste noch das Spiel im TV-Programm.",
                     color = pal.textDim, fontSize = 12.sp)
             } else {
                 val now = System.currentTimeMillis()
-                items(list, key = { "tv" + it.channelId + it.startMs }) { p -> ProgramRow(p, now, programBadge(p, now), { act(p) }) }
+                items(list, key = { "tv" + it.program.channelId }) { h ->
+                    val badge = h.source.label + (h.country?.let { " · $it" } ?: "")
+                    ProgramRow(h.program, now, badge, { act(h.program) })
+                }
             }
         }
         if (d == null) item { Text(if (failed) "Für dieses Spiel liefert die Datenquelle keine weiteren Details." else "Lade Spieldetails …", color = pal.textDim, fontSize = 12.sp) }

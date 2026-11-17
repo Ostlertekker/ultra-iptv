@@ -86,6 +86,11 @@ data class WatchStats(
  */
 @Singleton
 @OptIn(ExperimentalCoroutinesApi::class)
+/** Ein Sender-Vorschlag für ein Spiel: woher er stammt und wie sicher er ist. */
+data class TvHit(val program: AiringProgram, val source: Source, val country: String?, val score: Int) {
+    enum class Source(val label: String) { CONFIRMED("✓ bestätigt"), RIGHTS("Rechteinhaber"), EPG("TV-Programm") }
+}
+
 class DiscoverRepository @Inject constructor(
     private val epg: EpgDao,
     private val content: ContentDao,
@@ -105,33 +110,32 @@ class DiscoverRepository @Inject constructor(
     }
 
     /**
-     * „Wo läuft das im TV?“ für ein Spiel aus den Live-Spielständen.
-     * Durchsucht das TV-Programm rund um die Anstoßzeit und bewertet jede Sendung nach Team-/Spielernamen
-     * (inkl. deutscher Schreibweisen) und Wettbewerb – statt eines einzelnen wörtlichen Suchbegriffs.
+     * „Wo läuft das im TV?“ für ein Spiel aus den Live-Spielständen. Drei Quellen, zusammengeführt:
+     * 1. Rechte-Tabelle ([TvRights]) + ESPN-Senderangaben → Sender der Playlist per Namensabgleich (Länderpräfix beachtet)
+     * 2. TV-Programm-Scan aller Sender: Team-/Spielernamen (mehrsprachig) + Wettbewerb + Sportart
+     * 3. Bestätigung: Rechteinhaber-Sender, deren aktuelles Programm zum Spiel passt, stehen ganz oben
      */
-    suspend fun whereOnTv(e: ScoreEvent): List<AiringProgram> = withContext(Dispatchers.IO) {
+    suspend fun whereOnTv(e: ScoreEvent): List<TvHit> = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
         val (from, to) = when (e.state) {
             "in" -> now to now + 60_000L
             "post" -> e.startMs to e.startMs + 3 * 3_600_000L
             else -> (e.startMs - 45 * 60_000L) to (e.startMs + 30 * 60_000L)
         }
-        val programs = epg.window(from, to, adult(), 40_000)
+        val programs = epg.window(from, to, adult(), 60_000)
         val sport = e.league.sport
         val football = sport == Sport.FOOTBALL || sport == Sport.CHAMPIONS
-        // Tennis: nur Nachnamen (Vornamen wie „Alexander“ würden überall treffen); Formel 1: Fahrer zählen nicht
         val teams = when (sport) {
             Sport.F1 -> emptyList()
             Sport.TENNIS -> e.competitors.map { c -> TvMatch.surname(c.name) }.filter { it.isNotEmpty() }
             else -> e.competitors.map { c -> TvMatch.tokens(listOfNotNull(c.name, c.short)) }.filter { it.isNotEmpty() }
         }
         val leagueKw = TvMatch.leagueKeywords(e.league)
-        programs.mapNotNull { p ->
+        fun matchScore(p: AiringProgram): Int {
             val raw = p.title + " " + (p.description ?: "")
             val text = TvMatch.norm(raw)
-            // Sendung gehört erkennbar zu einer anderen Sportart → kein Treffer
             val detected = Sport.detect(raw)
-            if (detected != null && detected != sport && !(football && (detected == Sport.FOOTBALL || detected == Sport.CHAMPIONS))) return@mapNotNull null
+            if (detected != null && detected != sport && !(football && (detected == Sport.FOOTBALL || detected == Sport.CHAMPIONS))) return -1
             val teamHits = teams.count { toks -> toks.any { TvMatch.containsWord(text, it) } }
             val leagueHit = leagueKw.any { text.contains(it) }
             val sportHit = detected != null
@@ -140,9 +144,38 @@ class DiscoverRepository @Inject constructor(
                 Sport.TENNIS -> teamHits >= 1 && (teamHits >= 2 || leagueHit || sportHit)
                 else -> teamHits >= 2 || (teamHits == 1 && (leagueHit || sportHit))
             }
-            if (!ok) null else p to (teamHits * 10 + (if (leagueHit) 4 else 0) + (if (sportHit) 1 else 0))
-        }.sortedWith(compareByDescending<Pair<AiringProgram, Int>> { it.second }.thenBy { kotlin.math.abs(it.first.startMs - e.startMs) })
-            .map { it.first }.distinctBy { it.channelId + it.startMs }.take(40)
+            return if (!ok) 0 else teamHits * 10 + (if (leagueHit) 4 else 0) + (if (sportHit) 1 else 0)
+        }
+        val epgByChannel = programs.groupBy { it.channelId }
+
+        // 1) Rechteinhaber → Sender der Playlist
+        val holders = TvRights.holders(e.league).map { (c, b) -> c to ChannelCountry.brandKey(b) } +
+            e.broadcasters.map { "*" to ChannelCountry.brandKey(it) }
+        val rightsHits = if (holders.isEmpty()) emptyList() else {
+            content.channelsAllOnce(adult(), 60_000).mapNotNull { ch ->
+                val clean = ChannelCountry.cleanName(ch.name)
+                val country = ChannelCountry.detect(ch.name, ch.category)
+                val match = holders.firstOrNull { (c, brand) ->
+                    brand.length > 3 && clean.contains(brand) && (c == "*" || country == null || country == c)
+                } ?: return@mapNotNull null
+                val cur = epgByChannel[ch.id]?.firstOrNull { it.startMs <= maxOf(now, from) && it.endMs > maxOf(now, from) }
+                    ?: epgByChannel[ch.id]?.firstOrNull()
+                val score = cur?.let { matchScore(it) } ?: 0
+                if (score < 0) return@mapNotNull null // läuft gerade nachweislich eine andere Sportart
+                val prog = cur ?: AiringProgram(ch.id, ch.name, ch.logo, ch.category, ch.number, ch.archiveDays,
+                    "${e.league.label} (laut Rechteinhaber)", null, minOf(now, e.startMs), maxOf(now, e.startMs) + 3 * 3_600_000L)
+                val countryLabel = if (match.first == "*") "ESPN" else match.first
+                TvHit(prog, if (score > 0) TvHit.Source.CONFIRMED else TvHit.Source.RIGHTS, countryLabel,
+                    (if (score > 0) 1000 + score else 100) + (if (country == match.first) 50 else 0))
+            }
+        }
+        // 2) TV-Programm-Scan aller Sender
+        val epgHits = programs.mapNotNull { p -> matchScore(p).takeIf { it > 0 }?.let { TvHit(p, TvHit.Source.EPG, null, 500 + it) } }
+
+        (rightsHits + epgHits)
+            .sortedWith(compareByDescending<TvHit> { it.score }.thenBy { kotlin.math.abs(it.program.startMs - e.startMs) }.thenBy { it.program.number })
+            .distinctBy { it.program.channelId }
+            .take(40)
     }
 
     /** Sportereignisse im Zeitfenster (Live Event Tracker) – aus EPG-Titeln/Beschreibungen erkannt. */

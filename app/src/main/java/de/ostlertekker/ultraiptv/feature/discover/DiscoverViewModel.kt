@@ -94,7 +94,7 @@ class DiscoverViewModel @Inject constructor(
         viewModelScope.launch { settings.set(Keys.SPORTS_LEAGUES, f.value.joinToString(",") { it.name }) }
         startScores()
     }
-    val onTv = MutableStateFlow<List<AiringProgram>?>(null)
+    val onTv = MutableStateFlow<List<de.ostlertekker.ultraiptv.core.discover.TvHit>?>(null)
     fun findOnTv(e: ScoreEvent) { onTv.value = null; load(onTv) { runCatching { repo.whereOnTv(e) }.getOrDefault(emptyList()) } }
     /** true = Quelle liefert für dieses Spiel keine Details (statt endlos „Lade …“). */
     val detailFailed = MutableStateFlow(false)
