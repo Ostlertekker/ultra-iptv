@@ -409,8 +409,9 @@ private fun FocusedInfo(vm: LiveTvViewModel, ch: ChannelEntity, favs: Set<String
     }
 }
 
+/** Kategorie-Eintrag der linken Seitenleiste (Live-TV, Filme). */
 @Composable
-private fun CategoryItem(name: String, selected: Boolean, onClick: () -> Unit) {
+internal fun CategoryItem(name: String, selected: Boolean, onClick: () -> Unit) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
     var focused by remember { mutableStateOf(false) }

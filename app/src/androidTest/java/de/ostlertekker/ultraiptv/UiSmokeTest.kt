@@ -282,6 +282,11 @@ class UiSmokeTest {
                 keys("$route zurück", BACK); Thread.sleep(1500)
             }
         }
+        // Filme › „Alle Filme“: Unterkategorien links untereinander (wie Live-TV)
+        openRoute(Routes.MOVIES).use {
+            keys("Filme: Alle Filme", D, R, OK, pauseMs = 400); Thread.sleep(1500); shot("movies_alle_kategorien")
+            keys("Filme: Kategorien", D, D, D, OK, pauseMs = 300); Thread.sleep(1500); shot("movies_kategorie_gewaehlt")
+        }
         for (route in listOf(Routes.HOME, Routes.MOVIES, Routes.SERIES, Routes.SEARCH, Routes.EPG)) {
             openRoute(route).use {
                 shot(route)

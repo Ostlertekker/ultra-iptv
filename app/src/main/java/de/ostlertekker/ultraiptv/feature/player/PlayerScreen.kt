@@ -400,6 +400,7 @@ fun PlayerScreen(
                                 item { PlayerCtl("+30 s", onClick = { vm.seekBy(30_000) }) }
                                 if (ui.kind == ContentKind.EPISODE && ui.hasNext) item { PlayerCtl("Nächste Folge", onClick = { vm.playNext() }) }
                             } else {
+                                if (ui.shiftBehindMs > 0) item { PlayerCtl("● LIVE", onClick = { vm.goLive() }, primary = true) }
                                 item { PlayerCtl("▲", onClick = { vm.switchChannel(-1) }, icon = true) }
                                 item { PlayerCtl("▼", onClick = { vm.switchChannel(1) }, icon = true) }
                                 item { PlayerCtl("Senderliste", onClick = { panel = Panel.CHANNELS }) }
@@ -410,7 +411,6 @@ fun PlayerScreen(
                                     if (ui.shiftBehindMs > 0) {
                                         item { PlayerCtl("+10 s", onClick = { vm.forwardShift(10_000) }) }
                                         item { PlayerCtl("+30 s", onClick = { vm.forwardShift(30_000) }) }
-                                        item { PlayerCtl("● LIVE", onClick = { vm.goLive() }, primary = true) }
                                     }
                                 }
                             }
@@ -621,7 +621,7 @@ private fun PlayerCtl(label: String, onClick: () -> Unit, focusRequester: FocusR
             .height(32.dp)
             .tvFocusable(shape, onClick, focusRequester = focusRequester, scaleOnFocus = false, onFocus = { focused = it })
             .background(when { focused -> Color.White; primary -> p.primary.copy(alpha = 0.35f); active -> Color.White.copy(alpha = 0.22f); else -> Color.White.copy(alpha = 0.10f) }, shape)
-            .padding(horizontal = if (icon) 0.dp else 13.dp),
+            .padding(horizontal = if (icon) 0.dp else 11.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(label, color = if (focused) Color(0xFF111111) else Color.White, fontSize = 13.sp,

@@ -1,5 +1,7 @@
 package de.ostlertekker.ultraiptv.feature.movies
 
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.flow.map
 import androidx.compose.foundation.background
@@ -168,13 +170,18 @@ fun MoviesScreen(nav: NavController, vm: MoviesViewModel = hiltViewModel()) {
             onPlay = { context.openPlayer(ContentKind.MOVIE, it.id, it.positionMs) })
         return
     }
-    Column(Modifier.fillMaxSize().padding(start = 20.dp, top = 12.dp, end = 20.dp)) {
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            item { TvChip("Übersicht", false, { overviewMode = true }) }
-            item { TvChip("Alle", cat == null, { vm.category.value = null; vm.resetPaging() }) }
-            items(cats, key = { it }) { c -> TvChip(c, c == cat, { vm.category.value = c; vm.resetPaging() }) }
+    // Unterkategorien links untereinander – gleicher Aufbau wie im Live-TV
+    Row(Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(Modifier.weight(0.25f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        item {
+            Text("Filme", color = p.text, fontSize = 24.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily,
+                modifier = Modifier.padding(bottom = 10.dp))
         }
-        Spacer(Modifier.height(8.dp))
+        item(key = "__overview") { de.ostlertekker.ultraiptv.feature.livetv.CategoryItem("Übersicht", false) { overviewMode = true } }
+        item(key = "__all") { de.ostlertekker.ultraiptv.feature.livetv.CategoryItem("Alle", cat == null) { vm.category.value = null; vm.resetPaging() } }
+        items(cats, key = { it }) { c -> de.ostlertekker.ultraiptv.feature.livetv.CategoryItem(c, c == cat) { vm.category.value = c; vm.resetPaging() } }
+    }
+    Column(Modifier.weight(0.75f).fillMaxHeight()) {
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(SortOrder.entries, key = { it.name }) { s -> TvChip("↕ ${s.label}", s == sort, { vm.sort.value = s; vm.resetPaging() }) }
             item { Spacer(Modifier.width(16.dp)) }
@@ -194,6 +201,7 @@ fun MoviesScreen(nav: NavController, vm: MoviesViewModel = hiltViewModel()) {
                     subtitle = listOfNotNull(m.year, m.rating?.takeIf { it > 0 }?.let { de.ostlertekker.ultraiptv.core.ui.ratingLabel(it) }).joinToString(" · ").ifBlank { null })
             }
         }
+    }
     }
 }
 
