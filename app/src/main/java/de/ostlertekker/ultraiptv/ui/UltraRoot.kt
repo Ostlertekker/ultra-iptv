@@ -101,6 +101,7 @@ object Routes {
     const val WHATSON = "whatson"
     const val EVENTS = "events"
     const val SPORTS = "sports"
+    const val RADIO = "radio"
     const val MYTV = "mytv"
     const val LISTS = "lists"
     fun radar(q: String) = "radar?q=${Uri.encode(q)}"
@@ -178,7 +179,7 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
     val items = remember {
         listOf(
             NavItem(Routes.HOME, "Start"), NavItem(Routes.LIVE, "Live-TV"), NavItem(Routes.EPG, "Programm"), NavItem(Routes.MOVIES, "Filme"),
-            NavItem(Routes.SERIES, "Serien"), NavItem(Routes.SPORTS, "Sport"), NavItem(Routes.FAVORITES, "Favoriten"), NavItem(Routes.JELLYFIN, "Jellyfin"), NavItem("app:YOUTUBE", "YouTube"), NavItem(Routes.SPOTIFY, "Spotify"),
+            NavItem(Routes.SERIES, "Serien"), NavItem(Routes.SPORTS, "Sport"), NavItem(Routes.RADIO, "Radio"), NavItem(Routes.FAVORITES, "Favoriten"), NavItem(Routes.JELLYFIN, "Jellyfin"), NavItem("app:YOUTUBE", "YouTube"), NavItem(Routes.SPOTIFY, "Spotify"),
             NavItem(Routes.EXPLORE, "Mehr"),
         )
     }
@@ -244,6 +245,7 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
                     // „Mehr“: Menüpunkt bleibt, Inhalte vorerst entfernt
                     composable(Routes.EXPLORE) { Box(Modifier.fillMaxSize()) }
                     composable(Routes.SPORTS) { de.ostlertekker.ultraiptv.feature.discover.SportsScreen(nav) }
+                    composable(Routes.RADIO) { de.ostlertekker.ultraiptv.feature.radio.RadioScreen() }
                     composable(Routes.SPOTIFY) { de.ostlertekker.ultraiptv.feature.spotify.SpotifyScreen() }
                     composable(Routes.JELLYFIN) { de.ostlertekker.ultraiptv.feature.jellyfin.JellyfinScreen(nav) }
                     composable("jfMovie/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) {
@@ -270,6 +272,7 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
         }, firstFocus = railFocus,
             modifier = Modifier.align(Alignment.TopCenter))
         MiniPlayerOverlay(vm.engine, Modifier.align(Alignment.BottomEnd).padding(28.dp))
+        if (route != Routes.RADIO) de.ostlertekker.ultraiptv.feature.radio.RadioMiniOverlay(vm.radio, Modifier.align(Alignment.BottomStart).padding(28.dp))
     }
 }
 

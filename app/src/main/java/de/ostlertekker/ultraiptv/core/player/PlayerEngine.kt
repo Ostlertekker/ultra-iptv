@@ -98,6 +98,8 @@ class PlayerEngine @Inject constructor(
     @Volatile var userPaused = false
         private set
     private var pausedConnectionLost = false
+    /** Wird vor jeder Video-Wiedergabe aufgerufen (Radio beendet sich darüber). */
+    var beforePlay: (() -> Unit)? = null
 
     private val _stats = MutableStateFlow(PlaybackStats())
     val stats: StateFlow<PlaybackStats> = _stats.asStateFlow()
@@ -472,6 +474,7 @@ class PlayerEngine @Inject constructor(
 
     fun play(url: String, startMs: Long, profile: BufferProfile, who: String = "player", isLive: Boolean = false,
              subtitles: List<ExternalSubtitle> = emptyList()) {
+        beforePlay?.invoke() // z. B. Radio stoppen
         owner = who
         live = isLive
         userPaused = false; pausedConnectionLost = false

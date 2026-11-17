@@ -66,6 +66,7 @@ class RootViewModel @Inject constructor(
     private val sync: SyncRepository,
     private val user: UserRepository,
     val engine: PlayerEngine,
+    val radio: de.ostlertekker.ultraiptv.core.radio.RadioPlayer,
     private val notifications: NotificationCenter,
     private val epg: de.ostlertekker.ultraiptv.core.data.EpgRepository,
     @ApplicationContext private val appContext: Context,

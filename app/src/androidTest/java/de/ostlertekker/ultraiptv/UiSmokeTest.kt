@@ -310,7 +310,7 @@ class UiSmokeTest {
     @Test fun d_discoverScreens() {
         // Neue Entdecken-Funktionen: jede Seite öffnen, bedienen, Aktion auslösen
         val past = System.currentTimeMillis() - 2 * 3_600_000L
-        for (route in listOf(Routes.EXPLORE, Routes.SPORTS)) {
+        for (route in listOf(Routes.EXPLORE, Routes.SPORTS, Routes.RADIO)) {
             val name = route.substringBefore('?')
             openRoute(route).use {
                 Thread.sleep(1500)
@@ -318,6 +318,7 @@ class UiSmokeTest {
                 keys("$name bedienen", R, R, D, D, R, U, pauseMs = 300)
                 keys("$name Aktion", OK); Thread.sleep(4500); assertResponsive("$name Aktion")
                 if (name == "timemachine") shot("catchup_player")
+                if (name == "radio") { Thread.sleep(3000); shot("radio_wiedergabe") }
                 keys("$name zurück", BACK); Thread.sleep(1500)
                 keys("$name nach Zurück", D, U)
             }
