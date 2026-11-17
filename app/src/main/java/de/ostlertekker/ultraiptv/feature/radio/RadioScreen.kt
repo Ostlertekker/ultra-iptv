@@ -26,6 +26,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.nativeKeyCode
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -101,11 +109,25 @@ fun RadioScreen(vm: RadioViewModel = hiltViewModel()) {
     val nowTitle by vm.player.nowTitle.collectAsStateWithLifecycle()
     val error by vm.player.error.collectAsStateWithLifecycle()
     val home = remember { Locale.getDefault().country.uppercase() }
+    val barFocus = remember { FocusRequester() }
+    val listFocus = remember { FocusRequester() }
+    // Pfeil runter in den Listen springt in die Wiedergabe-Leiste (wenn ein Sender läuft); Play/Pause-Taste der Fernbedienung
+    val toBar = Modifier.onPreviewKeyEvent { ev ->
+        if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+        when (ev.key.nativeKeyCode) {
+            android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, android.view.KeyEvent.KEYCODE_MEDIA_PLAY, android.view.KeyEvent.KEYCODE_MEDIA_PAUSE ->
+                { vm.player.toggle(); true }
+            android.view.KeyEvent.KEYCODE_MEDIA_NEXT, android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> { vm.player.next(1); true }
+            android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS, android.view.KeyEvent.KEYCODE_MEDIA_REWIND -> { vm.player.next(-1); true }
+            else -> false
+        }
+    }
 
-    Column(Modifier.fillMaxSize().padding(24.dp)) {
+    Column(Modifier.fillMaxSize().padding(24.dp).then(toBar)) {
         val cName = countries?.firstOrNull { it.code == selected }?.name
         ScreenTitle("Radio", subtitle = if (selected == RADIO_FAVS) "Deine Lieblingssender" else
-            "Top 20 ${cName?.let { "· $it " } ?: ""}· meistgehört laut Radio Browser")
+            "Top 20 ${cName?.let { "· $it " } ?: ""}· meistgehört laut Radio Browser" +
+                (if (current != null) " · Pfeil rechts = Wiedergabe-Leiste" else ""))
         Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             // Länder (wie die Kategorien bei Live TV)
             val list = countries
@@ -131,7 +153,19 @@ fun RadioScreen(vm: RadioViewModel = hiltViewModel()) {
                         color = pal.textDim, fontSize = 14.sp)
                     else -> LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         items(st, key = { it.id }) { s ->
-                            StationRow(s, rank = st.indexOf(s) + 1, isFav = favs.any { it.id == s.id }, isCurrent = current?.id == s.id, playing = playing,
+                            val last = s.id == st.last().id
+                            StationRow(s, modifier = Modifier
+                                .then(if (st.first().id == s.id) Modifier.focusRequester(listFocus) else Modifier)
+                                .then(if (last && current != null) Modifier.focusProperties { down = barFocus } else Modifier)
+                                .onPreviewKeyEvent { ev ->
+                                    // Pfeil runter auf dem letzten Sender → Leiste; lange gedrückt halten nicht nötig
+                                    val k = ev.key.nativeKeyCode
+                                    // Pfeil rechts (von jedem Sender) oder Pfeil runter auf dem letzten Sender → Wiedergabe-Leiste
+                                    if (current != null && ev.type == KeyEventType.KeyDown &&
+                                        (k == android.view.KeyEvent.KEYCODE_DPAD_RIGHT || (last && k == android.view.KeyEvent.KEYCODE_DPAD_DOWN))) {
+                                        runCatching { barFocus.requestFocus() }; true
+                                    } else false
+                                }, rank = st.indexOf(s) + 1, isFav = favs.any { it.id == s.id }, isCurrent = current?.id == s.id, playing = playing,
                                 onClick = { if (current?.id == s.id) vm.player.toggle() else vm.player.play(s, st) },
                                 onLong = {
                                     val on = vm.toggleFavorite(s)
@@ -145,7 +179,7 @@ fun RadioScreen(vm: RadioViewModel = hiltViewModel()) {
         // Wiedergabe-Leiste
         current?.let { c ->
             Spacer(Modifier.size(10.dp))
-            RadioBar(c, playing, buffering, nowTitle, error, favs.any { it.id == c.id },
+            RadioBar(c, playing, buffering, nowTitle, error, favs.any { it.id == c.id }, barFocus,
                 onToggle = { vm.player.toggle() }, onPrev = { vm.player.next(-1) }, onNext = { vm.player.next(1) },
                 onStop = { vm.player.stop() }, onFav = { vm.toggleFavorite(c) })
         }
@@ -163,12 +197,12 @@ private fun StationLogo(s: RadioStation, size: Int) {
 }
 
 @Composable
-private fun StationRow(s: RadioStation, rank: Int, isFav: Boolean, isCurrent: Boolean, playing: Boolean, onClick: () -> Unit, onLong: () -> Unit) {
+private fun StationRow(s: RadioStation, modifier: Modifier = Modifier, rank: Int, isFav: Boolean, isCurrent: Boolean, playing: Boolean, onClick: () -> Unit, onLong: () -> Unit) {
     val theme = LocalUltraTheme.current
     val pal = theme.palette
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(theme.spec.corner.coerceAtMost(14.dp))
-    Row(Modifier.fillMaxWidth().tvFocusable(shape, onClick, onLong, scaleOnFocus = false, onFocus = { focused = it })
+    Row(modifier.fillMaxWidth().tvFocusable(shape, onClick, onLong, scaleOnFocus = false, onFocus = { focused = it })
         .background(if (focused) pal.surfaceFocused else pal.surface, shape).padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Text("$rank", color = pal.textDim, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(28.dp))
@@ -186,7 +220,7 @@ private fun StationRow(s: RadioStation, rank: Int, isFav: Boolean, isCurrent: Bo
 }
 
 @Composable
-private fun RadioBar(s: RadioStation, playing: Boolean, buffering: Boolean, title: String?, error: String?, isFav: Boolean,
+private fun RadioBar(s: RadioStation, playing: Boolean, buffering: Boolean, title: String?, error: String?, isFav: Boolean, focus: FocusRequester,
                      onToggle: () -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onStop: () -> Unit, onFav: () -> Unit) {
     val theme = LocalUltraTheme.current
     val pal = theme.palette
@@ -199,17 +233,17 @@ private fun RadioBar(s: RadioStation, playing: Boolean, buffering: Boolean, titl
             Text(error ?: title ?: if (buffering) "Verbinde …" else if (playing) "Live" else "Pausiert",
                 color = if (error != null) Color(0xFFFF6B6B) else pal.textDim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        RoundIcon("⏮", onPrev); RoundIcon(if (playing) "❚❚" else "▶", onToggle, primary = true); RoundIcon("⏭", onNext)
+        RoundIcon("⏮", onPrev); RoundIcon(if (playing) "❚❚" else "▶", onToggle, primary = true, focus = focus); RoundIcon("⏭", onNext)
         RoundIcon(if (isFav) "★" else "☆", onFav); RoundIcon("■", onStop)
     }
 }
 
 @Composable
-internal fun RoundIcon(symbol: String, onClick: () -> Unit, primary: Boolean = false) {
+internal fun RoundIcon(symbol: String, onClick: () -> Unit, primary: Boolean = false, focus: FocusRequester? = null) {
     val pal = LocalUltraTheme.current.palette
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(50)
-    Box(Modifier.padding(start = 8.dp).size(46.dp).tvFocusable(shape, onClick, onFocus = { focused = it })
+    Box(Modifier.padding(start = 8.dp).size(46.dp).tvFocusable(shape, onClick, focusRequester = focus, onFocus = { focused = it })
         .background(if (focused) pal.primary else if (primary) pal.primary.copy(alpha = 0.25f) else pal.surfaceFocused.copy(alpha = 0.6f), shape),
         contentAlignment = Alignment.Center) {
         Text(symbol, color = if (focused) Color.Black else pal.text, fontSize = 17.sp, fontWeight = FontWeight.Bold)
