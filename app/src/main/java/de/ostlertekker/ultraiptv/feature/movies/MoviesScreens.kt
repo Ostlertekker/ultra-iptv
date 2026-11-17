@@ -144,10 +144,8 @@ fun MoviesScreen(nav: NavController, vm: MoviesViewModel = hiltViewModel()) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
     val cats by vm.categories.collectAsStateWithLifecycle()
-    val genres by vm.genres.collectAsStateWithLifecycle()
     val movies by vm.movies.collectAsStateWithLifecycle()
     val cat by vm.category.collectAsStateWithLifecycle()
-    val genre by vm.genre.collectAsStateWithLifecycle()
     val sort by vm.sort.collectAsStateWithLifecycle()
     val grid = rememberLazyGridState()
 
@@ -188,9 +186,6 @@ fun MoviesScreen(nav: NavController, vm: MoviesViewModel = hiltViewModel()) {
     Column(Modifier.weight(0.75f).fillMaxHeight()) {
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(SortOrder.entries, key = { it.name }) { s -> TvChip("↕ ${s.label}", s == sort, { vm.sort.value = s; vm.resetPaging() }) }
-            item { Spacer(Modifier.width(16.dp)) }
-            item { TvChip("Alle Genres", genre == null, { vm.genre.value = null; vm.resetPaging() }) }
-            items(genres, key = { "g_$it" }) { g -> TvChip(g, g == genre, { vm.genre.value = g; vm.resetPaging() }) }
         }
         Spacer(Modifier.height(12.dp))
         if (movies.isEmpty()) Text("Keine Filme gefunden.", color = p.textDim)
