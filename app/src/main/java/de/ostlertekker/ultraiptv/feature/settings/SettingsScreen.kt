@@ -356,7 +356,6 @@ private fun LazyListScope.appearancePage(vm: SettingsViewModel, s: AppSettings) 
                 val vals = ThemeEngine.accentPresets.map { it.second }
                 vm.set(Keys.ACCENT, cycle(vals, if (s.accentArgb in vals) s.accentArgb else 0L))
             }
-            SRow("Schriftgröße", "${(s.uiScale * 100).toInt()} %") { vm.set(Keys.UI_SCALE, cycle(DesignOptions.scaleValues, s.uiScale.takeIf { it in DesignOptions.scaleValues } ?: 1f)) }
             SRow("Schriftart", DesignOptions.fontNames.getOrElse(s.fontStyle) { "Standard" }) {
                 vm.set(Keys.FONT_STYLE, (s.fontStyle + 1) % DesignOptions.fontNames.size)
             }

@@ -301,7 +301,7 @@ fun Preferences.toSettings(): AppSettings {
         defaultAspect = this[Keys.DEFAULT_ASPECT] ?: d.defaultAspect,
         numberZap = this[Keys.NUMBER_ZAP] ?: d.numberZap,
         zapBanner = this[Keys.ZAP_BANNER] ?: d.zapBanner,
-        uiScale = this[Keys.UI_SCALE] ?: d.uiScale,
+        uiScale = 1f, // fest 100 % – einheitliche Darstellung, keine Layout-Fehler durch Skalierung
         cornerStyle = this[Keys.CORNER_STYLE] ?: d.cornerStyle,
         focusZoom = this[Keys.FOCUS_ZOOM] ?: d.focusZoom,
         fontStyle = this[Keys.FONT_STYLE] ?: d.fontStyle,
