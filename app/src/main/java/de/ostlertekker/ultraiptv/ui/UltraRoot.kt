@@ -179,7 +179,7 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
     val items = remember {
         listOf(
             NavItem(Routes.HOME, "Start"), NavItem(Routes.LIVE, "Live-TV"), NavItem(Routes.MOVIES, "Filme"),
-            NavItem(Routes.SERIES, "Serien"), NavItem(Routes.SPORTS, "Sport"), NavItem(Routes.RADIO, "Radio"), NavItem(Routes.FAVORITES, "Favoriten"), NavItem(Routes.JELLYFIN, "Jellyfin"), NavItem("app:YOUTUBE", "YouTube"), NavItem(Routes.SPOTIFY, "Spotify"),
+            NavItem(Routes.SERIES, "Serien"), NavItem(Routes.SPORTS, "Sport"), NavItem(Routes.RADIO, "Radio"), NavItem(Routes.FAVORITES, "Favoriten"), NavItem(Routes.JELLYFIN, "Jellyfin"), NavItem("app:YOUTUBE", "YouTube"), NavItem("app:SPOTIFY", "Spotify"),
             NavItem(Routes.EXPLORE, "Mehr"),
         )
     }
@@ -246,7 +246,6 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
                     composable(Routes.EXPLORE) { Box(Modifier.fillMaxSize()) }
                     composable(Routes.SPORTS) { de.ostlertekker.ultraiptv.feature.discover.SportsScreen(nav) }
                     composable(Routes.RADIO) { de.ostlertekker.ultraiptv.feature.radio.RadioScreen() }
-                    composable(Routes.SPOTIFY) { de.ostlertekker.ultraiptv.feature.spotify.SpotifyScreen() }
                     composable(Routes.JELLYFIN) { de.ostlertekker.ultraiptv.feature.jellyfin.JellyfinScreen(nav) }
                     composable("jfMovie/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) {
                         de.ostlertekker.ultraiptv.feature.jellyfin.JellyfinMovieScreen(nav)

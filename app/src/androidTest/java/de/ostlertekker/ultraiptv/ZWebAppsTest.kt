@@ -59,8 +59,8 @@ class ZWebAppsTest {
         }
         launch(WebApp.SPOTIFY).use {
             Thread.sleep(15_000); shot("spotify_start")
-            key("Spotify Zeiger bewegen", *IntArray(6) { KeyEvent.KEYCODE_DPAD_RIGHT }, *IntArray(4) { KeyEvent.KEYCODE_DPAD_DOWN }, pauseMs = 150)
-            Thread.sleep(800); shot("spotify_zeiger")
+            key("Spotify Pfeiltasten-Navigation", KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_RIGHT, pauseMs = 400)
+            Thread.sleep(800); shot("spotify_fokus")
             key("Spotify klicken", KeyEvent.KEYCODE_DPAD_CENTER)
             Thread.sleep(3000); shot("spotify_klick")
             key("Spotify Wiedergabe-Taste", KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)

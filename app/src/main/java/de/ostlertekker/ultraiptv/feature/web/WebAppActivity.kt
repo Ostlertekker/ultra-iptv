@@ -39,10 +39,11 @@ enum class WebApp(val title: String, val url: String, val userAgent: String, val
         "Mozilla/5.0 (SMART-TV; Linux; Tizen 6.0) AppleWebKit/537.36 (KHTML, like Gecko) 76.0.3809.146/6.0 TV Safari/537.36",
         cursor = false, keepAudioInBackground = false),
 
-    // Offizieller Spotify-Web-Player (Desktop-Ansicht) mit Fernbedienungs-Zeiger
+    // Offizieller Spotify-Web-Player (Desktop-Ansicht), für den Fernseher umgebaut: Pfeiltasten-Navigation, TV-Ansicht.
+    // Zeiger nur noch optional (Menü-Taste) für Stellen, die die Navigation nicht erreicht.
     SPOTIFY("Spotify", "https://open.spotify.com",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        cursor = true, keepAudioInBackground = true),
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+        cursor = false, keepAudioInBackground = true),
 }
 
 @AndroidEntryPoint
@@ -53,6 +54,7 @@ class WebAppActivity : ComponentActivity() {
     private lateinit var web: WebView
     private lateinit var app: WebApp
     private var cursor: CursorView? = null
+    private var cursorOn = false
     private lateinit var hint: TextView
     private var backDownAt = 0L
 
@@ -109,7 +111,11 @@ class WebAppActivity : ComponentActivity() {
                     if (request.url.host?.endsWith("accounts.google.com") == true) { showLoginHelp(); return true }
                     return s != "http" && s != "https"
                 }
-                override fun onPageFinished(view: WebView, url: String?) { CookieManager.getInstance().flush() }
+                override fun onPageFinished(view: WebView, url: String?) {
+                    CookieManager.getInstance().flush()
+                    // Falls das Start-Skript auf älteren WebViews nicht unterstützt wird: nachträglich einfügen
+                    if (app == WebApp.SPOTIFY) view.evaluateJavascript(SpotifyTv.SCRIPT, null)
+                }
                 // Werbeblocker (YouTube): Anfragen an Werbe-/Tracking-Server gar nicht erst laden
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): android.webkit.WebResourceResponse? {
                     if (app != WebApp.YOUTUBE) return null
@@ -129,11 +135,14 @@ class WebAppActivity : ComponentActivity() {
 
         val root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         root.addView(web, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        if (app.cursor) {
+        if (app.cursor || app == WebApp.SPOTIFY) {
             cursor = CursorView(this).also { root.addView(it, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)) }
+            cursorOn = app.cursor
+            cursor?.visibility = if (cursorOn) View.VISIBLE else View.GONE
         }
         hint = TextView(this).apply {
-            text = if (app.cursor) "${app.title} · Pfeiltasten: Zeiger · OK: klicken · ⏯: Wiedergabe · Zurück lang drücken: zurück zu ULTRA IPTV"
+            text = if (app == WebApp.SPOTIFY) "Spotify · Pfeiltasten: auswählen · OK: öffnen · ⏯ ⏮ ⏭: Wiedergabe · Menü-Taste: Zeiger an/aus · Zurück lang: zurück zu ULTRA IPTV"
+                   else if (app.cursor) "${app.title} · Pfeiltasten: Zeiger · OK: klicken · ⏯: Wiedergabe · Zurück lang drücken: zurück zu ULTRA IPTV"
                    else "${app.title} · Zurück lang drücken: zurück zu ULTRA IPTV"
             setTextColor(Color.WHITE); textSize = 13f
             setBackgroundColor(Color.argb(170, 0, 0, 0)); setPadding(28, 12, 28, 12)
@@ -194,6 +203,10 @@ class WebAppActivity : ComponentActivity() {
             // SponsorBlock: Sponsoren-/Eigenwerbe-Abschnitte automatisch überspringen (Daten von sponsor.ajay.app)
             web.addJavascriptInterface(SponsorBlock(http, web) { msg -> runOnUiThread { showHint(msg) } }, "UltraSB")
             runCatching { androidx.webkit.WebViewCompat.addDocumentStartJavaScript(web, SponsorBlock.SCRIPT, setOf("https://www.youtube.com")) }
+        }
+        // Spotify: Fernseh-Ansicht + Pfeiltasten-Navigation (auch auf der Spotify-Anmeldeseite)
+        if (app == WebApp.SPOTIFY && androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            runCatching { androidx.webkit.WebViewCompat.addDocumentStartJavaScript(web, SpotifyTv.SCRIPT, setOf("https://*.spotify.com")) }
         }
         if (savedInstanceState != null) web.restoreState(savedInstanceState) else web.loadUrl(intent.getStringExtra(EXTRA_URL) ?: app.url)
         web.requestFocus()
@@ -283,6 +296,18 @@ class WebAppActivity : ComponentActivity() {
         super.onDestroy()
     }
 
+    /** Eingabefeld (z. B. Suche, Anmeldung): echter Tipp an die Stelle, damit die Bildschirmtastatur erscheint. */
+    private fun tapIfInput(result: String?) {
+        val r = result?.trim('"')?.takeIf { it.contains(',') } ?: return
+        val (cx, cy, iw) = r.split(',').mapNotNull { it.toFloatOrNull() }.takeIf { it.size == 3 } ?: return
+        val k = web.width / iw.coerceAtLeast(1f)
+        val x = cx * k; val y = cy * k
+        val t = SystemClock.uptimeMillis()
+        val down = MotionEvent.obtain(t, t, MotionEvent.ACTION_DOWN, x, y, 0)
+        val up = MotionEvent.obtain(t, t + 60, MotionEvent.ACTION_UP, x, y, 0)
+        web.dispatchTouchEvent(down); web.dispatchTouchEvent(up); down.recycle(); up.recycle()
+    }
+
     private fun sendKey(code: Int) {
         val t = SystemClock.uptimeMillis()
         web.dispatchKeyEvent(KeyEvent(t, t, KeyEvent.ACTION_DOWN, code, 0))
@@ -310,7 +335,37 @@ class WebAppActivity : ComponentActivity() {
             }
             return true
         }
-        val c = cursor
+        if (app == WebApp.SPOTIFY && code == KeyEvent.KEYCODE_MENU) {
+            if (event.action == KeyEvent.ACTION_UP) {
+                cursorOn = !cursorOn
+                cursor?.visibility = if (cursorOn) View.VISIBLE else View.GONE
+                showHint(if (cursorOn) "Zeiger an – Pfeiltasten bewegen den Zeiger, OK klickt" else "Zeiger aus – Pfeiltasten wählen aus")
+            }
+            return true
+        }
+        if (app == WebApp.SPOTIFY) {
+            fun js(s: String) = web.evaluateJavascript(s, null)
+            when (code) {
+                KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PAUSE -> {
+                    if (event.action == KeyEvent.ACTION_UP) js("document.querySelector('[data-testid=control-button-playpause]')?.click()"); return true }
+                KeyEvent.KEYCODE_MEDIA_NEXT, KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
+                    if (event.action == KeyEvent.ACTION_UP) js("document.querySelector('[data-testid=control-button-skip-forward]')?.click()"); return true }
+                KeyEvent.KEYCODE_MEDIA_PREVIOUS, KeyEvent.KEYCODE_MEDIA_REWIND -> {
+                    if (event.action == KeyEvent.ACTION_UP) js("document.querySelector('[data-testid=control-button-skip-back]')?.click()"); return true }
+            }
+            if (!cursorOn) {
+                val dir = when (code) {
+                    KeyEvent.KEYCODE_DPAD_LEFT -> "left"; KeyEvent.KEYCODE_DPAD_RIGHT -> "right"
+                    KeyEvent.KEYCODE_DPAD_UP -> "up"; KeyEvent.KEYCODE_DPAD_DOWN -> "down"; else -> null
+                }
+                if (dir != null) { if (event.action == KeyEvent.ACTION_DOWN) js("window.__ultraNav&&__ultraNav('$dir')"); return true }
+                if (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) {
+                    if (event.action == KeyEvent.ACTION_UP) web.evaluateJavascript("window.__ultraOk?__ultraOk():''") { r -> tapIfInput(r) }
+                    return true
+                }
+            }
+        }
+        val c = cursor?.takeIf { cursorOn }
         if (c != null) {
             when (code) {
                 KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
@@ -516,3 +571,65 @@ internal class SponsorBlock(
         """
     }
 }
+
+/**
+ * Fernseh-Ansicht für den Spotify-Web-Player: größere, ruhigere Darstellung im Stil von ULTRA IPTV,
+ * „App herunterladen“-Hinweise ausgeblendet und Pfeiltasten-Navigation (nächstes Element in Pfeilrichtung, deutlicher Fokusrahmen).
+ * Spotify ändert seine Seite regelmäßig – dann kann einzelnes Styling ausfallen, die Navigation arbeitet aber allgemein mit
+ * Buttons/Links/Zeilen und bleibt meist funktionsfähig.
+ */
+internal object SpotifyTv {
+    const val SCRIPT = """
+(function(){try{
+if(window.__ultraNav) return;
+var CSS='html,body{background:#0b0f14 !important}'+
+ '.ultra-focus{outline:4px solid #7FD4FF !important;outline-offset:2px !important;border-radius:8px !important;box-shadow:0 0 0 7px rgba(127,212,255,.28) !important}'+
+ '[data-testid=download-app-button],[data-testid=install-app-button],[data-testid=upgrade-button],a[href*="/download"],[data-testid=top-bar-upgrade-button]{display:none !important}'+
+ '*{scroll-behavior:auto !important}::-webkit-scrollbar{width:0 !important;height:0 !important}';
+function addCss(){ if(document.getElementById('ultra-tv-css')) return; var s=document.createElement('style'); s.id='ultra-tv-css'; s.textContent=CSS;
+  (document.head||document.documentElement).appendChild(s); }
+addCss(); document.addEventListener('DOMContentLoaded',addCss); setInterval(addCss,2500);
+var SEL='a[href],button,input,textarea,select,[role=button],[role=link],[role=tab],[role=option],[role=menuitem],[role=row],[role=checkbox],[role=switch],[tabindex]:not([tabindex="-1"])';
+var cur=null;
+function box(e){ if(!e||!e.getBoundingClientRect) return null; var r=e.getBoundingClientRect();
+  if(r.width<10||r.height<10) return null;
+  if(r.bottom<-innerHeight*2||r.top>innerHeight*3||r.right<0||r.left>innerWidth) return null;
+  if(e.disabled||e.closest('[aria-hidden=true]')) return null;
+  var cs=getComputedStyle(e); if(cs.visibility=='hidden'||cs.display=='none'||parseFloat(cs.opacity)<0.05) return null; return r; }
+function list(){ var out=[]; document.querySelectorAll(SEL).forEach(function(e){ var r=box(e); if(r) out.push([e,r]); }); return out; }
+function gap(a1,a2,b1,b2){ return a2<b1? b1-a2 : (b2<a1? a1-b2 : 0); }
+function set(e){ if(cur) cur.classList.remove('ultra-focus'); cur=e; if(!e) return;
+  e.classList.add('ultra-focus');
+  try{ e.focus({preventScroll:true}); }catch(x){}
+  try{ e.dispatchEvent(new MouseEvent('mouseover',{bubbles:true})); e.dispatchEvent(new MouseEvent('mouseenter',{bubbles:false})); }catch(x){}
+  var r=e.getBoundingClientRect();
+  if(r.top<70||r.bottom>innerHeight-110) try{ e.scrollIntoView({block:'center',inline:'nearest'}); }catch(x){} }
+function scroller(e){ while(e&&e!==document.body){ var cs=getComputedStyle(e);
+  if((cs.overflowY=='auto'||cs.overflowY=='scroll')&&e.scrollHeight>e.clientHeight+20) return e; e=e.parentElement; }
+  return document.scrollingElement; }
+window.__ultraNav=function(dir){
+  if(cur&&(!document.contains(cur)||!box(cur))){ cur.classList&&cur.classList.remove('ultra-focus'); cur=null; }
+  var L=list(); if(!L.length) return;
+  if(!cur){ var b=null,bd=1e12; L.forEach(function(p){ var r=p[1]; if(r.top<0||r.top>innerHeight) return; var d=r.top*3+r.left; if(d<bd){bd=d;b=p[0];} }); set(b); return; }
+  var a=cur.getBoundingClientRect(), best=null, bs=1e12;
+  L.forEach(function(p){ var e=p[0], r=p[1]; if(e===cur||e.contains(cur)||cur.contains(e)) return;
+    var main, cross;
+    if(dir=='right'){ if(r.left<a.right-6) return; main=r.left-a.right; cross=gap(a.top,a.bottom,r.top,r.bottom); }
+    else if(dir=='left'){ if(r.right>a.left+6) return; main=a.left-r.right; cross=gap(a.top,a.bottom,r.top,r.bottom); }
+    else if(dir=='down'){ if(r.top<a.bottom-6) return; main=r.top-a.bottom; cross=gap(a.left,a.right,r.left,r.right); }
+    else { if(r.bottom>a.top+6) return; main=a.top-r.bottom; cross=gap(a.left,a.right,r.left,r.right); }
+    var align=(dir=='up'||dir=='down')? Math.abs(r.left-a.left)*0.05 : Math.abs((r.top+r.bottom)-(a.top+a.bottom))*0.05;
+    var s=Math.max(0,main)+cross*4+align; if(s<bs){ bs=s; best=e; } });
+  if(best) set(best);
+  else if(dir=='down'||dir=='up'){ var sc=scroller(cur); sc&&sc.scrollBy(0,(dir=='down'?1:-1)*innerHeight*0.6); }
+};
+window.__ultraOk=function(){
+  if(!cur||!document.contains(cur)){ window.__ultraNav('down'); return ''; }
+  var t=cur.tagName;
+  if(t=='INPUT'||t=='TEXTAREA'||t=='SELECT'){ var r=cur.getBoundingClientRect(); return (r.left+r.width/2)+','+(r.top+r.height/2)+','+innerWidth; }
+  cur.click(); return '';
+};
+}catch(e){}})();
+"""
+}
+
