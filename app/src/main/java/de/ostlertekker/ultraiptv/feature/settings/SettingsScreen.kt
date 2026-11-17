@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -119,7 +120,7 @@ class SettingsViewModel @Inject constructor(
     private val sync: SyncRepository,
     private val creds: CredentialStore,
     private val epg: EpgRepository,
-    private val player: PlayerEngine,
+    val player: PlayerEngine,
     private val user: UserRepository,
     content: de.ostlertekker.ultraiptv.core.data.ContentRepository,
 ) : ViewModel() {
@@ -186,6 +187,8 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
     val theme = LocalUltraTheme.current
     val p = theme.palette
     var category by remember { mutableStateOf(SettingsCategory.PLAYLISTS) }
+    var errorsOpen by remember { mutableStateOf(false) }
+    androidx.activity.compose.BackHandler(enabled = errorsOpen) { errorsOpen = false }
     val s by vm.settings.collectAsStateWithLifecycle()
 
     Row(Modifier.fillMaxSize()) {
@@ -200,7 +203,7 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
                 var focused by remember { mutableStateOf(false) }
                 val shape = RoundedCornerShape(10.dp)
                 val sel = category == sec
-                Row(Modifier.fillMaxWidth().tvFocusable(shape, { category = sec }, scaleOnFocus = false, onFocus = { focused = it; if (it) category = sec })
+                Row(Modifier.fillMaxWidth().tvFocusable(shape, { category = sec }, scaleOnFocus = false, onFocus = { focused = it; if (it && category != sec) { category = sec; errorsOpen = false } })
                     .background(if (focused) p.surfaceFocused else if (sel) p.surface else Color.Transparent, shape)
                     .padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(sec.icon, null, tint = if (sel || focused) p.text else p.textDim, modifier = Modifier.size(20.dp))
@@ -210,7 +213,8 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
                 }
             }
         }
-        LazyColumn(Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(start = 28.dp, end = 32.dp, top = 18.dp, bottom = 60.dp),
+        if (errorsOpen) ErrorLogView(vm) { errorsOpen = false }
+        else LazyColumn(Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(start = 28.dp, end = 32.dp, top = 18.dp, bottom = 60.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp)) {
             item(key = "title_" + category.name) {
                 Text(category.label, color = p.text, fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
@@ -231,7 +235,15 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
                 }
                 SettingsCategory.BACKUP -> backupSection(x)
                 SettingsCategory.GENERAL -> generalPage(vm, s)
-                SettingsCategory.UPDATES -> updatesSection(x, s, vm)
+                SettingsCategory.UPDATES -> {
+                    updatesSection(x, s, vm)
+                    item { SHeader("Fehler") }
+                    item {
+                        val ctx = androidx.compose.ui.platform.LocalContext.current
+                        val n = remember(errorsOpen) { errorEntries(ctx, vm).size }
+                        SRow("Fehlermeldungen", if (n == 0) "Keine Fehler aufgezeichnet" else "$n Meldung(en) – zum Abfotografieren öffnen") { errorsOpen = true }
+                    }
+                }
                 SettingsCategory.ABOUT -> aboutSection(vm)
             }
         }
@@ -461,6 +473,63 @@ private fun LazyListScope.aboutSection(vm: SettingsViewModel) {
             InfoRow("Gerät", "${vm.device.manufacturer} ${vm.device.model}", Accuracy.MEASURED)
             Text("ULTRA IPTV ist ein Abspieler. Er liefert keine Inhalte. Nutze nur Quellen, für die du eine Berechtigung hast. " +
                 "DRM- und Zugangsbeschränkungen werden nicht umgangen.", color = p.textDim, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp))
+        }
+    }
+}
+
+
+// ------------------------------------------------------------ Fehlermeldungen (zum Abfotografieren)
+
+private fun errorEntries(context: android.content.Context, vm: SettingsViewModel): List<Pair<String, String>> {
+    val g = de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard
+    val st = vm.player.lastSessionStats ?: vm.player.stats.value
+    return listOfNotNull(
+        g.lastCrash(context)?.let { "ABSTURZ" to it },
+        g.lastFreeze(context)?.let { "HÄNGER" to it },
+        st.lastError?.let { "LETZTER WIEDERGABEFEHLER" to (it + "\nFehler / Wiederherstellungen in der Sitzung: ${st.errors} / ${st.recoveries}") },
+    )
+}
+
+/** Vollständiges Fehlerprotokoll, zeilenweise mit der Fernbedienung scrollbar. Zurück schließt die Ansicht. */
+@Composable
+private fun androidx.compose.foundation.layout.RowScope.ErrorLogView(vm: SettingsViewModel, onClose: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val p = LocalUltraTheme.current.palette
+    var version by remember { mutableStateOf(0) }
+    val entries = remember(version) { errorEntries(context, vm) }
+    val first = remember { androidx.compose.ui.focus.FocusRequester() }
+    androidx.compose.runtime.LaunchedEffect(Unit) { kotlinx.coroutines.delay(150); runCatching { first.requestFocus() } }
+    LazyColumn(Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(start = 28.dp, end = 32.dp, top = 18.dp, bottom = 60.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        item {
+            Text("Fehlermeldungen", color = p.text, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+            Text("ULTRA IPTV ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · ${vm.device.manufacturer} ${vm.device.model} · Android ${android.os.Build.VERSION.RELEASE}",
+                color = p.textDim, fontSize = 13.sp)
+            Text("Mit ▲▼ scrollen und abfotografieren · Zurück schließt", color = p.primary, fontSize = 13.sp, modifier = Modifier.padding(bottom = 8.dp))
+        }
+        if (entries.isEmpty()) item {
+            Box(Modifier.focusRequester(first).tvFocusable(RoundedCornerShape(10.dp), onClose, scaleOnFocus = false)) {
+                Text("Keine Abstürze, Hänger oder Wiedergabefehler aufgezeichnet.", color = p.text, fontSize = 15.sp, modifier = Modifier.padding(14.dp))
+            }
+        }
+        entries.forEachIndexed { ei, (title, text) ->
+            item(key = "t$ei$version") { SHeader(title) }
+            // Blöcke à 10 Zeilen: jeder Block ist fokussierbar, damit die Fernbedienung Stück für Stück scrollt
+            text.lines().chunked(10).forEachIndexed { ci, chunk ->
+                item(key = "c$ei-$ci-$version") {
+                    var focused by remember { mutableStateOf(false) }
+                    Text(chunk.joinToString("\n"), color = p.text, fontSize = 12.sp, lineHeight = 16.sp,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        modifier = Modifier.fillMaxWidth()
+                            .then(if (ei == 0 && ci == 0) Modifier.focusRequester(first) else Modifier)
+                            .tvFocusable(RoundedCornerShape(6.dp), {}, scaleOnFocus = false, onFocus = { focused = it })
+                            .background(Color.Black.copy(alpha = if (focused) 0.65f else 0.45f), RoundedCornerShape(6.dp)).padding(horizontal = 10.dp, vertical = 6.dp))
+                }
+            }
+        }
+        if (entries.isNotEmpty()) item {
+            Spacer(Modifier.height(10.dp))
+            SRow("Protokoll löschen", "Löscht Absturz- und Hänger-Berichte") { de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.clear(context); version++ }
         }
     }
 }
