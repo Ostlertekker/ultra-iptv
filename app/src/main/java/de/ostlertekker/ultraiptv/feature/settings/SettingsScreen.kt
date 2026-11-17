@@ -85,16 +85,16 @@ import javax.inject.Inject
 
 /** Einstellungs-Kategorien nach dem Vorbild von TiviMate (plus eigener Punkt für App-Updates). */
 enum class SettingsCategory(val label: String, val sections: List<SettingsSection>) {
-    PLAYLISTS("Playlists", listOf(SettingsSection.GENERAL, SettingsSection.ACCOUNTS, SettingsSection.ANALYSIS)),
+    PLAYLISTS("Playlists", listOf(SettingsSection.GENERAL, SettingsSection.ACCOUNTS, SettingsSection.GROUPS, SettingsSection.ANALYSIS)),
     EPG("EPG", listOf(SettingsSection.EPG)),
     APPEARANCE("Erscheinungsbild", listOf(SettingsSection.APPEARANCE, SettingsSection.LAYOUT)),
     PLAYBACK("Wiedergabe", listOf(SettingsSection.PLAYBACK, SettingsSection.LIVE_STABILITY, SettingsSection.QUALITY, SettingsSection.AUDIO,
         SettingsSection.LANGUAGE, SettingsSection.SMART_SKIP)),
     REMOTE("Fernbedienung", listOf(SettingsSection.PLAYER_CONTROLS)),
     PARENTAL("Kindersicherung", listOf(SettingsSection.PARENTAL)),
-    REMINDERS("Erinnerungen", listOf(SettingsSection.NOTIFICATIONS)),
+    REMINDERS("Erinnerungen", listOf(SettingsSection.REMINDER_OPTIONS, SettingsSection.NOTIFICATIONS)),
     BACKUP("Datensicherung", listOf(SettingsSection.BACKUP)),
-    GENERAL("Allgemein", listOf(SettingsSection.PROFILES, SettingsSection.INTRO, SettingsSection.NETWORK)),
+    GENERAL("Allgemein", listOf(SettingsSection.STARTUP, SettingsSection.PROFILES, SettingsSection.INTRO, SettingsSection.NETWORK)),
     UPDATES("App-Updates", listOf(SettingsSection.UPDATES)),
     ABOUT("Über", listOf(SettingsSection.ABOUT, SettingsSection.DIAGNOSTICS)),
 }
@@ -104,6 +104,7 @@ enum class SettingsSection(val label: String) {
     AUDIO("Ton & Audio-Ausgabe"), PLAYBACK("Stream & Puffer"), LIVE_STABILITY("Live-Stabilität"), PLAYER_CONTROLS("Tasten & Player-Anzeige"), QUALITY("Bildqualität"), SMART_SKIP("Intro überspringen"),
     EPG("EPG"), PROFILES("Profile"), PARENTAL("Jugendschutz"), NETWORK("Netzwerk & Speedtest"), ANALYSIS("Stream-Doktor (Sender-Analyse)"),
     BACKUP("Sicherung & Wiederherstellung"), DIAGNOSTICS("Diagnose"), ABOUT("Über"), LANGUAGE("Sprache"),
+    GROUPS("Gruppen verwalten"), REMINDER_OPTIONS("Optionen"), STARTUP("Beim Start"),
 }
 
 @HiltViewModel
@@ -115,7 +116,10 @@ class SettingsViewModel @Inject constructor(
     private val epg: EpgRepository,
     private val player: PlayerEngine,
     private val user: UserRepository,
+    content: de.ostlertekker.ultraiptv.core.data.ContentRepository,
 ) : ViewModel() {
+    val channelGroups = content.channelCategories().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val settings = repo.settings.stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings())
     val syncState = sync.state
     val provider = creds.config
@@ -224,6 +228,16 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
                     SettingsSection.ABOUT -> aboutSection(vm)
                     SettingsSection.LANGUAGE -> languageSection(vm)
                     SettingsSection.THEMES -> Unit
+                    SettingsSection.GROUPS -> groupsSection(vm, s)
+                    SettingsSection.REMINDER_OPTIONS -> item {
+                        ChoiceRow("Erinnern vor Beginn", if (s.reminderLeadMin == 0) "Zum Start" else "${s.reminderLeadMin} min",
+                            { vm.set(Keys.REMINDER_LEAD, cycle(listOf(0, 1, 2, 5, 10, 15), s.reminderLeadMin.takeIf { it in listOf(0, 1, 2, 5, 10, 15) } ?: 2)) },
+                            subtitle = "Gilt für neu gesetzte Erinnerungen und nach dem nächsten App-Start")
+                    }
+                    SettingsSection.STARTUP -> item {
+                        ChoiceRow("Beim App-Start öffnen", listOf("Startseite", "Live-TV", "Letzten Sender abspielen", "TV-Programm")[s.startAction.coerceIn(0, 3)],
+                            { vm.set(Keys.START_ACTION, (s.startAction + 1) % 4) })
+                    }
                 }
                 }
             }
@@ -593,6 +607,7 @@ private fun LazyListScope.layoutSection(vm: SettingsViewModel, s: AppSettings) {
             ToggleRow("Sendernummern anzeigen", s.showChannelNumbers, { vm.set(Keys.SHOW_NUMBERS, it) })
             ToggleRow("Senderlogos anzeigen", s.showChannelLogos, { vm.set(Keys.SHOW_LOGOS, it) }, subtitle = "Aus = schnellere Liste bei sehr vielen Sendern")
             ToggleRow("Laufende Sendung in der Liste", s.showChannelEpg, { vm.set(Keys.SHOW_CH_EPG, it) })
+            ToggleRow("Sendungsfortschritt in der Liste", s.showChannelProgress, { vm.set(Keys.SHOW_CH_PROGRESS, it) })
             SectionHeader("Filme & Serien")
             ChoiceRow("Postergröße", DesignOptions.posterNames[s.posterSize.coerceIn(0, 3)], { vm.set(Keys.POSTER_SIZE, (s.posterSize + 1) % 4) })
         }
@@ -638,6 +653,9 @@ private fun LazyListScope.playerControlsSection(vm: SettingsViewModel, s: AppSet
             SectionHeader("Fernbedienung")
             ToggleRow("Sendernummer per Zifferntasten", s.numberZap, { vm.set(Keys.NUMBER_ZAP, it) }, subtitle = "Nummer eintippen → Sender startet nach 1,5 s")
             ToggleRow("Kanaltasten umkehren", s.invertChannelKeys, { vm.set(Keys.INVERT_ZAP, it) }, subtitle = "Pfeil hoch = nächster statt vorheriger Sender")
+            ChoiceRow("OK-Taste im Live-Player", if (s.okAction == 1) "Senderliste" else "Info-Leiste", { vm.set(Keys.OK_ACTION, (s.okAction + 1) % 2) },
+                subtitle = "Wenn keine Leiste sichtbar ist")
+            ChoiceRow("Pfeil hoch/runter im Live-Player", if (s.upDownAction == 1) "Senderliste öffnen" else "Sender wechseln", { vm.set(Keys.UPDOWN_ACTION, (s.upDownAction + 1) % 2) })
             SectionHeader("Sleep-Timer")
             ChoiceRow("Beim Start automatisch", if (s.sleepTimerMin == 0) "Aus" else "${s.sleepTimerMin} min",
                 { vm.set(Keys.SLEEP_TIMER, cycle(listOf(0, 15, 30, 45, 60, 90, 120), s.sleepTimerMin.takeIf { it in listOf(0, 15, 30, 45, 60, 90, 120) } ?: 0)) },
@@ -700,6 +718,26 @@ private fun FontPicker(selected: Int, onPick: (Int) -> Unit) {
                         fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.padding(top = 6.dp))
                     Text(descriptions.getOrElse(i) { "" }, color = p.textDim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
+            }
+        }
+    }
+}
+
+
+/** Gruppen verwalten (wie TiviMate): Live-TV-Gruppen ein- oder ausblenden. */
+private fun LazyListScope.groupsSection(vm: SettingsViewModel, s: AppSettings) {
+    item {
+        val groups by vm.channelGroups.collectAsStateWithLifecycle()
+        val hidden = s.hiddenGroups.split('\n').filter { it.isNotBlank() }.toSet()
+        Column {
+            if (groups.isEmpty()) Text("Noch keine Gruppen – zuerst eine Quelle synchronisieren.", color = LocalUltraTheme.current.palette.textDim, fontSize = 14.sp)
+            else Text("${groups.size - groups.count { it in hidden }} von ${groups.size} Gruppen sichtbar in Live-TV",
+                color = LocalUltraTheme.current.palette.textDim, fontSize = 12.sp, modifier = Modifier.padding(bottom = 6.dp))
+            groups.forEach { g ->
+                ToggleRow(g, g !in hidden, { visible ->
+                    val next = if (visible) hidden - g else hidden + g
+                    vm.set(Keys.HIDDEN_GROUPS, next.joinToString("\n"))
+                })
             }
         }
     }

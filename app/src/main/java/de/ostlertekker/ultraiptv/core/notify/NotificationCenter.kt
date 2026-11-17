@@ -54,6 +54,7 @@ class NotificationCenter @Inject constructor(
     private val user: UserRepository,
     private val sync: SyncRepository,
     private val updates: UpdateManager,
+    private val settingsRepo: de.ostlertekker.ultraiptv.core.data.SettingsRepository,
 ) {
     val notifications = extras.notifications()
     val unread = extras.unreadCount()
@@ -78,9 +79,11 @@ class NotificationCenter @Inject constructor(
             extras.deleteReminder(existing.id); cancelAlarm(existing.id); return false
         }
         val id = extras.insertReminder(ReminderEntity(channelId = channelId, channelName = channelName, title = title, startMs = startMs))
-        scheduleAlarm(id, startMs - 2 * 60_000L)
+        scheduleAlarm(id, startMs - lead())
         return true
     }
+
+    private suspend fun lead(): Long = settingsRepo.current().reminderLeadMin.coerceIn(0, 60) * 60_000L
 
     suspend fun hasReminder(channelId: String, startMs: Long) = extras.findReminder(channelId, startMs) != null
 
@@ -109,7 +112,7 @@ class NotificationCenter @Inject constructor(
     /** Nach Neustart/Update: offene Erinnerungen neu planen. */
     suspend fun rescheduleAll() {
         extras.purgeReminders(System.currentTimeMillis() - 3_600_000L)
-        extras.allReminders().filter { it.startMs > System.currentTimeMillis() }.forEach { scheduleAlarm(it.id, it.startMs - 2 * 60_000L) }
+        extras.allReminders().filter { it.startMs > System.currentTimeMillis() }.let { list -> val l = lead(); list.forEach { scheduleAlarm(it.id, it.startMs - l) } }
     }
 
     // ---------------------------------------------------------- Prüfungen

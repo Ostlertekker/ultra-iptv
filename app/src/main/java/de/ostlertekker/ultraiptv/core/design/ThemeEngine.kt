@@ -77,11 +77,12 @@ data class UiPrefs(
     val posterWidth: Dp = 160.dp,
     val menuClock: Boolean = true,
     val clock24h: Boolean = true,
+    val showChannelProgress: Boolean = false,
 ) {
     companion object {
         fun from(s: AppSettings) = UiPrefs(
             s.showChannelNumbers, s.showChannelLogos, s.showChannelEpg, s.channelDensity.coerceIn(0, 2),
-            when (s.posterSize) { 0 -> 130.dp; 2 -> 200.dp; 3 -> 240.dp; else -> 160.dp }, s.menuClock, s.clock24h,
+            when (s.posterSize) { 0 -> 130.dp; 2 -> 200.dp; 3 -> 240.dp; else -> 160.dp }, s.menuClock, s.clock24h, s.showChannelProgress,
         )
     }
 }

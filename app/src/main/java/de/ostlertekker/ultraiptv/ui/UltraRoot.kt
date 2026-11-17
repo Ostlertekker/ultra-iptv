@@ -191,6 +191,18 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
         val r = startRoute ?: return@LaunchedEffect
         if (r != Routes.HOME) runCatching { navigateTop(nav, r) }
     }
+    // Einstellung „Beim App-Start“ (wie TiviMate): einmal pro App-Start
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    var startHandled by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (startHandled || startRoute != null) return@LaunchedEffect
+        startHandled = true
+        when (vm.settings.value?.startAction ?: 0) {
+            1 -> runCatching { navigateTop(nav, Routes.LIVE) }
+            2 -> { runCatching { navigateTop(nav, Routes.LIVE) }; vm.lastChannelId()?.let { ctx.openPlayer(ContentKind.LIVE, it) } }
+            3 -> runCatching { navigateTop(nav, Routes.EPG) }
+        }
+    }
     BackHandler(enabled = route != Routes.HOME) {
         sounds?.back()
         if (!nav.popBackStack()) nav.navigate(Routes.HOME)

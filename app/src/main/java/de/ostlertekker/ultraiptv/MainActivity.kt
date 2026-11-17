@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv
 
+import kotlinx.coroutines.flow.first
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -107,6 +108,8 @@ class RootViewModel @Inject constructor(
             }
         }
     }
+
+    suspend fun lastChannelId(): String? = user.recentChannels.first().firstOrNull()?.itemId
 
     fun introFinished() = viewModelScope.launch { settingsRepo.set(Keys.INTRO_PLAYED, true) }
 }

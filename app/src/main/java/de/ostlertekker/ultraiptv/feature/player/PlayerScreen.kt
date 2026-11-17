@@ -211,11 +211,11 @@ fun PlayerScreen(
                 // Overlay ausgeblendet: Schnellsteuerung
                 if (!down) return@onPreviewKeyEvent true
                 when (ev.key) {
-                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> if (ui.skipOffer != null) vm.acceptSkip() else overlay = true
+                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> if (ui.skipOffer != null) vm.acceptSkip() else if (isLive && settings.okAction == 1) { overlay = true; panel = Panel.CHANNELS } else overlay = true
                     Key.DirectionLeft -> if (isLive) { if (ui.canTimeshift) vm.rewindLive(10_000) else overlay = true } else { vm.seekBy(-10_000); seekHint = "−10 s" }
                     Key.DirectionRight -> if (isLive) { if (ui.canTimeshift) vm.forwardShift(10_000) else overlay = true } else { vm.seekBy(10_000); seekHint = "+10 s" }
-                    Key.DirectionUp -> if (isLive) vm.switchChannel(-1 * zapDir) else overlay = true
-                    Key.DirectionDown -> if (isLive) vm.switchChannel(1 * zapDir) else overlay = true
+                    Key.DirectionUp -> if (isLive && settings.upDownAction == 1) { overlay = true; panel = Panel.CHANNELS } else if (isLive) vm.switchChannel(-1 * zapDir) else overlay = true
+                    Key.DirectionDown -> if (isLive && settings.upDownAction == 1) { overlay = true; panel = Panel.CHANNELS } else if (isLive) vm.switchChannel(1 * zapDir) else overlay = true
                     Key.Menu -> { overlay = true; panel = if (isLive) Panel.CHANNELS else Panel.AUDIO }
                     else -> overlay = true
                 }

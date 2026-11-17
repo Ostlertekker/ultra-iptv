@@ -120,6 +120,7 @@ class LiveTvViewModel @Inject constructor(
     val sortByName = MutableStateFlow(false)
 
     val categories: StateFlow<List<String>> = content.channelCategories()
+        .combine(settingsRepo.settings.map { s -> s.hiddenGroups.split('\n').filter { it.isNotBlank() }.toSet() }) { cats, hidden -> cats.filter { it !in hidden } }
         .combine(discover.lists()) { cats, lists ->
             listOf(CAT_FAVORITES, CAT_RECENT) + cats + lists.map { CAT_LIST_PREFIX + it.name } +
                 de.ostlertekker.ultraiptv.core.discover.SmartGroup.entries.map { CAT_SMART_PREFIX + it.label }
@@ -464,6 +465,12 @@ private fun ChannelItem(
         Column(Modifier.weight(1f)) {
             Text(ch.name, color = p.text, fontSize = nameSize, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (now != null && prefs.showChannelEpg) Text("${formatTime(now.startMs)}  ${now.title}", color = p.textDim, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (now != null && prefs.showChannelProgress && now.endMs > now.startMs) {
+                val prog = ((System.currentTimeMillis() - now.startMs).toFloat() / (now.endMs - now.startMs)).coerceIn(0f, 1f)
+                Box(Modifier.padding(top = 4.dp).fillMaxWidth().height(3.dp).background(p.textDim.copy(alpha = 0.25f), RoundedCornerShape(2.dp))) {
+                    Box(Modifier.fillMaxWidth(prog).height(3.dp).background(p.primary, RoundedCornerShape(2.dp)))
+                }
+            }
         }
         val country = Countries.byCode(ch.country)
         if (country != null) Text(country.flag, fontSize = 15.sp, modifier = Modifier.padding(horizontal = 4.dp))

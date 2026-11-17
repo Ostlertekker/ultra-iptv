@@ -116,6 +116,17 @@ data class AppSettings(
     val menuClock: Boolean = true,
     val clock24h: Boolean = true,
     val focusGlow: Boolean = true,
+    /** Beim App-Start: 0 = Startseite, 1 = Live-TV, 2 = letzten Sender abspielen, 3 = TV-Programm. */
+    val startAction: Int = 0,
+    /** OK-Taste im Live-Player (Leiste ausgeblendet): 0 = Info-Leiste, 1 = Senderliste. */
+    val okAction: Int = 0,
+    /** Pfeil hoch/runter im Live-Player: 0 = Sender wechseln, 1 = Senderliste öffnen. */
+    val upDownAction: Int = 0,
+    /** Erinnerung so viele Minuten vor Beginn. */
+    val reminderLeadMin: Int = 2,
+    val showChannelProgress: Boolean = false,
+    /** Ausgeblendete Live-TV-Gruppen (durch Zeilenumbruch getrennt). */
+    val hiddenGroups: String = "",
 )
 
 object Keys {
@@ -204,6 +215,12 @@ object Keys {
     val MENU_CLOCK = booleanPreferencesKey("menu_clock")
     val CLOCK_24H = booleanPreferencesKey("clock_24h")
     val FOCUS_GLOW = booleanPreferencesKey("focus_glow")
+    val START_ACTION = intPreferencesKey("start_action")
+    val OK_ACTION = intPreferencesKey("ok_action")
+    val UPDOWN_ACTION = intPreferencesKey("updown_action")
+    val REMINDER_LEAD = intPreferencesKey("reminder_lead")
+    val SHOW_CH_PROGRESS = booleanPreferencesKey("show_ch_progress")
+    val HIDDEN_GROUPS = stringPreferencesKey("hidden_groups")
 }
 
 private inline fun <reified E : Enum<E>> enumOr(value: String?, default: E): E =
@@ -297,6 +314,12 @@ fun Preferences.toSettings(): AppSettings {
         menuClock = this[Keys.MENU_CLOCK] ?: d.menuClock,
         clock24h = this[Keys.CLOCK_24H] ?: d.clock24h,
         focusGlow = this[Keys.FOCUS_GLOW] ?: d.focusGlow,
+        startAction = this[Keys.START_ACTION] ?: d.startAction,
+        okAction = this[Keys.OK_ACTION] ?: d.okAction,
+        upDownAction = this[Keys.UPDOWN_ACTION] ?: d.upDownAction,
+        reminderLeadMin = this[Keys.REMINDER_LEAD] ?: d.reminderLeadMin,
+        showChannelProgress = this[Keys.SHOW_CH_PROGRESS] ?: d.showChannelProgress,
+        hiddenGroups = this[Keys.HIDDEN_GROUPS] ?: d.hiddenGroups,
     )
 }
 
