@@ -150,12 +150,11 @@ class WebAppActivity : ComponentActivity() {
         val dec = decoderMax()
         val dispH = maxDisplayHeight()
         // Diagnose direkt im Bild: zeigt, ob 4K angeboten werden kann und woran es ggf. scheitert
-        if (app == WebApp.YOUTUBE) hint.text = hint.text.toString() + "\n" + when {
-            dec.first < 3840 -> "4K aus: Hardware-Decoder meldet kein VP9/AV1 in 4K"
-            dispH < 2160 -> "4K aus: Gerät meldet keinen 4K-Bildmodus (max. ${dispH}p) – TV/HDMI prüfen"
-            else -> "4K aktiv: Decoder 3840×2160 @ ${dec.third} fps · Display ${dispH}p"
-        }
-        if (app == WebApp.YOUTUBE && dec.first >= 3840 && dispH >= 2160 &&
+        // Ausschlaggebend ist der Decoder: viele Google-TV-Fernseher zeichnen die Oberfläche in 1080p,
+        // obwohl das Panel 4K hat – deshalb blockiert ein 1080p-Bildmodus 4K nicht mehr.
+        if (app == WebApp.YOUTUBE) hint.text = hint.text.toString() + "\n" + (if (dec.first >= 3840) "4K aktiv" else "4K aus") +
+            " · Decoder: " + (decoderInfo.joinToString(", ").ifBlank { "kein VP9/AV1" }) + " · Bildmodus max. ${dispH}p"
+        if (app == WebApp.YOUTUBE && dec.first >= 3840 &&
             androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
             val js = """
                 (function(){try{
@@ -226,15 +225,30 @@ class WebAppActivity : ComponentActivity() {
 
     /** Höchste Auflösung, die der Fernseher über HDMI ausgeben kann (Fire TV läuft in der Oberfläche oft nur mit 1080p). */
     /** Größte vom Hardware-Decoder unterstützte Auflösung/Bildrate für VP9 bzw. AV1 (YouTube-4K-Codecs). */
+    /** Gefundene YouTube-Decoder (VP9/AV1) mit ihrer Höchstauflösung – für Entscheidung und Diagnose. */
+    private val decoderInfo: List<String> by lazy {
+        runCatching {
+            android.media.MediaCodecList(android.media.MediaCodecList.ALL_CODECS).codecInfos.filter { !it.isEncoder }.flatMap { info ->
+                info.supportedTypes.filter { it.equals("video/x-vnd.on2.vp9", true) || it.equals("video/av01", true) }.mapNotNull { type ->
+                    val v = runCatching { info.getCapabilitiesForType(type).videoCapabilities }.getOrNull() ?: return@mapNotNull null
+                    (if (type.contains("vp9", true)) "VP9 " else "AV1 ") + "${v.supportedWidths.upper}×${v.supportedHeights.upper}"
+                }
+            }.distinct()
+        }.getOrDefault(emptyList())
+    }
+
     private fun decoderMax(): Triple<Int, Int, Int> = runCatching {
         var best = Triple(1920, 1080, 30)
-        for (info in android.media.MediaCodecList(android.media.MediaCodecList.REGULAR_CODECS).codecInfos) {
+        for (info in android.media.MediaCodecList(android.media.MediaCodecList.ALL_CODECS).codecInfos) {
             if (info.isEncoder) continue
             for (type in info.supportedTypes) {
                 if (!type.equals("video/x-vnd.on2.vp9", true) && !type.equals("video/av01", true)) continue
-                val v = info.getCapabilitiesForType(type).videoCapabilities ?: continue
-                if (v.isSizeSupported(3840, 2160)) {
-                    val fps = if (v.areSizeAndRateSupported(3840, 2160, 60.0)) 60 else 30
+                val v = runCatching { info.getCapabilitiesForType(type).videoCapabilities }.getOrNull() ?: continue
+                // Manche TV-Chips melden 4K nur über die Grenzwerte (supportedWidths/Heights), nicht über isSizeSupported
+                val can4k = v.isSizeSupported(3840, 2160) || (v.supportedWidths.upper >= 3840 && v.supportedHeights.upper >= 2160)
+                if (can4k) {
+                    val fps = if (runCatching { v.areSizeAndRateSupported(3840, 2160, 60.0) }.getOrDefault(false) ||
+                        (v.supportedFrameRates.upper >= 60)) 60 else 30
                     if (fps >= best.third || best.first < 3840) best = Triple(3840, 2160, fps)
                 }
             }
