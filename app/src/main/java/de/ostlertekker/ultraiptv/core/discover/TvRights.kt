@@ -140,8 +140,8 @@ object ChannelCountry {
         if (key.isBlank() || !clean.startsWith(key)) return false
         val rest = clean.removePrefix(key).trim().split(' ').filter { it.isNotEmpty() }
         if (!rest.all { it.all(Char::isDigit) || it in fillers || it in byAlias }) return false
-        val kn = Regex("\d+").findAll(key).map { it.value }.toList()
-        val cn = Regex("\d+").findAll(clean).map { it.value }.toList()
+        val kn = Regex("""\d+""").findAll(key).map { it.value }.toList()
+        val cn = Regex("""\d+""").findAll(clean).map { it.value }.toList()
         return kn.isEmpty() || kn == cn
     }
 
