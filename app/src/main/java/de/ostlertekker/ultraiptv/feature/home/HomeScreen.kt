@@ -109,7 +109,7 @@ class HomeViewModel @Inject constructor(
     newsRepo: de.ostlertekker.ultraiptv.core.news.NewsRepository,
     private val sportsRepo: de.ostlertekker.ultraiptv.core.discover.SportsRepository,
 ) : ViewModel() {
-    /** Sport-Ticker: nur laufende Spiele, alle 30 Sekunden neu. */
+    /** Sport-Ticker: nur laufende Spiele, jede Minute neu. */
     val sportTicker = MutableStateFlow<List<de.ostlertekker.ultraiptv.core.discover.ScoreEvent>>(emptyList())
     init {
         viewModelScope.launch {
@@ -119,7 +119,7 @@ class HomeViewModel @Inject constructor(
                     // Nur laufende Spiele
                     sportTicker.value = b.events.filter { it.live }.sortedBy { it.startMs }.take(30)
                 }
-                delay(30_000L)
+                delay(60_000L)
             }
         }
     }
