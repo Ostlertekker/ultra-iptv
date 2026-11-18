@@ -214,6 +214,19 @@ fun Modifier.tvFocusable(
     else base
 }
 
+/**
+ * Einheitlicher Button-Stil der ganzen App: transparent mit weißem Rahmen; Hauptaktion/ausgewählt mit kräftigerem Rahmen;
+ * der fokussierte Button wird weiß gefüllt (sichtbarer Fokus für die Fernbedienung).
+ */
+fun Modifier.outlineButton(focused: Boolean, primary: Boolean, enabled: Boolean, shape: androidx.compose.ui.graphics.Shape): Modifier =
+    this.background(if (focused && enabled) Color.White else Color.Transparent, shape)
+        .border(if (primary) 2.dp else 1.5.dp,
+            Color.White.copy(alpha = when { !enabled -> 0.2f; focused -> 1f; primary -> 0.9f; else -> 0.55f }), shape)
+
+/** Textfarbe passend zu [outlineButton]. */
+fun outlineButtonText(focused: Boolean, enabled: Boolean): Color =
+    when { !enabled -> Color.White.copy(alpha = 0.4f); focused -> Color(0xFF111111); else -> Color.White }
+
 @Composable
 fun TvButton(
     text: String,
@@ -230,18 +243,11 @@ fun TvButton(
     Box(
         modifier
             .tvFocusable(shape, onClick = { if (enabled) onClick() }, focusRequester = focusRequester, onFocus = { focused = it })
-            .background(
-                when {
-                    !enabled -> Color.White.copy(alpha = 0.04f)
-                    focused -> p.primary
-                    primary -> p.primary.copy(alpha = 0.35f)
-                    else -> p.surface
-                }, shape,
-            )
+            .outlineButton(focused, primary, enabled, shape)
             .padding(horizontal = 20.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, color = if (focused) Color.Black else if (enabled) p.text else p.textDim, fontWeight = FontWeight.SemiBold,
+        Text(text, color = outlineButtonText(focused, enabled), fontWeight = FontWeight.SemiBold,
             fontFamily = theme.spec.fontFamily, fontSize = 16.sp, maxLines = 1)
     }
 }
@@ -255,10 +261,10 @@ fun TvChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modif
     Box(
         modifier
             .tvFocusable(shape, onClick, onFocus = { focused = it })
-            .background(if (focused) p.primary else if (selected) p.primary.copy(alpha = 0.32f) else p.surface, shape)
+            .outlineButton(focused, primary = selected, enabled = true, shape = shape)
             .padding(horizontal = 16.dp, vertical = 7.dp),
     ) {
-        Text(text, color = if (focused) Color.Black else p.text, fontSize = 14.sp, maxLines = 1,
+        Text(text, color = outlineButtonText(focused, true), fontSize = 14.sp, maxLines = 1,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
     }
 }

@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.feature.common
 
+import de.ostlertekker.ultraiptv.core.ui.outlineButton
 import androidx.compose.ui.draw.clip
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
@@ -124,12 +125,11 @@ fun CinemaOverview(
 fun PillButton(label: String, primary: Boolean = false, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (focused) 1.06f else 1f, tween(140), label = "pill")
-    val bg = when { focused -> Color.White; primary -> Color.White.copy(alpha = 0.88f); else -> Color.White.copy(alpha = 0.16f) }
     Box(Modifier.graphicsLayer { scaleX = scale; scaleY = scale }
         .onFocusChanged { focused = it.isFocused }
         .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
-        .background(bg, RoundedCornerShape(12.dp))
+        .outlineButton(focused, primary, true, RoundedCornerShape(12.dp))
         .padding(horizontal = 24.dp, vertical = 11.dp)) {
-        Text(label, color = if (focused || primary) Color(0xFF111111) else Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        Text(label, color = de.ostlertekker.ultraiptv.core.ui.outlineButtonText(focused, true), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
     }
 }

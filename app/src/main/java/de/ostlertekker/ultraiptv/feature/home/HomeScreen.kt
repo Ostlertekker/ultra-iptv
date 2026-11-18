@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.feature.home
 
+import de.ostlertekker.ultraiptv.core.ui.outlineButton
 import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -420,8 +421,6 @@ private fun ProgramRow(title: String, list: List<de.ostlertekker.ultraiptv.core.
 private fun HeroButton(label: String, primary: Boolean = false, modifier: Modifier = Modifier, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val scale by androidx.compose.animation.core.animateFloatAsState(if (focused) 1.07f else 1f, androidx.compose.animation.core.tween(140), label = "hb")
-    // Transparent mit dünnem Rahmen; nur der fokussierte Button wird weiß gefüllt (sichtbarer Fokus für die Fernbedienung)
-    val bg = if (focused) Color.White else Color.Transparent
     val src = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     // Ausdrücklich fokussierbar (Fernbedienung): „clickable“ allein ist auf manchen Geräten nicht per Pfeiltaste erreichbar
     Box(modifier.graphicsLayer { scaleX = scale; scaleY = scale }
@@ -432,8 +431,7 @@ private fun HeroButton(label: String, primary: Boolean = false, modifier: Modifi
                 (ev.key == androidx.compose.ui.input.key.Key.DirectionCenter || ev.key == androidx.compose.ui.input.key.Key.Enter || ev.key == androidx.compose.ui.input.key.Key.NumPadEnter)) { onClick(); true } else false
         }
 
-        .background(bg, RoundedCornerShape(12.dp))
-        .border(if (primary) 2.dp else 1.5.dp, Color.White.copy(alpha = if (focused) 1f else if (primary) 0.9f else 0.6f), RoundedCornerShape(12.dp))
+        .outlineButton(focused, primary, true, RoundedCornerShape(12.dp))
         .padding(horizontal = 28.dp, vertical = 12.dp)) {
         Text(label, color = if (focused) Color(0xFF111111) else Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
     }

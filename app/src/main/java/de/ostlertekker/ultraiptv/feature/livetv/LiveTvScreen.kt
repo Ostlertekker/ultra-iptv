@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.feature.livetv
 
+import de.ostlertekker.ultraiptv.core.ui.outlineButton
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.nativeKeyCode
 import androidx.compose.ui.input.key.key
@@ -527,9 +528,9 @@ private fun SmallButton(text: String, modifier: Modifier, icon: androidx.compose
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(20.dp)
     Box(modifier.tvFocusable(shape, onClick = { if (enabled) onClick() }, scaleOnFocus = false, onFocus = { focused = it })
-        .background(when { focused -> p.primary; !enabled -> Color.White.copy(alpha = 0.04f); primary -> p.primary.copy(alpha = 0.35f); else -> p.surface }, shape)
+        .outlineButton(focused, primary, enabled, shape)
         .padding(horizontal = 6.dp, vertical = 7.dp), contentAlignment = Alignment.Center) {
-        val c = when { focused -> Color.Black; !enabled -> p.textDim.copy(alpha = 0.5f); else -> p.text }
+        val c = de.ostlertekker.ultraiptv.core.ui.outlineButtonText(focused, enabled)
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (icon != null) androidx.compose.material3.Icon(icon, null, tint = c, modifier = Modifier.size(18.dp).padding(end = 2.dp))
             Text(text, color = c, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
