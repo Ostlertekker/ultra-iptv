@@ -72,6 +72,25 @@ class DiscoverViewModel @Inject constructor(
     private var boardJob: Job? = null
     val boardFailed = MutableStateFlow(false)
     val nextRefreshAt = MutableStateFlow(0L)
+    // --------------------------------------------------- Match-Center (Vollbild)
+    val center = MutableStateFlow<de.ostlertekker.ultraiptv.core.discover.MatchCenter?>(null)
+    val centerFailed = MutableStateFlow(false)
+    private var centerJob: Job? = null
+    fun openCenter(e: ScoreEvent) {
+        centerJob?.cancel(); center.value = null; centerFailed.value = false
+        centerJob = viewModelScope.launch {
+            while (true) {
+                val c = runCatching { kotlinx.coroutines.withTimeoutOrNull(15_000) { sports.matchCenter(e.league, e.id) } }.getOrNull()
+                if (c != null) center.value = c
+                centerFailed.value = c == null && center.value == null
+                // Laufende Spiele alle 30 s aktualisieren, beendete/angesetzte alle 5 min
+                val live = board.value?.events?.firstOrNull { it.id == e.id }?.live ?: e.live
+                delay(if (live) 30_000 else 300_000)
+            }
+        }
+    }
+    fun closeCenter() { centerJob?.cancel(); centerJob = null; center.value = null }
+
     fun stopScores() { boardJob?.cancel(); boardJob = null }
     fun startScores() {
         boardJob?.cancel()

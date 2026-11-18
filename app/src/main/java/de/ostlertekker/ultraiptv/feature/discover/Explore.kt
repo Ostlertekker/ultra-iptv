@@ -153,6 +153,7 @@ fun SportsScreen(nav: NavController, vm: DiscoverViewModel = hiltViewModel()) {
     val board by vm.board.collectAsStateWithLifecycle()
     val detail by vm.detail.collectAsStateWithLifecycle()
     var selected by remember { mutableStateOf<ScoreEvent?>(null) }
+    var fullscreen by remember { mutableStateOf<ScoreEvent?>(null) }
     androidx.compose.runtime.DisposableEffect(Unit) { vm.startScores(); onDispose { vm.stopScores() } }
     val failed by vm.boardFailed.collectAsStateWithLifecycle()
     val nextAt by vm.nextRefreshAt.collectAsStateWithLifecycle()
@@ -164,6 +165,13 @@ fun SportsScreen(nav: NavController, vm: DiscoverViewModel = hiltViewModel()) {
     // Spieldetails bei laufenden Spielen alle 60 s nachladen
     LaunchedEffect(selected?.id, current?.live) {
         while (current?.live == true) { kotlinx.coroutines.delay(60_000); vm.loadDetail(current.league, current.id, refresh = true) }
+    }
+    // Match-Center als echtes Vollbild über allem (auch über der Menüleiste)
+    fullscreen?.let { fe ->
+        androidx.compose.ui.window.Dialog(onDismissRequest = { vm.closeCenter(); fullscreen = null },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+            MatchCenterScreen(fe, vm) { fullscreen = null }
+        }
     }
     Column(Modifier.fillMaxSize().padding(24.dp)) {
         val secs = ((nextAt - tick) / 1000).coerceAtLeast(0)
@@ -179,12 +187,17 @@ fun SportsScreen(nav: NavController, vm: DiscoverViewModel = hiltViewModel()) {
                 if (board != null && evs.isEmpty()) item {
                     EmptyHint("Gerade läuft kein Spiel. Abgedeckt: " + League.entries.joinToString(", ") { it.label } + ".")
                 }
-                items(evs, key = { it.league.name + it.id }) { e -> ScoreRow(e, selected?.id == e.id) { selected = e } }
+                // OK auf ein bereits gewähltes Spiel öffnet das Match-Center im Vollbild
+                items(evs, key = { it.league.name + it.id }) { e -> ScoreRow(e, selected?.id == e.id) { if (selected?.id == e.id) fullscreen = e else selected = e } }
             }
             Column(Modifier.weight(0.5f).fillMaxHeight().background(pal.surface, RoundedCornerShape(14.dp)).padding(14.dp)) {
                 val e = current
                 if (e == null) EmptyHint("Spiel auswählen für Ereignisse, Aufstellungen und Statistiken.")
-                else MatchPanel(e, detail, vm)
+                else {
+                    TvButton("⛶  Match-Center im Vollbild", onClick = { fullscreen = e }, primary = true)
+                    Text("Tipp: OK auf das gewählte Spiel öffnet es ebenfalls im Vollbild", color = pal.textDim, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp, bottom = 6.dp))
+                    MatchPanel(e, detail, vm)
+                }
             }
         }
     }

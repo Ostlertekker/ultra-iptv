@@ -197,6 +197,12 @@ class SportsRepository @Inject constructor(http: OkHttpClient) {
         MatchDetail(keyEvents, rosters, stats, System.currentTimeMillis())
     }
 
+    /** Alle Spieldaten für das Vollbild-Match-Center. */
+    suspend fun matchCenter(league: League, eventId: String): MatchCenter? = withContext(Dispatchers.IO) {
+        val root = runCatching { get(base + league.path + "/summary?event=" + eventId) }.getOrNull() ?: return@withContext null
+        runCatching { MatchCenterParser.parse(root) }.getOrNull()
+    }
+
     /** Ordnet eine EPG-Sendung einem Live-Spiel zu (Teamnamen im Titel). */
     fun matchProgram(title: String, events: List<ScoreEvent>): ScoreEvent? {
         val t = normalize(title)

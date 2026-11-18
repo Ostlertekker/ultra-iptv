@@ -319,6 +319,13 @@ class UiSmokeTest {
                 keys("$name Aktion", OK); Thread.sleep(4500); assertResponsive("$name Aktion")
                 if (name == "timemachine") shot("catchup_player")
                 if (name == "radio") { Thread.sleep(3000); shot("radio_wiedergabe") }
+                if (name == Routes.SPORTS) {
+                    // Gewähltes Spiel nochmals OK → Match-Center im Vollbild (nur wenn gerade Spiele laufen)
+                    keys("Match-Center öffnen", OK); Thread.sleep(6000); shot("match_center")
+                    keys("Match-Center Reiter", D, R, pauseMs = 600); Thread.sleep(1500); shot("match_center_reiter")
+                    keys("Match-Center Reiter 2", R, R, pauseMs = 600); Thread.sleep(1500); shot("match_center_reiter2")
+                    keys("Match-Center schließen", BACK); Thread.sleep(1500)
+                }
                 keys("$name zurück", BACK); Thread.sleep(1500)
                 keys("$name nach Zurück", D, U)
             }
