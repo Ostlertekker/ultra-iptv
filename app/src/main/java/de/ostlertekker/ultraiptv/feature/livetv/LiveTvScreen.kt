@@ -409,6 +409,16 @@ private fun FocusedInfo(vm: LiveTvViewModel, ch: ChannelEntity, favs: Set<String
                     color = p.textDim, fontSize = 12.sp, maxLines = 1)
             }
         }
+        // Knöpfe direkt unter Sendername – immer sichtbar, ohne Scrollen
+        // Drei kompakte Knöpfe nebeneinander (teilen sich die Breite, nichts wird abgeschnitten)
+        Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            SmallButton("▶ Vollbild", Modifier.weight(1f), primary = true) { vm.open(context, ch) }
+            SmallButton(if (ch.id in favs) "★ Favorit" else "☆ Favorit", Modifier.weight(1f)) { vm.toggleFavorite(ch) }
+            val next = vm.nowNext(ch).firstOrNull { it.startMs > now }
+            SmallButton(if (next != null && next.startMs in reminders) "⏰ Aus" else "⏰ Erinnern", Modifier.weight(1f), enabled = next != null) {
+                if (next != null) vm.toggleReminder(ch, next)
+            }
+        }
         val badges = ArrayList<String>()
         quality?.let { q -> if (q.height > 0) badges += "Zuletzt ${q.width}×${q.height}" + (if (q.fps > 0) " · ${"%.0f".format(q.fps)} fps" else "") }
         badges.forEach { Text(it, color = p.primary, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp)) }
@@ -429,15 +439,6 @@ private fun FocusedInfo(vm: LiveTvViewModel, ch: ChannelEntity, favs: Set<String
                     val d = prog.description
                     if (d != null) Text(d, color = p.textDim, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
                 }
-            }
-        }
-        // Drei kompakte Knöpfe nebeneinander (teilen sich die Breite, nichts wird abgeschnitten)
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            SmallButton("▶ Vollbild", Modifier.weight(1f), primary = true) { vm.open(context, ch) }
-            SmallButton(if (ch.id in favs) "★ Favorit" else "☆ Favorit", Modifier.weight(1f)) { vm.toggleFavorite(ch) }
-            val next = nn.firstOrNull { it.startMs > now }
-            SmallButton(if (next != null && next.startMs in reminders) "⏰ Aus" else "⏰ Erinnern", Modifier.weight(1f), enabled = next != null) {
-                if (next != null) vm.toggleReminder(ch, next)
             }
         }
     }
