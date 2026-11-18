@@ -116,6 +116,7 @@ enum class SettingsCategory(val label: String, val icon: androidx.compose.ui.gra
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     val repo: SettingsRepository,
+    val weather: de.ostlertekker.ultraiptv.core.weather.WeatherRepository,
     val device: DeviceCapabilityManager,
     private val sync: SyncRepository,
     private val creds: CredentialStore,
@@ -406,6 +407,17 @@ private fun LazyListScope.generalPage(vm: SettingsViewModel, s: AppSettings) {
                 vm.set(Keys.SLEEP_TIMER, cycle(listOf(0, 15, 30, 45, 60, 90, 120), s.sleepTimerMin.takeIf { it in listOf(0, 15, 30, 45, 60, 90, 120) } ?: 0))
             }
             SSwitch("Menü-Töne", s.uiSounds) { vm.set(Keys.UI_SOUNDS, it) }
+            SHeader("Wetter")
+            var place by remember { mutableStateOf(s.weatherPlace.substringBefore(",")) }
+            var msg by remember { mutableStateOf<String?>(null) }
+            TvTextField(place, { place = it }, "Ort (z. B. Berlin oder 10115) – leer = kein Wetter",
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
+            SRow("Ort speichern", msg ?: s.weatherPlace.ifBlank { "Kein Ort – Wetter ausgeblendet" }) {
+                msg = "Suche …"
+                vm.viewModelScope.launch {
+                    msg = vm.weather.setPlace(place).fold({ if (it.isBlank()) "Wetter ausgeblendet" else "✓ $it" }, { it.message ?: "Fehler" })
+                }
+            }
             SRow("Erscheinungsbild zurücksetzen", "Design, Farben und Größen auf Standard") { vm.resetAppearance() }
         }
     }

@@ -640,7 +640,7 @@ fun initialsOf(name: String): String {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TopNavBar(items: List<NavItem>, utility: List<NavItem>, selectedRoute: String, onSelect: (String) -> Unit, firstFocus: FocusRequester,
-              modifier: Modifier = Modifier) {
+              modifier: Modifier = Modifier, weather: String? = null) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
     Row(
@@ -665,6 +665,9 @@ fun TopNavBar(items: List<NavItem>, utility: List<NavItem>, selectedRoute: Strin
                 if (item.icon != null) TopNavIconPill(item.icon, item.label, item.route == selectedRoute) { onSelect(item.route) }
                 else TopNavPill(item.label, item.route == selectedRoute, { onSelect(item.route) }, null)
             }
+            // Wetter klein neben der Uhr (z. B. „☀️ 7°“)
+            if (weather != null) Text(weather, color = p.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false,
+                modifier = Modifier.padding(start = 10.dp))
             if (de.ostlertekker.ultraiptv.core.design.LocalUiPrefs.current.menuClock) RailClock(Modifier.padding(start = 8.dp), small = true)
         }
     }

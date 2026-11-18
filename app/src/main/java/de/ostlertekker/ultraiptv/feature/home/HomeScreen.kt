@@ -97,7 +97,9 @@ class HomeViewModel @Inject constructor(
     private val dao: ContentDao,
     notifications: NotificationCenter,
     private val discover: de.ostlertekker.ultraiptv.core.discover.DiscoverRepository,
+    weatherRepo: de.ostlertekker.ultraiptv.core.weather.WeatherRepository,
 ) : ViewModel() {
+    val weather = weatherRepo.weather
     /** Live-Highlights (läuft jetzt, Lieblingssender zuerst) und Sport-Highlights – echte EPG-Daten, alle 5 Minuten neu. */
     val liveHighlights = MutableStateFlow<List<de.ostlertekker.ultraiptv.core.database.AiringProgram>>(emptyList())
     val sportHighlights = MutableStateFlow<List<de.ostlertekker.ultraiptv.core.database.AiringProgram>>(emptyList())
@@ -211,6 +213,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
     val liveHi by vm.liveHighlights.collectAsStateWithLifecycle()
     val sportHi by vm.sportHighlights.collectAsStateWithLifecycle()
     val unread by vm.unread.collectAsStateWithLifecycle()
+    val weather by vm.weather.collectAsStateWithLifecycle()
     val latestNotification by vm.latestNotification.collectAsStateWithLifecycle()
     val sync by vm.syncState.collectAsStateWithLifecycle()
     val channelCount by vm.channelCount.collectAsStateWithLifecycle()
@@ -280,6 +283,8 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
                 }
             }
         } else item(key = "top_space") { Spacer(Modifier.height(100.dp)) }
+        // Schmale Wetterleiste unter dem Titelbild (Ort in den Einstellungen › Allgemein)
+        weather?.let { w -> item(key = "weather") { WeatherStrip(w) } }
         val pad = Modifier.padding(horizontal = 48.dp)
         val note = latestNotification
         if (note != null) item(key = "note") {
@@ -402,6 +407,29 @@ private fun ChannelRow(title: String, channels: List<ChannelEntity>, onClick: (C
     LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
         itemsIndexed(channels, key = { _, c -> c.id }, contentType = { _, _ -> "channel" }) { i, c ->
             FocusCard(c.name, c.logo, 240.dp, 135.dp, onClick = { onClick(c) }, entranceIndex = i, subtitle = c.category, contentScale = ContentScale.Fit)
+        }
+    }
+}
+
+@Composable
+private fun WeatherStrip(w: de.ostlertekker.ultraiptv.core.weather.Weather) {
+    val p = LocalUltraTheme.current.palette
+    Row(Modifier.padding(horizontal = 48.dp, vertical = 6.dp).fillMaxWidth()
+        .background(Color.White.copy(alpha = 0.06f), RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+        Text("${w.icon}  ${w.temp}°", color = p.text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Column {
+            Text("${w.place} · ${w.text}", color = p.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text(listOfNotNull(w.feels?.let { "gefühlt $it°" }, if (w.todayMax != null && w.todayMin != null) "heute ${w.todayMax}° / ${w.todayMin}°" else null,
+                w.rainPct?.let { "Regen $it %" }, w.wind?.let { "Wind $it km/h" }, w.humidity?.let { "Luftfeuchte $it %" }).joinToString("  ·  "),
+                color = p.textDim, fontSize = 12.sp, maxLines = 1)
+        }
+        Spacer(Modifier.weight(1f))
+        w.days.take(3).forEach { d ->
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(d.label, color = p.textDim, fontSize = 12.sp)
+                Text("${de.ostlertekker.ultraiptv.core.weather.WeatherCodes.icon(d.code)} ${d.max}° / ${d.min}°", color = p.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
         }
     }
 }

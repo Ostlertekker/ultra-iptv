@@ -56,6 +56,10 @@ data class AppSettings(
     val outroMode: OutroMode = OutroMode.FULL,
     val upscalingRequested: Boolean = false,
     val epgUrlOverride: String = "",
+    /** Wetter: Ort (Anzeigename) und Koordinaten aus der Ortssuche. */
+    val weatherPlace: String = "",
+    val weatherLat: String = "",
+    val weatherLon: String = "",
     val epgRefreshHours: Int = 12,
     val epgOffsetHours: Int = 0,
     val epgDays: Int = 2,
@@ -161,6 +165,9 @@ object Keys {
     val OUTRO_MODE = stringPreferencesKey("outro_mode")
     val UPSCALING = booleanPreferencesKey("upscaling")
     val EPG_URL = stringPreferencesKey("epg_url")
+    val WEATHER_PLACE = stringPreferencesKey("weather_place")
+    val WEATHER_LAT = stringPreferencesKey("weather_lat")
+    val WEATHER_LON = stringPreferencesKey("weather_lon")
     val EPG_REFRESH = intPreferencesKey("epg_refresh")
     val EPG_OFFSET = intPreferencesKey("epg_offset")
     val EPG_DAYS = intPreferencesKey("epg_days")
@@ -260,6 +267,9 @@ fun Preferences.toSettings(): AppSettings {
         outroMode = enumOr(this[Keys.OUTRO_MODE], d.outroMode),
         upscalingRequested = this[Keys.UPSCALING] ?: d.upscalingRequested,
         epgUrlOverride = this[Keys.EPG_URL] ?: d.epgUrlOverride,
+        weatherPlace = this[Keys.WEATHER_PLACE] ?: "",
+        weatherLat = this[Keys.WEATHER_LAT] ?: "",
+        weatherLon = this[Keys.WEATHER_LON] ?: "",
         epgRefreshHours = this[Keys.EPG_REFRESH] ?: d.epgRefreshHours,
         epgOffsetHours = this[Keys.EPG_OFFSET] ?: d.epgOffsetHours,
         epgDays = this[Keys.EPG_DAYS] ?: d.epgDays,
