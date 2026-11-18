@@ -107,7 +107,25 @@ class HomeViewModel @Inject constructor(
     private val discover: de.ostlertekker.ultraiptv.core.discover.DiscoverRepository,
     weatherRepo: de.ostlertekker.ultraiptv.core.weather.WeatherRepository,
     newsRepo: de.ostlertekker.ultraiptv.core.news.NewsRepository,
+    private val sportsRepo: de.ostlertekker.ultraiptv.core.discover.SportsRepository,
 ) : ViewModel() {
+    /** Sport-Ticker: laufende Spiele, heute beendete und bald beginnende – jede Minute neu, wenn etwas läuft, sonst alle 5 Minuten. */
+    val sportTicker = MutableStateFlow<List<de.ostlertekker.ultraiptv.core.discover.ScoreEvent>>(emptyList())
+    init {
+        viewModelScope.launch {
+            while (true) {
+                val b = runCatching { sportsRepo.scoreboard(de.ostlertekker.ultraiptv.core.discover.League.entries) }.getOrNull()
+                if (b != null) {
+                    val now = System.currentTimeMillis(); val h = 3_600_000L
+                    sportTicker.value = b.events.filter { e ->
+                        e.live || (e.state == "post" && e.startMs > now - 8 * h) || (e.state == "pre" && e.startMs in now..now + 6 * h)
+                    }.sortedWith(compareBy({ when { it.live -> 0; it.state == "pre" -> 1; else -> 2 } }, { if (it.state == "post") -it.startMs else it.startMs }))
+                        .take(30)
+                }
+                delay(if (sportTicker.value.any { it.live }) 60_000L else 5 * 60_000L)
+            }
+        }
+    }
     val weather = weatherRepo.weather
     val news = newsRepo.items
     /** Live-Highlights (läuft jetzt, Lieblingssender zuerst) und Sport-Highlights – echte EPG-Daten, alle 5 Minuten neu. */
@@ -225,6 +243,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
     val unread by vm.unread.collectAsStateWithLifecycle()
     val weather by vm.weather.collectAsStateWithLifecycle()
     val news by vm.news.collectAsStateWithLifecycle()
+    val sportTicker by vm.sportTicker.collectAsStateWithLifecycle()
     val latestNotification by vm.latestNotification.collectAsStateWithLifecycle()
     val sync by vm.syncState.collectAsStateWithLifecycle()
     val channelCount by vm.channelCount.collectAsStateWithLifecycle()
@@ -302,6 +321,8 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
         weather?.let { w -> item(key = "weather") { WeatherStrip(w) } }
         // Dezente Nachrichten-Laufschrift (Quelle in den Einstellungen › Allgemein)
         if (news.isNotEmpty()) item(key = "news") { NewsTicker(news) }
+        // Schmaler Sport-Ticker mit Live-Ergebnissen (ersetzt den früheren Menüpunkt „Sport“)
+        if (sportTicker.isNotEmpty()) item(key = "sportticker") { SportTicker(sportTicker) }
         val pad = Modifier.padding(horizontal = 48.dp)
         val note = latestNotification
         if (note != null) item(key = "note") {
@@ -464,9 +485,41 @@ private fun SmoothMarquee(text: androidx.compose.ui.text.AnnotatedString, modifi
     }
 }
 
+@Composable
+private fun SportTicker(events: List<de.ostlertekker.ultraiptv.core.discover.ScoreEvent>) {
+    val p = LocalUltraTheme.current.palette
+    val green = Color(0xFF16A34A)
+    val red = Color(0xFFD7262E)
+    val fmt = remember { java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMAN) }
+    val text = remember(events) {
+        androidx.compose.ui.text.buildAnnotatedString {
+            events.forEachIndexed { i, e ->
+                if (i > 0) withStyle(androidx.compose.ui.text.SpanStyle(color = green, fontWeight = FontWeight.Bold)) { append("   ▪   ") }
+                when {
+                    e.live -> withStyle(androidx.compose.ui.text.SpanStyle(color = Color.White, background = red, fontWeight = FontWeight.Bold, fontSize = 11.sp)) {
+                        append(" LIVE" + (e.clock?.takeIf { it.isNotBlank() }?.let { " $it" } ?: "") + " ")
+                    }
+                    e.state == "post" -> withStyle(androidx.compose.ui.text.SpanStyle(color = p.textDim, fontWeight = FontWeight.Bold, fontSize = 12.sp)) { append("ENDE") }
+                    else -> withStyle(androidx.compose.ui.text.SpanStyle(color = green, fontWeight = FontWeight.Bold, fontSize = 12.sp)) { append(fmt.format(java.util.Date(e.startMs))) }
+                }
+                withStyle(androidx.compose.ui.text.SpanStyle(color = p.textDim, fontSize = 12.sp)) { append("  ${e.league.label}  ") }
+                withStyle(androidx.compose.ui.text.SpanStyle(color = p.text, fontWeight = if (e.live) FontWeight.SemiBold else FontWeight.Normal)) {
+                    append(if (e.state == "pre" && e.league.sport != de.ostlertekker.ultraiptv.core.discover.Sport.TENNIS && e.competitors.size == 2)
+                        e.competitors.joinToString(" – ") { it.name } else e.scoreLine)
+                }
+            }
+        }
+    }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 8.dp).height(26.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        NewsBadge(green, "SPORT")
+        SmoothMarquee(text, Modifier.weight(1f).padding(start = 12.dp, end = 8.dp))
+    }
+}
+
 /** Rotes „NEWS“-Kästchen: pulsierender Live-Punkt und ein langsam darüberlaufender Lichtschimmer. */
 @Composable
-private fun NewsBadge(red: Color) {
+private fun NewsBadge(red: Color, label: String = "NEWS") {
     val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "news")
     val pulse by t.animateFloat(0.25f, 1f, androidx.compose.animation.core.infiniteRepeatable(
         androidx.compose.animation.core.tween(800), androidx.compose.animation.core.RepeatMode.Reverse), label = "pulse")
@@ -483,7 +536,7 @@ private fun NewsBadge(red: Color) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(7.dp).graphicsLayer { alpha = pulse; scaleX = 0.8f + 0.2f * pulse; scaleY = scaleX }
                 .background(Color.White, androidx.compose.foundation.shape.CircleShape))
-            Text("NEWS", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp,
+            Text(label, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp,
                 modifier = Modifier.padding(start = 6.dp))
         }
     }

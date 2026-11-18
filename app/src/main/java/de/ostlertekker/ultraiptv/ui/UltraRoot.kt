@@ -179,7 +179,7 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
     val items = remember {
         listOf(
             NavItem(Routes.HOME, "Start"), NavItem(Routes.LIVE, "Live-TV"), NavItem(Routes.MOVIES, "Filme"),
-            NavItem(Routes.SERIES, "Serien"), NavItem(Routes.SPORTS, "Sport"), NavItem(Routes.RADIO, "Radio"), NavItem(Routes.JELLYFIN, "Jellyfin"), NavItem("app:YOUTUBE", "YouTube"),
+            NavItem(Routes.SERIES, "Serien"), NavItem(Routes.RADIO, "Radio"), NavItem(Routes.JELLYFIN, "Jellyfin"), NavItem("app:YOUTUBE", "YouTube"),
             NavItem(Routes.EXPLORE, "Mehr"),
         )
     }
