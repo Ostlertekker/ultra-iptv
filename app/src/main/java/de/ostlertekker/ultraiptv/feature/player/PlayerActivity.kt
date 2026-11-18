@@ -17,6 +17,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import de.ostlertekker.ultraiptv.openPlayer
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -42,6 +45,7 @@ class PlayerActivity : ComponentActivity() {
     private val vm: PlayerViewModel by viewModels()
     @Inject lateinit var device: DeviceCapabilityManager
     @Inject lateinit var settingsRepo: SettingsRepository
+    @Inject lateinit var notifications: de.ostlertekker.ultraiptv.core.notify.NotificationCenter
     private var originalModeId = 0
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private val inPip = mutableStateOf(false)
@@ -58,12 +62,24 @@ class PlayerActivity : ComponentActivity() {
             val s = settings
             if (s == null) Box(Modifier.fillMaxSize().background(Color.Black))
             else UltraThemeHost(s, device.tier, null) {
-                PlayerScreen(
-                    vm = vm, settings = s, inPip = inPip.value, pipSupported = pipSupported,
-                    onExit = { finish() },
-                    onPip = { enterPip() },
-                    onMini = { vm.toMini(); finish() },
-                )
+                val reminder by notifications.popup.collectAsStateWithLifecycle()
+                Box(Modifier.fillMaxSize()) {
+                    PlayerScreen(
+                        vm = vm, settings = s, inPip = inPip.value, pipSupported = pipSupported,
+                        onExit = { finish() },
+                        onPip = { enterPip() },
+                        onMini = { vm.toMini(); finish() },
+                        popupActive = reminder != null && !inPip.value,
+                    )
+                    // Programm-Erinnerung auch im Vollbild-Player (oben links, 30 s)
+                    if (!inPip.value) de.ostlertekker.ultraiptv.core.notify.ReminderPopup(reminder,
+                        Modifier.align(androidx.compose.ui.Alignment.TopStart).padding(start = 28.dp, top = 24.dp),
+                        onDismiss = { notifications.popup.value = null }) { rem ->
+                        notifications.popup.value = null
+                        if (vm.isLive) vm.playChannelById(rem.channelId)
+                        else { openPlayer(de.ostlertekker.ultraiptv.core.model.ContentKind.LIVE, rem.channelId); finish() }
+                    }
+                }
             }
         }
         lifecycleScope.launch {

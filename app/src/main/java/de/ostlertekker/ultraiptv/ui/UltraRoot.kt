@@ -325,43 +325,12 @@ private fun CrashReportDialog() {
     }
 }
 
-/** Programm-Erinnerung: 2 Minuten vor Beginn oben links, 30 Sekunden lang, mit Knopf zum Sender. */
 @Composable
 private fun ReminderPopup(vm: RootViewModel, modifier: Modifier) {
     val r by vm.reminderPopup.collectAsStateWithLifecycle()
-    val rem = r ?: return
     val context = androidx.compose.ui.platform.LocalContext.current
-    val pal = de.ostlertekker.ultraiptv.core.design.LocalUltraTheme.current.palette
-    val focus = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
-    var left by androidx.compose.runtime.remember(rem.id) { androidx.compose.runtime.mutableIntStateOf(30) }
-    androidx.compose.runtime.LaunchedEffect(rem.id) {
-        // Veraltet (App war im Hintergrund und die Sendung läuft schon länger) → nicht mehr anzeigen
-        if (System.currentTimeMillis() > rem.startMs + 5 * 60_000L) { vm.dismissReminder(); return@LaunchedEffect }
-        kotlinx.coroutines.delay(200); runCatching { focus.requestFocus() }
-        while (left > 0) { kotlinx.coroutines.delay(1000); left-- }
+    de.ostlertekker.ultraiptv.core.notify.ReminderPopup(r, modifier, onDismiss = { vm.dismissReminder() }) { rem ->
         vm.dismissReminder()
-    }
-    androidx.activity.compose.BackHandler { vm.dismissReminder() }
-    val time = java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMAN).format(java.util.Date(rem.startMs))
-    val shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp)
-    androidx.compose.foundation.layout.Column(modifier.width(440.dp)
-        .background(pal.surface.copy(alpha = 0.97f), shape)
-        .border(2.dp, pal.primary.copy(alpha = 0.7f), shape).padding(16.dp)) {
-        androidx.compose.material3.Text("⏰  Erinnerung · beginnt um $time", color = pal.primary, fontSize = 13.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-        androidx.compose.material3.Text(rem.title, color = pal.text, fontSize = 20.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, maxLines = 2,
-            modifier = Modifier.padding(top = 4.dp))
-        androidx.compose.material3.Text(rem.channelName, color = pal.textDim, fontSize = 14.sp, maxLines = 1)
-        androidx.compose.foundation.layout.Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            de.ostlertekker.ultraiptv.core.ui.TvButton("Zum Sender", onClick = {
-                vm.dismissReminder()
-                context.openPlayer(de.ostlertekker.ultraiptv.core.model.ContentKind.LIVE, rem.channelId)
-            }, primary = true, focusRequester = focus)
-            androidx.compose.foundation.layout.Spacer(Modifier.width(10.dp))
-            de.ostlertekker.ultraiptv.core.ui.TvButton("Schließen", onClick = { vm.dismissReminder() })
-            androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
-            androidx.compose.material3.Text("${left}s", color = pal.textDim, fontSize = 13.sp)
-        }
-        androidx.compose.material3.LinearProgressIndicator(progress = { left / 30f }, modifier = Modifier.fillMaxWidth().padding(top = 10.dp).height(3.dp),
-            color = pal.primary, trackColor = pal.surfaceFocused)
+        context.openPlayer(de.ostlertekker.ultraiptv.core.model.ContentKind.LIVE, rem.channelId)
     }
 }

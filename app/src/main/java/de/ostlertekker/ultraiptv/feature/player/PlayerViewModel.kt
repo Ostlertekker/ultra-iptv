@@ -718,6 +718,13 @@ class PlayerViewModel @Inject constructor(
     /** Zuletzt gesehener Sender (Zurück-Taste im Live-TV / „Letzter Sender“). */
     private var previousIndex = -1
     fun lastChannel() { if (previousIndex in channels.indices && previousIndex != channelIndex) playChannelAt(previousIndex) }
+    val isLive: Boolean get() = kind == ContentKind.LIVE
+    /** Wechselt im laufenden Live-Player zu einem bestimmten Sender (z. B. aus einer Erinnerung). */
+    fun playChannelById(id: String) {
+        val i = channels.indexOfFirst { it.id == id }
+        if (i >= 0) { playChannelAt(i); return }
+        viewModelScope.launch { content.channel(id)?.let { playChannel(it) } }
+    }
     fun playChannelAt(index: Int) { if (index in channels.indices) { previousIndex = channelIndex; channelIndex = index; playChannel(channels[index]) } }
 
     fun setResize(mode: Int) = _ui.update { it.copy(resizeMode = mode) }

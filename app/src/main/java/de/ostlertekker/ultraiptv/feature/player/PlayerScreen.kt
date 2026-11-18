@@ -107,6 +107,7 @@ fun PlayerScreen(
     onExit: () -> Unit,
     onPip: () -> Boolean,
     onMini: () -> Unit,
+    popupActive: Boolean = false,
 ) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
@@ -140,7 +141,9 @@ fun PlayerScreen(
     LaunchedEffect(overlay, interaction, panel) {
         if (overlay && panel == null) { delay(settings.osdSeconds.coerceIn(2, 30) * 1000L); overlay = false }
     }
-    LaunchedEffect(overlay, panel, ui.countdown != null) {
+    LaunchedEffect(overlay, panel, ui.countdown != null, popupActive) {
+        // Eine Erinnerungs-Einblendung hat den Fokus → nicht wegnehmen
+        if (popupActive) return@LaunchedEffect
         delay(60)
         runCatching {
             when {
