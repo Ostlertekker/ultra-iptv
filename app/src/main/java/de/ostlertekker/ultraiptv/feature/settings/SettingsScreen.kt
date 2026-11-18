@@ -118,6 +118,7 @@ class SettingsViewModel @Inject constructor(
     val repo: SettingsRepository,
     val weather: de.ostlertekker.ultraiptv.core.weather.WeatherRepository,
     val news: de.ostlertekker.ultraiptv.core.news.NewsRepository,
+    val stocks: de.ostlertekker.ultraiptv.core.stocks.StocksRepository,
     val device: DeviceCapabilityManager,
     private val sync: SyncRepository,
     private val creds: CredentialStore,
@@ -486,6 +487,7 @@ private fun errorEntries(context: android.content.Context, vm: SettingsViewModel
         g.lastFreeze(context)?.let { "HÄNGER" to it },
         vm.weather.lastError?.let { "WETTER" to it },
         vm.news.lastError?.let { "NACHRICHTEN" to it },
+        vm.stocks.lastError?.let { "BÖRSE" to it },
         st.lastError?.let { "LETZTER WIEDERGABEFEHLER" to (it + "\nFehler / Wiederherstellungen in der Sitzung: ${st.errors} / ${st.recoveries}") },
     )
 }
