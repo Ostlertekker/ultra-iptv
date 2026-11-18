@@ -255,7 +255,7 @@ fun SeriesDetailScreen(nav: NavController, vm: SeriesDetailViewModel = hiltViewM
     }
 
     Box(Modifier.fillMaxSize()) {
-        AsyncImage(series.backdrop ?: series.poster, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), alpha = 0.7f)
+        de.ostlertekker.ultraiptv.core.ui.PosterBackdrop(series.backdrop, series.poster, Modifier.fillMaxSize(), showPoster = false, alpha = 0.7f)
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.95f), 0.55f to Color.Black.copy(alpha = 0.7f), 1f to Color.Black.copy(alpha = 0.25f))))
         Column(Modifier.fillMaxSize().padding(32.dp)) {
             Text(series.name, color = p.text, fontSize = 34.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily)

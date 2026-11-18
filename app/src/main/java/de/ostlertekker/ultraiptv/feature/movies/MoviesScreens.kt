@@ -250,7 +250,8 @@ fun MovieDetailScreen(nav: NavController, vm: MovieDetailViewModel = hiltViewMod
     }
 
     Box(Modifier.fillMaxSize()) {
-        AsyncImage(m.backdrop ?: m.poster, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), alpha = 0.75f)
+        // Kein Szenenbild: Poster unscharf als Hintergrund (scharf steht es ohnehin links)
+        de.ostlertekker.ultraiptv.core.ui.PosterBackdrop(m.backdrop, m.poster, Modifier.fillMaxSize(), showPoster = false, alpha = 0.75f)
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.95f), 0.55f to Color.Black.copy(alpha = 0.65f), 1f to Color.Black.copy(alpha = 0.2f))))
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.6f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.85f))))
         // Inhalt und „Ähnliche Titel“ untereinander statt übereinander gelegt: Die Beschreibung kürzt sich bei Platzmangel,

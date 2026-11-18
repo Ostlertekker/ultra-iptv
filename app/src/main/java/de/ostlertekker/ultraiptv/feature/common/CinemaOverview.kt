@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.feature.common
 
+import androidx.compose.ui.draw.clip
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -80,8 +81,8 @@ fun CinemaOverview(
             Box(Modifier.padding(horizontal = 36.dp).fillMaxWidth().height(heroHeight)
                 .background(Color.Black, RoundedCornerShape(18.dp))) {
                 Crossfade(hero, animationSpec = tween(500), label = "cinemaHero") { h ->
-                    AsyncImage(h.backdrop ?: h.image, null, contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize().background(Color.Black, RoundedCornerShape(18.dp)))
+                    de.ostlertekker.ultraiptv.core.ui.PosterBackdrop(h.backdrop, h.image,
+                        Modifier.fillMaxSize().clip(RoundedCornerShape(18.dp)).background(Color.Black, RoundedCornerShape(18.dp)), posterPadding = 20.dp)
                 }
                 Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.85f), 0.6f to Color.Black.copy(alpha = 0.2f), 1f to Color.Transparent)))
                 Column(Modifier.align(Alignment.BottomStart).padding(28.dp).width(520.dp)) {

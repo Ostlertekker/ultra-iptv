@@ -246,7 +246,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
         if (hero != null) item(key = "hero") {
             Box(Modifier.fillMaxWidth().height(heroHeight)) {
                 androidx.compose.animation.Crossfade(hero, animationSpec = androidx.compose.animation.core.tween(600), label = "hero") { h ->
-                    AsyncImage(h.backdrop ?: h.poster, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    de.ostlertekker.ultraiptv.core.ui.PosterBackdrop(h.backdrop, h.poster, Modifier.fillMaxSize(), posterPadding = 40.dp)
                 }
                 Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.82f), 0.55f to Color.Black.copy(alpha = 0.25f), 1f to Color.Transparent)))
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.55f to Color.Transparent, 1f to p.bgBottom)))
