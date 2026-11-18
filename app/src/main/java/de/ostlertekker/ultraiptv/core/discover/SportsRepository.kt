@@ -56,8 +56,6 @@ data class ScoreEvent(
     val clock: String?,
     val competitors: List<ScoreCompetitor>,
     val venue: String?,
-    /** Übertragende Sender laut ESPN (meist US, teils international). */
-    val broadcasters: List<String> = emptyList(),
 ) {
     val live get() = state == "in"
     val scoreLine: String get() = if (competitors.size == 2 && competitors.all { it.score != null }) {
@@ -164,8 +162,6 @@ class SportsRepository @Inject constructor(http: OkHttpClient) {
                     clock = status?.s("displayClock"),
                     competitors = competitors,
                     venue = comp.obj("venue")?.s("fullName"),
-                    broadcasters = (comp.arr("broadcasts").flatMap { b -> (b as? JsonObject)?.arr("names")?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }.orEmpty() } +
-                        comp.arr("geoBroadcasts").mapNotNull { g -> (g as? JsonObject)?.obj("media")?.s("shortName") }).distinct(),
                 )
             }
         }

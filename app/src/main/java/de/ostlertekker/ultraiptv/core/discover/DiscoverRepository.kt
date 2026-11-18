@@ -86,11 +86,6 @@ data class WatchStats(
  */
 @Singleton
 @OptIn(ExperimentalCoroutinesApi::class)
-/** Ein Sender-Vorschlag für ein Spiel: woher er stammt und wie sicher er ist. */
-data class TvHit(val program: AiringProgram, val source: Source, val country: String?, val score: Int) {
-    enum class Source(val label: String) { VERY("sehr wahrscheinlich"), LIKELY("wahrscheinlich"), POSSIBLE("möglich") }
-}
-
 class DiscoverRepository @Inject constructor(
     private val epg: EpgDao,
     private val content: ContentDao,
@@ -107,107 +102,6 @@ class DiscoverRepository @Inject constructor(
 
     suspend fun search(q: String, from: Long, to: Long, limit: Int = 300): List<AiringProgram> = withContext(Dispatchers.IO) {
         if (q.isBlank()) emptyList() else epg.searchPrograms(q.trim(), from, to, adult(), limit)
-    }
-
-    /**
-     * „Wo läuft das im TV?“ für ein Spiel aus den Live-Spielständen. Drei Quellen, zusammengeführt:
-     * 1. Rechte-Tabelle ([TvRights]) + ESPN-Senderangaben → Sender der Playlist per Namensabgleich (Länderpräfix beachtet)
-     * 2. TV-Programm-Scan aller Sender: Team-/Spielernamen (mehrsprachig) + Wettbewerb + Sportart
-     * 3. Bestätigung: Rechteinhaber-Sender, deren aktuelles Programm zum Spiel passt, stehen ganz oben
-     */
-    suspend fun whereOnTv(e: ScoreEvent): List<TvHit> = withContext(Dispatchers.IO) {
-        val now = System.currentTimeMillis()
-        val (from, to) = when (e.state) {
-            "in" -> now to now + 60_000L
-            "post" -> e.startMs to e.startMs + 3 * 3_600_000L
-            else -> (e.startMs - 45 * 60_000L) to (e.startMs + 30 * 60_000L)
-        }
-        val programs = epg.window(from, to, adult(), 60_000)
-        val sport = e.league.sport
-        val football = sport == Sport.FOOTBALL || sport == Sport.CHAMPIONS
-        val teams = when (sport) {
-            Sport.F1 -> emptyList()
-            Sport.TENNIS -> e.competitors.map { c -> TvMatch.surname(c.name) }.filter { it.isNotEmpty() }
-            else -> e.competitors.map { c -> TvMatch.tokens(listOfNotNull(c.name, c.short)) }.filter { it.isNotEmpty() }
-        }
-        val leagueKw = TvMatch.leagueKeywords(e.league)
-        fun matchScore(p: AiringProgram): Int {
-            val raw = p.title + " " + (p.description ?: "")
-            val text = TvMatch.norm(raw)
-            val detected = Sport.detect(raw)
-            if (detected != null && detected != sport && !(football && (detected == Sport.FOOTBALL || detected == Sport.CHAMPIONS))) return -1
-            val teamHits = teams.count { toks -> toks.any { TvMatch.containsWord(text, it) } }
-            val leagueHit = leagueKw.any { text.contains(it) }
-            val sportHit = detected != null
-            val ok = when (sport) {
-                Sport.F1 -> leagueHit
-                Sport.TENNIS -> teamHits >= 1 && (teamHits >= 2 || leagueHit || sportHit)
-                else -> teamHits >= 2 || (teamHits == 1 && (leagueHit || sportHit))
-            }
-            return if (!ok) 0 else teamHits * 10 + (if (leagueHit) 4 else 0) + (if (sportHit) 1 else 0)
-        }
-        val epgByChannel = programs.groupBy { it.channelId }
-
-        val allChannels = content.channelsAllOnce(adult(), 60_000)
-
-        // Wahrscheinlichkeit je Sender – weltweit: Rechteinhaber aller Länder (Land des Senders muss passen),
-        // Wettbewerb im Sendernamen, Hauptkanal, EPG (Teams > Wettbewerb > Sportart). Ausgegeben werden die 5 besten.
-        val holders = TvRights.holders(e.league).map { (c, b) -> c to ChannelCountry.brandKey(b) } +
-            e.broadcasters.map { "*" to ChannelCountry.brandKey(it) }
-        val countryOf = allChannels.associate { it.id to ChannelCountry.detect(it.name, it.category) }
-        val mainCountry = countryOf.values.filterNotNull().groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
-        val nameKw = (TvMatch.leagueKeywords(e.league) + when (e.league) {
-            League.F1 -> listOf(" f1 ", " formula ", " formel ")
-            League.PREMIER -> listOf(" premier ", " pl ")
-            League.SERIE_A -> listOf(" calcio ", " serie a ")
-            League.CHAMPIONS -> listOf(" champions ", " ucl ")
-            League.ATP, League.WTA -> listOf(" tennis ")
-            League.NBA -> listOf(" nba ")
-            League.BUNDESLIGA, League.BUNDESLIGA2 -> listOf(" bundesliga ")
-            League.LALIGA -> listOf(" laliga ", " la liga ")
-            else -> emptyList()
-        }).distinct()
-        fun current(chId: String) = epgByChannel[chId]?.firstOrNull { it.startMs <= maxOf(now, from) && it.endMs > maxOf(now, from) }
-            ?: epgByChannel[chId]?.firstOrNull()
-
-        val epgHitIds = programs.filter { matchScore(it) > 0 }.map { it.channelId }.toSet()
-        val hits = allChannels.mapNotNull { ch ->
-            val clean = ChannelCountry.cleanName(ch.name)
-            val country = countryOf[ch.id]
-            val right = holders.firstOrNull { (c, brand) ->
-                brand.length > 2 && ChannelCountry.matches(clean, brand) && (c == "*" || country == null || country == c)
-            }
-            if (right == null && ch.id !in epgHitIds) return@mapNotNull null
-            val cur = current(ch.id)
-            val epgScore = cur?.let { matchScore(it) } ?: 0
-            if (epgScore < 0) return@mapNotNull null // andere Sportart läuft
-            val curSport = cur?.let { Sport.detect(it.title + " " + (it.description ?: "")) }
-            if (cur != null && epgScore == 0 && curSport == null) return@mapNotNull null // Film/Show/Nachrichten laut EPG
-            var p = 0
-            if (right != null) p += 30 + (if (country != null && country == right.first) 10 else 0)
-            if (country != null && country == mainCountry) p += 5
-            if (nameKw.any { clean.contains(it) }) p += 20
-            val num = Regex("""\b(\d{1,2})\b""").find(clean)?.groupValues?.get(1)?.toIntOrNull()
-            p += when { num == null || num == 1 -> 4; num == 2 -> 2; else -> 0 }
-            p += when { epgScore >= 10 -> 50 + epgScore; epgScore > 0 -> 35; curSport != null -> 12; else -> 0 }
-            // Bildqualität: Full HD und HD bevorzugen
-            val q = " " + ch.name.lowercase().replace(Regex("[^a-z0-9]+"), " ") + " "
-            p += when {
-                q.contains(" fhd ") || q.contains(" full hd ") || q.contains(" fullhd ") || q.contains(" 1080p ") || q.contains(" 1080 ") -> 8
-                q.contains(" hd ") || q.contains(" 720p ") -> 6
-                q.contains(" uhd ") || q.contains(" 4k ") -> 2
-                q.contains(" sd ") || q.contains(" low ") -> -4
-                else -> 0
-            }
-            val level = when { epgScore >= 10 -> TvHit.Source.VERY; p >= 45 -> TvHit.Source.LIKELY; else -> TvHit.Source.POSSIBLE }
-            val prog = cur ?: AiringProgram(ch.id, ch.name, ch.logo, ch.category, ch.number, ch.archiveDays,
-                "${e.league.label} – Rechteinhaber", null, minOf(now, e.startMs), maxOf(now, e.startMs) + 3 * 3_600_000L)
-            TvHit(prog, level, right?.first?.let { if (it == "*") "ESPN" else it } ?: country, p)
-        }
-        // Gleicher Sender in mehreren Qualitäten → nur die beste Variante zeigen
-        hits.sortedWith(compareByDescending<TvHit> { it.score }.thenBy { it.program.number })
-            .distinctBy { (countryOf[it.program.channelId] ?: "") + ChannelCountry.cleanName(it.program.channelName) }
-            .take(5)
     }
 
     /** Sportereignisse im Zeitfenster (Live Event Tracker) – aus EPG-Titeln/Beschreibungen erkannt. */

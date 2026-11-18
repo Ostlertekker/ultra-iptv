@@ -221,30 +221,11 @@ private fun ScoreRow(e: ScoreEvent, selected: Boolean, onClick: () -> Unit) {
 @Composable
 private fun MatchPanel(e: ScoreEvent, d: de.ostlertekker.ultraiptv.core.discover.MatchDetail?, vm: DiscoverViewModel) {
     val pal = LocalUltraTheme.current.palette
-    val onTv by vm.onTv.collectAsStateWithLifecycle()
     val failed by vm.detailFailed.collectAsStateWithLifecycle()
-    val act = rememberProgramAction(vm)
-    // Sender sofort suchen, sobald ein Spiel gewählt wird
-    LaunchedEffect(e.id) { vm.findOnTv(e) }
     LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         item {
             Text(e.scoreLine, color = pal.text, fontSize = 20.sp, fontWeight = FontWeight.Black)
             Text(listOfNotNull(e.detail.takeIf { it.isNotBlank() }, e.clock?.takeIf { e.live }, e.venue).joinToString(" · "), color = pal.textDim, fontSize = 12.sp)
-        }
-        item { SectionHeader("Läuft im TV – die 5 wahrscheinlichsten Sender") }
-        run {
-            val list = onTv
-            if (list == null) item { Text("Suche im TV-Programm …", color = pal.textDim, fontSize = 12.sp) }
-            else if (list.isEmpty()) item {
-                Text("Kein passender Sender gefunden – weder ein Rechteinhaber in deiner Senderliste noch das Spiel im TV-Programm.",
-                    color = pal.textDim, fontSize = 12.sp)
-            } else {
-                val now = System.currentTimeMillis()
-                items(list, key = { "tv" + it.program.channelId }) { h ->
-                    val badge = h.source.label + (h.country?.let { " · $it" } ?: "")
-                    ProgramRow(h.program, now, badge, { act(h.program) })
-                }
-            }
         }
         if (d == null) item { Text(if (failed) "Für dieses Spiel liefert die Datenquelle keine weiteren Details." else "Lade Spieldetails …", color = pal.textDim, fontSize = 12.sp) }
         else {
