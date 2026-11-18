@@ -242,7 +242,9 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
     }
     val hero = heroes.getOrNull(heroIndex.coerceAtMost((heroes.size - 1).coerceAtLeast(0)))
     val heroHeight = (LocalConfiguration.current.screenHeightDp * 0.68f).dp
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 60.dp)) {
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 60.dp)) {
         if (hero != null) item(key = "hero") {
             Box(Modifier.fillMaxWidth().height(heroHeight)) {
                 androidx.compose.animation.Crossfade(hero, animationSpec = androidx.compose.animation.core.tween(600), label = "hero") { h ->
@@ -259,7 +261,12 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
                     if (meta.isNotBlank()) Text(meta, color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp, modifier = Modifier.padding(top = 6.dp))
                     if (!hero.plot.isNullOrBlank()) Text(hero.plot, color = Color.White.copy(alpha = 0.72f), fontSize = 15.sp, maxLines = 2,
                         overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
-                    Row(Modifier.padding(top = 18.dp).onFocusChanged { heroFocused = it.hasFocus }, horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    Row(Modifier.padding(top = 18.dp).onFocusChanged {
+                        heroFocused = it.hasFocus
+                        // Zurück nach oben: Titelbild immer komplett zeigen (sonst bleibt es oben abgeschnitten)
+                        if (it.hasFocus && (listState.firstVisibleItemIndex != 0 || listState.firstVisibleItemScrollOffset != 0))
+                            scope.launch { listState.animateScrollToItem(0) }
+                    }, horizontalArrangement = Arrangement.spacedBy(14.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         HeroButton("▶  Abspielen", primary = true, modifier = Modifier.contentEntry()) { context.openPlayer(ContentKind.MOVIE, hero.id) }
                         HeroButton("Details") { nav.navigate(Routes.movie(hero.id)) }
