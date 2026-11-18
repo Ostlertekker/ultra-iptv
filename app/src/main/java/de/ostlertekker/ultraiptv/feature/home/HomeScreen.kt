@@ -247,7 +247,11 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
     val heroHeight = (LocalConfiguration.current.screenHeightDp * 0.68f).dp
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 60.dp)) {
+    // Verlässt der Fokus die Startseite nach oben (Menüleiste), Liste ganz nach oben → Titelbild immer komplett sichtbar
+    LazyColumn(Modifier.fillMaxSize().onFocusChanged {
+        if (!it.hasFocus && (listState.firstVisibleItemIndex != 0 || listState.firstVisibleItemScrollOffset != 0))
+            scope.launch { listState.animateScrollToItem(0) }
+    }, state = listState, contentPadding = PaddingValues(bottom = 60.dp)) {
         if (hero != null) item(key = "hero") {
             Box(Modifier.fillMaxWidth().height(heroHeight)) {
                 androidx.compose.animation.Crossfade(hero, animationSpec = androidx.compose.animation.core.tween(600), label = "hero") { h ->
@@ -414,8 +418,8 @@ private fun ChannelRow(title: String, channels: List<ChannelEntity>, onClick: (C
 @Composable
 private fun WeatherStrip(w: de.ostlertekker.ultraiptv.core.weather.Weather) {
     val p = LocalUltraTheme.current.palette
-    Row(Modifier.padding(horizontal = 48.dp, vertical = 6.dp).fillMaxWidth()
-        .background(Color.White.copy(alpha = 0.06f), RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 8.dp),
+    // Transparent: nur Inhalt, kein Kasten
+    Row(Modifier.padding(horizontal = 48.dp, vertical = 6.dp).fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
         Text("${w.icon}  ${w.temp}°", color = p.text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         Column {
