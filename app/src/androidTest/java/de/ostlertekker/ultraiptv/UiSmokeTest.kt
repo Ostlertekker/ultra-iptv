@@ -319,16 +319,24 @@ class UiSmokeTest {
                 keys("$name Aktion", OK); Thread.sleep(4500); assertResponsive("$name Aktion")
                 if (name == "timemachine") shot("catchup_player")
                 if (name == "radio") { Thread.sleep(3000); shot("radio_wiedergabe") }
-                if (name == Routes.SPORTS) {
-                    // Gewähltes Spiel nochmals OK → Match-Center im Vollbild (nur wenn gerade Spiele laufen)
-                    keys("Match-Center öffnen", OK); Thread.sleep(6000); shot("match_center")
-                    keys("Match-Center Reiter", D, R, pauseMs = 600); Thread.sleep(1500); shot("match_center_reiter")
-                    keys("Match-Center Reiter 2", R, R, pauseMs = 600); Thread.sleep(1500); shot("match_center_reiter2")
-                    keys("Match-Center schließen", BACK); Thread.sleep(1500)
-                }
                 keys("$name zurück", BACK); Thread.sleep(1500)
                 keys("$name nach Zurück", D, U)
             }
+        }
+        finish()
+    }
+
+    @Test fun e_matchCenter() {
+        // Sport → zweites Live-Spiel wählen → OK nochmal = Match-Center im Vollbild, Reiter durchschalten
+        openRoute(Routes.SPORTS).use {
+            Thread.sleep(4000)
+            keys("Spiel wählen", D, D, OK, pauseMs = 700); Thread.sleep(2500); shot("sport_gewaehlt")
+            keys("Match-Center öffnen", OK); Thread.sleep(7000); shot("match_center")
+            keys("Reiter 2", R); Thread.sleep(2500); shot("match_center_reiter2")
+            keys("Reiter 3", R); Thread.sleep(2500); shot("match_center_reiter3")
+            keys("Inhalt + Reiter 4", D, R, pauseMs = 600); Thread.sleep(2500); shot("match_center_reiter4")
+            keys("Reiter 5", R); Thread.sleep(2500); shot("match_center_reiter5")
+            keys("Schließen", BACK); Thread.sleep(2000); assertResponsive("Match-Center geschlossen")
         }
         finish()
     }
