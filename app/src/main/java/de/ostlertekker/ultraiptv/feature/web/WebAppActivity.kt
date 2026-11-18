@@ -423,6 +423,15 @@ class CursorView(context: Context) : View(context) {
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
     private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK; style = Paint.Style.STROKE; strokeWidth = 3f }
     private val arrow = Path()
+    private var lastHover = 0L
+    private var hoverWeb: WebView? = null
+    // Letzte Position nachreichen, damit Hover-Menüs an der Endposition stimmen
+    private val hoverFlush = Runnable {
+        val w = hoverWeb ?: return@Runnable
+        val t = SystemClock.uptimeMillis(); lastHover = t
+        val ev = MotionEvent.obtain(t, t, MotionEvent.ACTION_HOVER_MOVE, x, y, 0).apply { source = android.view.InputDevice.SOURCE_MOUSE }
+        w.dispatchGenericMotionEvent(ev); ev.recycle()
+    }
 
     init { isFocusable = false; isClickable = false }
 
@@ -442,10 +451,17 @@ class CursorView(context: Context) : View(context) {
         if (y < margin) { web.dispatchWheel(this.x, margin, -1f); y = margin }
         if (y > height - margin) { web.dispatchWheel(this.x, height - margin, 1f); y = height - margin }
         x = x.coerceIn(margin, width - margin)
-        // Hover für Menüs/Tooltips
+        // Hover für Menüs/Tooltips – höchstens ca. 20× pro Sekunde (jedes Hover lässt die Seite Teile neu zeichnen)
         val t = SystemClock.uptimeMillis()
-        val ev = MotionEvent.obtain(t, t, MotionEvent.ACTION_HOVER_MOVE, x, y, 0).apply { source = android.view.InputDevice.SOURCE_MOUSE }
-        web.dispatchGenericMotionEvent(ev); ev.recycle()
+        if (t - lastHover >= 50) {
+            lastHover = t
+            val ev = MotionEvent.obtain(t, t, MotionEvent.ACTION_HOVER_MOVE, x, y, 0).apply { source = android.view.InputDevice.SOURCE_MOUSE }
+            web.dispatchGenericMotionEvent(ev); ev.recycle()
+        } else {
+            removeCallbacks(hoverFlush)
+            hoverWeb = web
+            postDelayed(hoverFlush, 60)
+        }
         invalidate()
     }
 
@@ -625,6 +641,8 @@ var CSS='html,body{background:#0b0f14 !important}'+
  '*{scroll-behavior:auto !important}::-webkit-scrollbar{width:0 !important;height:0 !important}'+
  '*,*::before,*::after{animation-duration:1ms !important;animation-delay:0s !important;animation-iteration-count:1 !important;transition-duration:1ms !important;transition-delay:0s !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;will-change:auto !important}'+
  '*:not(.ultra-focus){box-shadow:none !important}'+
+ // Rechte Seitenleiste (Aktuelle Wiedergabe / Freundesaktivität) ausblenden – ständig aktiv, viele Elemente
+ '.Root__right-sidebar,[data-testid=buddy-feed],[data-testid=now-playing-view],aside[aria-label*="Now playing"],aside[aria-label*="Aktuelle Wiedergabe"],aside[aria-label*="Friend"],aside[aria-label*="Freund"]{display:none !important}'+
  '[data-testid*=canvas] video,[class*=canvas] video,[data-testid*=Canvas] video{display:none !important}';
 function addCss(){ if(document.getElementById('ultra-tv-css')) return; var s=document.createElement('style'); s.id='ultra-tv-css'; s.textContent=CSS;
   (document.head||document.documentElement).appendChild(s); }
