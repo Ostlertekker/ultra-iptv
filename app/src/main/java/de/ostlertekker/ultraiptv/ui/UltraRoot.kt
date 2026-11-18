@@ -226,7 +226,7 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
         val videoActive = (mini != null || vm.engine.owner == "preview") && engineState == androidx.media3.common.Player.STATE_READY
         ThemeBackground(theme, Modifier.fillMaxSize(), animate = !videoActive, customImage = customBackground)
         // Startseite läuft wie bei Apple TV bis unter die Menüleiste, alle anderen Seiten beginnen darunter
-        val topPad = if (route == Routes.HOME) 0.dp else 66.dp
+        val topPad = 66.dp // wie bei Filme: Inhalte beginnen unter der Menüleiste (nichts rutscht beim Scrollen darunter)
         Box(Modifier.fillMaxSize().padding(top = topPad)) {
             PageTransitionHost(key = entry?.id, modifier = Modifier.fillMaxSize()) {
                 NavHost(nav, startDestination = Routes.HOME, enterTransition = { enter }, exitTransition = { exit },
