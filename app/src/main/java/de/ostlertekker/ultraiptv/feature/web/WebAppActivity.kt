@@ -148,11 +148,12 @@ class WebAppActivity : ComponentActivity() {
         root.addView(web, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         if (app.cursor || app == WebApp.SPOTIFY) {
             cursor = CursorView(this).also { root.addView(it, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)) }
-            cursorOn = app.cursor
+            // Spotify: Zeiger ist Standard; die zuletzt gewählte Bedienart (Menü-Taste) wird gemerkt
+            cursorOn = if (app == WebApp.SPOTIFY) getSharedPreferences("webapp", MODE_PRIVATE).getBoolean("spotify_cursor", true) else app.cursor
             cursor?.visibility = if (cursorOn) View.VISIBLE else View.GONE
         }
         hint = TextView(this).apply {
-            text = if (app == WebApp.SPOTIFY) "Spotify · Pfeiltasten: auswählen · OK: öffnen · ⏯ ⏮ ⏭: Wiedergabe · Menü-Taste: Zeiger an/aus · Zurück lang: zurück zu ULTRA IPTV"
+            text = if (app == WebApp.SPOTIFY) "Spotify · Pfeiltasten: Zeiger bewegen · OK: klicken · ⏯ ⏮ ⏭: Wiedergabe · Menü-Taste: Zeiger ↔ Pfeiltasten-Navigation · Zurück lang: zurück zu ULTRA IPTV"
                    else if (app.cursor) "${app.title} · Pfeiltasten: Zeiger · OK: klicken · ⏯: Wiedergabe · Zurück lang drücken: zurück zu ULTRA IPTV"
                    else "${app.title} · Zurück lang drücken: zurück zu ULTRA IPTV"
             setTextColor(Color.WHITE); textSize = 13f
@@ -357,8 +358,9 @@ class WebAppActivity : ComponentActivity() {
         if (app == WebApp.SPOTIFY && code == KeyEvent.KEYCODE_MENU) {
             if (event.action == KeyEvent.ACTION_UP) {
                 cursorOn = !cursorOn
+                getSharedPreferences("webapp", MODE_PRIVATE).edit().putBoolean("spotify_cursor", cursorOn).apply()
                 cursor?.visibility = if (cursorOn) View.VISIBLE else View.GONE
-                showHint(if (cursorOn) "Zeiger an – Pfeiltasten bewegen den Zeiger, OK klickt" else "Zeiger aus – Pfeiltasten wählen aus")
+                showHint(if (cursorOn) "Zeiger an – Pfeiltasten bewegen den Zeiger, OK klickt" else "Pfeiltasten-Navigation – Pfeiltasten springen zum nächsten Element")
             }
             return true
         }
