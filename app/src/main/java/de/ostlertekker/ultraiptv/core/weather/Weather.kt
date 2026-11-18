@@ -62,6 +62,8 @@ class WeatherRepository @Inject constructor(private val http: OkHttpClient, priv
     private val _weather = MutableStateFlow<Weather?>(null)
     val weather: StateFlow<Weather?> = _weather.asStateFlow()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    /** Letzter Fehler beim Wetterabruf (für Einstellungen › App-Updates › Fehlermeldungen). */
+    @Volatile var lastError: String? = null
 
     init {
         scope.launch {
@@ -70,7 +72,12 @@ class WeatherRepository @Inject constructor(private val http: OkHttpClient, priv
                 if (place.isBlank() || lat.isBlank()) return@collect
                 // Erst laden, dann alle 20 Minuten (collect wird bei Ortswechsel abgebrochen und neu gestartet)
                 kotlinx.coroutines.coroutineScope {
-                    launch { while (true) { runCatching { _weather.value = fetch(place, lat, lon) }; delay(20 * 60_000L) } }
+                    launch { while (true) {
+                        runCatching { fetch(place, lat, lon) }
+                            .onSuccess { _weather.value = it; lastError = null }
+                            .onFailure { lastError = "${java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMAN).format(java.util.Date())} $place: $it" }
+                        delay(if (lastError != null) 60_000L else 20 * 60_000L)
+                    } }
                 }
             }
         }
@@ -99,10 +106,16 @@ class WeatherRepository @Inject constructor(private val http: OkHttpClient, priv
         }
     }
 
-    private fun fetch(place: String, lat: String, lon: String): Weather {
-        val o = get("https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&timezone=auto&forecast_days=4" +
-            "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m" +
-            "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max")
+    private fun fetch(place: String, lat: String, lon: String): Weather =
+        WeatherParser.parse(get(WeatherParser.url(lat, lon)), place)
+}
+
+internal object WeatherParser {
+    fun url(lat: String, lon: String) = "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&timezone=auto&forecast_days=4" +
+        "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m" +
+        "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
+
+    fun parse(o: JsonObject, place: String): Weather {
         fun JsonObject.d(k: String) = (this[k] as? JsonPrimitive)?.doubleOrNull
         fun JsonObject.arr(k: String) = (this[k] as? JsonArray).orEmpty()
         val cur = o["current"] as JsonObject

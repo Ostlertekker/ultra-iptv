@@ -472,6 +472,7 @@ private fun errorEntries(context: android.content.Context, vm: SettingsViewModel
     return listOfNotNull(
         g.lastCrash(context)?.let { "ABSTURZ" to it },
         g.lastFreeze(context)?.let { "HÄNGER" to it },
+        vm.weather.lastError?.let { "WETTER" to it },
         st.lastError?.let { "LETZTER WIEDERGABEFEHLER" to (it + "\nFehler / Wiederherstellungen in der Sitzung: ${st.errors} / ${st.recoveries}") },
     )
 }
