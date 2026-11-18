@@ -16,6 +16,10 @@ import de.ostlertekker.ultraiptv.core.model.ContentKind
 import de.ostlertekker.ultraiptv.core.model.ProviderConfig
 import de.ostlertekker.ultraiptv.core.model.ProviderType
 import de.ostlertekker.ultraiptv.ui.Routes
+import de.ostlertekker.ultraiptv.core.discover.League
+import de.ostlertekker.ultraiptv.core.discover.ScoreCompetitor
+import de.ostlertekker.ultraiptv.core.discover.ScoreEvent
+import de.ostlertekker.ultraiptv.core.discover.SetScore
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.first
 import okhttp3.mockwebserver.Dispatcher
@@ -314,6 +318,21 @@ class UiSmokeTest {
             st.set(de.ostlertekker.ultraiptv.core.data.Keys.WEATHER_LON, "13.41053")
         }
         openRoute(Routes.HOME).use { Thread.sleep(9000); shot("wetter_start") }
+        finish()
+    }
+
+    @Test fun e_sportTicker() {
+        // Sport-Ticker mit zwei kurzen Tennis-Einträgen: Fotoserie, um das Durchlaufen zu prüfen
+        fun c(n: String, g: List<Int>) = ScoreCompetitor(n, null, null, null, null, false, null, g.map { SetScore(it, null) })
+        de.ostlertekker.ultraiptv.feature.home.HomeViewModel.testSportEvents = listOf(
+            ScoreEvent("t1", League.ATP, "Sinner – Alcaraz", System.currentTimeMillis(), "in", "", null, listOf(c("J. Sinner", listOf(6, 3)), c("C. Alcaraz", listOf(4, 2))), null),
+            ScoreEvent("t2", League.WTA, "Swiatek – Gauff", System.currentTimeMillis(), "in", "", null, listOf(c("I. Swiatek", listOf(2)), c("C. Gauff", listOf(5))), null),
+        )
+        openRoute(Routes.HOME).use {
+            Thread.sleep(2500)
+            repeat(14) { i -> shot("sportticker_%02d".format(i)); Thread.sleep(700) }
+        }
+        de.ostlertekker.ultraiptv.feature.home.HomeViewModel.testSportEvents = null
         finish()
     }
 

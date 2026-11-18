@@ -109,12 +109,18 @@ class HomeViewModel @Inject constructor(
     newsRepo: de.ostlertekker.ultraiptv.core.news.NewsRepository,
     private val sportsRepo: de.ostlertekker.ultraiptv.core.discover.SportsRepository,
 ) : ViewModel() {
+    companion object {
+        /** Nur für Bildschirmtests (androidTest): feste Spiele für den Sport-Ticker. */
+        @androidx.annotation.VisibleForTesting @Volatile var testSportEvents: List<de.ostlertekker.ultraiptv.core.discover.ScoreEvent>? = null
+    }
     /** Sport-Ticker: nur laufende Spiele, jede Minute neu. */
     val sportTicker = MutableStateFlow<List<de.ostlertekker.ultraiptv.core.discover.ScoreEvent>>(emptyList())
     init {
         viewModelScope.launch {
             while (true) {
-                val b = runCatching { sportsRepo.scoreboard(de.ostlertekker.ultraiptv.core.discover.League.entries, maxAgeMs = 0) }.getOrNull()
+                // Nur für Bildschirmtests: feste Beispielspiele statt Abruf
+                val b = testSportEvents?.let { de.ostlertekker.ultraiptv.core.discover.ScoreBoard(it, System.currentTimeMillis(), emptyList()) }
+                    ?: runCatching { sportsRepo.scoreboard(de.ostlertekker.ultraiptv.core.discover.League.entries, maxAgeMs = 0) }.getOrNull()
                 if (b != null) {
                     // Nur laufende Spiele
                     sportTicker.value = b.events.filter { it.live }.sortedBy { it.startMs }.take(30)
@@ -480,6 +486,38 @@ private fun SmoothMarquee(text: androidx.compose.ui.text.AnnotatedString, modifi
         Text(text, fontSize = 14.sp, maxLines = 1, softWrap = false,
             modifier = Modifier.wrapContentWidth(Alignment.Start, unbounded = true)
                 .graphicsLayer { translationX = loop - offset.floatValue })
+    }
+}
+
+@Composable
+private fun SportTicker(events: List<de.ostlertekker.ultraiptv.core.discover.ScoreEvent>) {
+    val p = LocalUltraTheme.current.palette
+    val green = Color(0xFF16A34A)
+    val red = Color(0xFFD7262E)
+    val fmt = remember { java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMAN) }
+    val text = remember(events) {
+        androidx.compose.ui.text.buildAnnotatedString {
+            events.forEachIndexed { i, e ->
+                if (i > 0) withStyle(androidx.compose.ui.text.SpanStyle(color = green, fontWeight = FontWeight.Bold)) { append("   ▪   ") }
+                when {
+                    e.live -> withStyle(androidx.compose.ui.text.SpanStyle(color = Color.White, background = red, fontWeight = FontWeight.Bold, fontSize = 11.sp)) {
+                        append(" LIVE" + (e.clock?.takeIf { it.isNotBlank() }?.let { " $it" } ?: "") + " ")
+                    }
+                    e.state == "post" -> withStyle(androidx.compose.ui.text.SpanStyle(color = p.textDim, fontWeight = FontWeight.Bold, fontSize = 12.sp)) { append("ENDE") }
+                    else -> withStyle(androidx.compose.ui.text.SpanStyle(color = green, fontWeight = FontWeight.Bold, fontSize = 12.sp)) { append(fmt.format(java.util.Date(e.startMs))) }
+                }
+                withStyle(androidx.compose.ui.text.SpanStyle(color = p.textDim, fontSize = 12.sp)) { append("  ${e.league.label}  ") }
+                withStyle(androidx.compose.ui.text.SpanStyle(color = p.text, fontWeight = if (e.live) FontWeight.SemiBold else FontWeight.Normal)) {
+                    append(if (e.state == "pre" && e.league.sport != de.ostlertekker.ultraiptv.core.discover.Sport.TENNIS && e.competitors.size == 2)
+                        e.competitors.joinToString(" – ") { it.name } else e.scoreLine)
+                }
+            }
+        }
+    }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 8.dp).height(26.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        NewsBadge(green, "SPORT")
+        SmoothMarquee(text, Modifier.weight(1f).padding(start = 12.dp, end = 8.dp))
     }
 }
 
