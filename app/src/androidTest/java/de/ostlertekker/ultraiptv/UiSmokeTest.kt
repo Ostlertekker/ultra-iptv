@@ -305,6 +305,21 @@ class UiSmokeTest {
         finish()
     }
 
+    @Test fun e_homeFocus() {
+        // Diagnose Startseite: nach jedem Tastendruck Foto + Position des fokussierten Elements im Dateinamen
+        fun where(): String = runCatching {
+            val f = device.findObject(androidx.test.uiautomator.By.focused(true))
+            if (f == null) "nichts" else f.visibleBounds.let { b -> "x${b.left}y${b.top}w${b.width()}" }
+        }.getOrDefault("fehler")
+        openRoute(Routes.HOME).use {
+            Thread.sleep(3000); shot("homefokus_start_" + where())
+            listOf("D1" to D, "D2" to D, "D3" to D, "R1" to R, "U1" to U, "U2" to U).forEach { (n, k) ->
+                keys("Start $n", k, pauseMs = 700); shot("homefokus_${n}_" + where())
+            }
+        }
+        finish()
+    }
+
     @Test fun e_popups() {
         // Erinnerungs- und Update-Einblendung im Menü sichtbar machen (Testdaten)
         openRoute(Routes.LIVE).use {
