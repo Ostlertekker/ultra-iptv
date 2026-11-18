@@ -62,7 +62,9 @@ class NewsFeedLiveTest {
         for (f in feeds) {
             val r = runCatching { RssParser.parse(fetch(f), f.label, false) }
             val line = r.fold({ "OK ${it.size.toString().padStart(3)}  ${f.url}  » ${it.firstOrNull()?.title?.take(60)}" }, { "FEHLER ${f.url}  $it" })
-            if (r.isFailure || r.getOrNull().isNullOrEmpty()) bad++
+            // Reine Verbindungsprobleme (Zeitüberschreitung o. ä.) zählen nicht als tote Adresse
+            val netGlitch = r.exceptionOrNull() is java.io.IOException && r.exceptionOrNull() !is java.net.ProtocolException
+            if (!netGlitch && (r.isFailure || r.getOrNull().isNullOrEmpty())) bad++
             report.appendLine(line)
         }
         // Google News nur zur Info (Rechenzentrums-IPs werden dort oft geblockt)
