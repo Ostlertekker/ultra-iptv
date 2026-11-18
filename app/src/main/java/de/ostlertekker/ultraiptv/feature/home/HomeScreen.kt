@@ -468,14 +468,16 @@ private fun SmoothMarquee(text: androidx.compose.ui.text.AnnotatedString, modifi
     val offset = remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     // Rundenlänge: mindestens die Zeilenbreite – kurzer Text läuft komplett hinaus, bevor er rechts wieder hereinkommt
     val loop = kotlin.math.max(width + gapPx, box.toFloat())
-    LaunchedEffect(text, width, box) {
-        if (width <= 0 || box <= 0) return@LaunchedEffect
-        offset.floatValue = 0f
+    val loopNow by androidx.compose.runtime.rememberUpdatedState(loop)
+    // Läuft durchgehend weiter – neue Spielstände/Schlagzeilen setzen die Zeile NICHT zurück an den Anfang
+    LaunchedEffect(Unit) {
         delay(1200)
         while (true) {
             androidx.compose.runtime.withFrameNanos { }
+            val l = loopNow
+            if (width <= 0 || box <= 0 || l <= 0f) continue
             var o = offset.floatValue + step
-            if (o >= loop) o -= loop
+            while (o >= l) o -= l
             offset.floatValue = o
         }
     }
