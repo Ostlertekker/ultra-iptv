@@ -244,13 +244,13 @@ fun Preferences.toSettings(): AppSettings {
         uiSounds = this[Keys.UI_SOUNDS] ?: d.uiSounds,
         themeSounds = this[Keys.THEME_SOUNDS] ?: d.themeSounds,
         uiVolume = this[Keys.UI_VOLUME] ?: d.uiVolume,
-        qualityMode = enumOr(this[Keys.QUALITY], d.qualityMode),
+        qualityMode = d.qualityMode, // Einstellung entfernt → immer automatisch
         manualMaxHeight = this[Keys.MANUAL_HEIGHT] ?: d.manualMaxHeight,
         matchFrameRate = this[Keys.MATCH_FPS] ?: d.matchFrameRate,
         bufferProfile = enumOr(this[Keys.BUFFER], d.bufferProfile),
         liveFormat = this[Keys.LIVE_FORMAT] ?: d.liveFormat,
         livePreview = this[Keys.LIVE_PREVIEW] ?: d.livePreview,
-        smartSkipEnabled = this[Keys.SKIP_ENABLED] ?: d.smartSkipEnabled,
+        smartSkipEnabled = d.smartSkipEnabled, // Einstellung entfernt → Standard
         autoSkipIntro = this[Keys.SKIP_INTRO] ?: d.autoSkipIntro,
         autoSkipOutro = this[Keys.SKIP_OUTRO] ?: d.autoSkipOutro,
         autoSkipRecap = this[Keys.SKIP_RECAP] ?: d.autoSkipRecap,
@@ -293,7 +293,7 @@ fun Preferences.toSettings(): AppSettings {
         liveReconnect = this[Keys.LIVE_RECONNECT] ?: d.liveReconnect,
         stallTimeoutSec = this[Keys.STALL_TIMEOUT] ?: d.stallTimeoutSec,
         ignoreAudioFocus = this[Keys.IGNORE_FOCUS] ?: d.ignoreAudioFocus,
-        volumeBoostDb = this[Keys.VOL_BOOST] ?: d.volumeBoostDb,
+        volumeBoostDb = d.volumeBoostDb, // Einstellung entfernt → kein Boost
         sleepTimerMin = this[Keys.SLEEP_TIMER] ?: d.sleepTimerMin,
         osdSeconds = this[Keys.OSD_SECONDS] ?: d.osdSeconds,
         invertChannelKeys = this[Keys.INVERT_ZAP] ?: d.invertChannelKeys,

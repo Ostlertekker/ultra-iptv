@@ -356,14 +356,7 @@ private fun LazyListScope.playbackPage(vm: SettingsViewModel, s: AppSettings) {
         Column {
             SRow("Puffergröße", s.bufferProfile.label) { vm.set(Keys.BUFFER, cycle(BufferProfile.entries, s.bufferProfile).name) }
             SSwitch("Bildwiederholrate anpassen (AFR)", s.matchFrameRate, "Schaltet das Display auf die Bildrate des Inhalts, wenn möglich") { vm.set(Keys.MATCH_FPS, it) }
-            SRow("Videoqualität", s.qualityMode.label) { vm.set(Keys.QUALITY, cycle(QualityMode.entries, s.qualityMode).name) }
-            if (s.qualityMode == QualityMode.MANUAL) SRow("Maximale Auflösung", "${s.manualMaxHeight}p") {
-                vm.set(Keys.MANUAL_HEIGHT, cycle(listOf(480, 720, 1080, 1440, 2160), s.manualMaxHeight))
-            }
             SRow("Seitenverhältnis", de.ostlertekker.ultraiptv.feature.player.aspectNames[s.defaultAspect.coerceIn(0, 3)]) { vm.set(Keys.DEFAULT_ASPECT, (s.defaultAspect + 1) % 4) }
-            SRow("Lautstärke-Boost", if (s.volumeBoostDb == 0) "Aus" else "+${s.volumeBoostDb} dB") {
-                vm.set(Keys.VOL_BOOST, cycle(listOf(0, 3, 6, 9, 12), s.volumeBoostDb.takeIf { it in listOf(0, 3, 6, 9, 12) } ?: 0))
-            }
             SHeader("Sprache")
             if (prof != null) {
                 SRow("Audiosprache", languages.firstOrNull { it.first == prof.audioLanguage }?.second ?: prof.audioLanguage) {
@@ -380,7 +373,6 @@ private fun LazyListScope.playbackPage(vm: SettingsViewModel, s: AppSettings) {
             SHeader("Filme & Serien")
             SSwitch("Nächste Folge automatisch", s.autoNextEpisode) { vm.set(Keys.AUTO_NEXT, it) }
             SRow("Countdown bis zur nächsten Folge", "${s.nextCountdownSec} Sekunden") { vm.set(Keys.COUNTDOWN, cycle(listOf(5, 10, 15, 20, 30), s.nextCountdownSec)) }
-            SSwitch("„Intro überspringen“ anbieten", s.smartSkipEnabled) { vm.set(Keys.SKIP_ENABLED, it) }
         }
     }
 }
