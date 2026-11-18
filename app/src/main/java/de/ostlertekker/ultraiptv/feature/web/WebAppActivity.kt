@@ -55,6 +55,7 @@ class WebAppActivity : ComponentActivity() {
     private lateinit var app: WebApp
     private var cursor: CursorView? = null
     private var cursorOn = false
+    private var lastNav = 0L
     private lateinit var hint: TextView
     private var backDownAt = 0L
 
@@ -103,7 +104,12 @@ class WebAppActivity : ComponentActivity() {
             settings.useWideViewPort = true
             settings.cacheMode = WebSettings.LOAD_DEFAULT
             settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-            if (app == WebApp.SPOTIFY) { settings.textZoom = 125 }
+            if (app == WebApp.SPOTIFY) {
+                // Leistungsmodus: keine Text-Vergrößerung (zwingt die Seite zu mehr Layout-Arbeit), Hardware-Beschleunigung fest an
+                settings.textZoom = 100
+                setLayerType(View.LAYER_TYPE_HARDWARE, null)
+                setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
+            }
             CookieManager.getInstance().setAcceptCookie(true)
             CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
             webViewClient = object : WebViewClient() {
@@ -121,6 +127,8 @@ class WebAppActivity : ComponentActivity() {
                 }
                 // Werbeblocker (YouTube): Anfragen an Werbe-/Tracking-Server gar nicht erst laden
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): android.webkit.WebResourceResponse? {
+                    if (app == WebApp.SPOTIFY) return if (SpotifyTv.isBlocked(request.url)) android.webkit.WebResourceResponse("text/plain", "utf-8", 204, "No Content",
+                        emptyMap(), java.io.ByteArrayInputStream(ByteArray(0))) else null
                     if (app != WebApp.YOUTUBE) return null
                     return if (AdBlock.isAd(request.url)) android.webkit.WebResourceResponse("text/plain", "utf-8", 204, "No Content",
                         emptyMap(), java.io.ByteArrayInputStream(ByteArray(0))) else null
@@ -369,7 +377,12 @@ class WebAppActivity : ComponentActivity() {
                     KeyEvent.KEYCODE_DPAD_LEFT -> "left"; KeyEvent.KEYCODE_DPAD_RIGHT -> "right"
                     KeyEvent.KEYCODE_DPAD_UP -> "up"; KeyEvent.KEYCODE_DPAD_DOWN -> "down"; else -> null
                 }
-                if (dir != null) { if (event.action == KeyEvent.ACTION_DOWN) js("window.__ultraNav&&__ultraNav('$dir')"); return true }
+                if (dir != null) {
+                    // Gedrückt halten: höchstens ca. 8 Schritte pro Sekunde, damit die Seite nicht überlastet
+                    val t = SystemClock.uptimeMillis()
+                    if (event.action == KeyEvent.ACTION_DOWN && (event.repeatCount == 0 || t - lastNav > 120)) { lastNav = t; js("window.__ultraNav&&__ultraNav('$dir')") }
+                    return true
+                }
                 if (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) {
                     if (event.action == KeyEvent.ACTION_UP) web.evaluateJavascript("window.__ultraOk?__ultraOk():''") { r -> tapIfInput(r) }
                     return true
@@ -590,39 +603,60 @@ internal class SponsorBlock(
  * Buttons/Links/Zeilen und bleibt meist funktionsfähig.
  */
 internal object SpotifyTv {
+    // Leistungsmodus: Tracking/Analyse/Fehlerberichte und Canvas-Videos (Endlos-Clips hinter Songs) nicht laden
+    private val hosts = listOf("canvaz.scdn.co", "sentry.io", "datadoghq.com", "google-analytics.com", "googletagmanager.com",
+        "doubleclick.net", "googlesyndication.com", "hotjar.com", "branch.io", "app.link", "facebook.net", "pixel.spotify.com")
+    private val paths = listOf("/gabo-receiver-service/", "/melody/", "/event-service/")
+    fun isBlocked(url: android.net.Uri): Boolean {
+        val h = url.host ?: return false
+        if (hosts.any { h == it || h.endsWith(".$it") }) return true
+        val p = url.path ?: return false
+        return h.endsWith("spotify.com") && paths.any { p.contains(it) }
+    }
+
     const val SCRIPT = """
 (function(){try{
 if(window.__ultraNav) return;
 var CSS='html,body{background:#0b0f14 !important}'+
  '.ultra-focus{outline:4px solid #7FD4FF !important;outline-offset:2px !important;border-radius:8px !important;box-shadow:0 0 0 7px rgba(127,212,255,.28) !important}'+
  '[data-testid=download-app-button],[data-testid=install-app-button],[data-testid=upgrade-button],a[href*="/download"],[data-testid=top-bar-upgrade-button]{display:none !important}'+
- '*{scroll-behavior:auto !important}::-webkit-scrollbar{width:0 !important;height:0 !important}';
+ '*{scroll-behavior:auto !important}::-webkit-scrollbar{width:0 !important;height:0 !important}'+
+ '*,*::before,*::after{animation-duration:1ms !important;animation-delay:0s !important;animation-iteration-count:1 !important;transition-duration:1ms !important;transition-delay:0s !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;will-change:auto !important}'+
+ '*:not(.ultra-focus){box-shadow:none !important}'+
+ '[data-testid*=canvas] video,[class*=canvas] video,[data-testid*=Canvas] video{display:none !important}';
 function addCss(){ if(document.getElementById('ultra-tv-css')) return; var s=document.createElement('style'); s.id='ultra-tv-css'; s.textContent=CSS;
   (document.head||document.documentElement).appendChild(s); }
 addCss(); document.addEventListener('DOMContentLoaded',addCss); setInterval(addCss,2500);
 var SEL='a[href],button,input,textarea,select,[role=button],[role=link],[role=tab],[role=option],[role=menuitem],[role=row],[role=checkbox],[role=switch],[tabindex]:not([tabindex="-1"])';
-var cur=null;
-function box(e){ if(!e||!e.getBoundingClientRect) return null; var r=e.getBoundingClientRect();
-  if(r.width<10||r.height<10) return null;
-  if(r.bottom<-innerHeight*2||r.top>innerHeight*3||r.right<0||r.left>innerWidth) return null;
-  if(e.disabled||e.closest('[aria-hidden=true]')) return null;
-  var cs=getComputedStyle(e); if(cs.visibility=='hidden'||cs.display=='none'||parseFloat(cs.opacity)<0.05) return null; return r; }
-function list(){ var out=[]; document.querySelectorAll(SEL).forEach(function(e){ var r=box(e); if(r) out.push([e,r]); }); return out; }
+var cur=null, cache=null, cacheAt=0;
+// Leistung: nur Elemente im sichtbaren Bereich (+ etwas Rand) prüfen, Ergebnis kurz zwischenspeichern
+function invalidate(){ cache=null; }
+addEventListener('scroll',invalidate,true); addEventListener('resize',invalidate);
+function list(){
+  var now=Date.now(); if(cache&&now-cacheAt<700) return cache;
+  var out=[], H=innerHeight, W=innerWidth, all=document.querySelectorAll(SEL);
+  for(var i=0;i<all.length;i++){ var e=all[i], r=e.getBoundingClientRect();
+    if(r.width<10||r.height<10||r.bottom<-H*0.5||r.top>H*1.5||r.right<0||r.left>W) continue;
+    if(e.disabled) continue; out.push([e,r]); }
+  cache=out; cacheAt=now; return out; }
+function shown(e){ if(e.closest('[aria-hidden=true]')) return false; var cs=getComputedStyle(e);
+  return !(cs.visibility=='hidden'||cs.display=='none'||parseFloat(cs.opacity)<0.05); }
+function box(e){ if(!e||!document.contains(e)) return null; var r=e.getBoundingClientRect(); return (r.width<10||r.height<10)?null:r; }
 function gap(a1,a2,b1,b2){ return a2<b1? b1-a2 : (b2<a1? a1-b2 : 0); }
 function set(e){ if(cur) cur.classList.remove('ultra-focus'); cur=e; if(!e) return;
   e.classList.add('ultra-focus');
   try{ e.focus({preventScroll:true}); }catch(x){}
-  try{ e.dispatchEvent(new MouseEvent('mouseover',{bubbles:true})); e.dispatchEvent(new MouseEvent('mouseenter',{bubbles:false})); }catch(x){}
+  try{ e.dispatchEvent(new MouseEvent('mouseover',{bubbles:true})); }catch(x){}
   var r=e.getBoundingClientRect();
-  if(r.top<70||r.bottom>innerHeight-110) try{ e.scrollIntoView({block:'center',inline:'nearest'}); }catch(x){} }
+  if(r.top<70||r.bottom>innerHeight-100){ try{ e.scrollIntoView({block:'nearest',inline:'nearest'}); }catch(x){} invalidate(); } }
 function scroller(e){ while(e&&e!==document.body){ var cs=getComputedStyle(e);
   if((cs.overflowY=='auto'||cs.overflowY=='scroll')&&e.scrollHeight>e.clientHeight+20) return e; e=e.parentElement; }
   return document.scrollingElement; }
 window.__ultraNav=function(dir){
-  if(cur&&(!document.contains(cur)||!box(cur))){ cur.classList&&cur.classList.remove('ultra-focus'); cur=null; }
+  if(cur&&!box(cur)){ cur.classList&&cur.classList.remove('ultra-focus'); cur=null; }
   var L=list(); if(!L.length) return;
-  if(!cur){ var b=null,bd=1e12; L.forEach(function(p){ var r=p[1]; if(r.top<0||r.top>innerHeight) return; var d=r.top*3+r.left; if(d<bd){bd=d;b=p[0];} }); set(b); return; }
-  var a=cur.getBoundingClientRect(), best=null, bs=1e12;
+  if(!cur){ var b=null,bd=1e12; L.forEach(function(p){ var r=p[1]; if(r.top<0||r.top>innerHeight) return; var d=r.top*3+r.left; if(d<bd&&shown(p[0])){bd=d;b=p[0];} }); set(b); return; }
+  var a=cur.getBoundingClientRect(), scored=[];
   L.forEach(function(p){ var e=p[0], r=p[1]; if(e===cur||e.contains(cur)||cur.contains(e)) return;
     var main, cross;
     if(dir=='right'){ if(r.left<a.right-6) return; main=r.left-a.right; cross=gap(a.top,a.bottom,r.top,r.bottom); }
@@ -630,9 +664,11 @@ window.__ultraNav=function(dir){
     else if(dir=='down'){ if(r.top<a.bottom-6) return; main=r.top-a.bottom; cross=gap(a.left,a.right,r.left,r.right); }
     else { if(r.bottom>a.top+6) return; main=a.top-r.bottom; cross=gap(a.left,a.right,r.left,r.right); }
     var align=(dir=='up'||dir=='down')? Math.abs(r.left-a.left)*0.05 : Math.abs((r.top+r.bottom)-(a.top+a.bottom))*0.05;
-    var s=Math.max(0,main)+cross*4+align; if(s<bs){ bs=s; best=e; } });
-  if(best) set(best);
-  else if(dir=='down'||dir=='up'){ var sc=scroller(cur); sc&&sc.scrollBy(0,(dir=='down'?1:-1)*innerHeight*0.6); }
+    scored.push([Math.max(0,main)+cross*4+align,e]); });
+  scored.sort(function(x,y){return x[0]-y[0];});
+  // Sichtbarkeit (teuer) nur für die besten Kandidaten prüfen
+  for(var i=0;i<scored.length&&i<12;i++){ if(shown(scored[i][1])){ set(scored[i][1]); return; } }
+  if(dir=='down'||dir=='up'){ var sc=scroller(cur); sc&&sc.scrollBy(0,(dir=='down'?1:-1)*innerHeight*0.6); invalidate(); }
 };
 window.__ultraOk=function(){
   if(!cur||!document.contains(cur)){ window.__ultraNav('down'); return ''; }
