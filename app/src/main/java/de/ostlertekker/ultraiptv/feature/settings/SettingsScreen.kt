@@ -5,7 +5,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Menu
@@ -96,19 +98,21 @@ import java.text.DateFormat
 import java.util.Date
 import javax.inject.Inject
 
-/** Einstellungs-Kategorien nach dem Vorbild von TiviMate Premium (plus App-Updates und Über). */
+/** Einstellungs-Kategorien: erst Quellen, dann Bildschirme der App, dann Bedienung/Aussehen, zuletzt System. */
 enum class SettingsCategory(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     PLAYLISTS("Playlists", Icons.AutoMirrored.Filled.List),
-    EPG("EPG", Icons.Default.DateRange),
-    APPEARANCE("Erscheinungsbild", Icons.Default.Edit),
+    EPG("TV-Programm (EPG)", Icons.Default.DateRange),
+    HOME("Startseite", Icons.Default.Home),
+    LIVETV("Live-TV", Icons.Default.Star),
     PLAYBACK("Wiedergabe", Icons.Default.PlayArrow),
     REMOTE("Fernbedienung", Icons.Default.Menu),
-    PARENTAL("Kindersicherung", Icons.Default.Lock),
+    APPEARANCE("Erscheinungsbild", Icons.Default.Edit),
     REMINDERS("Erinnerungen", Icons.Default.Notifications),
+    PARENTAL("Kindersicherung", Icons.Default.Lock),
     BACKUP("Datensicherung", Icons.Default.Done),
     GENERAL("Allgemein", Icons.Default.Settings),
     UPDATES("App-Updates", Icons.Default.Refresh),
-    ABOUT("Über", Icons.Default.Info),
+    ABOUT("Über & Fehler", Icons.Default.Info),
 }
 
 @HiltViewModel
@@ -204,6 +208,8 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
             when (category) {
                 SettingsCategory.PLAYLISTS -> playlistsPage(vm, x, s, nav)
                 SettingsCategory.EPG -> epgPage(vm, s)
+                SettingsCategory.HOME -> homePage(vm, s)
+                SettingsCategory.LIVETV -> liveTvPage(vm, s)
                 SettingsCategory.APPEARANCE -> appearancePage(vm, s)
                 SettingsCategory.PLAYBACK -> playbackPage(vm, s)
                 SettingsCategory.REMOTE -> remotePage(vm, s)
@@ -214,8 +220,9 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
                 }
                 SettingsCategory.BACKUP -> backupSection(x)
                 SettingsCategory.GENERAL -> generalPage(vm, s)
-                SettingsCategory.UPDATES -> {
-                    updatesSection(x, s, vm)
+                SettingsCategory.UPDATES -> updatesSection(x, s, vm)
+                SettingsCategory.ABOUT -> {
+                    aboutSection(vm)
                     item { SHeader("Fehler") }
                     item {
                         val ctx = androidx.compose.ui.platform.LocalContext.current
@@ -223,7 +230,6 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
                         SRow("Fehlermeldungen", if (n == 0) "Keine Fehler aufgezeichnet" else "$n Meldung(en) – zum Abfotografieren öffnen") { errorsOpen = true }
                     }
                 }
-                SettingsCategory.ABOUT -> aboutSection(vm)
             }
         }
     }
@@ -337,16 +343,26 @@ private fun LazyListScope.appearancePage(vm: SettingsViewModel, s: AppSettings) 
             SRow("Schriftart", DesignOptions.fontNames.getOrElse(s.fontStyle) { "Standard" }) {
                 vm.set(Keys.FONT_STYLE, (s.fontStyle + 1) % DesignOptions.fontNames.size)
             }
+            SHeader("Uhr")
+            SSwitch("Uhr in der Menüleiste", s.menuClock) { vm.set(Keys.MENU_CLOCK, it) }
+            SSwitch("24-Stunden-Format", s.clock24h) { vm.set(Keys.CLOCK_24H, it) }
+            SHeader("Zurücksetzen")
+            SRow("Erscheinungsbild zurücksetzen", "Akzentfarbe, Schrift und Größen auf Standard") { vm.resetAppearance() }
+        }
+    }
+}
+
+private fun LazyListScope.liveTvPage(vm: SettingsViewModel, s: AppSettings) {
+    item {
+        Column {
             SHeader("Senderliste")
             SSwitch("Sendernummern anzeigen", s.showChannelNumbers) { vm.set(Keys.SHOW_NUMBERS, it) }
             SSwitch("Senderlogos anzeigen", s.showChannelLogos) { vm.set(Keys.SHOW_LOGOS, it) }
             SSwitch("Laufende Sendung anzeigen", s.showChannelEpg) { vm.set(Keys.SHOW_CH_EPG, it) }
             SSwitch("Sendungsfortschritt anzeigen", s.showChannelProgress) { vm.set(Keys.SHOW_CH_PROGRESS, it) }
-            SSwitch("Vorschau beim Auswählen", s.livePreview, "Auf schwachen Geräten automatisch aus") { vm.set(Keys.LIVE_PREVIEW, it) }
             SRow("Listendichte", listOf("Kompakt", "Normal", "Groß")[s.channelDensity.coerceIn(0, 2)]) { vm.set(Keys.CHANNEL_DENSITY, (s.channelDensity + 1) % 3) }
-            SHeader("Uhr")
-            SSwitch("Uhr in der Menüleiste", s.menuClock) { vm.set(Keys.MENU_CLOCK, it) }
-            SSwitch("24-Stunden-Format", s.clock24h) { vm.set(Keys.CLOCK_24H, it) }
+            SHeader("Vorschau")
+            SSwitch("Vorschau beim Auswählen", s.livePreview, "Auf schwachen Geräten automatisch aus") { vm.set(Keys.LIVE_PREVIEW, it) }
         }
     }
 }
@@ -359,6 +375,9 @@ private fun LazyListScope.playbackPage(vm: SettingsViewModel, s: AppSettings) {
             SRow("Puffergröße", s.bufferProfile.label) { vm.set(Keys.BUFFER, cycle(BufferProfile.entries, s.bufferProfile).name) }
             SSwitch("Bildwiederholrate anpassen (AFR)", s.matchFrameRate, "Schaltet das Display auf die Bildrate des Inhalts, wenn möglich") { vm.set(Keys.MATCH_FPS, it) }
             SRow("Seitenverhältnis", de.ostlertekker.ultraiptv.feature.player.aspectNames[s.defaultAspect.coerceIn(0, 3)]) { vm.set(Keys.DEFAULT_ASPECT, (s.defaultAspect + 1) % 4) }
+            SRow("Sleep-Timer", if (s.sleepTimerMin == 0) "Aus" else "${s.sleepTimerMin} Minuten") {
+                vm.set(Keys.SLEEP_TIMER, cycle(listOf(0, 15, 30, 45, 60, 90, 120), s.sleepTimerMin.takeIf { it in listOf(0, 15, 30, 45, 60, 90, 120) } ?: 0))
+            }
             SHeader("Sprache")
             if (prof != null) {
                 SRow("Audiosprache", languages.firstOrNull { it.first == prof.audioLanguage }?.second ?: prof.audioLanguage) {
@@ -397,17 +416,16 @@ private fun LazyListScope.generalPage(vm: SettingsViewModel, s: AppSettings) {
                 vm.set(Keys.START_ACTION, (s.startAction + 1) % 4)
             }
             SSwitch("Startintro anzeigen", s.introEnabled) { vm.set(Keys.INTRO, it) }
-            SRow("Sleep-Timer beim Abspielen", if (s.sleepTimerMin == 0) "Aus" else "${s.sleepTimerMin} Minuten") {
-                vm.set(Keys.SLEEP_TIMER, cycle(listOf(0, 15, 30, 45, 60, 90, 120), s.sleepTimerMin.takeIf { it in listOf(0, 15, 30, 45, 60, 90, 120) } ?: 0))
-            }
             SSwitch("Menü-Töne", s.uiSounds) { vm.set(Keys.UI_SOUNDS, it) }
-            SHeader("Startseite")
-            SSwitch("Wetter anzeigen", s.weatherEnabled, subtitle = "Wetterleiste und Wettersymbol oben neben „ULTRA IPTV“") { vm.set(Keys.WEATHER_ENABLED, it) }
-            SSwitch("Nachrichten-Laufschrift", s.newsEnabled) {
-                vm.set(Keys.NEWS_ENABLED, it); if (it && s.newsSource == "off") vm.set(Keys.NEWS_SOURCE, "auto")
-            }
-            SSwitch("Sport-Ticker (nur Live-Spiele)", s.sportTickerEnabled) { vm.set(Keys.SPORT_TICKER_ENABLED, it) }
+        }
+    }
+}
+
+private fun LazyListScope.homePage(vm: SettingsViewModel, s: AppSettings) {
+    item {
+        Column {
             SHeader("Wetter")
+            SSwitch("Wetter anzeigen", s.weatherEnabled, subtitle = "Wetterleiste und Wettersymbol oben neben „ULTRA IPTV“") { vm.set(Keys.WEATHER_ENABLED, it) }
             var place by remember { mutableStateOf(s.weatherPlace.substringBefore(",")) }
             var msg by remember { mutableStateOf<String?>(null) }
             TvTextField(place, { place = it }, "Ort (z. B. Berlin oder 10115) – leer = kein Wetter",
@@ -419,6 +437,9 @@ private fun LazyListScope.generalPage(vm: SettingsViewModel, s: AppSettings) {
                 }
             }
             SHeader("Nachrichten-Laufschrift")
+            SSwitch("Nachrichten-Laufschrift anzeigen", s.newsEnabled) {
+                vm.set(Keys.NEWS_ENABLED, it); if (it && s.newsSource == "off") vm.set(Keys.NEWS_SOURCE, "auto")
+            }
             run {
                 val ids = de.ostlertekker.ultraiptv.core.news.NewsSources.choices.map { it.first }
                 SRow("Quelle", de.ostlertekker.ultraiptv.core.news.NewsSources.label(s.newsSource) +
@@ -429,7 +450,8 @@ private fun LazyListScope.generalPage(vm: SettingsViewModel, s: AppSettings) {
             SSwitch("Lokalnachrichten einmischen", s.newsLocal,
                 subtitle = "Deutschland: tagesschau aus deinem Bundesland · weltweit: Google News zu deinem Ort",
                 enabled = s.newsEnabled) { vm.set(Keys.NEWS_LOCAL, it) }
-            SRow("Erscheinungsbild zurücksetzen", "Akzentfarbe, Schrift und Größen auf Standard") { vm.resetAppearance() }
+            SHeader("Sport-Ticker")
+            SSwitch("Sport-Ticker anzeigen", s.sportTickerEnabled, subtitle = "Nur Spiele, die gerade live laufen") { vm.set(Keys.SPORT_TICKER_ENABLED, it) }
         }
     }
 }

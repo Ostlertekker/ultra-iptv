@@ -384,11 +384,13 @@ class UiSmokeTest {
         // Einstellungen: jede Sektion einmal rendern
         openRoute(Routes.SETTINGS).use {
             keys("Einstellungen betreten", D)
-            for (i in 0 until 26) {
-                keys("Sektion $i", D, pauseMs = 350)
-                if (i in listOf(1, 3, 8, 11)) shot("einstellungen_$i")
+            Thread.sleep(800); shot("einstellungen_00")
+            // Jede Kategorie der linken Leiste einmal anzeigen und fotografieren
+            for (i in 1 until 13) {
+                keys("Kategorie $i", D, pauseMs = 700)
+                shot("einstellungen_%02d".format(i))
             }
-            keys("Sektionen zurück", *IntArray(26) { U }, pauseMs = 120)
+            keys("Kategorien zurück", *IntArray(13) { U }, pauseMs = 120)
         }
         // Volles Intro mit explodierendem Planeten
         runBlocking { hooks.settings().set(Keys.INTRO, true); hooks.settings().set(Keys.INTRO_PLAYED, false) }
