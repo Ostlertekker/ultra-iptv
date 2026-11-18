@@ -167,7 +167,7 @@ private fun Scoreboard(e: ScoreEvent, m: MatchCenter?) {
     val ca = e.competitors.firstOrNull { it.homeAway == "away" } ?: e.competitors.getOrNull(1)
     val hc = hex(h?.color, Color(0xFF1C2A44)); val ac = hex(a?.color, Color(0xFF3A1C2A))
     val shape = RoundedCornerShape(22.dp)
-    Box(Modifier.fillMaxWidth().height(if (e.competitors.size == 2) 190.dp else 150.dp)
+    Box(Modifier.fillMaxWidth().height(if (e.competitors.size == 2) 158.dp else 120.dp)
         .background(Brush.horizontalGradient(listOf(hc.copy(alpha = 0.55f), Color(0xFF0E131B), ac.copy(alpha = 0.55f))), shape)
         .border(1.dp, Color.White.copy(alpha = 0.08f), shape).padding(18.dp)) {
         Text("${e.league.sport.emoji} ${e.league.label}", color = Color.White.copy(alpha = 0.75f), fontSize = 13.sp, modifier = Modifier.align(Alignment.TopCenter))
@@ -181,13 +181,13 @@ private fun Scoreboard(e: ScoreEvent, m: MatchCenter?) {
         Row(Modifier.fillMaxSize().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             TeamSide(h?.name ?: ch?.name ?: "", h?.logo ?: ch?.logo, Modifier.weight(1f), goals(m, true))
             Column(Modifier.width(300.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("${ch?.score ?: h?.score ?: "–"} : ${ca?.score ?: a?.score ?: "–"}", color = Color.White, fontSize = 64.sp, fontWeight = FontWeight.Black)
+                Text("${ch?.score ?: h?.score ?: "–"} : ${ca?.score ?: a?.score ?: "–"}", color = Color.White, fontSize = 52.sp, fontWeight = FontWeight.Black)
                 if (e.live) {
                     val inf = rememberInfiniteTransition(label = "live")
                     val al by inf.animateFloat(1f, 0.3f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "blink")
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(10.dp).alpha(al).background(Color(0xFFFF3B3B), CircleShape))
-                        Text("  LIVE ${e.clock ?: ""}", color = Color(0xFFFF5050), fontSize = 18.sp, fontWeight = FontWeight.Black)
+                        Text("  LIVE · " + (e.detail.ifBlank { e.clock ?: "" }), color = Color(0xFFFF5050), fontSize = 17.sp, fontWeight = FontWeight.Black, maxLines = 1)
                     }
                 } else Text(statusText(e), color = Color.White.copy(alpha = 0.75f), fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
@@ -209,14 +209,14 @@ private fun goals(m: MatchCenter?, home: Boolean) = m?.incidents.orEmpty()
 @Composable
 private fun TeamSide(name: String, logo: String?, modifier: Modifier, lines: List<String>) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(78.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(58.dp), contentAlignment = Alignment.Center) {
             var ok by remember(logo) { mutableStateOf(false) }
             if (!ok) Text(initialsOf(name), color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Black)
             if (logo != null) AsyncImage(logo, null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize(), onSuccess = { ok = true })
         }
-        Text(name, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        lines.take(4).forEach { Text(it, color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp, maxLines = 1) }
-        if (lines.size > 4) Text("+${lines.size - 4} weitere", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
+        Text(name, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        lines.take(2).forEach { Text(it, color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp, maxLines = 1) }
+        if (lines.size > 2) Text("+${lines.size - 2} weitere", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
     }
 }
 
