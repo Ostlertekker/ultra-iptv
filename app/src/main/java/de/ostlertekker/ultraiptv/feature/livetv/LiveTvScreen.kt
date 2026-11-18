@@ -257,7 +257,12 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
     var favMenu by remember { mutableStateOf<ChannelEntity?>(null) }
     // Verschiebe-Modus (wie TiviMate): ▲ ▼ verschiebt den Sender direkt, OK/Zurück beendet
     var moving by remember { mutableStateOf<String?>(null) }
-    androidx.activity.compose.BackHandler(enabled = moving != null) { moving = null }
+    // Bearbeitungsmodus (nur Favoriten): kurz OK = Sender aufnehmen/ablegen, ▲ ▼ = verschieben, Zurück = fertig
+    var editMode by remember { mutableStateOf(false) }
+    var removeAsk by remember { mutableStateOf<ChannelEntity?>(null) }
+    val lastDrop = remember { longArrayOf(0L) }
+    LaunchedEffect(current) { if (current != CAT_FAVORITES) { editMode = false; moving = null } }
+    androidx.activity.compose.BackHandler(enabled = moving != null || editMode) { moving = null; editMode = false }
     Box(Modifier.fillMaxSize()) {
     Row(Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         // Anteilige Breiten: die Senderliste behält auf jedem Bildschirm genug Platz für die Sendernamen
@@ -277,14 +282,19 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
                 item { TvChip(if (sortByName) "↕ A–Z" else "↕ Nummer", false, { vm.sortByName.value = !sortByName }) }
                 item { TvChip("TV-Programm", false, { nav.navigate(Routes.epg(current.takeIf { !isVirtualCategory(it) })) }) }
+                if (current == CAT_FAVORITES && channels.size > 1) item {
+                    TvChip(if (editMode) "✓ Fertig" else "✎ Bearbeiten", editMode, { editMode = !editMode; moving = null })
+                }
             }
             if (channels.isEmpty()) {
                 Text(if (current == CAT_FAVORITES) "Noch keine Lieblingssender. Sender auswählen und „☆ Favorit“ drücken." else "Keine Sender in dieser Kategorie.",
                     color = p.textDim, fontSize = 15.sp)
             }
-            if (moving != null) Text("↕ Verschieben: ▲ ▼ bewegt den Sender · OK oder Zurück beendet", color = p.primary, fontSize = 13.sp,
+            if (editMode) Text(if (moving != null) "↕ ▲ ▼ verschieben · OK: ablegen · Zurück: fertig"
+                else "✎ Bearbeiten · OK: Sender aufnehmen · ☰: entfernen · Zurück: fertig", color = p.primary, fontSize = 13.sp,
                 fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 40.dp)) {
+            LazyColumn(Modifier.then(if (editMode) Modifier.border(2.dp, p.primary.copy(alpha = 0.5f), RoundedCornerShape(14.dp)).padding(6.dp) else Modifier),
+                verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 40.dp)) {
                 itemsIndexed(channels, key = { _, c -> c.id }, contentType = { _, _ -> "channel" }) { index, ch ->
                     val nowProg = ch.epgId?.let { id -> programs[id]?.firstOrNull { it.startMs <= now && it.endMs > now } }
                     val isMoving = moving == ch.id
@@ -294,25 +304,39 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
                             when (k.key.nativeKeyCode) {
                                 android.view.KeyEvent.KEYCODE_DPAD_UP -> { vm.moveFavorite(ch, -1); true }
                                 android.view.KeyEvent.KEYCODE_DPAD_DOWN -> { vm.moveFavorite(ch, 1); true }
-                                android.view.KeyEvent.KEYCODE_DPAD_CENTER, android.view.KeyEvent.KEYCODE_ENTER, android.view.KeyEvent.KEYCODE_BACK -> { moving = null; true }
+                                android.view.KeyEvent.KEYCODE_DPAD_CENTER, android.view.KeyEvent.KEYCODE_ENTER -> {
+                                    moving = null; lastDrop[0] = android.os.SystemClock.uptimeMillis(); true }
+                                android.view.KeyEvent.KEYCODE_BACK -> { moving = null; editMode = false; true }
                                 else -> true
                             }
                         },
                         moving = isMoving,
                         focusRequester = if (index == 0) firstChannel else null,
-                        onFocus = { vm.onFocus(ch) },
-                        onClick = { vm.open(context, ch) },
-                        // In „Favoriten“: lange OK öffnet Entfernen/Verschieben, sonst Favorit an/aus
-                        onLongClick = { if (current == CAT_FAVORITES) favMenu = ch else vm.toggleFavorite(ch) })
+                        // Im Bearbeitungsmodus keine Vorschau (kein ständiges Neuladen beim Verschieben)
+                        onFocus = { if (!editMode) vm.onFocus(ch) },
+                        onClick = {
+                            if (editMode) {
+                                // Kurz nach dem Ablegen kommt noch das Loslassen der OK-Taste an → nicht gleich wieder aufnehmen
+                                if (android.os.SystemClock.uptimeMillis() - lastDrop[0] > 400) moving = ch.id
+                            } else vm.open(context, ch)
+                        },
+                        // In „Favoriten“: lange OK/☰ öffnet das Menü (im Bearbeitungsmodus: entfernen), sonst Favorit an/aus
+                        onLongClick = { if (editMode) removeAsk = ch else if (current == CAT_FAVORITES) favMenu = ch else vm.toggleFavorite(ch) })
                 }
             }
         }
         // Eigener Recomposition-Bereich: ein Fokuswechsel aktualisiert nur dieses Panel, nicht die Senderliste
         RightPanel(vm, favs, Modifier.weight(0.33f).fillMaxHeight())
     }
+    removeAsk?.let { ch ->
+        de.ostlertekker.ultraiptv.core.ui.ActionDialog("${ch.name} aus Favoriten entfernen?", listOf(
+            "Ja, entfernen" to { vm.toggleFavorite(ch); if (moving == ch.id) moving = null },
+            "Abbrechen" to {},
+        )) { removeAsk = null }
+    }
     favMenu?.let { ch ->
         de.ostlertekker.ultraiptv.core.ui.ActionDialog(ch.name, listOf(
-            "↕ Verschieben (mit ▲ ▼)" to { moving = ch.id },
+            "✎ Sortieren (Bearbeitungsmodus)" to { editMode = true; moving = ch.id },
             "Ganz nach oben" to { vm.moveFavorite(ch, -10_000) },
             "Ganz nach unten" to { vm.moveFavorite(ch, 10_000) },
             "Aus Favoriten entfernen" to { vm.toggleFavorite(ch) },
