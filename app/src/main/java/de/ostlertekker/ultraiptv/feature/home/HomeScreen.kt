@@ -28,6 +28,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.foundation.focusable
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.size
@@ -357,9 +361,16 @@ private fun HeroButton(label: String, primary: Boolean = false, onClick: () -> U
     var focused by remember { mutableStateOf(false) }
     val scale by androidx.compose.animation.core.animateFloatAsState(if (focused) 1.07f else 1f, androidx.compose.animation.core.tween(140), label = "hb")
     val bg = when { focused -> Color.White; primary -> Color.White.copy(alpha = 0.88f); else -> Color.White.copy(alpha = 0.16f) }
+    val src = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    // Ausdrücklich fokussierbar (Fernbedienung): „clickable“ allein ist auf manchen Geräten nicht per Pfeiltaste erreichbar
     Box(Modifier.graphicsLayer { scaleX = scale; scaleY = scale }
         .onFocusChanged { focused = it.isFocused }
-        .clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null, onClick = onClick)
+        .focusable(interactionSource = src)
+        .onKeyEvent { ev ->
+            if (ev.type == androidx.compose.ui.input.key.KeyEventType.KeyUp &&
+                (ev.key == androidx.compose.ui.input.key.Key.DirectionCenter || ev.key == androidx.compose.ui.input.key.Key.Enter || ev.key == androidx.compose.ui.input.key.Key.NumPadEnter)) { onClick(); true } else false
+        }
+
         .background(bg, RoundedCornerShape(12.dp))
         .padding(horizontal = 28.dp, vertical = 12.dp)) {
         Text(label, color = if (focused || primary) Color(0xFF111111) else Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
