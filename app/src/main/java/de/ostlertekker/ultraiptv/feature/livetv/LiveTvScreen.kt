@@ -411,8 +411,8 @@ private fun FocusedInfo(vm: LiveTvViewModel, ch: ChannelEntity, favs: Set<String
         // Knöpfe direkt unter Sendername – immer sichtbar, ohne Scrollen
         // Drei kompakte Knöpfe nebeneinander (teilen sich die Breite, nichts wird abgeschnitten)
         Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            SmallButton("Vollbild", Modifier.weight(1f), androidx.compose.material.icons.Icons.Filled.PlayArrow, primary = true) { vm.open(context, ch) }
-            SmallButton("Favorit", Modifier.weight(1f), if (ch.id in favs) androidx.compose.material.icons.Icons.Filled.Star else StarOutline) { vm.toggleFavorite(ch) }
+            SmallButton("Vollbild", Modifier.weight(1f), PlayIcon, primary = true) { vm.open(context, ch) }
+            SmallButton("Favorit", Modifier.weight(1f), if (ch.id in favs) StarFilled else StarOutline) { vm.toggleFavorite(ch) }
             val next = vm.nowNext(ch).firstOrNull { it.startMs > now }
             SmallButton(if (next != null && next.startMs in reminders) "Aus" else "Erinnern", Modifier.weight(1f), AlarmIcon, enabled = next != null) {
                 if (next != null) vm.toggleReminder(ch, next)
@@ -535,3 +535,5 @@ private fun materialIcon(name: String, path: String) = androidx.compose.ui.graph
 private val AlarmIcon by lazy { materialIcon("alarm", "M22,5.72l-4.6,-3.86 -1.29,1.53 4.6,3.86L22,5.72zM7.88,3.39L6.6,1.86 2,5.71l1.29,1.53 4.59,-3.85zM12.5,8L11,8v6l4.75,2.85 0.75,-1.23 -4,-2.37L12.5,8zM12,4c-4.97,0 -9,4.03 -9,9s4.02,9 9,9c4.97,0 9,-4.03 9,-9s-4.03,-9 -9,-9zM12,20c-3.87,0 -7,-3.13 -7,-7s3.13,-7 7,-7 7,3.13 7,7 -3.13,7 -7,7z") }
 /** Stern-Umriss (kein Favorit). */
 private val StarOutline by lazy { materialIcon("star_border", "M22,9.24l-7.19,-0.62L12,2 9.19,8.63 2,9.24l5.46,4.73L5.82,21 12,17.27 18.18,21l-1.63,-7.03L22,9.24zM12,15.4l-3.76,2.27 1,-4.28 -3.32,-2.88 4.38,-0.38L12,6.1l1.71,4.04 4.38,0.38 -3.32,2.88 1,4.28L12,15.4z") }
+private val PlayIcon by lazy { materialIcon("play", "M8,5v14l11,-7z") }
+private val StarFilled by lazy { materialIcon("star", "M12,17.27L18.18,21l-1.64,-7.03L22,9.24l-7.19,-0.61L12,2 9.19,8.63 2,9.24l5.46,4.73L5.82,21z") }
