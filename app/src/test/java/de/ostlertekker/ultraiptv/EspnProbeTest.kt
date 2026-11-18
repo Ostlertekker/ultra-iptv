@@ -12,7 +12,9 @@ import java.net.URL
 
 /** Temporär: zeigt die Struktur der ESPN-Spieldaten (schlägt absichtlich fehl, damit die Ausgabe im CI-Log landet). */
 class EspnProbeTest {
-    private fun get(u: String) = Json.parseToJsonElement(URL(u).readText()).jsonObject
+    private fun get(u: String) = Json.parseToJsonElement((URL(u).openConnection() as java.net.HttpURLConnection).run {
+        setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 12) UltraIPTV"); setRequestProperty("Accept", "application/json")
+        inputStream.bufferedReader().readText() }).jsonObject
     private fun cut(e: Any?, n: Int = 900) = e.toString().take(n)
 
     @Test fun probe() {
