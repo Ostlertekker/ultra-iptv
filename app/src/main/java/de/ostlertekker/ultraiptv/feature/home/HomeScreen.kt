@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.ui.text.withStyle
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -42,6 +41,9 @@ import androidx.compose.foundation.layout.size
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.clip
 import androidx.compose.animation.core.animateFloat
@@ -428,6 +430,40 @@ private fun ChannelRow(title: String, channels: List<ChannelEntity>, onClick: (C
     }
 }
 
+/**
+ * Ruckelfreie Laufschrift: rückt bei jedem Bild um genau gleich viele ganze Pixel weiter (keine krummen
+ * Zwischenschritte), verschiebt nur die fertig gezeichnete Ebene (kein Neuaufbau des Textes) und läuft nahtlos im Kreis.
+ */
+@Composable
+private fun SmoothMarquee(text: androidx.compose.ui.text.AnnotatedString, modifier: Modifier) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val step = remember(density) { kotlin.math.max(1f, kotlin.math.round(density.density)) } // ≈ 1 dp pro Bild
+    val gapPx = remember(density) { with(density) { 48.dp.toPx() } }
+    var width by remember { mutableIntStateOf(0) }
+    val offset = remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    LaunchedEffect(text, width) {
+        if (width <= 0) return@LaunchedEffect
+        offset.floatValue = 0f
+        delay(1200)
+        val loop = width + gapPx
+        while (true) {
+            androidx.compose.runtime.withFrameNanos { }
+            var o = offset.floatValue + step
+            if (o >= loop) o -= loop
+            offset.floatValue = o
+        }
+    }
+    Box(modifier.clipToBounds()) {
+        Row(Modifier.wrapContentWidth(Alignment.Start, unbounded = true)
+            .graphicsLayer { translationX = -offset.floatValue }) {
+            Text(text, fontSize = 14.sp, maxLines = 1, softWrap = false,
+                modifier = Modifier.onSizeChanged { width = it.width })
+            Spacer(Modifier.width(with(density) { gapPx.toDp() }))
+            Text(text, fontSize = 14.sp, maxLines = 1, softWrap = false)
+        }
+    }
+}
+
 /** Rotes „NEWS“-Kästchen: pulsierender Live-Punkt und ein langsam darüberlaufender Lichtschimmer. */
 @Composable
 private fun NewsBadge(red: Color) {
@@ -470,15 +506,12 @@ private fun NewsTicker(items: List<de.ostlertekker.ultraiptv.core.news.NewsItem>
                 }
                 withStyle(androidx.compose.ui.text.SpanStyle(color = p.text)) { append(n.title) }
             }
-            append("      ")
         }
     }
     Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 8.dp).height(30.dp),
         verticalAlignment = Alignment.CenterVertically) {
         NewsBadge(red)
-        Text(text, fontSize = 14.sp, maxLines = 1, softWrap = false,
-            modifier = Modifier.weight(1f).padding(start = 12.dp, end = 8.dp)
-                .basicMarquee(iterations = Int.MAX_VALUE, initialDelayMillis = 1200, repeatDelayMillis = 0, velocity = 55.dp))
+        SmoothMarquee(text, Modifier.weight(1f).padding(start = 12.dp, end = 8.dp))
     }
 }
 
