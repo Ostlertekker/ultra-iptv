@@ -458,12 +458,14 @@ private fun SmoothMarquee(text: androidx.compose.ui.text.AnnotatedString, modifi
     val step = remember(density) { kotlin.math.max(1f, kotlin.math.round(density.density)) } // ≈ 1 dp pro Bild
     val gapPx = remember(density) { with(density) { 48.dp.toPx() } }
     var width by remember { mutableIntStateOf(0) }
+    var box by remember { mutableIntStateOf(0) }
     val offset = remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
-    LaunchedEffect(text, width) {
-        if (width <= 0) return@LaunchedEffect
+    // Rundenlänge: mindestens die Zeilenbreite – kurzer Text läuft komplett hinaus, bevor er rechts wieder hereinkommt
+    val loop = kotlin.math.max(width + gapPx, box.toFloat())
+    LaunchedEffect(text, width, box) {
+        if (width <= 0 || box <= 0) return@LaunchedEffect
         offset.floatValue = 0f
         delay(1200)
-        val loop = width + gapPx
         while (true) {
             androidx.compose.runtime.withFrameNanos { }
             var o = offset.floatValue + step
@@ -471,46 +473,13 @@ private fun SmoothMarquee(text: androidx.compose.ui.text.AnnotatedString, modifi
             offset.floatValue = o
         }
     }
-    Box(modifier.clipToBounds()) {
-        Row(Modifier.wrapContentWidth(Alignment.Start, unbounded = true)
-            .graphicsLayer { translationX = -offset.floatValue }) {
-            Text(text, fontSize = 14.sp, maxLines = 1, softWrap = false,
-                modifier = Modifier.onSizeChanged { width = it.width })
-            Spacer(Modifier.width(with(density) { gapPx.toDp() }))
-            Text(text, fontSize = 14.sp, maxLines = 1, softWrap = false)
-        }
-    }
-}
-
-@Composable
-private fun SportTicker(events: List<de.ostlertekker.ultraiptv.core.discover.ScoreEvent>) {
-    val p = LocalUltraTheme.current.palette
-    val green = Color(0xFF16A34A)
-    val red = Color(0xFFD7262E)
-    val fmt = remember { java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMAN) }
-    val text = remember(events) {
-        androidx.compose.ui.text.buildAnnotatedString {
-            events.forEachIndexed { i, e ->
-                if (i > 0) withStyle(androidx.compose.ui.text.SpanStyle(color = green, fontWeight = FontWeight.Bold)) { append("   ▪   ") }
-                when {
-                    e.live -> withStyle(androidx.compose.ui.text.SpanStyle(color = Color.White, background = red, fontWeight = FontWeight.Bold, fontSize = 11.sp)) {
-                        append(" LIVE" + (e.clock?.takeIf { it.isNotBlank() }?.let { " $it" } ?: "") + " ")
-                    }
-                    e.state == "post" -> withStyle(androidx.compose.ui.text.SpanStyle(color = p.textDim, fontWeight = FontWeight.Bold, fontSize = 12.sp)) { append("ENDE") }
-                    else -> withStyle(androidx.compose.ui.text.SpanStyle(color = green, fontWeight = FontWeight.Bold, fontSize = 12.sp)) { append(fmt.format(java.util.Date(e.startMs))) }
-                }
-                withStyle(androidx.compose.ui.text.SpanStyle(color = p.textDim, fontSize = 12.sp)) { append("  ${e.league.label}  ") }
-                withStyle(androidx.compose.ui.text.SpanStyle(color = p.text, fontWeight = if (e.live) FontWeight.SemiBold else FontWeight.Normal)) {
-                    append(if (e.state == "pre" && e.league.sport != de.ostlertekker.ultraiptv.core.discover.Sport.TENNIS && e.competitors.size == 2)
-                        e.competitors.joinToString(" – ") { it.name } else e.scoreLine)
-                }
-            }
-        }
-    }
-    Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 8.dp).height(26.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        NewsBadge(green, "SPORT")
-        SmoothMarquee(text, Modifier.weight(1f).padding(start = 12.dp, end = 8.dp))
+    Box(modifier.clipToBounds().onSizeChanged { box = it.width }) {
+        Text(text, fontSize = 14.sp, maxLines = 1, softWrap = false,
+            modifier = Modifier.wrapContentWidth(Alignment.Start, unbounded = true).onSizeChanged { width = it.width }
+                .graphicsLayer { translationX = -offset.floatValue })
+        Text(text, fontSize = 14.sp, maxLines = 1, softWrap = false,
+            modifier = Modifier.wrapContentWidth(Alignment.Start, unbounded = true)
+                .graphicsLayer { translationX = loop - offset.floatValue })
     }
 }
 
