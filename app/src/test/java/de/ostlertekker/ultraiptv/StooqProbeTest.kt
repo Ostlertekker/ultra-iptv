@@ -8,12 +8,14 @@ import java.net.URL
 class StooqProbeTest {
     @Test fun probe() {
         val urls = listOf(
-            "https://stooq.com/q/l/?s=aapl.us+nvda.us&f=sd2t2ohlcvp&h&e=csv",
-            "https://stooq.com/q/l/?s=aapl.us&f=sd2t2ohlcv&h&e=csv",
-            "https://stooq.pl/q/l/?s=aapl.us&f=sd2t2ohlcv&h&e=csv",
-            "https://stooq.com/q/l/?s=aapl.us&f=sd2t2ohlcv&h&e=json",
-            "https://query1.finance.yahoo.com/v8/finance/chart/AAPL?range=1d&interval=1d",
-            "https://query2.finance.yahoo.com/v8/finance/chart/NVDA?range=1d&interval=1d",
+            "https://api.nasdaq.com/api/quote/AAPL/info?assetclass=stocks",
+            "https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol?symbols=AAPL%7CNVDA&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json",
+            "https://www.google.com/finance/quote/AAPL:NASDAQ",
+            "https://financialmodelingprep.com/api/v3/quote-short/AAPL",
+            "https://www.marketwatch.com/investing/stock/aapl",
+            "https://api.boerse-frankfurt.de/v1/data/quote_box/single?isin=US0378331005&mic=XFRA",
+            "https://www.tradegate.de/refresh.php?isin=US0378331005",
+            "https://query1.finance.yahoo.com/v7/finance/spark?symbols=AAPL,NVDA&range=1d&interval=1d",
         )
         val sb = StringBuilder("PROBE\n")
         for (u in urls) {
