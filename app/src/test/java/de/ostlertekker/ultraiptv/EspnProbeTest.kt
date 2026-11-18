@@ -22,8 +22,10 @@ class EspnProbeTest {
         val base = "https://site.api.espn.com/apis/site/v2/sports/"
         for ((lg, range) in listOf("soccer/eng.1" to "20261101-20261110", "basketball/nba" to "20261110-20261112")) {
             runCatching {
-                val board = get("${base}$lg/scoreboard?dates=$range")
-                val ev = board["events"]!!.jsonArray.first { it.jsonObject["status"]?.jsonObject?.get("type")?.jsonObject?.get("state")?.jsonPrimitive?.content == "post" }.jsonObject
+                val board = get("${base}$lg/scoreboard")
+                val evs = board["events"]!!.jsonArray
+                sb.append("\n#### $lg events=${evs.size} day=${cut(board["day"], 100)} states=${evs.map { it.jsonObject["status"]?.jsonObject?.get("type")?.jsonObject?.get("state")?.jsonPrimitive?.content }}")
+                val ev = (evs.firstOrNull { it.jsonObject["status"]?.jsonObject?.get("type")?.jsonObject?.get("state")?.jsonPrimitive?.content != "pre" } ?: evs.first()).jsonObject
                 val id = ev["id"]!!.jsonPrimitive.content
                 val s = get("${base}$lg/summary?event=$id")
                 sb.append("\n==== $lg $id KEYS: ${s.keys}\n")
