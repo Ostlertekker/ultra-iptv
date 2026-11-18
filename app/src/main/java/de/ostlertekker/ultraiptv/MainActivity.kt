@@ -73,6 +73,8 @@ class RootViewModel @Inject constructor(
 ) : ViewModel() {
 
     val settings: StateFlow<AppSettings?> = settingsRepo.settings.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val reminderPopup = notifications.popup
+    fun dismissReminder() { notifications.popup.value = null }
     val hasProvider: StateFlow<Boolean> = creds.config.map { it != null }.stateIn(viewModelScope, SharingStarted.Eagerly, creds.config.value != null)
     val profiles = user.profiles.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 

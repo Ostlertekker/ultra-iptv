@@ -83,7 +83,11 @@ class NotificationCenter @Inject constructor(
         return true
     }
 
-    private suspend fun lead(): Long = settingsRepo.current().reminderLeadMin.coerceIn(0, 60) * 60_000L
+    /** Erinnerungen erscheinen immer 2 Minuten vor Sendungsbeginn. */
+    private fun lead(): Long = 2 * 60_000L
+
+    /** Aktuelle Erinnerung als Einblendung oben links (statt Postfach). */
+    val popup = kotlinx.coroutines.flow.MutableStateFlow<ReminderEntity?>(null)
 
     suspend fun hasReminder(channelId: String, startMs: Long) = extras.findReminder(channelId, startMs) != null
 
@@ -105,8 +109,8 @@ class NotificationCenter @Inject constructor(
 
     suspend fun fireReminder(id: Long) {
         val r = extras.reminder(id) ?: return
-        post("reminder", "Gleich: ${r.title}", "${r.channelName} · ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(r.startMs))}",
-            ContentKind.LIVE.name, r.channelId)
+        // Nicht ins Postfach – die App blendet die Erinnerung 30 Sekunden oben links ein
+        popup.value = r
     }
 
     /** Nach Neustart/Update: offene Erinnerungen neu planen. */

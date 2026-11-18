@@ -203,9 +203,6 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
                 SettingsCategory.REMOTE -> remotePage(vm, s)
                 SettingsCategory.PARENTAL -> item { ParentalSection(vm, s) }
                 SettingsCategory.REMINDERS -> {
-                    item { SRow("Erinnern vor Beginn", if (s.reminderLeadMin == 0) "Zum Sendungsbeginn" else "${s.reminderLeadMin} Minuten vorher") {
-                        vm.set(Keys.REMINDER_LEAD, cycle(listOf(0, 1, 2, 5, 10, 15), s.reminderLeadMin.takeIf { it in listOf(0, 1, 2, 5, 10, 15) } ?: 2))
-                    } }
                     item { SHeader("Erinnerungen & Hinweise") }
                     notificationsSection(x)
                 }
