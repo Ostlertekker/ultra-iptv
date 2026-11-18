@@ -419,9 +419,13 @@ private fun ChannelRow(title: String, channels: List<ChannelEntity>, onClick: (C
 private fun WeatherStrip(w: de.ostlertekker.ultraiptv.core.weather.Weather) {
     val p = LocalUltraTheme.current.palette
     // Transparent: nur Inhalt, kein Kasten
-    Row(Modifier.padding(horizontal = 48.dp, vertical = 6.dp).fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+    // Über die volle Bildschirmbreite (nur kleiner Rand, damit nichts am Fernsehrand abgeschnitten wird)
+    Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-        Text("${w.icon}  ${w.temp}°", color = p.text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            de.ostlertekker.ultraiptv.core.weather.AnimatedWeatherIcon(w.code, 40.dp)
+            Text("${w.temp}°", color = p.text, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 6.dp))
+        }
         Column {
             Text("${w.place} · ${w.text}", color = p.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
             Text(listOfNotNull(w.feels?.let { "gefühlt $it°" }, if (w.todayMax != null && w.todayMin != null) "heute ${w.todayMax}° / ${w.todayMin}°" else null,
@@ -432,7 +436,10 @@ private fun WeatherStrip(w: de.ostlertekker.ultraiptv.core.weather.Weather) {
         w.days.take(3).forEach { d ->
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(d.label, color = p.textDim, fontSize = 12.sp)
-                Text("${de.ostlertekker.ultraiptv.core.weather.WeatherCodes.icon(d.code)} ${d.max}° / ${d.min}°", color = p.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    de.ostlertekker.ultraiptv.core.weather.AnimatedWeatherIcon(d.code, 24.dp)
+                    Text(" ${d.max}° / ${d.min}°", color = p.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                }
             }
         }
     }
