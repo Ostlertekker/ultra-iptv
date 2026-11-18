@@ -3,10 +3,7 @@ package de.ostlertekker.ultraiptv.feature.web
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
-import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.Path
 import android.os.Bundle
 import android.os.SystemClock
 import android.view.Gravity
@@ -30,20 +27,13 @@ import de.ostlertekker.ultraiptv.core.player.PlayerEngine
 import javax.inject.Inject
 
 /**
- * Eingebettete Web-Dienste (YouTube, Spotify) direkt in ULTRA IPTV – keine externe App.
+ * Eingebettete Web-Dienste (YouTube) direkt in ULTRA IPTV – keine externe App.
  * Es werden die offiziellen Weboberflächen der Anbieter geladen; Anmeldung und Kopierschutz bleiben unverändert; bei YouTube ist ein Werbeblocker aktiv.
  */
-enum class WebApp(val title: String, val url: String, val userAgent: String, val cursor: Boolean, val keepAudioInBackground: Boolean) {
+enum class WebApp(val title: String, val url: String, val userAgent: String) {
     // Offizielle YouTube-Fernsehoberfläche (wie auf Smart-TVs): komplett per Fernbedienung bedienbar
     YOUTUBE("YouTube", "https://www.youtube.com/tv",
-        "Mozilla/5.0 (SMART-TV; Linux; Tizen 6.0) AppleWebKit/537.36 (KHTML, like Gecko) 76.0.3809.146/6.0 TV Safari/537.36",
-        cursor = false, keepAudioInBackground = false),
-
-    // Offizieller Spotify-Web-Player (Desktop-Ansicht), für den Fernseher umgebaut: Pfeiltasten-Navigation, TV-Ansicht.
-    // Zeiger nur noch optional (Menü-Taste) für Stellen, die die Navigation nicht erreicht.
-    SPOTIFY("Spotify", "https://open.spotify.com",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-        cursor = false, keepAudioInBackground = true),
+        "Mozilla/5.0 (SMART-TV; Linux; Tizen 6.0) AppleWebKit/537.36 (KHTML, like Gecko) 76.0.3809.146/6.0 TV Safari/537.36"),
 }
 
 @AndroidEntryPoint
@@ -53,18 +43,12 @@ class WebAppActivity : ComponentActivity() {
 
     private lateinit var web: WebView
     private lateinit var app: WebApp
-    private var cursor: CursorView? = null
-    private var cursorOn = false
-    private var lastNav = 0L
     private lateinit var hint: TextView
     private var backDownAt = 0L
 
     companion object {
         const val EXTRA_APP = "app"
         const val EXTRA_URL = "url"
-        /** Nur für automatische Tests: Seitenzustand dauerhaft einblenden / TV-Ansicht abschalten. */
-        const val EXTRA_DEBUG = "debug"
-        const val EXTRA_NO_TV = "noTv"
         fun open(context: Context, app: WebApp) =
             context.startActivity(Intent(context, WebAppActivity::class.java).putExtra(EXTRA_APP, app.name))
 
@@ -104,16 +88,10 @@ class WebAppActivity : ComponentActivity() {
             settings.useWideViewPort = true
             settings.cacheMode = WebSettings.LOAD_DEFAULT
             settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-            if (app == WebApp.SPOTIFY) {
-                // Leistungsmodus: keine Text-Vergrößerung (zwingt die Seite zu mehr Layout-Arbeit), Hardware-Beschleunigung fest an
-                settings.textZoom = 100
-                setLayerType(View.LAYER_TYPE_HARDWARE, null)
-                setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
-            }
             CookieManager.getInstance().setAcceptCookie(true)
             CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
             webViewClient = object : WebViewClient() {
-                // Alles bleibt in der App: nur http(s) laden, App-Links (intent://, spotify:) ignorieren
+                // Alles bleibt in der App: nur http(s) laden, App-Links (intent:// usw.) ignorieren
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val s = request.url.scheme ?: return true
                     // Google sperrt Anmeldungen in eingebetteten Browsern („nicht sichere App“) – statt der Fehlerseite den richtigen Weg zeigen
@@ -122,20 +100,16 @@ class WebAppActivity : ComponentActivity() {
                 }
                 override fun onPageFinished(view: WebView, url: String?) {
                     CookieManager.getInstance().flush()
-                    // Falls das Start-Skript auf älteren WebViews nicht unterstützt wird: nachträglich einfügen
-                    if (app == WebApp.SPOTIFY && !intent.getBooleanExtra(EXTRA_NO_TV, false)) view.evaluateJavascript(SpotifyTv.SCRIPT, null)
                 }
                 // Werbeblocker (YouTube): Anfragen an Werbe-/Tracking-Server gar nicht erst laden
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): android.webkit.WebResourceResponse? {
-                    if (app == WebApp.SPOTIFY) return if (SpotifyTv.isBlocked(request.url)) android.webkit.WebResourceResponse("text/plain", "utf-8", 204, "No Content",
-                        emptyMap(), java.io.ByteArrayInputStream(ByteArray(0))) else null
                     if (app != WebApp.YOUTUBE) return null
                     return if (AdBlock.isAd(request.url)) android.webkit.WebResourceResponse("text/plain", "utf-8", 204, "No Content",
                         emptyMap(), java.io.ByteArrayInputStream(ByteArray(0))) else null
                 }
             }
             webChromeClient = object : WebChromeClient() {
-                // Kopiergeschützte Wiedergabe (Widevine) für Spotify/YouTube erlauben – nur Medienschutz, keine Kamera/Mikrofon
+                // Kopiergeschützte Wiedergabe (Widevine) für YouTube erlauben – nur Medienschutz, keine Kamera/Mikrofon
                 override fun onPermissionRequest(request: PermissionRequest) {
                     val allowed = request.resources.filter { it == PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID }.toTypedArray()
                     if (allowed.isNotEmpty()) request.grant(allowed) else request.deny()
@@ -146,16 +120,8 @@ class WebAppActivity : ComponentActivity() {
 
         val root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         root.addView(web, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        if (app.cursor || app == WebApp.SPOTIFY) {
-            cursor = CursorView(this).also { root.addView(it, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)) }
-            // Spotify: Zeiger ist Standard; die zuletzt gewählte Bedienart (Menü-Taste) wird gemerkt
-            cursorOn = if (app == WebApp.SPOTIFY) getSharedPreferences("webapp", MODE_PRIVATE).getBoolean("spotify_cursor", true) else app.cursor
-            cursor?.visibility = if (cursorOn) View.VISIBLE else View.GONE
-        }
         hint = TextView(this).apply {
-            text = if (app == WebApp.SPOTIFY) "Spotify · Pfeiltasten: Zeiger bewegen · OK: klicken · ⏯ ⏮ ⏭: Wiedergabe · Menü-Taste: Zeiger ↔ Pfeiltasten-Navigation · Zurück lang: zurück zu ULTRA IPTV"
-                   else if (app.cursor) "${app.title} · Pfeiltasten: Zeiger · OK: klicken · ⏯: Wiedergabe · Zurück lang drücken: zurück zu ULTRA IPTV"
-                   else "${app.title} · Zurück lang drücken: zurück zu ULTRA IPTV"
+            text = "${app.title} · Zurück lang drücken: zurück zu ULTRA IPTV"
             setTextColor(Color.WHITE); textSize = 13f
             setBackgroundColor(Color.argb(170, 0, 0, 0)); setPadding(28, 12, 28, 12)
         }
@@ -216,18 +182,6 @@ class WebAppActivity : ComponentActivity() {
             web.addJavascriptInterface(SponsorBlock(http, web) { msg -> runOnUiThread { showHint(msg) } }, "UltraSB")
             runCatching { androidx.webkit.WebViewCompat.addDocumentStartJavaScript(web, SponsorBlock.SCRIPT, setOf("https://www.youtube.com")) }
         }
-        // Spotify: Fernseh-Ansicht + Pfeiltasten-Navigation (auch auf der Spotify-Anmeldeseite)
-        val tvMode = app == WebApp.SPOTIFY && !intent.getBooleanExtra(EXTRA_NO_TV, false)
-        if (intent.getBooleanExtra(EXTRA_DEBUG, false)) {
-            val r = object : Runnable { override fun run() {
-                web.evaluateJavascript("(function(){var b=document.body;return location.href+' | '+document.readyState+' | Text:'+(b?b.innerText.length:0)+' | '+(b?b.innerText.replace(/\\s+/g,' ').slice(0,160):'')+' | UA:'+navigator.userAgent.slice(-40)})()") { v ->
-                    hint.animate().cancel(); hint.alpha = 1f; hint.text = "DEBUG " + v }
-                hint.postDelayed(this, 2000) } }
-            hint.postDelayed(r, 2000)
-        }
-        if (tvMode && androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
-            runCatching { androidx.webkit.WebViewCompat.addDocumentStartJavaScript(web, SpotifyTv.SCRIPT, setOf("https://*.spotify.com")) }
-        }
         if (savedInstanceState != null) web.restoreState(savedInstanceState) else web.loadUrl(intent.getStringExtra(EXTRA_URL) ?: app.url)
         web.requestFocus()
     }
@@ -238,12 +192,9 @@ class WebAppActivity : ComponentActivity() {
         if (helpView != null) return
         val root = web.parent as? FrameLayout ?: return
         helpView = TextView(this).apply {
-            text = if (app == WebApp.YOUTUBE)
+            text =
                 "Google erlaubt die Anmeldung nicht in eingebetteten Apps.\n\nSo geht es: In YouTube „Anmelden“ → „Mit dem Telefon anmelden“ wählen.\n" +
                     "Dann am Handy yt.be/activate öffnen und den Code vom Fernseher eingeben.\n\n(OK oder Zurück schließt diesen Hinweis)"
-            else
-                "Google erlaubt die Anmeldung nicht in eingebetteten Apps.\n\nSo geht es: Bei Spotify „Mit E-Mail-Adresse anmelden“ wählen –\n" +
-                    "ohne Passwort bekommst du einen Einmal-Code per Mail. Ist dein Konto mit Google verknüpft,\nfunktioniert die E-Mail-Adresse deines Google-Kontos.\n\n(OK oder Zurück schließt diesen Hinweis)"
             setTextColor(Color.WHITE); textSize = 18f; gravity = Gravity.CENTER
             setBackgroundColor(Color.argb(235, 10, 12, 16)); setPadding(80, 60, 80, 60)
         }
@@ -305,8 +256,8 @@ class WebAppActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         CookieManager.getInstance().flush()
-        // YouTube pausiert beim Verlassen; Spotify darf als Hintergrundmusik weiterlaufen
-        if (!app.keepAudioInBackground) web.onPause()
+        // YouTube pausiert beim Verlassen
+        web.onPause()
     }
 
     override fun onResume() { super.onResume(); web.onResume() }
@@ -314,18 +265,6 @@ class WebAppActivity : ComponentActivity() {
     override fun onDestroy() {
         runCatching { (web.parent as? ViewGroup)?.removeView(web); web.stopLoading(); web.destroy() }
         super.onDestroy()
-    }
-
-    /** Eingabefeld (z. B. Suche, Anmeldung): echter Tipp an die Stelle, damit die Bildschirmtastatur erscheint. */
-    private fun tapIfInput(result: String?) {
-        val r = result?.trim('"')?.takeIf { it.contains(',') } ?: return
-        val (cx, cy, iw) = r.split(',').mapNotNull { it.toFloatOrNull() }.takeIf { it.size == 3 } ?: return
-        val k = web.width / iw.coerceAtLeast(1f)
-        val x = cx * k; val y = cy * k
-        val t = SystemClock.uptimeMillis()
-        val down = MotionEvent.obtain(t, t, MotionEvent.ACTION_DOWN, x, y, 0)
-        val up = MotionEvent.obtain(t, t + 60, MotionEvent.ACTION_UP, x, y, 0)
-        web.dispatchTouchEvent(down); web.dispatchTouchEvent(up); down.recycle(); up.recycle()
     }
 
     private fun sendKey(code: Int) {
@@ -355,144 +294,9 @@ class WebAppActivity : ComponentActivity() {
             }
             return true
         }
-        if (app == WebApp.SPOTIFY && code == KeyEvent.KEYCODE_MENU) {
-            if (event.action == KeyEvent.ACTION_UP) {
-                cursorOn = !cursorOn
-                getSharedPreferences("webapp", MODE_PRIVATE).edit().putBoolean("spotify_cursor", cursorOn).apply()
-                cursor?.visibility = if (cursorOn) View.VISIBLE else View.GONE
-                showHint(if (cursorOn) "Zeiger an – Pfeiltasten bewegen den Zeiger, OK klickt" else "Pfeiltasten-Navigation – Pfeiltasten springen zum nächsten Element")
-            }
-            return true
-        }
-        if (app == WebApp.SPOTIFY) {
-            fun js(s: String) = web.evaluateJavascript(s, null)
-            when (code) {
-                KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PAUSE -> {
-                    if (event.action == KeyEvent.ACTION_UP) js("document.querySelector('[data-testid=control-button-playpause]')?.click()"); return true }
-                KeyEvent.KEYCODE_MEDIA_NEXT, KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
-                    if (event.action == KeyEvent.ACTION_UP) js("document.querySelector('[data-testid=control-button-skip-forward]')?.click()"); return true }
-                KeyEvent.KEYCODE_MEDIA_PREVIOUS, KeyEvent.KEYCODE_MEDIA_REWIND -> {
-                    if (event.action == KeyEvent.ACTION_UP) js("document.querySelector('[data-testid=control-button-skip-back]')?.click()"); return true }
-            }
-            if (!cursorOn) {
-                val dir = when (code) {
-                    KeyEvent.KEYCODE_DPAD_LEFT -> "left"; KeyEvent.KEYCODE_DPAD_RIGHT -> "right"
-                    KeyEvent.KEYCODE_DPAD_UP -> "up"; KeyEvent.KEYCODE_DPAD_DOWN -> "down"; else -> null
-                }
-                if (dir != null) {
-                    // Gedrückt halten: höchstens ca. 8 Schritte pro Sekunde, damit die Seite nicht überlastet
-                    val t = SystemClock.uptimeMillis()
-                    if (event.action == KeyEvent.ACTION_DOWN && (event.repeatCount == 0 || t - lastNav > 120)) { lastNav = t; js("window.__ultraNav&&__ultraNav('$dir')") }
-                    return true
-                }
-                if (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) {
-                    if (event.action == KeyEvent.ACTION_UP) web.evaluateJavascript("window.__ultraOk?__ultraOk():''") { r -> tapIfInput(r) }
-                    return true
-                }
-            }
-        }
-        val c = cursor?.takeIf { cursorOn }
-        if (c != null) {
-            when (code) {
-                KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
-                    if (event.action == KeyEvent.ACTION_DOWN) c.move(code, event.repeatCount, web)
-                    return true
-                }
-                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                    if (event.action == KeyEvent.ACTION_UP) c.click(web)
-                    return true
-                }
-                KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PAUSE -> {
-                    if (event.action == KeyEvent.ACTION_UP) sendKey(KeyEvent.KEYCODE_SPACE) // Spotify: Leertaste = Wiedergabe/Pause
-                    return true
-                }
-                KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> { if (event.action == KeyEvent.ACTION_UP) web.evaluateJavascript(
-                    "document.querySelector('[data-testid=control-button-skip-forward]')?.click()", null); return true }
-                KeyEvent.KEYCODE_MEDIA_REWIND -> { if (event.action == KeyEvent.ACTION_UP) web.evaluateJavascript(
-                    "document.querySelector('[data-testid=control-button-skip-back]')?.click()", null); return true }
-            }
-        }
         return super.dispatchKeyEvent(event)
     }
 }
-
-/** Fernbedienungs-Zeiger für Weboberflächen, die für Maus gebaut sind (Spotify-Web-Player). */
-class CursorView(context: Context) : View(context) {
-    private var x = -1f
-    private var y = -1f
-    private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
-    private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK; style = Paint.Style.STROKE; strokeWidth = 3f }
-    private val arrow = Path()
-    private var lastHover = 0L
-    private var hoverWeb: WebView? = null
-    // Letzte Position nachreichen, damit Hover-Menüs an der Endposition stimmen
-    private val hoverFlush = Runnable {
-        val w = hoverWeb ?: return@Runnable
-        val t = SystemClock.uptimeMillis(); lastHover = t
-        val ev = MotionEvent.obtain(t, t, MotionEvent.ACTION_HOVER_MOVE, x, y, 0).apply { source = android.view.InputDevice.SOURCE_MOUSE }
-        w.dispatchGenericMotionEvent(ev); ev.recycle()
-    }
-
-    init { isFocusable = false; isClickable = false }
-
-    override fun onSizeChanged(w: Int, h: Int, ow: Int, oh: Int) { if (x < 0) { x = w / 2f; y = h / 2f } }
-
-    fun move(code: Int, repeat: Int, web: WebView) {
-        // Beschleunigung beim Gedrückthalten
-        val step = (18f + repeat * 9f).coerceAtMost(90f) * resources.displayMetrics.density / 2f
-        when (code) {
-            KeyEvent.KEYCODE_DPAD_LEFT -> x -= step
-            KeyEvent.KEYCODE_DPAD_RIGHT -> x += step
-            KeyEvent.KEYCODE_DPAD_UP -> y -= step
-            KeyEvent.KEYCODE_DPAD_DOWN -> y += step
-        }
-        // Am Rand scrollen statt anschlagen
-        val margin = 24f
-        if (y < margin) { web.dispatchWheel(this.x, margin, -1f); y = margin }
-        if (y > height - margin) { web.dispatchWheel(this.x, height - margin, 1f); y = height - margin }
-        x = x.coerceIn(margin, width - margin)
-        // Hover für Menüs/Tooltips – höchstens ca. 20× pro Sekunde (jedes Hover lässt die Seite Teile neu zeichnen)
-        val t = SystemClock.uptimeMillis()
-        if (t - lastHover >= 50) {
-            lastHover = t
-            val ev = MotionEvent.obtain(t, t, MotionEvent.ACTION_HOVER_MOVE, x, y, 0).apply { source = android.view.InputDevice.SOURCE_MOUSE }
-            web.dispatchGenericMotionEvent(ev); ev.recycle()
-        } else {
-            removeCallbacks(hoverFlush)
-            hoverWeb = web
-            postDelayed(hoverFlush, 60)
-        }
-        invalidate()
-    }
-
-    fun click(web: WebView) {
-        val t = SystemClock.uptimeMillis()
-        val down = MotionEvent.obtain(t, t, MotionEvent.ACTION_DOWN, x, y, 0)
-        val up = MotionEvent.obtain(t, t + 60, MotionEvent.ACTION_UP, x, y, 0)
-        web.dispatchTouchEvent(down); web.dispatchTouchEvent(up)
-        down.recycle(); up.recycle()
-        animate().scaleX(0.85f).scaleY(0.85f).setDuration(80).withEndAction { animate().scaleX(1f).scaleY(1f).setDuration(80).start() }.start()
-    }
-
-    private fun WebView.dispatchWheel(px: Float, py: Float, dir: Float) {
-        val t = SystemClock.uptimeMillis()
-        val props = arrayOf(MotionEvent.PointerProperties().apply { id = 0; toolType = MotionEvent.TOOL_TYPE_MOUSE })
-        val coords = arrayOf(MotionEvent.PointerCoords().apply { this.x = px; this.y = py; setAxisValue(MotionEvent.AXIS_VSCROLL, -dir) })
-        val ev = MotionEvent.obtain(t, t, MotionEvent.ACTION_SCROLL, 1, props, coords, 0, 0, 1f, 1f, 0, 0,
-            android.view.InputDevice.SOURCE_MOUSE, 0)
-        dispatchGenericMotionEvent(ev); ev.recycle()
-    }
-
-    override fun onDraw(canvas: Canvas) {
-        val s = resources.displayMetrics.density * 1.4f
-        arrow.reset()
-        arrow.moveTo(x, y); arrow.lineTo(x, y + 18 * s); arrow.lineTo(x + 5 * s, y + 13.5f * s)
-        arrow.lineTo(x + 9 * s, y + 21 * s); arrow.lineTo(x + 12 * s, y + 19.5f * s); arrow.lineTo(x + 8 * s, y + 12.5f * s)
-        arrow.lineTo(x + 14 * s, y + 12.5f * s); arrow.close()
-        canvas.drawPath(arrow, fill); canvas.drawPath(arrow, stroke)
-    }
-}
-
 
 /**
  * Werbeblocker für die eingebettete YouTube-Oberfläche.
@@ -613,90 +417,3 @@ internal class SponsorBlock(
         """
     }
 }
-
-/**
- * Fernseh-Ansicht für den Spotify-Web-Player: größere, ruhigere Darstellung im Stil von ULTRA IPTV,
- * „App herunterladen“-Hinweise ausgeblendet und Pfeiltasten-Navigation (nächstes Element in Pfeilrichtung, deutlicher Fokusrahmen).
- * Spotify ändert seine Seite regelmäßig – dann kann einzelnes Styling ausfallen, die Navigation arbeitet aber allgemein mit
- * Buttons/Links/Zeilen und bleibt meist funktionsfähig.
- */
-internal object SpotifyTv {
-    // Leistungsmodus: Tracking/Analyse/Fehlerberichte und Canvas-Videos (Endlos-Clips hinter Songs) nicht laden
-    private val hosts = listOf("canvaz.scdn.co", "sentry.io", "datadoghq.com", "google-analytics.com", "googletagmanager.com",
-        "doubleclick.net", "googlesyndication.com", "hotjar.com", "branch.io", "app.link", "facebook.net", "pixel.spotify.com")
-    private val paths = listOf("/gabo-receiver-service/", "/melody/", "/event-service/")
-    fun isBlocked(url: android.net.Uri): Boolean {
-        val h = url.host ?: return false
-        if (hosts.any { h == it || h.endsWith(".$it") }) return true
-        val p = url.path ?: return false
-        return h.endsWith("spotify.com") && paths.any { p.contains(it) }
-    }
-
-    const val SCRIPT = """
-(function(){try{
-if(window.__ultraNav) return;
-var CSS='html,body{background:#0b0f14 !important}'+
- '.ultra-focus{outline:4px solid #7FD4FF !important;outline-offset:2px !important;border-radius:8px !important;box-shadow:0 0 0 7px rgba(127,212,255,.28) !important}'+
- '[data-testid=download-app-button],[data-testid=install-app-button],[data-testid=upgrade-button],a[href*="/download"],[data-testid=top-bar-upgrade-button]{display:none !important}'+
- '*{scroll-behavior:auto !important}::-webkit-scrollbar{width:0 !important;height:0 !important}'+
- '*,*::before,*::after{animation-duration:1ms !important;animation-delay:0s !important;animation-iteration-count:1 !important;transition-duration:1ms !important;transition-delay:0s !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;will-change:auto !important}'+
- '*:not(.ultra-focus){box-shadow:none !important}'+
- // Rechte Seitenleiste (Aktuelle Wiedergabe / Freundesaktivität) ausblenden – ständig aktiv, viele Elemente
- '.Root__right-sidebar,[data-testid=buddy-feed],[data-testid=now-playing-view],aside[aria-label*="Now playing"],aside[aria-label*="Aktuelle Wiedergabe"],aside[aria-label*="Friend"],aside[aria-label*="Freund"]{display:none !important}'+
- '[data-testid*=canvas] video,[class*=canvas] video,[data-testid*=Canvas] video{display:none !important}';
-function addCss(){ if(document.getElementById('ultra-tv-css')) return; var s=document.createElement('style'); s.id='ultra-tv-css'; s.textContent=CSS;
-  (document.head||document.documentElement).appendChild(s); }
-addCss(); document.addEventListener('DOMContentLoaded',addCss); setInterval(addCss,2500);
-var SEL='a[href],button,input,textarea,select,[role=button],[role=link],[role=tab],[role=option],[role=menuitem],[role=row],[role=checkbox],[role=switch],[tabindex]:not([tabindex="-1"])';
-var cur=null, cache=null, cacheAt=0;
-// Leistung: nur Elemente im sichtbaren Bereich (+ etwas Rand) prüfen, Ergebnis kurz zwischenspeichern
-function invalidate(){ cache=null; }
-addEventListener('scroll',invalidate,true); addEventListener('resize',invalidate);
-function list(){
-  var now=Date.now(); if(cache&&now-cacheAt<700) return cache;
-  var out=[], H=innerHeight, W=innerWidth, all=document.querySelectorAll(SEL);
-  for(var i=0;i<all.length;i++){ var e=all[i], r=e.getBoundingClientRect();
-    if(r.width<10||r.height<10||r.bottom<-H*0.5||r.top>H*1.5||r.right<0||r.left>W) continue;
-    if(e.disabled) continue; out.push([e,r]); }
-  cache=out; cacheAt=now; return out; }
-function shown(e){ if(e.closest('[aria-hidden=true]')) return false; var cs=getComputedStyle(e);
-  return !(cs.visibility=='hidden'||cs.display=='none'||parseFloat(cs.opacity)<0.05); }
-function box(e){ if(!e||!document.contains(e)) return null; var r=e.getBoundingClientRect(); return (r.width<10||r.height<10)?null:r; }
-function gap(a1,a2,b1,b2){ return a2<b1? b1-a2 : (b2<a1? a1-b2 : 0); }
-function set(e){ if(cur) cur.classList.remove('ultra-focus'); cur=e; if(!e) return;
-  e.classList.add('ultra-focus');
-  try{ e.focus({preventScroll:true}); }catch(x){}
-  try{ e.dispatchEvent(new MouseEvent('mouseover',{bubbles:true})); }catch(x){}
-  var r=e.getBoundingClientRect();
-  if(r.top<70||r.bottom>innerHeight-100){ try{ e.scrollIntoView({block:'nearest',inline:'nearest'}); }catch(x){} invalidate(); } }
-function scroller(e){ while(e&&e!==document.body){ var cs=getComputedStyle(e);
-  if((cs.overflowY=='auto'||cs.overflowY=='scroll')&&e.scrollHeight>e.clientHeight+20) return e; e=e.parentElement; }
-  return document.scrollingElement; }
-window.__ultraNav=function(dir){
-  if(cur&&!box(cur)){ cur.classList&&cur.classList.remove('ultra-focus'); cur=null; }
-  var L=list(); if(!L.length) return;
-  if(!cur){ var b=null,bd=1e12; L.forEach(function(p){ var r=p[1]; if(r.top<0||r.top>innerHeight) return; var d=r.top*3+r.left; if(d<bd&&shown(p[0])){bd=d;b=p[0];} }); set(b); return; }
-  var a=cur.getBoundingClientRect(), scored=[];
-  L.forEach(function(p){ var e=p[0], r=p[1]; if(e===cur||e.contains(cur)||cur.contains(e)) return;
-    var main, cross;
-    if(dir=='right'){ if(r.left<a.right-6) return; main=r.left-a.right; cross=gap(a.top,a.bottom,r.top,r.bottom); }
-    else if(dir=='left'){ if(r.right>a.left+6) return; main=a.left-r.right; cross=gap(a.top,a.bottom,r.top,r.bottom); }
-    else if(dir=='down'){ if(r.top<a.bottom-6) return; main=r.top-a.bottom; cross=gap(a.left,a.right,r.left,r.right); }
-    else { if(r.bottom>a.top+6) return; main=a.top-r.bottom; cross=gap(a.left,a.right,r.left,r.right); }
-    var align=(dir=='up'||dir=='down')? Math.abs(r.left-a.left)*0.05 : Math.abs((r.top+r.bottom)-(a.top+a.bottom))*0.05;
-    scored.push([Math.max(0,main)+cross*4+align,e]); });
-  scored.sort(function(x,y){return x[0]-y[0];});
-  // Sichtbarkeit (teuer) nur für die besten Kandidaten prüfen
-  for(var i=0;i<scored.length&&i<12;i++){ if(shown(scored[i][1])){ set(scored[i][1]); return; } }
-  if(dir=='down'||dir=='up'){ var sc=scroller(cur); sc&&sc.scrollBy(0,(dir=='down'?1:-1)*innerHeight*0.6); invalidate(); }
-};
-window.__ultraOk=function(){
-  if(!cur||!document.contains(cur)){ window.__ultraNav('down'); return ''; }
-  var t=cur.tagName;
-  if(t=='INPUT'||t=='TEXTAREA'||t=='SELECT'){ var r=cur.getBoundingClientRect(); return (r.left+r.width/2)+','+(r.top+r.height/2)+','+innerWidth; }
-  cur.click(); return '';
-};
-}catch(e){}})();
-"""
-}
-

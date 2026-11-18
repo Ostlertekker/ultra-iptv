@@ -94,7 +94,6 @@ object Routes {
     // Entdecken-Funktionen
     const val EXPLORE = "explore"
     const val JELLYFIN = "jellyfin"
-    const val SPOTIFY = "spotify"
     fun jfMovie(id: String) = "jfMovie/${Uri.encode(id)}"
     fun jfSeries(id: String) = "jfSeries/${Uri.encode(id)}"
     fun jfLibrary(id: String, name: String) = "jfLibrary/${Uri.encode(id)}?name=${Uri.encode(name)}"
@@ -179,7 +178,7 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
     val items = remember {
         listOf(
             NavItem(Routes.HOME, "Start"), NavItem(Routes.LIVE, "Live-TV"), NavItem(Routes.MOVIES, "Filme"),
-            NavItem(Routes.SERIES, "Serien"), NavItem(Routes.SPORTS, "Sport"), NavItem(Routes.RADIO, "Radio"), NavItem(Routes.FAVORITES, "Favoriten"), NavItem(Routes.JELLYFIN, "Jellyfin"), NavItem("app:YOUTUBE", "YouTube"), NavItem("app:SPOTIFY", "Spotify"),
+            NavItem(Routes.SERIES, "Serien"), NavItem(Routes.SPORTS, "Sport"), NavItem(Routes.RADIO, "Radio"), NavItem(Routes.FAVORITES, "Favoriten"), NavItem(Routes.JELLYFIN, "Jellyfin"), NavItem("app:YOUTUBE", "YouTube"),
             NavItem(Routes.EXPLORE, "Mehr"),
         )
     }
@@ -264,7 +263,7 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
         }
         val ctx = androidx.compose.ui.platform.LocalContext.current
         TopNavBar(items, utility, railRouteFor(route), onSelect = { r ->
-            // YouTube/Spotify laufen als eingebettete Weboberfläche im eigenen Vollbild – keine externe App
+            // YouTube läuft als eingebettete Weboberfläche im eigenen Vollbild – keine externe App
             if (r.startsWith("app:")) de.ostlertekker.ultraiptv.feature.web.WebAppActivity.open(ctx, de.ostlertekker.ultraiptv.feature.web.WebApp.valueOf(r.removePrefix("app:")))
             else navigateTop(nav, r)
             sounds?.transition()
