@@ -326,6 +326,20 @@ class UiSmokeTest {
         finish()
     }
 
+    @Test fun e_popups() {
+        // Erinnerungs- und Update-Einblendung im Menü sichtbar machen (Testdaten)
+        openRoute(Routes.LIVE).use {
+            val n = hooks.notifications()
+            n.popup.value = de.ostlertekker.ultraiptv.core.database.ReminderEntity(9_999, "x", "Testsender 1 HD", "Fußball: 1. Bundesliga – Testspiel", System.currentTimeMillis() + 120_000)
+            Thread.sleep(2500); shot("popup_erinnerung")
+            n.popup.value = null
+            n.updatePopup.value = de.ostlertekker.ultraiptv.core.update.UpdateState.Available("9.9.9", 99999, "- Neue Einblendungen im App-Stil", "https://example.invalid", 14_000_000)
+            Thread.sleep(2500); shot("popup_update")
+            n.updatePopup.value = null
+        }
+        finish()
+    }
+
     @Test fun e_matchCenter() {
         // Sport → zweites Live-Spiel wählen → OK nochmal = Match-Center im Vollbild, Reiter durchschalten
         openRoute(Routes.SPORTS).use {
