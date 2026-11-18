@@ -41,6 +41,7 @@ import androidx.compose.foundation.layout.size
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -423,6 +424,31 @@ private fun ChannelRow(title: String, channels: List<ChannelEntity>, onClick: (C
     }
 }
 
+/** Rotes „NEWS“-Kästchen: pulsierender Live-Punkt und ein langsam darüberlaufender Lichtschimmer. */
+@Composable
+private fun NewsBadge(red: Color) {
+    val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "news")
+    val pulse by t.animateFloat(0.25f, 1f, androidx.compose.animation.core.infiniteRepeatable(
+        androidx.compose.animation.core.tween(800), androidx.compose.animation.core.RepeatMode.Reverse), label = "pulse")
+    val sweep by t.animateFloat(-0.6f, 1.6f, androidx.compose.animation.core.infiniteRepeatable(
+        androidx.compose.animation.core.keyframes { durationMillis = 4200; -0.6f at 2600; 1.6f at 4200 }), label = "sweep")
+    Box(Modifier.fillMaxHeight().clip(RoundedCornerShape(6.dp)).background(red)
+        .drawWithContent {
+            drawContent()
+            val x = size.width * sweep
+            drawRect(androidx.compose.ui.graphics.Brush.horizontalGradient(
+                listOf(Color.Transparent, Color.White.copy(alpha = 0.35f), Color.Transparent),
+                startX = x - size.width * 0.35f, endX = x + size.width * 0.35f))
+        }.padding(horizontal = 10.dp), contentAlignment = Alignment.Center) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(7.dp).graphicsLayer { alpha = pulse; scaleX = 0.8f + 0.2f * pulse; scaleY = scaleX }
+                .background(Color.White, androidx.compose.foundation.shape.CircleShape))
+            Text("NEWS", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp,
+                modifier = Modifier.padding(start = 6.dp))
+        }
+    }
+}
+
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun NewsTicker(items: List<de.ostlertekker.ultraiptv.core.news.NewsItem>) {
@@ -445,10 +471,7 @@ private fun NewsTicker(items: List<de.ostlertekker.ultraiptv.core.news.NewsItem>
     }
     Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 8.dp).height(30.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.fillMaxHeight().background(red, RoundedCornerShape(6.dp)).padding(horizontal = 12.dp),
-            contentAlignment = Alignment.Center) {
-            Text("NEWS", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
-        }
+        NewsBadge(red)
         Text(text, fontSize = 14.sp, maxLines = 1, softWrap = false,
             modifier = Modifier.weight(1f).padding(start = 12.dp, end = 8.dp)
                 .basicMarquee(iterations = Int.MAX_VALUE, initialDelayMillis = 1200, repeatDelayMillis = 0, velocity = 55.dp))
