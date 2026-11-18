@@ -77,8 +77,8 @@ class NotificationCenter @Inject constructor(
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO).launch {
             while (true) {
                 runCatching { checkDue() }
-                // Alle 3 Stunden (und kurz nach dem Start) nach einem neuen App-Update schauen
-                if (System.currentTimeMillis() - lastUpdateCheck > 3 * 3_600_000L) {
+                // Alle 5 Minuten (und kurz nach dem Start) nach einem neuen App-Update schauen
+                if (System.currentTimeMillis() - lastUpdateCheck > 5 * 60_000L) {
                     lastUpdateCheck = System.currentTimeMillis()
                     runCatching { if (settingsRepo.current().updateCheck) checkAppUpdate() }
                 }

@@ -63,13 +63,14 @@ class PlayerActivity : ComponentActivity() {
             if (s == null) Box(Modifier.fillMaxSize().background(Color.Black))
             else UltraThemeHost(s, device.tier, null) {
                 val reminder by notifications.popup.collectAsStateWithLifecycle()
+                val update by notifications.updatePopup.collectAsStateWithLifecycle()
                 Box(Modifier.fillMaxSize()) {
                     PlayerScreen(
                         vm = vm, settings = s, inPip = inPip.value, pipSupported = pipSupported,
                         onExit = { finish() },
                         onPip = { enterPip() },
                         onMini = { vm.toMini(); finish() },
-                        popupActive = reminder != null && !inPip.value,
+                        popupActive = (reminder != null || update != null) && !inPip.value,
                     )
                     // Programm-Erinnerung auch im Vollbild-Player (oben links, 30 s)
                     if (!inPip.value) de.ostlertekker.ultraiptv.core.notify.ReminderPopup(reminder,
@@ -79,6 +80,9 @@ class PlayerActivity : ComponentActivity() {
                         if (vm.isLive) vm.playChannelById(rem.channelId)
                         else { openPlayer(de.ostlertekker.ultraiptv.core.model.ContentKind.LIVE, rem.channelId); finish() }
                     }
+                    // Neues App-Update auch im Vollbild-Player (Erinnerung hat Vorrang)
+                    if (!inPip.value && reminder == null) de.ostlertekker.ultraiptv.core.notify.UpdatePopup(notifications,
+                        Modifier.align(androidx.compose.ui.Alignment.TopStart).padding(start = 28.dp, top = 24.dp))
                 }
             }
         }
