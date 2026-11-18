@@ -70,7 +70,7 @@ object NewsSources {
         return when (id) {
             "tagesschau" -> Feed("https://www.tagesschau.de/index~rss2.xml", "tagesschau")
             "dw" -> {
-                val l = when (lang) { "de" -> "de"; "es" -> "es"; "ar" -> "ar"; "ru" -> "ru"; else -> "en" }
+                val l = when (lang) { "de" -> "de"; "ar" -> "ar"; "ru" -> "ru"; else -> "en" }
                 Feed("https://rss.dw.com/xml/rss-$l-all", "DW")
             }
             "bbc" -> when {
@@ -88,7 +88,7 @@ object NewsSources {
             "france24" -> {
                 val l = when (lang) { "fr" -> "fr"; "es" -> "es"; "ar" -> "ar"; else -> "en" }
                 val sec = when (l) {
-                    "fr" -> when (r) { Region.AFRICA -> "afrique/"; Region.MIDEAST -> "moyen-orient/"; Region.LATAM, Region.NAM -> "am%C3%A9riques/"; Region.ASIA, Region.OCEANIA -> "asie-pacifique/"; Region.EUROPE -> "europe/" }
+                    "fr" -> when (r) { Region.AFRICA -> "afrique/"; Region.MIDEAST -> "moyen-orient/"; Region.LATAM, Region.NAM -> ""; Region.ASIA, Region.OCEANIA -> "asie-pacifique/"; Region.EUROPE -> "europe/" }
                     "en" -> when (r) { Region.AFRICA -> "africa/"; Region.MIDEAST -> "middle-east/"; Region.LATAM, Region.NAM -> "americas/"; Region.ASIA, Region.OCEANIA -> "asia-pacific/"; Region.EUROPE -> "europe/" }
                     else -> ""
                 }
@@ -268,6 +268,8 @@ internal object RssParser {
             val body = m.groupValues[2]
             var title = clean(tag(body, "title") ?: return@mapNotNull null)
             if (title.isBlank()) return@mapNotNull null
+            // Sendungs-Videos („tagesschau in 100 Sekunden“ usw.) sind keine Schlagzeilen
+            if (title.startsWith("tagesschau", ignoreCase = true)) return@mapNotNull null
             // Google News: „Schlagzeile - Zeitung“ → Zeitung als Quelle anzeigen
             val src = tag(body, "source")?.let { clean(it) }?.takeIf { it.isNotBlank() }
             if (src != null && title.endsWith(" - $src")) title = title.removeSuffix(" - $src")
