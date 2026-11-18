@@ -71,6 +71,7 @@ import de.ostlertekker.ultraiptv.core.database.ContentDao
 import de.ostlertekker.ultraiptv.core.model.Countries
 import de.ostlertekker.ultraiptv.core.notify.NotificationCenter
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -108,29 +109,31 @@ class HomeViewModel @Inject constructor(
     weatherRepo: de.ostlertekker.ultraiptv.core.weather.WeatherRepository,
     newsRepo: de.ostlertekker.ultraiptv.core.news.NewsRepository,
     private val sportsRepo: de.ostlertekker.ultraiptv.core.discover.SportsRepository,
-    stocksRepo: de.ostlertekker.ultraiptv.core.stocks.StocksRepository,
+    private val appSettings: de.ostlertekker.ultraiptv.core.data.SettingsRepository,
 ) : ViewModel() {
-    val stocks = stocksRepo.top
+    val sportEnabled = MutableStateFlow(true)
     companion object {
         /** Nur für Bildschirmtests (androidTest): feste Spiele für den Sport-Ticker. */
         @androidx.annotation.VisibleForTesting @Volatile var testSportEvents: List<de.ostlertekker.ultraiptv.core.discover.ScoreEvent>? = null
     }
-    /** Sport-Ticker: nur laufende Spiele, jede Minute neu. */
+    /** Sport-Ticker: nur laufende Spiele, jede Minute neu. Schalter in den Einstellungen wirkt sofort. */
     val sportTicker = MutableStateFlow<List<de.ostlertekker.ultraiptv.core.discover.ScoreEvent>>(emptyList())
     init {
         viewModelScope.launch {
-            while (true) {
-                // Nur für Bildschirmtests: feste Beispielspiele statt Abruf
-                val b = testSportEvents?.let { de.ostlertekker.ultraiptv.core.discover.ScoreBoard(it, System.currentTimeMillis(), emptyList()) }
-                    ?: runCatching { sportsRepo.scoreboard(de.ostlertekker.ultraiptv.core.discover.League.entries, maxAgeMs = 0) }.getOrNull()
-                if (b != null) {
-                    // Nur laufende Spiele
-                    sportTicker.value = b.events.filter { it.live }.sortedBy { it.startMs }.take(30)
+            appSettings.settings.map { it.sportTickerEnabled }.distinctUntilChanged().collectLatest { on ->
+                sportEnabled.value = on
+                if (!on) { sportTicker.value = emptyList(); return@collectLatest }
+                while (true) {
+                    // Nur für Bildschirmtests: feste Beispielspiele statt Abruf
+                    val b = testSportEvents?.let { de.ostlertekker.ultraiptv.core.discover.ScoreBoard(it, System.currentTimeMillis(), emptyList()) }
+                        ?: runCatching { sportsRepo.scoreboard(de.ostlertekker.ultraiptv.core.discover.League.entries, maxAgeMs = 0) }.getOrNull()
+                    if (b != null) sportTicker.value = b.events.filter { it.live }.sortedBy { it.startMs }.take(30)
+                    delay(60_000L)
                 }
-                delay(60_000L)
             }
         }
     }
+
     val weather = weatherRepo.weather
     val news = newsRepo.items
     /** Live-Highlights (läuft jetzt, Lieblingssender zuerst) und Sport-Highlights – echte EPG-Daten, alle 5 Minuten neu. */
@@ -249,7 +252,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
     val weather by vm.weather.collectAsStateWithLifecycle()
     val news by vm.news.collectAsStateWithLifecycle()
     val sportTicker by vm.sportTicker.collectAsStateWithLifecycle()
-    val stocks by vm.stocks.collectAsStateWithLifecycle()
+    val sportEnabled by vm.sportEnabled.collectAsStateWithLifecycle()
     val latestNotification by vm.latestNotification.collectAsStateWithLifecycle()
     val sync by vm.syncState.collectAsStateWithLifecycle()
     val channelCount by vm.channelCount.collectAsStateWithLifecycle()
@@ -328,9 +331,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
         // Dezente Nachrichten-Laufschrift (Quelle in den Einstellungen › Allgemein)
         if (news.isNotEmpty()) item(key = "news") { NewsTicker(news) }
         // Schmaler Sport-Ticker mit Live-Ergebnissen (ersetzt den früheren Menüpunkt „Sport“)
-        item(key = "sportticker") { SportTicker(sportTicker) }
-        // Börsenzeile: die 10 wertvollsten Firmen der Welt (automatisch nach Börsenwert sortiert)
-        if (stocks.isNotEmpty()) item(key = "stocks") { StockTicker(stocks) }
+        if (sportEnabled) item(key = "sportticker") { SportTicker(sportTicker) }
         val pad = Modifier.padding(horizontal = 48.dp)
         val note = latestNotification
         if (note != null) item(key = "note") {
@@ -527,35 +528,6 @@ private fun SportTicker(events: List<de.ostlertekker.ultraiptv.core.discover.Sco
         if (events.isEmpty())
             Text("Gerade keine Live-Events", color = p.textDim, fontSize = 14.sp, maxLines = 1, modifier = Modifier.padding(start = 12.dp))
         else SmoothMarquee(text, Modifier.weight(1f).padding(start = 12.dp, end = 8.dp))
-    }
-}
-
-@Composable
-private fun StockTicker(quotes: List<de.ostlertekker.ultraiptv.core.stocks.StockQuote>) {
-    val p = LocalUltraTheme.current.palette
-    val blue = Color(0xFF2563EB)
-    val up = Color(0xFF22C55E); val down = Color(0xFFEF4444)
-    val nf = remember { java.text.NumberFormat.getNumberInstance(java.util.Locale.GERMANY).apply { minimumFractionDigits = 2; maximumFractionDigits = 2 } }
-    val text = remember(quotes) {
-        androidx.compose.ui.text.buildAnnotatedString {
-            quotes.forEachIndexed { i, q ->
-                if (i > 0) withStyle(androidx.compose.ui.text.SpanStyle(color = blue, fontWeight = FontWeight.Bold)) { append("   ▪   ") }
-                withStyle(androidx.compose.ui.text.SpanStyle(color = p.textDim, fontSize = 12.sp)) { append("${i + 1}. ") }
-                withStyle(androidx.compose.ui.text.SpanStyle(color = p.text, fontWeight = FontWeight.SemiBold)) { append(q.name) }
-                withStyle(androidx.compose.ui.text.SpanStyle(color = p.text)) { append("  ${nf.format(q.price)} $") }
-                q.changePct?.let { c ->
-                    withStyle(androidx.compose.ui.text.SpanStyle(color = if (c >= 0) up else down, fontWeight = FontWeight.SemiBold)) {
-                        append(if (c >= 0) "  ▲ +" else "  ▼ "); append(nf.format(c)); append(" %")
-                    }
-                }
-            }
-            withStyle(androidx.compose.ui.text.SpanStyle(color = p.textDim, fontSize = 11.sp)) { append("      Kurse verzögert · Quelle: Stooq") }
-        }
-    }
-    Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 8.dp).height(26.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        NewsBadge(blue, "BÖRSE")
-        SmoothMarquee(text, Modifier.weight(1f).padding(start = 12.dp, end = 8.dp))
     }
 }
 

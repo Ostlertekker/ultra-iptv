@@ -47,7 +47,6 @@ object NewsSources {
         "aljazeera" to "Al Jazeera",
         "euronews" to "Euronews",
         "google" to "Google News",
-        "off" to "Aus",
     )
     fun label(id: String) = choices.firstOrNull { it.first == id }?.second ?: "Automatisch"
 
@@ -159,12 +158,12 @@ class NewsRepository @Inject constructor(private val http: OkHttpClient, private
     private class Cached(val etag: String?, val modified: String?, val items: List<NewsItem>)
     private val cache = HashMap<String, Cached>()
 
-    private data class Cfg(val source: String, val local: Boolean, val place: String, val region: String)
+    private data class Cfg(val source: String, val local: Boolean, val place: String, val region: String, val enabled: Boolean)
 
     init {
         scope.launch {
-            settings.settings.map { Cfg(it.newsSource, it.newsLocal, it.weatherPlace, it.weatherRegion) }.distinctUntilChanged().collectLatest { c ->
-                if (c.source == "off") { _items.value = emptyList(); return@collectLatest }
+            settings.settings.map { Cfg(it.newsSource, it.newsLocal, it.weatherPlace, it.weatherRegion, it.newsEnabled) }.distinctUntilChanged().collectLatest { c ->
+                if (!c.enabled || c.source == "off") { _items.value = emptyList(); return@collectLatest }
                 val lang = Locale.getDefault().language.ifBlank { "de" }
                 val city = c.place.substringBefore(",").trim()
                 val cc = c.place.substringAfterLast(",", "").trim().ifBlank { Locale.getDefault().country.ifBlank { "DE" } }

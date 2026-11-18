@@ -65,6 +65,10 @@ data class AppSettings(
     /** Nachrichten-Laufschrift: "auto", "off" oder eine Quellen-ID (siehe NewsSources). */
     val newsSource: String = "auto",
     val newsLocal: Boolean = true,
+    /** Startseite: Wetter, Nachrichten-Laufschrift und Sport-Ticker einzeln an/aus. */
+    val weatherEnabled: Boolean = true,
+    val newsEnabled: Boolean = true,
+    val sportTickerEnabled: Boolean = true,
     val epgRefreshHours: Int = 12,
     val epgOffsetHours: Int = 0,
     val epgDays: Int = 2,
@@ -176,6 +180,9 @@ object Keys {
     val WEATHER_REGION = stringPreferencesKey("weather_region")
     val NEWS_SOURCE = stringPreferencesKey("news_source")
     val NEWS_LOCAL = booleanPreferencesKey("news_local")
+    val WEATHER_ENABLED = booleanPreferencesKey("weather_enabled")
+    val NEWS_ENABLED = booleanPreferencesKey("news_enabled")
+    val SPORT_TICKER_ENABLED = booleanPreferencesKey("sport_ticker_enabled")
     val EPG_REFRESH = intPreferencesKey("epg_refresh")
     val EPG_OFFSET = intPreferencesKey("epg_offset")
     val EPG_DAYS = intPreferencesKey("epg_days")
@@ -281,6 +288,9 @@ fun Preferences.toSettings(): AppSettings {
         weatherRegion = this[Keys.WEATHER_REGION] ?: "",
         newsSource = this[Keys.NEWS_SOURCE] ?: d.newsSource,
         newsLocal = this[Keys.NEWS_LOCAL] ?: d.newsLocal,
+        weatherEnabled = this[Keys.WEATHER_ENABLED] ?: d.weatherEnabled,
+        newsEnabled = (this[Keys.NEWS_ENABLED] ?: d.newsEnabled) && this[Keys.NEWS_SOURCE] != "off",
+        sportTickerEnabled = this[Keys.SPORT_TICKER_ENABLED] ?: d.sportTickerEnabled,
         epgRefreshHours = this[Keys.EPG_REFRESH] ?: d.epgRefreshHours,
         epgOffsetHours = this[Keys.EPG_OFFSET] ?: d.epgOffsetHours,
         epgDays = this[Keys.EPG_DAYS] ?: d.epgDays,

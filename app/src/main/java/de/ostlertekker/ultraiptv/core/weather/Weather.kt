@@ -68,10 +68,10 @@ class WeatherRepository @Inject constructor(private val http: OkHttpClient, priv
 
     init {
         scope.launch {
-            settings.settings.map { Triple(it.weatherPlace, it.weatherLat, it.weatherLon) }.distinctUntilChanged().collectLatest { (place, lat, lon) ->
+            settings.settings.map { listOf(it.weatherPlace, it.weatherLat, it.weatherLon, it.weatherEnabled.toString()) }.distinctUntilChanged().collectLatest { (place, lat, lon, on) ->
                 // collectLatest: Ortswechsel bricht die laufende Schleife ab und startet neu
                 _weather.value = null
-                if (place.isBlank() || lat.isBlank() || lon.isBlank()) return@collectLatest
+                if (on != "true" || place.isBlank() || lat.isBlank() || lon.isBlank()) return@collectLatest
                 // Erst laden, dann alle 20 Minuten (collect wird bei Ortswechsel abgebrochen und neu gestartet)
                 kotlinx.coroutines.coroutineScope {
                     launch { while (true) {

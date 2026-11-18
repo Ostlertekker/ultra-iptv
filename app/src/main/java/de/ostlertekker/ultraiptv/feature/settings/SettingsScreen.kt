@@ -118,7 +118,6 @@ class SettingsViewModel @Inject constructor(
     val repo: SettingsRepository,
     val weather: de.ostlertekker.ultraiptv.core.weather.WeatherRepository,
     val news: de.ostlertekker.ultraiptv.core.news.NewsRepository,
-    val stocks: de.ostlertekker.ultraiptv.core.stocks.StocksRepository,
     val device: DeviceCapabilityManager,
     private val sync: SyncRepository,
     private val creds: CredentialStore,
@@ -409,6 +408,12 @@ private fun LazyListScope.generalPage(vm: SettingsViewModel, s: AppSettings) {
                 vm.set(Keys.SLEEP_TIMER, cycle(listOf(0, 15, 30, 45, 60, 90, 120), s.sleepTimerMin.takeIf { it in listOf(0, 15, 30, 45, 60, 90, 120) } ?: 0))
             }
             SSwitch("Menü-Töne", s.uiSounds) { vm.set(Keys.UI_SOUNDS, it) }
+            SHeader("Startseite")
+            SSwitch("Wetter anzeigen", s.weatherEnabled, subtitle = "Wetterleiste und Wettersymbol oben neben „ULTRA IPTV“") { vm.set(Keys.WEATHER_ENABLED, it) }
+            SSwitch("Nachrichten-Laufschrift", s.newsEnabled) {
+                vm.set(Keys.NEWS_ENABLED, it); if (it && s.newsSource == "off") vm.set(Keys.NEWS_SOURCE, "auto")
+            }
+            SSwitch("Sport-Ticker (nur Live-Spiele)", s.sportTickerEnabled) { vm.set(Keys.SPORT_TICKER_ENABLED, it) }
             SHeader("Wetter")
             var place by remember { mutableStateOf(s.weatherPlace.substringBefore(",")) }
             var msg by remember { mutableStateOf<String?>(null) }
@@ -430,7 +435,7 @@ private fun LazyListScope.generalPage(vm: SettingsViewModel, s: AppSettings) {
             }
             SSwitch("Lokalnachrichten einmischen", s.newsLocal,
                 subtitle = "Deutschland: tagesschau aus deinem Bundesland · weltweit: Google News zu deinem Ort",
-                enabled = s.newsSource != "off") { vm.set(Keys.NEWS_LOCAL, it) }
+                enabled = s.newsEnabled) { vm.set(Keys.NEWS_LOCAL, it) }
             SRow("Erscheinungsbild zurücksetzen", "Design, Farben und Größen auf Standard") { vm.resetAppearance() }
         }
     }
@@ -487,7 +492,6 @@ private fun errorEntries(context: android.content.Context, vm: SettingsViewModel
         g.lastFreeze(context)?.let { "HÄNGER" to it },
         vm.weather.lastError?.let { "WETTER" to it },
         vm.news.lastError?.let { "NACHRICHTEN" to it },
-        vm.stocks.lastError?.let { "BÖRSE" to it },
         st.lastError?.let { "LETZTER WIEDERGABEFEHLER" to (it + "\nFehler / Wiederherstellungen in der Sitzung: ${st.errors} / ${st.recoveries}") },
     )
 }
