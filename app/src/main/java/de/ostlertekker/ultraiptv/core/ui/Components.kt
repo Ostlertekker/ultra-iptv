@@ -73,7 +73,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import de.ostlertekker.ultraiptv.core.animation.drawShootingStars
 import de.ostlertekker.ultraiptv.core.animation.rememberAnimationClock
 import de.ostlertekker.ultraiptv.core.animation.fract
 import de.ostlertekker.ultraiptv.core.audio.AudioExperienceEngine
@@ -400,16 +399,11 @@ data class NavItem(val route: String, val label: String, val icon: androidx.comp
 fun NavRail(items: List<NavItem>, selectedRoute: String, onSelect: (String) -> Unit, firstFocus: FocusRequester, modifier: Modifier = Modifier) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
-    val railClock = rememberAnimationClock(!LocalPerfMode.current && theme.spec.menuFx.shootingStars && theme.anim.backgroundMotion &&
-        theme.anim.profile != AnimationProfile.ECONOMY, fps = 30)
     Column(
         modifier
             .width(200.dp)
             .fillMaxSize()
             .background(Brush.horizontalGradient(listOf(p.bgTop.copy(alpha = 0.92f), p.bgTop.copy(alpha = 0.55f), Color.Transparent)))
-            .drawBehind {
-                if (theme.spec.menuFx.shootingStars) drawShootingStars(p.particle, railClock.value * 1.3f + 3f, 1)
-            }
             .verticalScroll(androidx.compose.foundation.rememberScrollState())
             .padding(vertical = 18.dp, horizontal = 14.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
