@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.core.notify
 
+import kotlinx.coroutines.launch
 import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -60,7 +61,27 @@ class NotificationCenter @Inject constructor(
     val unread = extras.unreadCount()
     fun upcomingReminders() = extras.upcomingReminders(System.currentTimeMillis())
 
-    init { createChannel(context) }
+    /** Aktuelle Erinnerung als Einblendung oben links (statt Postfach). */
+    val popup = kotlinx.coroutines.flow.MutableStateFlow<ReminderEntity?>(null)
+    private val shown = java.util.Collections.synchronizedSet(HashSet<Long>())
+
+    init {
+        createChannel(context)
+        // Zuverlässig, solange die App läuft: alle 15 s prüfen, ob eine Erinnerung fällig ist
+        // (der System-Wecker wird auf manchen TV-Geräten stark verzögert oder gar nicht ausgelöst)
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO).launch {
+            while (true) { runCatching { checkDue() }; kotlinx.coroutines.delay(15_000) }
+        }
+    }
+
+    private fun show(r: ReminderEntity) { if (shown.add(r.id)) popup.value = r }
+
+    /** Fällige Erinnerung (ab 2 Min. vor Beginn bis 5 Min. danach) einblenden – jede nur einmal. */
+    suspend fun checkDue() {
+        val now = System.currentTimeMillis()
+        extras.allReminders().filter { it.id !in shown && now >= it.startMs - lead() && now < it.startMs + 5 * 60_000L }
+            .minByOrNull { it.startMs }?.let { show(it) }
+    }
 
     suspend fun post(kind: String, title: String, body: String, targetKind: String? = null, targetId: String? = null, system: Boolean = true) {
         extras.insertNotification(NotificationEntity(createdAt = System.currentTimeMillis(), title = title, body = body, kind = kind,
@@ -86,8 +107,7 @@ class NotificationCenter @Inject constructor(
     /** Erinnerungen erscheinen immer 2 Minuten vor Sendungsbeginn. */
     private fun lead(): Long = 2 * 60_000L
 
-    /** Aktuelle Erinnerung als Einblendung oben links (statt Postfach). */
-    val popup = kotlinx.coroutines.flow.MutableStateFlow<ReminderEntity?>(null)
+
 
     suspend fun hasReminder(channelId: String, startMs: Long) = extras.findReminder(channelId, startMs) != null
 
@@ -110,7 +130,7 @@ class NotificationCenter @Inject constructor(
     suspend fun fireReminder(id: Long) {
         val r = extras.reminder(id) ?: return
         // Nicht ins Postfach – die App blendet die Erinnerung 30 Sekunden oben links ein
-        popup.value = r
+        show(r)
     }
 
     /** Nach Neustart/Update: offene Erinnerungen neu planen. */
