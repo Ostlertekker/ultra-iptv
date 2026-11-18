@@ -58,7 +58,7 @@ private val UpdateVec by lazy { vec("update", "M5,20h14v-2H5V20zM19,9h-4V3H9v6H5
 /** Gemeinsamer Rahmen der Einblendungen: dunkle Karte im App-Stil, Symbol im Kreis, sanftes Einblenden von links. */
 @Composable
 private fun PopupCard(icon: ImageVector, label: String, title: String, subtitle: String?, modifier: Modifier,
-                      progress: Float? = null, footer: String? = null, buttons: @Composable () -> Unit) {
+                      progress: Float? = null, footer: String? = null, buttons: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit) {
     val theme = LocalUltraTheme.current
     val pal = theme.palette
     var shown by remember { mutableStateOf(false) }
