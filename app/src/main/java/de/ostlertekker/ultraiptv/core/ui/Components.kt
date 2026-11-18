@@ -731,8 +731,10 @@ private fun Modifier.longPressKeys(onLongClick: () -> Unit): Modifier {
                 }
             }
             android.view.KeyEvent.ACTION_UP -> {
+                // Nur werten, wenn das zugehörige Drücken hier auch angekommen ist (sonst z. B. „Ablegen“ im Bearbeitungsmodus fälschlich als langes OK)
+                val down = state[0]; state[0] = 0L
                 if (state[1] == 1L) { state[1] = 0L; true } // lang bereits ausgelöst → kein Klick
-                else if (state[0] > 0 && android.os.SystemClock.uptimeMillis() - state[0] >= 500) { state[0] = 0L; onLongClick(); true }
+                else if (down > 0 && android.os.SystemClock.uptimeMillis() - down >= 500) { onLongClick(); true }
                 else false
             }
             else -> false
