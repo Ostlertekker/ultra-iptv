@@ -591,14 +591,18 @@ private fun WeatherStrip(w: de.ostlertekker.ultraiptv.core.weather.Weather) {
             de.ostlertekker.ultraiptv.core.weather.AnimatedWeatherIcon(w.code, 40.dp)
             Text("${w.temp}°", color = p.text, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 6.dp))
         }
-        Column {
-            Text("${w.place} · ${w.text}", color = p.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        // Nimmt nur den freien Platz – die Vorhersagetage rechts bleiben immer an ihrer Stelle
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("${w.place} · ${w.text}", color = p.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                val extra = listOfNotNull(w.aqiText?.let { "Luft $it" }, w.uv?.let { "UV ${if (it % 1.0 == 0.0) it.toInt() else it} ${w.uvText}" })
+                if (extra.isNotEmpty()) Text("   " + extra.joinToString("  ·  "), color = p.textDim, fontSize = 12.sp, maxLines = 1, softWrap = false)
+            }
             Text(listOfNotNull(w.feels?.let { "gefühlt $it°" }, if (w.todayMax != null && w.todayMin != null) "heute ${w.todayMax}° / ${w.todayMin}°" else null,
-                w.rainPct?.let { "Regen $it %" }, w.wind?.let { "Wind $it km/h" }, w.humidity?.let { "Luftfeuchte $it %" },
-                w.aqiText?.let { "Luft $it" }, w.uv?.let { "UV ${if (it % 1.0 == 0.0) it.toInt() else it} ${w.uvText}" }).joinToString("  ·  "),
-                color = p.textDim, fontSize = 12.sp, maxLines = 1)
+                w.rainPct?.let { "Regen $it %" }, w.wind?.let { "Wind $it km/h" }, w.humidity?.let { "Luftfeuchte $it %" }).joinToString("  ·  "),
+                color = p.textDim, fontSize = 12.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         }
-        Spacer(Modifier.weight(1f))
         w.days.take(3).forEach { d ->
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(d.label, color = p.textDim, fontSize = 12.sp)
