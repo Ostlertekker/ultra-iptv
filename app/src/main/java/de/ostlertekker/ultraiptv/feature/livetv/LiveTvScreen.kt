@@ -1,5 +1,10 @@
 package de.ostlertekker.ultraiptv.feature.livetv
 
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.nativeKeyCode
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.foundation.border
 import androidx.compose.foundation.verticalScroll
 import kotlinx.coroutines.flow.collectLatest
 import android.content.Context
@@ -138,7 +143,9 @@ class LiveTvViewModel @Inject constructor(
                 else -> content.channelsIn(cat)
             }
         }
-        .combine(sortByName) { list, byName -> if (byName) list.sortedBy { it.name.lowercase() } else list }
+        .combine(combine(sortByName, selected) { a, b -> a to b }) { list, (byName, sel) ->
+            // Favoriten behalten immer die eigene Reihenfolge (sonst hätte „Verschieben“ keine Wirkung)
+            if (byName && (sel ?: categories.value.getOrNull(2)) != CAT_FAVORITES) list.sortedBy { it.name.lowercase() } else list }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val programs = MutableStateFlow<Map<String, List<EpgProgramEntity>>>(emptyMap())
@@ -248,6 +255,9 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
     }
 
     var favMenu by remember { mutableStateOf<ChannelEntity?>(null) }
+    // Verschiebe-Modus (wie TiviMate): ▲ ▼ verschiebt den Sender direkt, OK/Zurück beendet
+    var moving by remember { mutableStateOf<String?>(null) }
+    androidx.activity.compose.BackHandler(enabled = moving != null) { moving = null }
     Box(Modifier.fillMaxSize()) {
     Row(Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         // Anteilige Breiten: die Senderliste behält auf jedem Bildschirm genug Platz für die Sendernamen
@@ -272,10 +282,23 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
                 Text(if (current == CAT_FAVORITES) "Noch keine Lieblingssender. Sender auswählen und „☆ Favorit“ drücken." else "Keine Sender in dieser Kategorie.",
                     color = p.textDim, fontSize = 15.sp)
             }
+            if (moving != null) Text("↕ Verschieben: ▲ ▼ bewegt den Sender · OK oder Zurück beendet", color = p.primary, fontSize = 13.sp,
+                fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
             LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 40.dp)) {
                 itemsIndexed(channels, key = { _, c -> c.id }, contentType = { _, _ -> "channel" }) { index, ch ->
                     val nowProg = ch.epgId?.let { id -> programs[id]?.firstOrNull { it.startMs <= now && it.endMs > now } }
+                    val isMoving = moving == ch.id
                     ChannelItem(ch, nowProg, ch.id in favs,
+                        modifier = if (!isMoving) Modifier else Modifier.border(2.dp, p.primary, RoundedCornerShape(12.dp)).onPreviewKeyEvent { k ->
+                            if (k.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent true
+                            when (k.key.nativeKeyCode) {
+                                android.view.KeyEvent.KEYCODE_DPAD_UP -> { vm.moveFavorite(ch, -1); true }
+                                android.view.KeyEvent.KEYCODE_DPAD_DOWN -> { vm.moveFavorite(ch, 1); true }
+                                android.view.KeyEvent.KEYCODE_DPAD_CENTER, android.view.KeyEvent.KEYCODE_ENTER, android.view.KeyEvent.KEYCODE_BACK -> { moving = null; true }
+                                else -> true
+                            }
+                        },
+                        moving = isMoving,
                         focusRequester = if (index == 0) firstChannel else null,
                         onFocus = { vm.onFocus(ch) },
                         onClick = { vm.open(context, ch) },
@@ -289,10 +312,10 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
     }
     favMenu?.let { ch ->
         de.ostlertekker.ultraiptv.core.ui.ActionDialog(ch.name, listOf(
-            "Aus Favoriten entfernen" to { vm.toggleFavorite(ch) },
-            "▲ Nach oben verschieben" to { vm.moveFavorite(ch, -1) },
-            "▼ Nach unten verschieben" to { vm.moveFavorite(ch, 1) },
+            "↕ Verschieben (mit ▲ ▼)" to { moving = ch.id },
             "Ganz nach oben" to { vm.moveFavorite(ch, -10_000) },
+            "Ganz nach unten" to { vm.moveFavorite(ch, 10_000) },
+            "Aus Favoriten entfernen" to { vm.toggleFavorite(ch) },
         )) { favMenu = null }
     }
     }
@@ -408,13 +431,14 @@ private fun FocusedInfo(vm: LiveTvViewModel, ch: ChannelEntity, favs: Set<String
                 }
             }
         }
-        // Umbrechende Knopfzeile: bei schmaler Vorschau rutschen Knöpfe in die nächste Zeile statt abgeschnitten zu werden
-        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(top = 8.dp)) {
-            TvButton("▶ Vollbild", onClick = { vm.open(context, ch) }, primary = true)
-            TvButton(if (ch.id in favs) "★ Favorit entfernen" else "☆ Favorit", onClick = { vm.toggleFavorite(ch) })
+        // Drei kompakte Knöpfe nebeneinander (teilen sich die Breite, nichts wird abgeschnitten)
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            SmallButton("▶ Vollbild", Modifier.weight(1f), primary = true) { vm.open(context, ch) }
+            SmallButton(if (ch.id in favs) "★ Favorit" else "☆ Favorit", Modifier.weight(1f)) { vm.toggleFavorite(ch) }
             val next = nn.firstOrNull { it.startMs > now }
-            if (next != null) TvButton(if (next.startMs in reminders) "⏰ Aus" else "⏰ Erinnern", onClick = { vm.toggleReminder(ch, next) })
+            SmallButton(if (next != null && next.startMs in reminders) "⏰ Aus" else "⏰ Erinnern", Modifier.weight(1f), enabled = next != null) {
+                if (next != null) vm.toggleReminder(ch, next)
+            }
         }
     }
 }
@@ -442,6 +466,8 @@ private fun ChannelItem(
     ch: ChannelEntity,
     now: EpgProgramEntity?,
     favorite: Boolean,
+    modifier: Modifier = Modifier,
+    moving: Boolean = false,
     focusRequester: FocusRequester?,
     onFocus: () -> Unit,
     onClick: () -> Unit,
@@ -455,7 +481,7 @@ private fun ChannelItem(
     val vPad = when (prefs.density) { 0 -> 4.dp; 2 -> 13.dp; else -> 8.dp }
     val nameSize = when (prefs.density) { 0 -> 14.sp; 2 -> 19.sp; else -> 16.sp }
     Row(
-        Modifier.fillMaxWidth()
+        modifier.fillMaxWidth()
             .tvFocusable(shape, onClick, onLongClick, focusRequester = focusRequester, scaleOnFocus = false, onFocus = { focused = it; if (it) onFocus() })
             .background(if (focused) p.surfaceFocused else p.surface, shape)
             .padding(horizontal = 12.dp, vertical = vPad),
@@ -483,6 +509,21 @@ private fun ChannelItem(
         }
         val country = Countries.byCode(ch.country)
         if (country != null) Text(country.flag, fontSize = 15.sp, modifier = Modifier.padding(horizontal = 4.dp))
+        if (moving) Text("↕ ", color = p.primary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         if (favorite) Text("★", color = p.primary, fontSize = 18.sp)
+    }
+}
+
+/** Kleiner Knopf für die Vorschau-Leiste in Live-TV. */
+@Composable
+private fun SmallButton(text: String, modifier: Modifier, primary: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
+    val p = LocalUltraTheme.current.palette
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(20.dp)
+    Box(modifier.tvFocusable(shape, onClick = { if (enabled) onClick() }, scaleOnFocus = false, onFocus = { focused = it })
+        .background(when { focused -> p.primary; !enabled -> Color.White.copy(alpha = 0.04f); primary -> p.primary.copy(alpha = 0.35f); else -> p.surface }, shape)
+        .padding(horizontal = 6.dp, vertical = 7.dp), contentAlignment = Alignment.Center) {
+        Text(text, color = when { focused -> Color.Black; !enabled -> p.textDim.copy(alpha = 0.5f); else -> p.text }, fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
