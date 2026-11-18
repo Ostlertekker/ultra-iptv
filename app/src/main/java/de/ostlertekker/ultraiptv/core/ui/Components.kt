@@ -640,7 +640,7 @@ fun initialsOf(name: String): String {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TopNavBar(items: List<NavItem>, utility: List<NavItem>, selectedRoute: String, onSelect: (String) -> Unit, firstFocus: FocusRequester,
-              modifier: Modifier = Modifier, weather: String? = null) {
+              modifier: Modifier = Modifier, weatherCode: Int? = null, weatherTemp: Int? = null) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
     Row(
@@ -649,6 +649,12 @@ fun TopNavBar(items: List<NavItem>, utility: List<NavItem>, selectedRoute: Strin
             .padding(start = 22.dp, end = 18.dp, top = 14.dp, bottom = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // Animiertes Wetter links neben dem Schriftzug (Ort in Einstellungen › Allgemein)
+        if (weatherCode != null && weatherTemp != null) {
+            de.ostlertekker.ultraiptv.core.weather.AnimatedWeatherIcon(weatherCode, 30.dp)
+            Text("$weatherTemp°", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false,
+                modifier = Modifier.padding(start = 4.dp, end = 12.dp))
+        }
         Text("ULTRA IPTV", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp,
             fontFamily = de.ostlertekker.ultraiptv.core.design.AppFonts.Inter, maxLines = 1)
         Spacer(Modifier.weight(1f))
@@ -665,9 +671,6 @@ fun TopNavBar(items: List<NavItem>, utility: List<NavItem>, selectedRoute: Strin
                 if (item.icon != null) TopNavIconPill(item.icon, item.label, item.route == selectedRoute) { onSelect(item.route) }
                 else TopNavPill(item.label, item.route == selectedRoute, { onSelect(item.route) }, null)
             }
-            // Wetter klein neben der Uhr (z. B. „☀️ 7°“)
-            if (weather != null) Text(weather, color = p.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false,
-                modifier = Modifier.padding(start = 10.dp))
             if (de.ostlertekker.ultraiptv.core.design.LocalUiPrefs.current.menuClock) RailClock(Modifier.padding(start = 8.dp), small = true)
         }
     }

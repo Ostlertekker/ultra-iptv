@@ -271,7 +271,8 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
             sounds?.transition()
         }, firstFocus = railFocus,
             modifier = Modifier.align(Alignment.TopCenter),
-            weather = vm.weather.weather.collectAsStateWithLifecycle().value?.let { "${it.icon} ${it.temp}°" })
+            weatherCode = vm.weather.weather.collectAsStateWithLifecycle().value?.code,
+            weatherTemp = vm.weather.weather.collectAsStateWithLifecycle().value?.temp)
         MiniPlayerOverlay(vm.engine, Modifier.align(Alignment.BottomEnd).padding(28.dp))
         ReminderPopup(vm, Modifier.align(Alignment.TopStart).padding(start = 28.dp, top = 24.dp))
         val rem by vm.reminderPopup.collectAsStateWithLifecycle()

@@ -305,6 +305,18 @@ class UiSmokeTest {
         finish()
     }
 
+    @Test fun e_weather() {
+        // Wetter: Ort setzen (Berlin) → animiertes Symbol links neben dem Schriftzug + Wetterleiste auf der Startseite
+        kotlinx.coroutines.runBlocking {
+            val st = hooks.settings()
+            st.set(de.ostlertekker.ultraiptv.core.data.Keys.WEATHER_PLACE, "Berlin, DE")
+            st.set(de.ostlertekker.ultraiptv.core.data.Keys.WEATHER_LAT, "52.52437")
+            st.set(de.ostlertekker.ultraiptv.core.data.Keys.WEATHER_LON, "13.41053")
+        }
+        openRoute(Routes.HOME).use { Thread.sleep(9000); shot("wetter_start") }
+        finish()
+    }
+
     @Test fun e_homeFocus() {
         // Diagnose Startseite: nach jedem Tastendruck Foto + Position des fokussierten Elements im Dateinamen
         fun where(): String = runCatching {

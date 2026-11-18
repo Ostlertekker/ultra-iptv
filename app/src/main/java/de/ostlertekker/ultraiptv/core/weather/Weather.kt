@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -67,9 +68,10 @@ class WeatherRepository @Inject constructor(private val http: OkHttpClient, priv
 
     init {
         scope.launch {
-            settings.settings.map { Triple(it.weatherPlace, it.weatherLat, it.weatherLon) }.distinctUntilChanged().collect { (place, lat, lon) ->
+            settings.settings.map { Triple(it.weatherPlace, it.weatherLat, it.weatherLon) }.distinctUntilChanged().collectLatest { (place, lat, lon) ->
+                // collectLatest: Ortswechsel bricht die laufende Schleife ab und startet neu
                 _weather.value = null
-                if (place.isBlank() || lat.isBlank()) return@collect
+                if (place.isBlank() || lat.isBlank() || lon.isBlank()) return@collectLatest
                 // Erst laden, dann alle 20 Minuten (collect wird bei Ortswechsel abgebrochen und neu gestartet)
                 kotlinx.coroutines.coroutineScope {
                     launch { while (true) {
