@@ -143,7 +143,7 @@ internal object MatchCenterParser {
                 StandRow(en.t("id"), (sm["rank"]?.takeIf { it.isNotBlank() } ?: "${i + 1}") + ". " + (en.t("team") ?: en.o("team")?.t("displayName") ?: "?"),
                     cols.map { sm[it.first] ?: "" })
             }
-            Standings(group.t("header") ?: group.t("name") ?: st.t("header"), cols.map { it.second }, rows)
+            Standings(group.t("header") ?: group.t("name") ?: st?.t("header"), cols.map { it.second }, rows)
         }
 
         // Form (letzte 5 Spiele)

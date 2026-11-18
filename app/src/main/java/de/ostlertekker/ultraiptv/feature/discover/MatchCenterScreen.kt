@@ -259,11 +259,11 @@ private fun Overview(m: MatchCenter, e: ScoreEvent) {
                     }
                 }
             }
-            val forms = listOfNotNull(m.home?.let { it.short ?: it.name to it.form }, m.away?.let { it.short ?: it.name to it.form }).filter { it.second != null }
+            val forms: List<Pair<String, String>> = listOfNotNull(m.home, m.away).mapNotNull { t -> t.form?.let { f -> (t.short ?: t.name) to f } }
             if (forms.isNotEmpty()) Card("Form (letzte Spiele)") {
                 forms.forEach { (n, f) -> Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(n, color = pal.text, fontSize = 14.sp, modifier = Modifier.width(150.dp), maxLines = 1)
-                    f!!.forEach { r -> FormDot(r.toString()) }
+                    f.forEach { r -> FormDot(r.toString()) }
                 } }
             }
             m.series?.let { Card("Direktvergleich") { Text(it, color = pal.text, fontSize = 14.sp) } }
