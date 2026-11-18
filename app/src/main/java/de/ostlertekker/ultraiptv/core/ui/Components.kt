@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.core.ui
 
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -182,6 +183,7 @@ fun Modifier.tvFocusable(
             focused = it.isFocused
             onFocus?.invoke(it.isFocused)
         }
+        .then(if (onLongClick == null) Modifier else Modifier.longPressKeys(onLongClick))
         .combinedClickable(
             interactionSource = remember { MutableInteractionSource() },
             indication = null,
@@ -700,4 +702,40 @@ private fun TopNavIconPill(icon: androidx.compose.ui.graphics.vector.ImageVector
 fun ratingLabel(r: Double): String {
     val t = Math.round(r * 10).toInt()
     return "★ ${t / 10},${t % 10}"
+}
+
+/**
+ * Langes Drücken der OK-Taste auf der Fernbedienung zuverlässig erkennen (Compose erkennt es auf vielen TV-Geräten nicht):
+ * wiederholte Tastensignale beim Halten oder ≥ 500 ms gedrückt → onLongClick, der normale Klick entfällt dann.
+ * Zusätzlich öffnet die Menü-Taste (☰) dieselbe Aktion.
+ */
+@Composable
+private fun Modifier.longPressKeys(onLongClick: () -> Unit): Modifier {
+    val state = remember { longArrayOf(0L, 0L) } // [Zeitpunkt KeyDown, 1 = lang ausgelöst]
+    return this.onPreviewKeyEvent { ev ->
+        val code = ev.nativeKeyEvent.keyCode
+        if (code == android.view.KeyEvent.KEYCODE_MENU) {
+            if (ev.nativeKeyEvent.action == android.view.KeyEvent.ACTION_UP) onLongClick()
+            return@onPreviewKeyEvent true
+        }
+        if (code != android.view.KeyEvent.KEYCODE_DPAD_CENTER && code != android.view.KeyEvent.KEYCODE_ENTER && code != android.view.KeyEvent.KEYCODE_NUMPAD_ENTER)
+            return@onPreviewKeyEvent false
+        val ne = ev.nativeKeyEvent
+        when (ne.action) {
+            android.view.KeyEvent.ACTION_DOWN -> {
+                if (ne.repeatCount == 0) { state[0] = android.os.SystemClock.uptimeMillis(); state[1] = 0L; false }
+                else {
+                    // Gedrückt halten → wiederholte Signale
+                    if (state[1] == 0L && (ne.isLongPress || ne.repeatCount >= 2)) { state[1] = 1L; onLongClick() }
+                    true
+                }
+            }
+            android.view.KeyEvent.ACTION_UP -> {
+                if (state[1] == 1L) { state[1] = 0L; true } // lang bereits ausgelöst → kein Klick
+                else if (state[0] > 0 && android.os.SystemClock.uptimeMillis() - state[0] >= 500) { state[0] = 0L; onLongClick(); true }
+                else false
+            }
+            else -> false
+        }
+    }
 }
