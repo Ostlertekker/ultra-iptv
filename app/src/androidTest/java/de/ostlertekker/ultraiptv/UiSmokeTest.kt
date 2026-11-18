@@ -210,27 +210,6 @@ class UiSmokeTest {
 
     // ------------------------------------------------------------- Test
 
-    @Test fun a_favorites() {
-        // Favoriten (gemeldetes Problem) – mehrfach rein, bedienen, Sender starten, zurück
-        repeat(3) { round ->
-            openRoute(Routes.FAVORITES).use {
-                if (round == 0) shot("favoriten")
-                keys("Favoriten Runde $round betreten", R, R, D, R, R, L)
-                if (round == 0) perfStart()
-                keys("Favoriten weit scrollen", *IntArray(40) { R }, pauseMs = 70)
-                if (round == 0) perfEnd("Favoriten scrollen")
-                keys("Favoriten Filme/Serien", D, *IntArray(10) { R }, D, R, R, U, U, pauseMs = 120)
-                if (round == 0) shot("favoriten_fokus")
-                keys("Favoriten Sender starten", OK); Thread.sleep(6000); assertResponsive("Favoriten → Player")
-                if (round == 0) shot("player_aus_favoriten")
-                keys("Player zappen", D, D, U); Thread.sleep(3000)
-                keys("Player verlassen", BACK, BACK); Thread.sleep(1500)
-                keys("Favoriten nach Player", R, D, U, L, L)
-            }
-        }
-        finish()
-    }
-
     @Test fun b_liveTvAndPlayer() {
         // Live TV: Kategorien, schnelles Scrollen mit Vorschau, Fehler-Sender (404/403), Player
         openRoute(Routes.LIVE).use {

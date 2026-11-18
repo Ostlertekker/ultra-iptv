@@ -57,7 +57,6 @@ import de.ostlertekker.ultraiptv.core.ui.NavItem
 import de.ostlertekker.ultraiptv.core.ui.TopNavBar
 import de.ostlertekker.ultraiptv.core.ui.NavRail
 import de.ostlertekker.ultraiptv.core.ui.UltraThemeHost
-import de.ostlertekker.ultraiptv.feature.favorites.FavoritesScreen
 import de.ostlertekker.ultraiptv.feature.home.HomeScreen
 import de.ostlertekker.ultraiptv.feature.intro.IntroScreen
 import de.ostlertekker.ultraiptv.feature.livetv.EpgScreen
@@ -84,7 +83,6 @@ object Routes {
     const val EPG = "epg"
     const val MOVIES = "movies"
     const val SERIES = "series"
-    const val FAVORITES = "favorites"
     const val SEARCH = "search"
     const val SETTINGS = "settings"
     const val SETUP = "setup"
@@ -181,7 +179,7 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
     val items = remember {
         listOf(
             NavItem(Routes.HOME, "Start"), NavItem(Routes.LIVE, "Live-TV"), NavItem(Routes.MOVIES, "Filme"),
-            NavItem(Routes.SERIES, "Serien"), NavItem(Routes.SPORTS, "Sport"), NavItem(Routes.RADIO, "Radio"), NavItem(Routes.FAVORITES, "Favoriten"), NavItem(Routes.JELLYFIN, "Jellyfin"), NavItem("app:YOUTUBE", "YouTube"),
+            NavItem(Routes.SERIES, "Serien"), NavItem(Routes.SPORTS, "Sport"), NavItem(Routes.RADIO, "Radio"), NavItem(Routes.JELLYFIN, "Jellyfin"), NavItem("app:YOUTUBE", "YouTube"),
             NavItem(Routes.EXPLORE, "Mehr"),
         )
     }
@@ -241,7 +239,6 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
                     composable("movie/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) { MovieDetailScreen(nav) }
                     composable(Routes.SERIES) { SeriesScreen(nav) }
                     composable("seriesDetail/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) { SeriesDetailScreen(nav) }
-                    composable(Routes.FAVORITES) { FavoritesScreen(nav) }
                     composable(Routes.SEARCH) { SearchScreen(nav) }
                     composable(Routes.SETTINGS) { SettingsScreen(nav) }
                     // „Mehr“: Menüpunkt bleibt, Inhalte vorerst entfernt
