@@ -33,11 +33,7 @@ data class WeatherDay(val label: String, val code: Int, val max: Int, val min: I
 data class Weather(
     val place: String, val temp: Int, val feels: Int?, val code: Int, val wind: Int?, val humidity: Int?,
     val todayMax: Int?, val todayMin: Int?, val rainPct: Int?, val days: List<WeatherDay>, val fetchedAt: Long,
-    /** Europäischer Luftqualitätsindex (0 = sehr gut … >100 = extrem schlecht) und UV-Index – null, wenn nicht abrufbar. */
-    val aqi: Int? = null, val uv: Double? = null,
 ) {
-    val aqiText get() = aqi?.let { when { it <= 20 -> "sehr gut"; it <= 40 -> "gut"; it <= 60 -> "mäßig"; it <= 80 -> "schlecht"; it <= 100 -> "sehr schlecht"; else -> "extrem schlecht" } }
-    val uvText get() = uv?.let { when { it < 3 -> "niedrig"; it < 6 -> "mittel"; it < 8 -> "hoch"; it < 11 -> "sehr hoch"; else -> "extrem" } }
     val icon get() = WeatherCodes.icon(code)
     val text get() = WeatherCodes.text(code)
 }
@@ -113,28 +109,14 @@ class WeatherRepository @Inject constructor(private val http: OkHttpClient, priv
         }
     }
 
-    private fun fetch(place: String, lat: String, lon: String): Weather {
-        val w = WeatherParser.parse(get(WeatherParser.url(lat, lon)), place)
-        // Luftqualität + UV: eigener Dienst von Open-Meteo; fällt er aus, bleibt das Wetter trotzdem sichtbar
-        val aq = runCatching { WeatherParser.parseAir(get(WeatherParser.airUrl(lat, lon))) }.getOrNull()
-        return if (aq == null) w else w.copy(aqi = aq.first, uv = aq.second)
-    }
+    private fun fetch(place: String, lat: String, lon: String): Weather =
+        WeatherParser.parse(get(WeatherParser.url(lat, lon)), place)
 }
 
 internal object WeatherParser {
     fun url(lat: String, lon: String) = "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&timezone=auto&forecast_days=4" +
         "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m" +
         "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
-
-    fun airUrl(lat: String, lon: String) = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=$lat&longitude=$lon&timezone=auto&current=european_aqi,uv_index"
-
-    /** (Luftqualitätsindex, UV-Index) aus der Open-Meteo-Luftqualitäts-Antwort. */
-    fun parseAir(o: JsonObject): Pair<Int?, Double?> {
-        val cur = o["current"] as? JsonObject ?: return null to null
-        val aqi = (cur["european_aqi"] as? JsonPrimitive)?.doubleOrNull?.let { Math.round(it).toInt() }
-        val uv = (cur["uv_index"] as? JsonPrimitive)?.doubleOrNull?.let { Math.round(it * 10) / 10.0 }
-        return aqi to uv
-    }
 
     fun parse(o: JsonObject, place: String): Weather {
         fun JsonObject.d(k: String) = (this[k] as? JsonPrimitive)?.doubleOrNull
