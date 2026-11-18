@@ -221,7 +221,7 @@ fun LazyListScope.updatesSection(x: SettingsExtrasViewModel, s: AppSettings, vm:
                     ActionRow("Erneut versuchen", { x.checkUpdate() })
                 }
             }
-            ToggleRow("Automatisch nach Updates suchen", s.updateCheck, { vm.set(Keys.UPDATE_CHECK, it) }, subtitle = "Einmal täglich beim Start, mit Benachrichtigung")
+            ToggleRow("Automatisch nach Updates suchen", s.updateCheck, { vm.set(Keys.UPDATE_CHECK, it) }, subtitle = "Beim Start und alle 3 Stunden – neue Versionen erscheinen als Einblendung oben links")
             Text("Quelle: GitHub-Releases (${de.ostlertekker.ultraiptv.BuildConfig.UPDATE_REPO}). Updates sind mit demselben Schlüssel signiert.",
                 color = p.textDim, fontSize = 11.sp, modifier = Modifier.padding(8.dp))
         }

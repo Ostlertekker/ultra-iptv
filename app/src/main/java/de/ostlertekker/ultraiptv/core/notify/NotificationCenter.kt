@@ -64,13 +64,26 @@ class NotificationCenter @Inject constructor(
     /** Aktuelle Erinnerung als Einblendung oben links (statt Postfach). */
     val popup = kotlinx.coroutines.flow.MutableStateFlow<ReminderEntity?>(null)
     private val shown = java.util.Collections.synchronizedSet(HashSet<Long>())
+    /** Neues App-Update als Einblendung (statt selbst in den Einstellungen suchen). */
+    val updatePopup = kotlinx.coroutines.flow.MutableStateFlow<UpdateState.Available?>(null)
+    val updateState get() = updates.state
+    private val prefs = context.getSharedPreferences("update_popup", Context.MODE_PRIVATE)
+    private var lastUpdateCheck = 0L
 
     init {
         createChannel(context)
         // Zuverlässig, solange die App läuft: alle 15 s prüfen, ob eine Erinnerung fällig ist
         // (der System-Wecker wird auf manchen TV-Geräten stark verzögert oder gar nicht ausgelöst)
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO).launch {
-            while (true) { runCatching { checkDue() }; kotlinx.coroutines.delay(15_000) }
+            while (true) {
+                runCatching { checkDue() }
+                // Alle 3 Stunden (und kurz nach dem Start) nach einem neuen App-Update schauen
+                if (System.currentTimeMillis() - lastUpdateCheck > 3 * 3_600_000L) {
+                    lastUpdateCheck = System.currentTimeMillis()
+                    runCatching { if (settingsRepo.current().updateCheck) checkAppUpdate() }
+                }
+                kotlinx.coroutines.delay(15_000)
+            }
         }
     }
 
@@ -88,6 +101,15 @@ class NotificationCenter @Inject constructor(
             targetKind = targetKind, targetId = targetId, isRead = false))
         if (system) showSystem(context, title, body, (kind + (targetId ?: "")).hashCode())
     }
+
+    fun laterUpdate() {
+        updatePopup.value?.let { prefs.edit().putString("version", it.version).putLong("at", System.currentTimeMillis()).apply() }
+        updatePopup.value = null
+    }
+    suspend fun downloadUpdate(u: UpdateState.Available) = updates.download(u)
+    fun canInstallUpdate() = updates.canInstall()
+    fun openInstallPermission() = updates.openInstallPermissionSettings()
+    fun installUpdate(f: java.io.File) = updates.install(f)
 
     suspend fun markAllRead() = extras.markAllRead()
     suspend fun clearAll() = extras.clearNotifications()
@@ -170,9 +192,10 @@ class NotificationCenter @Inject constructor(
 
     suspend fun checkAppUpdate() {
         val st = updates.check()
-        if (st is UpdateState.Available && extras.countRecent("update", st.version, System.currentTimeMillis() - 3 * 86_400_000L) == 0) {
-            post("update", "Update verfügbar: ${st.version}", "Einstellungen › Updates öffnen, um die neue Version zu installieren.", targetId = st.version)
-        }
+        if (st !is UpdateState.Available) return
+        // „Später“ gedrückt → dieselbe Version frühestens nach 24 h erneut anbieten
+        val skipped = prefs.getString("version", null) == st.version && System.currentTimeMillis() - prefs.getLong("at", 0L) < 86_400_000L
+        if (!skipped) updatePopup.value = st
     }
 
     companion object {

@@ -274,6 +274,8 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
             modifier = Modifier.align(Alignment.TopCenter))
         MiniPlayerOverlay(vm.engine, Modifier.align(Alignment.BottomEnd).padding(28.dp))
         ReminderPopup(vm, Modifier.align(Alignment.TopStart).padding(start = 28.dp, top = 24.dp))
+        val rem by vm.reminderPopup.collectAsStateWithLifecycle()
+        if (rem == null) de.ostlertekker.ultraiptv.core.notify.UpdatePopup(vm.notify, Modifier.align(Alignment.TopStart).padding(start = 28.dp, top = 24.dp))
         if (route != Routes.RADIO) de.ostlertekker.ultraiptv.feature.radio.RadioMiniOverlay(vm.radio, Modifier.align(Alignment.BottomStart).padding(28.dp))
     }
 }

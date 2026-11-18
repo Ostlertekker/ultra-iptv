@@ -75,6 +75,7 @@ class RootViewModel @Inject constructor(
     val settings: StateFlow<AppSettings?> = settingsRepo.settings.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val reminderPopup = notifications.popup
     fun dismissReminder() { notifications.popup.value = null }
+    val notify get() = notifications
     val hasProvider: StateFlow<Boolean> = creds.config.map { it != null }.stateIn(viewModelScope, SharingStarted.Eagerly, creds.config.value != null)
     val profiles = user.profiles.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
@@ -98,10 +99,7 @@ class RootViewModel @Inject constructor(
             NotificationCenter.scheduleAutoUpdate(appContext, s.autoUpdateHours)
             runCatching { notifications.rescheduleAll() }
             val now = System.currentTimeMillis()
-            if (s.updateCheck && now - s.lastUpdateCheck > 24 * 3_600_000L) {
-                settingsRepo.set(Keys.LAST_UPDATE_CHECK, now)
-                launch { runCatching { notifications.checkAppUpdate() } }
-            }
+            // Update-Prüfung übernimmt die App selbst (beim Start und alle 3 Stunden, mit Einblendung)
             if (creds.load() == null) return@launch
             if (now - s.lastSyncMs > 24 * 3_600_000L) notifications.syncWithChecks()
             else {
