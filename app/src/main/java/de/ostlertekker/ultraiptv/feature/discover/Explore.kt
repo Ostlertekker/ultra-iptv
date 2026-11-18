@@ -7,6 +7,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -222,11 +223,35 @@ private fun ScoreRow(e: ScoreEvent, selected: Boolean, onClick: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (c.logo != null) AsyncImage(c.logo, null, Modifier.size(20.dp))
                 Text(c.name, color = pal.text, fontSize = 15.sp, fontWeight = if (c.winner) FontWeight.Bold else FontWeight.Normal, modifier = Modifier.weight(1f).padding(start = 6.dp), maxLines = 1)
-                Text(c.score ?: "–", color = pal.text, fontSize = 16.sp, fontWeight = FontWeight.Black)
+                if (c.sets.isNotEmpty() && e.league.sport == de.ostlertekker.ultraiptv.core.discover.Sport.TENNIS) {
+                    val other = e.competitors.first { it !== c }
+                    SetCells(c.sets, other.sets, e.live)
+                } else Text(c.score ?: "–", color = pal.text, fontSize = 16.sp, fontWeight = FontWeight.Black)
             }
         } else {
             Text(e.title, color = pal.text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             e.competitors.take(5).forEachIndexed { i, c -> Text("${c.order ?: (i + 1)}. ${c.name}" + (c.score?.let { "  $it" } ?: ""), color = pal.text, fontSize = 12.sp) }
+        }
+    }
+}
+
+/** Tennis: jeder Satz in eigener Zelle; gewonnene Sätze hervorgehoben, laufender Satz umrandet, Tiebreak hochgestellt. */
+@Composable
+internal fun SetCells(mine: List<de.ostlertekker.ultraiptv.core.discover.SetScore>, theirs: List<de.ostlertekker.ultraiptv.core.discover.SetScore>, live: Boolean, size: Int = 16) {
+    val pal = LocalUltraTheme.current.palette
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        mine.forEachIndexed { i, s ->
+            val o = theirs.getOrNull(i)?.games ?: 0
+            val current = live && i == mine.lastIndex
+            val won = !current && s.games > o
+            Box(Modifier.width((size * 1.9f).dp).background(if (won) pal.primary.copy(alpha = 0.22f) else Color.Transparent, RoundedCornerShape(5.dp))
+                .border(if (current) 1.dp else 0.dp, if (current) Color(0xFFFF5050) else Color.Transparent, RoundedCornerShape(5.dp)),
+                contentAlignment = Alignment.Center) {
+                Row(verticalAlignment = Alignment.Top) {
+                    Text("${s.games}", color = if (won || current) pal.text else pal.textDim, fontSize = size.sp, fontWeight = if (won) FontWeight.Black else FontWeight.Medium)
+                    s.tiebreak?.let { Text("$it", color = pal.textDim, fontSize = (size * 0.6f).sp) }
+                }
+            }
         }
     }
 }

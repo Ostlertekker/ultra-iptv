@@ -181,6 +181,13 @@ private fun Scoreboard(e: ScoreEvent, m: MatchCenter?) {
         Row(Modifier.fillMaxSize().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             TeamSide(h?.name ?: ch?.name ?: "", h?.logo ?: ch?.logo, Modifier.weight(1f), goals(m, true))
             Column(Modifier.width(300.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                if (e.league.sport == de.ostlertekker.ultraiptv.core.discover.Sport.TENNIS && ch != null && ca != null && ch.sets.isNotEmpty()) {
+                    // Tennis: gewonnene Sätze groß, darunter jeder Satz einzeln
+                    fun won(x: List<de.ostlertekker.ultraiptv.core.discover.SetScore>, y: List<de.ostlertekker.ultraiptv.core.discover.SetScore>) =
+                        x.indices.count { i -> !(e.live && i == x.lastIndex) && x[i].games > (y.getOrNull(i)?.games ?: 0) }
+                    Text("${won(ch.sets, ca.sets)} : ${won(ca.sets, ch.sets)}", color = Color.White, fontSize = 46.sp, fontWeight = FontWeight.Black)
+                    Text(e.tennisSets(), color = Color.White.copy(alpha = 0.85f), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                } else
                 Text("${ch?.score ?: h?.score ?: "–"} : ${ca?.score ?: a?.score ?: "–"}", color = Color.White, fontSize = 52.sp, fontWeight = FontWeight.Black)
                 if (e.live) {
                     val inf = rememberInfiniteTransition(label = "live")

@@ -43,7 +43,11 @@ enum class League(val sport: Sport, val path: String, val label: String) {
     }
 }
 
-data class ScoreCompetitor(val name: String, val short: String?, val score: String?, val logo: String?, val homeAway: String?, val winner: Boolean, val order: Int?)
+/** Ein Satz (Tennis): Spiele und ggf. Tiebreak-Punkte. */
+data class SetScore(val games: Int, val tiebreak: Int?)
+
+data class ScoreCompetitor(val name: String, val short: String?, val score: String?, val logo: String?, val homeAway: String?, val winner: Boolean, val order: Int?,
+                           val sets: List<SetScore> = emptyList())
 
 data class ScoreEvent(
     val id: String,
@@ -61,9 +65,20 @@ data class ScoreEvent(
     val scoreLine: String get() = if (competitors.size == 2 && competitors.all { it.score != null }) {
         val home = competitors.firstOrNull { it.homeAway == "home" } ?: competitors[0]
         val away = competitors.firstOrNull { it !== home } ?: competitors[1]
-        if (league.sport == Sport.TENNIS) "${competitors[0].name} (${competitors[0].score}) – ${competitors[1].name} (${competitors[1].score})"
+        if (league.sport == Sport.TENNIS) "${competitors[0].name} – ${competitors[1].name}  " + tennisSets()
         else "${home.name} ${home.score}:${away.score} ${away.name}"
     } else title
+
+    /** Tennis-Sätze als „1:6 6:3 0:5“ (Tiebreak in Klammern: „7:6(5)“). */
+    fun tennisSets(): String {
+        if (competitors.size != 2) return ""
+        val a = competitors[0].sets; val b = competitors[1].sets
+        return (0 until maxOf(a.size, b.size)).joinToString("  ") { i ->
+            val x = a.getOrNull(i); val y = b.getOrNull(i)
+            val tb = listOfNotNull(x?.tiebreak, y?.tiebreak).minOrNull()?.let { "($it)" } ?: ""
+            "${x?.games ?: "–"}:${y?.games ?: "–"}$tb"
+        }.ifBlank { listOfNotNull(competitors[0].score, competitors[1].score).joinToString(" : ") }
+    }
 }
 
 data class KeyEvent(val clock: String?, val type: String?, val text: String)
@@ -137,10 +152,12 @@ class SportsRepository @Inject constructor(http: OkHttpClient) {
                     val team = o.obj("team"); val ath = o.obj("athlete")
                     val name = team?.s("displayName") ?: ath?.s("displayName") ?: ath?.s("shortName") ?: return@mapNotNull null
                     // Tennis & Co. liefern statt „score“ die Sätze in „linescores“ → „6 4 2“
-                    val sets = o.arr("linescores").mapNotNull { ls ->
+                    val setList = o.arr("linescores").mapNotNull { ls ->
                         val lo = ls as? JsonObject ?: return@mapNotNull null
-                        (lo.s("displayValue") ?: lo.s("value"))?.let { v -> v.toDoubleOrNull()?.let { d -> if (d % 1.0 == 0.0) d.toInt().toString() else v } ?: v }
-                    }.joinToString(" ").takeIf { it.isNotBlank() }
+                        val g = (lo.s("value") ?: lo.s("displayValue"))?.toDoubleOrNull()?.toInt() ?: return@mapNotNull null
+                        SetScore(g, lo.s("tiebreak")?.toDoubleOrNull()?.toInt())
+                    }
+                    val sets = setList.joinToString(" ") { it.games.toString() }.takeIf { it.isNotBlank() }
                     val score = (when (val sc = o["score"]) {
                         is JsonPrimitive -> sc.contentOrNull
                         is JsonObject -> sc.s("displayValue")
@@ -148,7 +165,7 @@ class SportsRepository @Inject constructor(http: OkHttpClient) {
                     }?.takeIf { it.isNotBlank() } ?: sets)
                     ScoreCompetitor(name, team?.s("shortDisplayName") ?: team?.s("abbreviation") ?: ath?.s("shortName"), score,
                         team?.s("logo") ?: team?.arr("logos")?.firstOrNull()?.let { (it as? JsonObject)?.s("href") },
-                        o.s("homeAway"), o.s("winner") == "true", o.s("order")?.toIntOrNull())
+                        o.s("homeAway"), o.s("winner") == "true", o.s("order")?.toIntOrNull(), setList)
                 }.let { cs -> if (l.sport == Sport.F1) cs.sortedBy { it.order ?: 99 }.take(10) else cs }
                 if (competitors.isEmpty()) continue
                 val sessionName = comp.obj("type")?.s("abbreviation")
