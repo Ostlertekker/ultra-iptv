@@ -56,7 +56,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import de.ostlertekker.ultraiptv.BuildConfig
-import de.ostlertekker.ultraiptv.core.animation.ThemeBackground
 import de.ostlertekker.ultraiptv.core.data.AppSettings
 import de.ostlertekker.ultraiptv.core.data.EpgRepository
 import de.ostlertekker.ultraiptv.core.data.Keys
@@ -67,7 +66,6 @@ import de.ostlertekker.ultraiptv.core.database.ProfileEntity
 import de.ostlertekker.ultraiptv.core.design.LocalUltraTheme
 import de.ostlertekker.ultraiptv.core.design.DesignOptions
 import de.ostlertekker.ultraiptv.core.design.ThemeEngine
-import de.ostlertekker.ultraiptv.core.design.ThemeRegistry
 import de.ostlertekker.ultraiptv.core.device.DeviceCapabilityManager
 import de.ostlertekker.ultraiptv.core.model.Accuracy
 import de.ostlertekker.ultraiptv.core.model.AnimationProfile
@@ -147,10 +145,6 @@ class SettingsViewModel @Inject constructor(
     fun updateProfile(p: ProfileEntity) = viewModelScope.launch { user.updateProfile(p) }
     fun checkPinFor(p: ProfileEntity, pin: String): Boolean = user.checkPin(p, pin)
 
-    fun setTheme(id: String) = viewModelScope.launch {
-        repo.set(Keys.THEME, id)
-        user.activeProfileOnce()?.let { user.updateProfile(it.copy(themeId = id)) }
-    }
 
 }
 
@@ -336,7 +330,6 @@ private fun LazyListScope.appearancePage(vm: SettingsViewModel, s: AppSettings) 
     item {
         val accentName = ThemeEngine.accentPresets.firstOrNull { it.second == s.accentArgb }?.first ?: "Eigene"
         Column {
-            SRow("Design", ThemeRegistry.byId(s.themeId).displayName) { vm.setTheme(cycle(ThemeRegistry.all().map { it.id }, s.themeId)) }
             SRow("Akzentfarbe", accentName) {
                 val vals = ThemeEngine.accentPresets.map { it.second }
                 vm.set(Keys.ACCENT, cycle(vals, if (s.accentArgb in vals) s.accentArgb else 0L))
@@ -436,7 +429,7 @@ private fun LazyListScope.generalPage(vm: SettingsViewModel, s: AppSettings) {
             SSwitch("Lokalnachrichten einmischen", s.newsLocal,
                 subtitle = "Deutschland: tagesschau aus deinem Bundesland · weltweit: Google News zu deinem Ort",
                 enabled = s.newsEnabled) { vm.set(Keys.NEWS_LOCAL, it) }
-            SRow("Erscheinungsbild zurücksetzen", "Design, Farben und Größen auf Standard") { vm.resetAppearance() }
+            SRow("Erscheinungsbild zurücksetzen", "Akzentfarbe, Schrift und Größen auf Standard") { vm.resetAppearance() }
         }
     }
 }

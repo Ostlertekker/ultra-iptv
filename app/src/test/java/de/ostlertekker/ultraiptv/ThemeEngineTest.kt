@@ -7,34 +7,24 @@ import de.ostlertekker.ultraiptv.core.model.AnimationProfile
 import de.ostlertekker.ultraiptv.core.model.DeviceTier
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ThemeEngineTest {
-    @Test fun allThemesUniqueAndEveryEffectUsed() {
-        val all = ThemeRegistry.all()
-        assertEquals(44, all.size)
-        assertEquals(all.size, all.map { it.id }.toSet().size)
-        assertEquals(de.ostlertekker.ultraiptv.core.design.BackgroundEffect.entries.toSet(), all.map { it.effect }.toSet())
-    }
-
-    @Test fun designOverridesApply() {
-        val r = ThemeEngine.resolve(AppSettings(cornerStyle = 1, focusZoom = 1, bgDim = 2), DeviceTier.PREMIUM)
-        assertEquals(0f, r.spec.corner.value)
-        assertEquals(1f, r.spec.focusScale)
-        assertEquals(0.4f, r.bgDim)
-    }
-
-    @Test fun unknownIdFallsBackToGalaxy() {
+    @Test fun onlyBlackDesign() {
+        // Es gibt nur noch ein Design mit komplett schwarzem Hintergrund – auch für alte gespeicherte Design-IDs
+        for (id in listOf("premium", "galaxy", "gibt-es-nicht")) {
+            val r = ThemeEngine.resolve(AppSettings(themeId = id), DeviceTier.PREMIUM)
+            assertEquals(0f, r.palette.bgTop.red + r.palette.bgTop.green + r.palette.bgTop.blue, 0.001f)
+            assertEquals(0f, r.palette.bgBottom.red + r.palette.bgBottom.green + r.palette.bgBottom.blue, 0.001f)
+        }
         assertEquals("premium", ThemeRegistry.byId("gibt-es-nicht").id)
     }
 
-    @Test fun switchingThemeChangesPalette() {
-        val a = ThemeEngine.resolve(AppSettings(themeId = "galaxy"), DeviceTier.PREMIUM)
-        val b = ThemeEngine.resolve(AppSettings(themeId = "red_inferno"), DeviceTier.PREMIUM)
-        assertNotEquals(a.palette.primary, b.palette.primary)
-        assertNotEquals(a.spec.effect, b.spec.effect)
+    @Test fun designOverridesApply() {
+        val r = ThemeEngine.resolve(AppSettings(cornerStyle = 1, focusZoom = 1), DeviceTier.PREMIUM)
+        assertEquals(0f, r.spec.corner.value)
+        assertEquals(1f, r.spec.focusScale)
     }
 
     @Test fun accentOverride() {
