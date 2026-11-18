@@ -325,7 +325,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
         // Dezente Nachrichten-Laufschrift (Quelle in den Einstellungen › Allgemein)
         if (news.isNotEmpty()) item(key = "news") { NewsTicker(news) }
         // Schmaler Sport-Ticker mit Live-Ergebnissen (ersetzt den früheren Menüpunkt „Sport“)
-        if (sportTicker.isNotEmpty()) item(key = "sportticker") { SportTicker(sportTicker) }
+        item(key = "sportticker") { SportTicker(sportTicker) }
         val pad = Modifier.padding(horizontal = 48.dp)
         val note = latestNotification
         if (note != null) item(key = "note") {
@@ -519,7 +519,9 @@ private fun SportTicker(events: List<de.ostlertekker.ultraiptv.core.discover.Sco
     Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 8.dp).height(26.dp),
         verticalAlignment = Alignment.CenterVertically) {
         NewsBadge(green, "SPORT")
-        SmoothMarquee(text, Modifier.weight(1f).padding(start = 12.dp, end = 8.dp))
+        if (events.isEmpty())
+            Text("Gerade keine Live-Events", color = p.textDim, fontSize = 14.sp, maxLines = 1, modifier = Modifier.padding(start = 12.dp))
+        else SmoothMarquee(text, Modifier.weight(1f).padding(start = 12.dp, end = 8.dp))
     }
 }
 
