@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.basicMarquee
+import androidx.compose.ui.text.withStyle
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -98,8 +101,10 @@ class HomeViewModel @Inject constructor(
     notifications: NotificationCenter,
     private val discover: de.ostlertekker.ultraiptv.core.discover.DiscoverRepository,
     weatherRepo: de.ostlertekker.ultraiptv.core.weather.WeatherRepository,
+    newsRepo: de.ostlertekker.ultraiptv.core.news.NewsRepository,
 ) : ViewModel() {
     val weather = weatherRepo.weather
+    val news = newsRepo.items
     /** Live-Highlights (läuft jetzt, Lieblingssender zuerst) und Sport-Highlights – echte EPG-Daten, alle 5 Minuten neu. */
     val liveHighlights = MutableStateFlow<List<de.ostlertekker.ultraiptv.core.database.AiringProgram>>(emptyList())
     val sportHighlights = MutableStateFlow<List<de.ostlertekker.ultraiptv.core.database.AiringProgram>>(emptyList())
@@ -214,6 +219,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
     val sportHi by vm.sportHighlights.collectAsStateWithLifecycle()
     val unread by vm.unread.collectAsStateWithLifecycle()
     val weather by vm.weather.collectAsStateWithLifecycle()
+    val news by vm.news.collectAsStateWithLifecycle()
     val latestNotification by vm.latestNotification.collectAsStateWithLifecycle()
     val sync by vm.syncState.collectAsStateWithLifecycle()
     val channelCount by vm.channelCount.collectAsStateWithLifecycle()
@@ -289,6 +295,8 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
         } else item(key = "top_space") { Spacer(Modifier.height(100.dp)) }
         // Schmale Wetterleiste unter dem Titelbild (Ort in den Einstellungen › Allgemein)
         weather?.let { w -> item(key = "weather") { WeatherStrip(w) } }
+        // Dezente Nachrichten-Laufschrift (Quelle in den Einstellungen › Allgemein)
+        if (news.isNotEmpty()) item(key = "news") { NewsTicker(news) }
         val pad = Modifier.padding(horizontal = 48.dp)
         val note = latestNotification
         if (note != null) item(key = "note") {
@@ -412,6 +420,39 @@ private fun ChannelRow(title: String, channels: List<ChannelEntity>, onClick: (C
         itemsIndexed(channels, key = { _, c -> c.id }, contentType = { _, _ -> "channel" }) { i, c ->
             FocusCard(c.name, c.logo, 240.dp, 135.dp, onClick = { onClick(c) }, entranceIndex = i, subtitle = c.category, contentScale = ContentScale.Fit)
         }
+    }
+}
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun NewsTicker(items: List<de.ostlertekker.ultraiptv.core.news.NewsItem>) {
+    val p = LocalUltraTheme.current.palette
+    val red = Color(0xFFD7262E)
+    val fmt = remember { java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMAN) }
+    val text = remember(items) {
+        androidx.compose.ui.text.buildAnnotatedString {
+            items.forEachIndexed { i, n ->
+                if (i > 0) withStyle(androidx.compose.ui.text.SpanStyle(color = red, fontWeight = FontWeight.Bold)) { append("   ▪   ") }
+                if (n.local) withStyle(androidx.compose.ui.text.SpanStyle(color = Color.White, background = red, fontWeight = FontWeight.Bold, fontSize = 11.sp)) { append(" LOKAL ") }
+                if (n.local) append(" ")
+                withStyle(androidx.compose.ui.text.SpanStyle(color = p.textDim, fontSize = 12.sp)) {
+                    append(listOfNotNull(n.time?.let { fmt.format(java.util.Date(it)) }, n.source).joinToString(" · ") + "  ")
+                }
+                withStyle(androidx.compose.ui.text.SpanStyle(color = p.text)) { append(n.title) }
+            }
+            append("      ")
+        }
+    }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 8.dp).height(30.dp)
+        .background(Color.Black.copy(alpha = 0.28f), RoundedCornerShape(6.dp)),
+        verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.fillMaxHeight().background(red, RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp)).padding(horizontal = 12.dp),
+            contentAlignment = Alignment.Center) {
+            Text("NEWS", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+        }
+        Text(text, fontSize = 14.sp, maxLines = 1, softWrap = false,
+            modifier = Modifier.weight(1f).padding(start = 12.dp, end = 8.dp)
+                .basicMarquee(iterations = Int.MAX_VALUE, initialDelayMillis = 1200, repeatDelayMillis = 0, velocity = 55.dp))
     }
 }
 

@@ -60,6 +60,11 @@ data class AppSettings(
     val weatherPlace: String = "",
     val weatherLat: String = "",
     val weatherLon: String = "",
+    /** Bundesland/Region des Wetter-Orts (für Lokalnachrichten). */
+    val weatherRegion: String = "",
+    /** Nachrichten-Laufschrift: "auto", "off" oder eine Quellen-ID (siehe NewsSources). */
+    val newsSource: String = "auto",
+    val newsLocal: Boolean = true,
     val epgRefreshHours: Int = 12,
     val epgOffsetHours: Int = 0,
     val epgDays: Int = 2,
@@ -168,6 +173,9 @@ object Keys {
     val WEATHER_PLACE = stringPreferencesKey("weather_place")
     val WEATHER_LAT = stringPreferencesKey("weather_lat")
     val WEATHER_LON = stringPreferencesKey("weather_lon")
+    val WEATHER_REGION = stringPreferencesKey("weather_region")
+    val NEWS_SOURCE = stringPreferencesKey("news_source")
+    val NEWS_LOCAL = booleanPreferencesKey("news_local")
     val EPG_REFRESH = intPreferencesKey("epg_refresh")
     val EPG_OFFSET = intPreferencesKey("epg_offset")
     val EPG_DAYS = intPreferencesKey("epg_days")
@@ -270,6 +278,9 @@ fun Preferences.toSettings(): AppSettings {
         weatherPlace = this[Keys.WEATHER_PLACE] ?: "",
         weatherLat = this[Keys.WEATHER_LAT] ?: "",
         weatherLon = this[Keys.WEATHER_LON] ?: "",
+        weatherRegion = this[Keys.WEATHER_REGION] ?: "",
+        newsSource = this[Keys.NEWS_SOURCE] ?: d.newsSource,
+        newsLocal = this[Keys.NEWS_LOCAL] ?: d.newsLocal,
         epgRefreshHours = this[Keys.EPG_REFRESH] ?: d.epgRefreshHours,
         epgOffsetHours = this[Keys.EPG_OFFSET] ?: d.epgOffsetHours,
         epgDays = this[Keys.EPG_DAYS] ?: d.epgDays,

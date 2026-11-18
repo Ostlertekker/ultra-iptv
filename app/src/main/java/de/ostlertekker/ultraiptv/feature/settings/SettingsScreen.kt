@@ -117,6 +117,7 @@ enum class SettingsCategory(val label: String, val icon: androidx.compose.ui.gra
 class SettingsViewModel @Inject constructor(
     val repo: SettingsRepository,
     val weather: de.ostlertekker.ultraiptv.core.weather.WeatherRepository,
+    val news: de.ostlertekker.ultraiptv.core.news.NewsRepository,
     val device: DeviceCapabilityManager,
     private val sync: SyncRepository,
     private val creds: CredentialStore,
@@ -418,6 +419,17 @@ private fun LazyListScope.generalPage(vm: SettingsViewModel, s: AppSettings) {
                     msg = vm.weather.setPlace(place).fold({ if (it.isBlank()) "Wetter ausgeblendet" else "✓ $it" }, { it.message ?: "Fehler" })
                 }
             }
+            SHeader("Nachrichten-Laufschrift")
+            run {
+                val ids = de.ostlertekker.ultraiptv.core.news.NewsSources.choices.map { it.first }
+                SRow("Quelle", de.ostlertekker.ultraiptv.core.news.NewsSources.label(s.newsSource) +
+                    if (s.newsSource == "auto") " – passend zu Land und Sprache des Wetter-Orts" else "") {
+                    vm.set(Keys.NEWS_SOURCE, ids[(ids.indexOf(s.newsSource).coerceAtLeast(0) + 1) % ids.size])
+                }
+            }
+            SSwitch("Lokalnachrichten einmischen", s.newsLocal,
+                subtitle = "Deutschland: tagesschau aus deinem Bundesland · weltweit: Google News zu deinem Ort",
+                enabled = s.newsSource != "off") { vm.set(Keys.NEWS_LOCAL, it) }
             SRow("Erscheinungsbild zurücksetzen", "Design, Farben und Größen auf Standard") { vm.resetAppearance() }
         }
     }
@@ -473,6 +485,7 @@ private fun errorEntries(context: android.content.Context, vm: SettingsViewModel
         g.lastCrash(context)?.let { "ABSTURZ" to it },
         g.lastFreeze(context)?.let { "HÄNGER" to it },
         vm.weather.lastError?.let { "WETTER" to it },
+        vm.news.lastError?.let { "NACHRICHTEN" to it },
         st.lastError?.let { "LETZTER WIEDERGABEFEHLER" to (it + "\nFehler / Wiederherstellungen in der Sitzung: ${st.errors} / ${st.recoveries}") },
     )
 }

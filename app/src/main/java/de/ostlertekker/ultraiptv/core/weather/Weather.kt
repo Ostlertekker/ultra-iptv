@@ -95,7 +95,7 @@ class WeatherRepository @Inject constructor(private val http: OkHttpClient, priv
         runCatching {
             val q = query.trim()
             if (q.isEmpty()) {
-                settings.set(Keys.WEATHER_PLACE, ""); settings.set(Keys.WEATHER_LAT, ""); settings.set(Keys.WEATHER_LON, "")
+                settings.set(Keys.WEATHER_PLACE, ""); settings.set(Keys.WEATHER_LAT, ""); settings.set(Keys.WEATHER_LON, ""); settings.set(Keys.WEATHER_REGION, "")
                 return@runCatching ""
             }
             val o = get("https://geocoding-api.open-meteo.com/v1/search?count=1&language=de&format=json&name=" + URLEncoder.encode(q, "UTF-8"))
@@ -104,6 +104,7 @@ class WeatherRepository @Inject constructor(private val http: OkHttpClient, priv
             settings.set(Keys.WEATHER_PLACE, name)
             settings.set(Keys.WEATHER_LAT, (r["latitude"] as JsonPrimitive).content)
             settings.set(Keys.WEATHER_LON, (r["longitude"] as JsonPrimitive).content)
+            settings.set(Keys.WEATHER_REGION, (r["admin1"] as? JsonPrimitive)?.contentOrNull.orEmpty())
             name
         }
     }
