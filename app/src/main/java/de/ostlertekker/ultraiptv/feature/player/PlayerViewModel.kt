@@ -790,6 +790,16 @@ class PlayerViewModel @Inject constructor(
 
     // ---------------------------------------------------- Mini-Player
 
+    /**
+     * Übergabe an einen neuen Player (z. B. Erinnerung „Zum Sender“ aus Film/Jellyfin): jetzt sauber stoppen und
+     * beim späteren Aufräumen dieses Players den gemeinsamen Player NICHT mehr anhalten – sonst bleibt der neue Sender hängen.
+     */
+    fun handOver() {
+        stopJf()
+        engine.stop()
+        keepEngine = true
+    }
+
     fun toMini() {
         keepEngine = true
         val cat = if (kind == ContentKind.LIVE) channels.getOrNull(channelIndex)?.category ?: category else category

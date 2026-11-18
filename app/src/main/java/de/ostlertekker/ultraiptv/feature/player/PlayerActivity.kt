@@ -78,7 +78,7 @@ class PlayerActivity : ComponentActivity() {
                         onDismiss = { notifications.popup.value = null }) { rem ->
                         notifications.popup.value = null
                         if (vm.isLive) vm.playChannelById(rem.channelId)
-                        else { openPlayer(de.ostlertekker.ultraiptv.core.model.ContentKind.LIVE, rem.channelId); finish() }
+                        else { vm.handOver(); openPlayer(de.ostlertekker.ultraiptv.core.model.ContentKind.LIVE, rem.channelId); finish() }
                     }
                     // Neues App-Update auch im Vollbild-Player (Erinnerung hat Vorrang)
                     if (!inPip.value && reminder == null) de.ostlertekker.ultraiptv.core.notify.UpdatePopup(notifications,
