@@ -73,6 +73,7 @@ import de.ostlertekker.ultraiptv.core.database.SeriesEntity
 import de.ostlertekker.ultraiptv.core.design.LocalUltraTheme
 import de.ostlertekker.ultraiptv.core.model.ContentKind
 import de.ostlertekker.ultraiptv.core.ui.FocusCard
+import de.ostlertekker.ultraiptv.core.ui.contentEntry
 import de.ostlertekker.ultraiptv.core.ui.SectionHeader
 import de.ostlertekker.ultraiptv.core.ui.TvButton
 import de.ostlertekker.ultraiptv.core.ui.UltraLoader
@@ -260,7 +261,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
                         overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
                     Row(Modifier.padding(top = 18.dp).onFocusChanged { heroFocused = it.hasFocus }, horizontalArrangement = Arrangement.spacedBy(14.dp),
                         verticalAlignment = Alignment.CenterVertically) {
-                        HeroButton("▶  Abspielen", primary = true) { context.openPlayer(ContentKind.MOVIE, hero.id) }
+                        HeroButton("▶  Abspielen", primary = true, modifier = Modifier.contentEntry()) { context.openPlayer(ContentKind.MOVIE, hero.id) }
                         HeroButton("Details") { nav.navigate(Routes.movie(hero.id)) }
                         if (heroes.size > 1) Row(Modifier.padding(start = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             heroes.indices.forEach { i ->
@@ -357,13 +358,13 @@ private fun ProgramRow(title: String, list: List<de.ostlertekker.ultraiptv.core.
 
 /** Apple-TV-Knopf: weiße Pille (Hauptaktion) bzw. Glas-Pille; Fokus hebt leicht an. */
 @Composable
-private fun HeroButton(label: String, primary: Boolean = false, onClick: () -> Unit) {
+private fun HeroButton(label: String, primary: Boolean = false, modifier: Modifier = Modifier, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val scale by androidx.compose.animation.core.animateFloatAsState(if (focused) 1.07f else 1f, androidx.compose.animation.core.tween(140), label = "hb")
     val bg = when { focused -> Color.White; primary -> Color.White.copy(alpha = 0.88f); else -> Color.White.copy(alpha = 0.16f) }
     val src = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     // Ausdrücklich fokussierbar (Fernbedienung): „clickable“ allein ist auf manchen Geräten nicht per Pfeiltaste erreichbar
-    Box(Modifier.graphicsLayer { scaleX = scale; scaleY = scale }
+    Box(modifier.graphicsLayer { scaleX = scale; scaleY = scale }
         .onFocusChanged { focused = it.isFocused }
         .focusable(interactionSource = src)
         .onKeyEvent { ev ->

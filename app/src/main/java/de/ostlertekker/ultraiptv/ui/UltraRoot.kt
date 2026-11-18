@@ -217,6 +217,8 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
     }
     val exit: ExitTransition = if (reduce) ExitTransition.None else exitTransitionFor(motion)
 
+    val contentEntry = remember { de.ostlertekker.ultraiptv.core.ui.ContentEntry() }
+    androidx.compose.runtime.CompositionLocalProvider(de.ostlertekker.ultraiptv.core.ui.LocalContentEntry provides contentEntry) {
     Box(Modifier.fillMaxSize()) {
         // Läuft ein Video (Vorschau/Mini-Player), pausiert die Hintergrundanimation → volle Leistung fürs Video
         val engineState by vm.engine.state.collectAsStateWithLifecycle()
@@ -274,6 +276,7 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
         val rem by vm.reminderPopup.collectAsStateWithLifecycle()
         if (rem == null) de.ostlertekker.ultraiptv.core.notify.UpdatePopup(vm.notify, Modifier.align(Alignment.TopStart).padding(start = 28.dp, top = 24.dp))
         if (route != Routes.RADIO) de.ostlertekker.ultraiptv.feature.radio.RadioMiniOverlay(vm.radio, Modifier.align(Alignment.BottomStart).padding(28.dp))
+    }
     }
 }
 

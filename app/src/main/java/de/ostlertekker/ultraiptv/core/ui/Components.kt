@@ -51,6 +51,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
@@ -91,6 +92,24 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 val LocalUiSounds = staticCompositionLocalOf<AudioExperienceEngine?> { null }
+
+/**
+ * Einstiegspunkt der aktuellen Seite für „Pfeil runter“ aus der Menüleiste. Eine Seite meldet ihr erstes Element an
+ * (z. B. Startseite: „Abspielen“); ohne Anmeldung sucht Android wie gewohnt selbst.
+ */
+class ContentEntry {
+    val requester = FocusRequester()
+    var attached by mutableStateOf(false)
+}
+val LocalContentEntry = staticCompositionLocalOf { ContentEntry() }
+
+/** Als Einstieg der Seite anmelden (für Pfeil runter aus der Menüleiste). */
+@Composable
+fun Modifier.contentEntry(): Modifier {
+    val e = LocalContentEntry.current
+    androidx.compose.runtime.DisposableEffect(e) { e.attached = true; onDispose { e.attached = false } }
+    return this.focusRequester(e.requester)
+}
 
 /** Stellt Theme, Farbschema und UI-Klänge für einen Bildschirmbaum bereit. */
 @Composable
@@ -662,6 +681,7 @@ private fun TopNavPill(label: String, selected: Boolean, onClick: () -> Unit, fo
         Modifier
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .then(entryDown())
             .onFocusChanged { if (it.isFocused && !focused) sounds?.focus(); focused = it.isFocused }
             .combinedClickable(interactionSource = remember { MutableInteractionSource() }, indication = null,
                 onClick = { sounds?.select(); onClick() })
@@ -740,4 +760,11 @@ private fun Modifier.longPressKeys(onLongClick: () -> Unit): Modifier {
             else -> false
         }
     }
+}
+
+/** Menüleiste: Pfeil runter springt zum angemeldeten Einstieg der Seite (falls vorhanden). */
+@Composable
+private fun entryDown(): Modifier {
+    val e = LocalContentEntry.current
+    return if (e.attached) Modifier.focusProperties { down = e.requester } else Modifier
 }
