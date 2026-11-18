@@ -443,10 +443,9 @@ private fun NewsTicker(items: List<de.ostlertekker.ultraiptv.core.news.NewsItem>
             append("      ")
         }
     }
-    Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 8.dp).height(30.dp)
-        .background(Color.Black.copy(alpha = 0.28f), RoundedCornerShape(6.dp)),
+    Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 8.dp).height(30.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.fillMaxHeight().background(red, RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp)).padding(horizontal = 12.dp),
+        Box(Modifier.fillMaxHeight().background(red, RoundedCornerShape(6.dp)).padding(horizontal = 12.dp),
             contentAlignment = Alignment.Center) {
             Text("NEWS", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
         }
