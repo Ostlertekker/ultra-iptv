@@ -164,6 +164,8 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
     // rememberSaveable: Kommt man aus einer Aktion zurück (z. B. Update-Installation), bleibt der gewählte Reiter erhalten
     var category by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(SettingsCategory.PLAYLISTS) }
     var errorsOpen by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    val railFocus = remember { SettingsCategory.entries.associateWith { androidx.compose.ui.focus.FocusRequester() } }
+    val railScope = androidx.compose.runtime.rememberCoroutineScope()
     androidx.activity.compose.BackHandler(enabled = errorsOpen) { errorsOpen = false }
     val s by vm.settings.collectAsStateWithLifecycle()
 
@@ -179,7 +181,15 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
                 var focused by remember { mutableStateOf(false) }
                 val shape = RoundedCornerShape(10.dp)
                 val sel = category == sec
-                Row(Modifier.fillMaxWidth().tvFocusable(shape, { category = sec }, scaleOnFocus = false, onFocus = { focused = it; if (it && category != sec) { category = sec; errorsOpen = false } })
+                Row(Modifier.fillMaxWidth().tvFocusable(shape, { category = sec; errorsOpen = false }, focusRequester = railFocus.getValue(sec), scaleOnFocus = false, onFocus = {
+                    focused = it
+                    if (it && category != sec) {
+                        // Nur bei Pfeiltasten-Navigation umschalten. Verschwindet ein gedrückter Knopf (z. B. „Nach Updates suchen“),
+                        // springt Android den Fokus auf den ersten Eintrag („Playlists“) – dann zurück zum aktuellen Reiter statt zu wechseln.
+                        if (de.ostlertekker.ultraiptv.core.motion.InputActivity.navigatedByArrow()) { category = sec; errorsOpen = false }
+                        else railScope.launch { kotlinx.coroutines.delay(30); runCatching { railFocus.getValue(category).requestFocus() } }
+                    }
+                })
                     .background(if (focused) p.surfaceFocused else if (sel) p.surface else Color.Transparent, shape)
                     .padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(sec.icon, null, tint = if (sel || focused) p.text else p.textDim, modifier = Modifier.size(20.dp))

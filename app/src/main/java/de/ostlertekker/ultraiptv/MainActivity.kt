@@ -52,7 +52,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
-        de.ostlertekker.ultraiptv.core.motion.InputActivity.mark()
+        if (event.action == android.view.KeyEvent.ACTION_DOWN) de.ostlertekker.ultraiptv.core.motion.InputActivity.mark(event.keyCode)
+        else de.ostlertekker.ultraiptv.core.motion.InputActivity.mark()
         return super.dispatchKeyEvent(event)
     }
 }
