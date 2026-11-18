@@ -254,12 +254,10 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
         onDispose { lifecycle.removeObserver(obs); vm.stopPreview() }
     }
 
-    var favMenu by remember { mutableStateOf<ChannelEntity?>(null) }
     // Verschiebe-Modus (wie TiviMate): ▲ ▼ verschiebt den Sender direkt, OK/Zurück beendet
     var moving by remember { mutableStateOf<String?>(null) }
     // Bearbeitungsmodus (nur Favoriten): kurz OK = Sender aufnehmen/ablegen, ▲ ▼ = verschieben, Zurück = fertig
     var editMode by remember { mutableStateOf(false) }
-    var removeAsk by remember { mutableStateOf<ChannelEntity?>(null) }
     val lastDrop = remember { longArrayOf(0L) }
     LaunchedEffect(current) { if (current != CAT_FAVORITES) { editMode = false; moving = null } }
     androidx.activity.compose.BackHandler(enabled = moving != null || editMode) { moving = null; editMode = false }
@@ -291,7 +289,7 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
                     color = p.textDim, fontSize = 15.sp)
             }
             if (editMode) Text(if (moving != null) "↕ ▲ ▼ verschieben · OK: ablegen · Zurück: fertig"
-                else "✎ Bearbeiten · OK: Sender aufnehmen · ☰: entfernen · Zurück: fertig", color = p.primary, fontSize = 13.sp,
+                else "✎ Bearbeiten · OK: Sender aufnehmen · Zurück: fertig", color = p.primary, fontSize = 13.sp,
                 fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
             LazyColumn(Modifier.then(if (editMode) Modifier.border(2.dp, p.primary.copy(alpha = 0.5f), RoundedCornerShape(14.dp)).padding(6.dp) else Modifier),
                 verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 40.dp)) {
@@ -321,26 +319,13 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
                             } else vm.open(context, ch)
                         },
                         // In „Favoriten“: lange OK/☰ öffnet das Menü (im Bearbeitungsmodus: entfernen), sonst Favorit an/aus
-                        onLongClick = { if (editMode) removeAsk = ch else if (current == CAT_FAVORITES) favMenu = ch else vm.toggleFavorite(ch) })
+                        // In „Favoriten“ kein Menü mehr (Sortieren über „✎ Bearbeiten“, Entfernen über „Favorit“ rechts); sonst lange OK = Favorit hinzufügen
+                        onLongClick = if (current == CAT_FAVORITES) null else ({ vm.toggleFavorite(ch) }))
                 }
             }
         }
         // Eigener Recomposition-Bereich: ein Fokuswechsel aktualisiert nur dieses Panel, nicht die Senderliste
         RightPanel(vm, favs, Modifier.weight(0.33f).fillMaxHeight())
-    }
-    removeAsk?.let { ch ->
-        de.ostlertekker.ultraiptv.core.ui.ActionDialog("${ch.name} aus Favoriten entfernen?", listOf(
-            "Ja, entfernen" to { vm.toggleFavorite(ch); if (moving == ch.id) moving = null },
-            "Abbrechen" to {},
-        )) { removeAsk = null }
-    }
-    favMenu?.let { ch ->
-        de.ostlertekker.ultraiptv.core.ui.ActionDialog(ch.name, listOf(
-            "✎ Sortieren (Bearbeitungsmodus)" to { editMode = true; moving = ch.id },
-            "Ganz nach oben" to { vm.moveFavorite(ch, -10_000) },
-            "Ganz nach unten" to { vm.moveFavorite(ch, 10_000) },
-            "Aus Favoriten entfernen" to { vm.toggleFavorite(ch) },
-        )) { favMenu = null }
     }
     }
 }
@@ -492,7 +477,7 @@ private fun ChannelItem(
     focusRequester: FocusRequester?,
     onFocus: () -> Unit,
     onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onLongClick: (() -> Unit)?,
 ) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
