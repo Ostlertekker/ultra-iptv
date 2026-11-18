@@ -596,7 +596,8 @@ private fun WeatherStrip(w: de.ostlertekker.ultraiptv.core.weather.Weather) {
         Column {
             Text("${w.place} · ${w.text}", color = p.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
             Text(listOfNotNull(w.feels?.let { "gefühlt $it°" }, if (w.todayMax != null && w.todayMin != null) "heute ${w.todayMax}° / ${w.todayMin}°" else null,
-                w.rainPct?.let { "Regen $it %" }, w.wind?.let { "Wind $it km/h" }, w.humidity?.let { "Luftfeuchte $it %" }).joinToString("  ·  "),
+                w.rainPct?.let { "Regen $it %" }, w.wind?.let { "Wind $it km/h" }, w.humidity?.let { "Luftfeuchte $it %" },
+                w.aqiText?.let { "Luft $it" }, w.uv?.let { "UV ${if (it % 1.0 == 0.0) it.toInt() else it} ${w.uvText}" }).joinToString("  ·  "),
                 color = p.textDim, fontSize = 12.sp, maxLines = 1)
         }
         Spacer(Modifier.weight(1f))

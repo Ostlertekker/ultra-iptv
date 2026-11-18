@@ -23,4 +23,16 @@ class WeatherLiveTest {
         assertTrue("Temperatur unplausibel: ${w.temp}", w.temp in -40..50)
         assertTrue("Tage fehlen: $w", w.days.isNotEmpty())
     }
+
+    @Test fun airQualityBerlin() {
+        val txt = try {
+            (URL(WeatherParser.airUrl("52.52437", "13.41053")).openConnection() as HttpURLConnection).run {
+                connectTimeout = 15000; readTimeout = 15000
+                setRequestProperty("User-Agent", "UltraIPTV-Test"); inputStream.bufferedReader().readText()
+            }
+        } catch (e: java.io.IOException) { org.junit.Assume.assumeNoException("Open-Meteo nicht erreichbar", e); return }
+        val (aqi, uv) = WeatherParser.parseAir(Json.parseToJsonElement(txt).jsonObject)
+        assertTrue("Kein Luftqualitätsindex: ${txt.take(800)}", aqi != null && aqi in 0..500)
+        assertTrue("Kein UV-Index: ${txt.take(800)}", uv != null && uv in 0.0..20.0)
+    }
 }
