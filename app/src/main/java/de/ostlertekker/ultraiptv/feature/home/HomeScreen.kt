@@ -109,20 +109,17 @@ class HomeViewModel @Inject constructor(
     newsRepo: de.ostlertekker.ultraiptv.core.news.NewsRepository,
     private val sportsRepo: de.ostlertekker.ultraiptv.core.discover.SportsRepository,
 ) : ViewModel() {
-    /** Sport-Ticker: laufende Spiele, heute beendete und bald beginnende – jede Minute neu, wenn etwas läuft, sonst alle 5 Minuten. */
+    /** Sport-Ticker: nur laufende Spiele, alle 30 Sekunden neu. */
     val sportTicker = MutableStateFlow<List<de.ostlertekker.ultraiptv.core.discover.ScoreEvent>>(emptyList())
     init {
         viewModelScope.launch {
             while (true) {
-                val b = runCatching { sportsRepo.scoreboard(de.ostlertekker.ultraiptv.core.discover.League.entries) }.getOrNull()
+                val b = runCatching { sportsRepo.scoreboard(de.ostlertekker.ultraiptv.core.discover.League.entries, maxAgeMs = 0) }.getOrNull()
                 if (b != null) {
-                    val now = System.currentTimeMillis(); val h = 3_600_000L
-                    sportTicker.value = b.events.filter { e ->
-                        e.live || (e.state == "post" && e.startMs > now - 8 * h) || (e.state == "pre" && e.startMs in now..now + 6 * h)
-                    }.sortedWith(compareBy({ when { it.live -> 0; it.state == "pre" -> 1; else -> 2 } }, { if (it.state == "post") -it.startMs else it.startMs }))
-                        .take(30)
+                    // Nur laufende Spiele
+                    sportTicker.value = b.events.filter { it.live }.sortedBy { it.startMs }.take(30)
                 }
-                delay(if (sportTicker.value.any { it.live }) 60_000L else 5 * 60_000L)
+                delay(30_000L)
             }
         }
     }
