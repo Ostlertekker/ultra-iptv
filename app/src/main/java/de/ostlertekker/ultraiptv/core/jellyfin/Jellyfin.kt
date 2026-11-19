@@ -399,6 +399,7 @@ class JellyfinRepository @Inject constructor(
     suspend fun items(
         types: String? = null, parentId: String? = null, sortBy: String = "SortName", descending: Boolean = false,
         filters: String? = null, limit: Int = 40, start: Int = 0, recursive: Boolean = true, genre: String? = null,
+        searchTerm: String? = null, years: List<Int>? = null,
     ): Pair<List<JfItem>, Int> {
         val q = StringBuilder("/Users/${uid()}/Items?Fields=$fields&EnableImageTypes=Primary,Backdrop&ImageTypeLimit=1&Limit=$limit&StartIndex=$start")
         q.append("&SortBy=").append(sortBy).append("&SortOrder=").append(if (descending) "Descending" else "Ascending")
@@ -407,10 +408,16 @@ class JellyfinRepository @Inject constructor(
         parentId?.let { q.append("&ParentId=").append(it) }
         filters?.let { q.append("&Filters=").append(it) }
         genre?.let { q.append("&Genres=").append(enc(it)) }
+        searchTerm?.takeIf { it.isNotBlank() }?.let { q.append("&SearchTerm=").append(enc(it.trim())) }
+        years?.takeIf { it.isNotEmpty() }?.let { y -> q.append("&Years=").append(y.joinToString(",")) }
         val el = cachedGet(q.toString())
         val total = (el as? JsonObject)?.get("TotalRecordCount")?.int() ?: 0
         return itemsOf(el) to total
     }
+
+    /** Alle Genres der Film- und Serien-Bibliotheken (für den Genre-Filter der Suche). */
+    suspend fun genres(): List<String> =
+        itemsOf(cachedGet("/Genres?userId=${uid()}&IncludeItemTypes=Movie,Series&Recursive=true&SortBy=SortName")).map { it.name }.distinct()
 
     suspend fun latest(parentId: String? = null): List<JfItem> =
         itemsOf(cachedGet("/Users/${uid()}/Items/Latest?Limit=30&Fields=$fields&GroupItems=true" + (parentId?.let { "&ParentId=$it" } ?: "")))
