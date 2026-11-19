@@ -41,16 +41,12 @@ import de.ostlertekker.ultraiptv.core.design.LocalUltraTheme
 import de.ostlertekker.ultraiptv.core.diagnostics.NetworkDiagnostics
 import de.ostlertekker.ultraiptv.core.diagnostics.SpeedTestState
 import de.ostlertekker.ultraiptv.core.lan.LanHub
-import de.ostlertekker.ultraiptv.core.model.Accuracy
 import de.ostlertekker.ultraiptv.core.model.InfoEntry
 import de.ostlertekker.ultraiptv.core.notify.NotificationCenter
 import de.ostlertekker.ultraiptv.core.security.CredentialStore
 import de.ostlertekker.ultraiptv.core.security.StreamResolver
-import de.ostlertekker.ultraiptv.core.ui.ActionRow
 import de.ostlertekker.ultraiptv.core.ui.ChoiceRow
-import de.ostlertekker.ultraiptv.core.ui.InfoRow
 import de.ostlertekker.ultraiptv.core.ui.SectionHeader
-import de.ostlertekker.ultraiptv.core.ui.ToggleRow
 import de.ostlertekker.ultraiptv.core.ui.TvButton
 import de.ostlertekker.ultraiptv.core.ui.TvTextField
 import de.ostlertekker.ultraiptv.core.ui.UltraLoader
@@ -141,7 +137,7 @@ class SettingsExtrasViewModel @Inject constructor(
     fun clearNotifications() = viewModelScope.launch { notifications.clearAll() }
 }
 
-private fun date(ms: Long) = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(ms))
+private fun date(ms: Long) = deDateTime(ms)
 
 // ------------------------------------------------------------------ Konten
 
@@ -153,12 +149,11 @@ fun LazyListScope.accountsSection(x: SettingsExtrasViewModel, nav: NavController
         val info by x.sync.accountInfo.collectAsStateWithLifecycle()
         val syncState by x.sync.state.collectAsStateWithLifecycle()
         Column {
-            Text("Beliebig viele Anbieter-Konten speichern und umschalten – unabhängig davon, wo du gerade bist. " +
-                "Pro Profil lässt sich ein eigenes Konto festlegen (Einstellungen › Profile). Verbindungslimits deines Anbieters gelten weiterhin.",
-                color = p.textDim, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
+            Text("Beliebig viele Anbieter-Konten speichern und mit „Aktivieren“ umschalten. Verbindungslimits deines Anbieters gelten weiterhin.",
+                color = p.textDim, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
             accounts.forEach { a ->
                 val isActive = a.id == active
-                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).background(if (isActive) p.surfaceFocused else p.surface, RoundedCornerShape(14.dp)).padding(12.dp),
+                Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Column(Modifier.weight(1f)) {
                         Text((if (isActive) "● " else "") + a.label, color = p.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
@@ -173,13 +168,12 @@ fun LazyListScope.accountsSection(x: SettingsExtrasViewModel, nav: NavController
             TvButton("✚ Konto hinzufügen", onClick = { nav.navigate(Routes.SETUP_NEW) }, primary = true, modifier = Modifier.padding(top = 8.dp))
             val i = info
             if (i != null) {
-                SectionHeader("Status des aktiven Kontos")
-                InfoRow("Status", i.status ?: "unbekannt", Accuracy.MEASURED)
-                InfoRow("Läuft ab", i.expiresAt?.let { DateFormat.getDateInstance().format(Date(it)) } ?: "unbegrenzt / nicht angegeben",
-                    if (i.expiresAt != null) Accuracy.MEASURED else Accuracy.UNAVAILABLE)
-                InfoRow("Verbindungen aktiv / max.", "${i.activeConnections ?: "?"} / ${i.maxConnections ?: "?"}", Accuracy.MEASURED)
-                if (i.isTrial) InfoRow("Testzugang", "Ja", Accuracy.MEASURED)
-                InfoRow("Zuletzt geprüft", date(i.checkedAt), Accuracy.MEASURED)
+                SHeader("Status des aktiven Kontos")
+                SInfo("Status", i.status ?: "unbekannt")
+                SInfo("Läuft ab", i.expiresAt?.let { deDate(it) } ?: "unbegrenzt / nicht angegeben")
+                SInfo("Verbindungen aktiv / max.", "${i.activeConnections ?: "?"} / ${i.maxConnections ?: "?"}")
+                if (i.isTrial) SInfo("Testzugang", "Ja")
+                SInfo("Zuletzt geprüft", date(i.checkedAt))
             }
         }
     }
@@ -192,13 +186,13 @@ fun LazyListScope.updatesSection(x: SettingsExtrasViewModel, s: AppSettings, vm:
         val p = LocalUltraTheme.current.palette
         val st by x.updates.state.collectAsStateWithLifecycle()
         Column {
-            InfoRow("Installierte Version", x.updates.currentVersion, Accuracy.MEASURED)
+            SInfo("Installierte Version", x.updates.currentVersion)
             when (val u = st) {
-                UpdateState.Idle -> ActionRow("Nach Updates suchen", { x.checkUpdate() })
+                UpdateState.Idle -> SRow("Nach Updates suchen") { x.checkUpdate() }
                 UpdateState.Checking -> UltraLoader(label = "Suche nach Updates …")
                 is UpdateState.UpToDate -> {
                     Text("✓ Du hast die neueste Version (${u.version}).", color = p.primary, fontSize = 15.sp, modifier = Modifier.padding(8.dp))
-                    ActionRow("Erneut prüfen", { x.checkUpdate() })
+                    SRow("Erneut prüfen") { x.checkUpdate() }
                 }
                 is UpdateState.Available -> {
                     Text("Neue Version ${u.version} verfügbar (${u.sizeBytes / 1_000_000} MB)", color = p.text, fontSize = 17.sp, fontWeight = FontWeight.Bold,
@@ -218,10 +212,10 @@ fun LazyListScope.updatesSection(x: SettingsExtrasViewModel, s: AppSettings, vm:
                 }
                 is UpdateState.Error -> {
                     Text("⚠ ${u.message}", color = p.text, fontSize = 14.sp, modifier = Modifier.padding(8.dp))
-                    ActionRow("Erneut versuchen", { x.checkUpdate() })
+                    SRow("Erneut versuchen") { x.checkUpdate() }
                 }
             }
-            ToggleRow("Automatisch nach Updates suchen", s.updateCheck, { vm.set(Keys.UPDATE_CHECK, it) }, subtitle = "Beim Start und alle 5 Minuten – neue Versionen erscheinen als Einblendung oben links")
+            SSwitch("Automatisch nach Updates suchen", s.updateCheck, "Beim Start und alle 5 Minuten – neue Versionen erscheinen als Einblendung oben links") { vm.set(Keys.UPDATE_CHECK, it) }
             Text("Quelle: GitHub-Releases (${de.ostlertekker.ultraiptv.BuildConfig.UPDATE_REPO}). Updates sind mit demselben Schlüssel signiert.",
                 color = p.textDim, fontSize = 11.sp, modifier = Modifier.padding(8.dp))
         }
@@ -237,22 +231,23 @@ fun LazyListScope.notificationsSection(x: SettingsExtrasViewModel) {
         val reminders by x.reminders.collectAsStateWithLifecycle()
         LaunchedEffect(Unit) { x.markRead() }
         Column {
-            Text("Erinnerungen an Sendungen, neue Folgen deiner Lieblingsserien, ablaufendes Anbieter-Konto und App-Updates.",
-                color = p.textDim, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
+            Text("Erinnerungen an Sendungen erscheinen 2 Minuten vor Beginn als Einblendung oben links, App-Updates ebenfalls. " +
+                "Hier siehst du deine geplanten Erinnerungen und weitere Hinweise (z. B. neue Folgen deiner Lieblingsserien oder ein ablaufendes Anbieter-Konto).",
+                color = p.textDim, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
             if (reminders.isNotEmpty()) {
-                SectionHeader("Geplante Erinnerungen")
-                reminders.forEach { r -> InfoRow(date(r.startMs), "${r.title} · ${r.channelName}", Accuracy.MEASURED) }
+                SHeader("Geplante Erinnerungen")
+                reminders.forEach { r -> SInfo(date(r.startMs), "${r.title} · ${r.channelName}") }
             }
-            SectionHeader("Postfach")
-            if (list.isEmpty()) Text("Keine Benachrichtigungen.", color = p.textDim, fontSize = 14.sp)
+            SHeader("Weitere Hinweise")
+            if (list.isEmpty()) Text("Keine Hinweise.", color = p.textDim, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
             list.forEach { n ->
-                Column(Modifier.fillMaxWidth().padding(vertical = 3.dp).background(p.surface, RoundedCornerShape(12.dp)).padding(12.dp)) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp)) {
                     Text(n.title, color = p.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                     Text(n.body, color = p.textDim, fontSize = 13.sp)
                     Text(date(n.createdAt), color = p.textDim.copy(alpha = 0.7f), fontSize = 11.sp)
                 }
             }
-            if (list.isNotEmpty()) ActionRow("Alle löschen", { x.clearNotifications() })
+            if (list.isNotEmpty()) SRow("Alle löschen") { x.clearNotifications() }
         }
     }
 }
@@ -273,20 +268,21 @@ fun LazyListScope.backupSection(x: SettingsExtrasViewModel) {
         var code by remember { mutableStateOf("") }
         Column {
             msg?.let { Text(it, color = p.primary, fontSize = 13.sp, modifier = Modifier.padding(8.dp)) }
-            SectionHeader("Backup")
-            ActionRow("Backup erstellen (ohne Zugangsdaten)", { x.exportBackup(false) })
-            ActionRow("Backup erstellen (mit Anbieter-Konten)", { x.exportBackup(true) }, subtitle = "Enthält Passwörter – nur sicher aufbewahren")
-            files.take(5).forEach { f -> ActionRow("Wiederherstellen: ${f.name}", { x.restoreBackup(f) }, subtitle = "Ersetzt Profile, Favoriten und Verlauf") }
-            Text("Speicherort: ${x.backup.backupDir.absolutePath}", color = p.textDim, fontSize = 11.sp, modifier = Modifier.padding(8.dp))
-            SectionHeader("Gerätekopplung (Heimnetz)")
-            ToggleRow("Dieses Gerät freigeben", hub.running, { if (it) x.lan.start(false) else x.lan.stop() },
-                subtitle = "Andere ULTRA-IPTV-Geräte oder der Browser am Handy können Daten übernehmen")
+            SHeader("Backup")
+            SRow("Backup erstellen (ohne Zugangsdaten)") { x.exportBackup(false) }
+            SRow("Backup erstellen (mit Anbieter-Konten)", "Enthält Passwörter – nur sicher aufbewahren") { x.exportBackup(true) }
+            files.take(5).forEach { f -> SRow("Wiederherstellen: ${f.name}", "Ersetzt Profile, Favoriten und Verlauf") { x.restoreBackup(f) } }
+            Text("Speicherort: ${x.backup.backupDir.absolutePath}", color = p.textDim, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
+            SHeader("Gerätekopplung (Heimnetz)")
+            SSwitch("Dieses Gerät freigeben", hub.running, "Andere ULTRA-IPTV-Geräte oder der Browser am Handy können Daten übernehmen") {
+                if (it) x.lan.start(false) else x.lan.stop()
+            }
             if (hub.running) {
                 Text("Adresse: http://${hub.address ?: "?"}:${hub.port}    Kopplungscode: ${hub.code}", color = p.text, fontSize = 17.sp,
                     fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp))
                 Text("Am Handy/PC im selben WLAN diese Adresse öffnen: Backup herunterladen oder hochladen.", color = p.textDim, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 8.dp))
             }
-            SectionHeader("Von anderem Gerät übernehmen")
+            SHeader("Von anderem Gerät übernehmen")
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 TvTextField(host, { host = it }, "IP des anderen Geräts (z. B. 192.168.1.20)", modifier = Modifier.width(320.dp))
                 TvTextField(code, { code = it.filter { c -> c.isDigit() }.take(6) }, "Code", number = true, modifier = Modifier.width(140.dp))

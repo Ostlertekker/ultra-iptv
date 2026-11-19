@@ -91,7 +91,7 @@ object DesignOptions {
     val zoomNames = listOf("Theme-Standard", "Kein Zoom", "Dezent", "Normal", "Stark")
     val zoomValues = listOf<Float?>(null, 1f, 1.03f, 1.07f, 1.12f)
     // Reihenfolge der ersten fünf nicht ändern (gespeicherte Auswahl bleibt gültig); neue Schriften hinten anhängen
-    val fontNames = listOf("Theme-Standard", "System modern", "System klassisch", "System technisch", "System verspielt") +
+    val fontNames = listOf("Standard (Inter)", "System modern", "System klassisch", "System technisch", "System verspielt") +
         AppFonts.catalog.map { it.first }
     val fontValues = listOf<FontFamily?>(null, FontFamily.SansSerif, FontFamily.Serif, FontFamily.Monospace, FontFamily.Cursive) +
         AppFonts.catalog.map { it.third }

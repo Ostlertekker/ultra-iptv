@@ -238,14 +238,14 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
 // ------------------------------------------------------------ Zeilen im TiviMate-Stil
 
 @Composable
-private fun SHeader(t: String) {
+internal fun SHeader(t: String) {
     Text(t.uppercase(), color = LocalUltraTheme.current.palette.primary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp,
         modifier = Modifier.padding(start = 14.dp, top = 16.dp, bottom = 4.dp))
 }
 
 /** Einstellung: Titel, darunter der aktuelle Wert in Grau. OK wechselt bzw. öffnet. */
 @Composable
-private fun SRow(title: String, value: String? = null, onClick: () -> Unit) {
+internal fun SRow(title: String, value: String? = null, onClick: () -> Unit) {
     val p = LocalUltraTheme.current.palette
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(10.dp)
@@ -258,7 +258,7 @@ private fun SRow(title: String, value: String? = null, onClick: () -> Unit) {
 
 /** Ein/Aus-Einstellung mit Schalter rechts. */
 @Composable
-private fun SSwitch(title: String, checked: Boolean, subtitle: String? = null, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
+internal fun SSwitch(title: String, checked: Boolean, subtitle: String? = null, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
     val p = LocalUltraTheme.current.palette
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(10.dp)
@@ -278,6 +278,20 @@ private fun SSwitch(title: String, checked: Boolean, subtitle: String? = null, e
     }
 }
 
+/** Reine Anzeige (nicht anwählbar): Bezeichnung links, Wert rechts – ohne Prüfschild. */
+@Composable
+internal fun SInfo(label: String, value: String) {
+    val p = LocalUltraTheme.current.palette
+    Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 7.dp), verticalAlignment = Alignment.Top) {
+        Text(label, color = p.textDim, fontSize = 14.sp, modifier = Modifier.fillMaxWidth(0.36f))
+        Text(value, color = p.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
+    }
+}
+
+/** Datum + Uhrzeit immer im deutschen Format, z. B. „18.11.2026, 23:51“. */
+internal fun deDateTime(ms: Long): String = java.text.SimpleDateFormat("dd.MM.yyyy, HH:mm", java.util.Locale.GERMAN).format(Date(ms))
+internal fun deDate(ms: Long): String = java.text.SimpleDateFormat("dd.MM.yyyy", java.util.Locale.GERMAN).format(Date(ms))
+
 // ------------------------------------------------------------ Seiten
 
 private fun LazyListScope.playlistsPage(vm: SettingsViewModel, x: SettingsExtrasViewModel, s: AppSettings, nav: NavController) {
@@ -288,10 +302,12 @@ private fun LazyListScope.playlistsPage(vm: SettingsViewModel, x: SettingsExtras
         Column {
             SRow("Playlist bearbeiten", cfg?.let { "${it.type.name}${if (it.name.isNotBlank()) " · ${it.name}" else ""}" } ?: "Nicht eingerichtet") { nav.navigate(Routes.SETUP) }
             SRow("Playlist aktualisieren", if (sync.running) sync.message else (sync.lastError?.let { "Fehler: $it" }
-                ?: if (s.lastSyncMs > 0) "Zuletzt: ${DateFormat.getDateTimeInstance().format(Date(s.lastSyncMs))}" else "Noch nie")) { vm.syncNow() }
-            SRow("Live-Stream-Format", if (s.liveFormat == "m3u8") "HLS (m3u8)" else "MPEG-TS (ts) · nur Xtream") {
-                vm.set(Keys.LIVE_FORMAT, if (s.liveFormat == "ts") "m3u8" else "ts")
-            }
+                ?: if (s.lastSyncMs > 0) "Zuletzt: ${deDateTime(s.lastSyncMs)}" else "Noch nie")) { vm.syncNow() }
+            // Nur bei Xtream wählbar – bei M3U legt die Playlist das Format fest
+            if (cfg?.type == de.ostlertekker.ultraiptv.core.model.ProviderType.XTREAM)
+                SRow("Live-Stream-Format", if (s.liveFormat == "m3u8") "HLS (m3u8)" else "MPEG-TS (ts)") {
+                    vm.set(Keys.LIVE_FORMAT, if (s.liveFormat == "ts") "m3u8" else "ts")
+                }
             if (cfg != null) SRow("Playlist entfernen", "Löscht die gespeicherten Zugangsdaten") { vm.removeProvider() }
         }
     }
@@ -318,7 +334,7 @@ private fun LazyListScope.epgPage(vm: SettingsViewModel, s: AppSettings) {
         var url by remember { mutableStateOf(s.epgUrlOverride) }
         Column {
             SRow("EPG aktualisieren", if (sync.running) sync.message else "Sendungen: ${if (vm.epgCount >= 0) vm.epgCount else "…"}" +
-                (if (s.lastEpgSyncMs > 0) " · zuletzt ${DateFormat.getDateTimeInstance().format(Date(s.lastEpgSyncMs))}" else "")) { vm.syncEpg() }
+                (if (s.lastEpgSyncMs > 0) " · zuletzt ${deDateTime(s.lastEpgSyncMs)}" else "")) { vm.syncEpg() }
             SRow("Aktualisierungsintervall", "Alle ${s.epgRefreshHours} Stunden") { vm.set(Keys.EPG_REFRESH, cycle(listOf(6, 12, 24, 48), s.epgRefreshHours)) }
             SRow("Tage im TV-Programm", "${s.epgDays} Tage") { vm.set(Keys.EPG_DAYS, cycle(listOf(1, 2, 3, 5, 7), s.epgDays)) }
             SRow("EPG-Zeitverschiebung", "${if (s.epgOffsetHours >= 0) "+" else ""}${s.epgOffsetHours} Stunden") {
@@ -347,7 +363,7 @@ private fun LazyListScope.appearancePage(vm: SettingsViewModel, s: AppSettings) 
             SSwitch("Uhr in der Menüleiste", s.menuClock) { vm.set(Keys.MENU_CLOCK, it) }
             SSwitch("24-Stunden-Format", s.clock24h) { vm.set(Keys.CLOCK_24H, it) }
             SHeader("Zurücksetzen")
-            SRow("Erscheinungsbild zurücksetzen", "Akzentfarbe, Schrift und Größen auf Standard") { vm.resetAppearance() }
+            SRow("Erscheinungsbild zurücksetzen", "Akzentfarbe, Schriftart und Uhr auf Standard") { vm.resetAppearance() }
         }
     }
 }
@@ -470,7 +486,7 @@ private fun ParentalSection(vm: SettingsViewModel, s: AppSettings) {
             else vm.set(Keys.SHOW_ADULT, true)
         }
         Text("Kategorien mit Kennzeichnungen wie „XXX“, „Adult“ oder „18+“ werden ausgeblendet. Die meisten Anbieter liefern keine FSK-Angaben pro Titel – " +
-            "die Altersgrenze wirkt daher auf diese Kategorien. PINs werden nur als gesalzener PBKDF2-Hash gespeichert.",
+            "die Altersgrenze wirkt daher auf diese Kategorien. Die PIN wird verschlüsselt gespeichert.",
             color = p.textDim, fontSize = 12.sp, modifier = Modifier.padding(8.dp))
     }
     if (askPin && prof != null) {
@@ -488,8 +504,8 @@ private fun LazyListScope.aboutSection(vm: SettingsViewModel) {
             Text("ULTRA IPTV", color = p.text, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
             Text("DAS ULTIMATIVE STREAMING-ERLEBNIS", color = p.primary, fontSize = 13.sp, letterSpacing = 2.sp)
             Spacer(Modifier.height(10.dp))
-            InfoRow("Version", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", Accuracy.MEASURED)
-            InfoRow("Gerät", "${vm.device.manufacturer} ${vm.device.model}", Accuracy.MEASURED)
+            SInfo("Version", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+            SInfo("Gerät", "${vm.device.manufacturer} ${vm.device.model}")
             Text("ULTRA IPTV ist ein Abspieler. Er liefert keine Inhalte. Nutze nur Quellen, für die du eine Berechtigung hast. " +
                 "DRM- und Zugangsbeschränkungen werden nicht umgangen.", color = p.textDim, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp))
         }
