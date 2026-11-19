@@ -56,55 +56,66 @@ object Synth {
         }
     }
 
-    /** Originaler Kino-Intro-Sound: Sub-Bass, elektronischer Aufbau, metallische Akzente, Impact, Schimmer. */
+    /**
+     * Intro-Sound passend zur Animation: weicher Sub-Puls beim Aufbau von „ULTRA IPTV“, ein kurzes Luft-Whoosh, während
+     * „PRO“ hereinfliegt, und beim Landen ein heller, glockiger „Bling“ mit Glitzer-Ausklang. Alles synthetisiert.
+     */
     fun intro(short: Boolean): ShortArray {
-        val total = if (short) 1.8f else 4.6f
-        val impactAt = if (short) 0.35f else 3.0f
+        val k = if (short) 0.62f else 1f
+        val pulseAt = 0.35f * k
+        val whooshFrom = 1.55f * k
+        val land = 1.95f * k
+        val total = land + 2.0f
         val n = (RATE * total).toInt()
         val buf = FloatArray(n)
-        val rnd = Random(42)
-        var lp = 0f
-        var phaseBass = 0.0
+        val rnd = Random(11)
+        var lp = 0f; var hp = 0f; var prev = 0f
         for (i in 0 until n) {
             val t = i.toFloat() / RATE
             var v = 0f
-            if (!short) {
-                // Sub-Bass-Anschwellen
-                val bassEnv = ((t - 0.4f) / 2.6f).coerceIn(0f, 1f)
-                phaseBass += 2 * PI * (36.0 + 10.0 * bassEnv) / RATE
-                v += sin(phaseBass).toFloat() * 0.45f * bassEnv * if (t < impactAt) 1f else exp(-(t - impactAt) * 2.5f)
-                // Gefilterter Rausch-Riser
-                if (t in 0.5f..impactAt) {
-                    val x = (t - 0.5f) / (impactAt - 0.5f)
-                    lp += (0.01f + 0.3f * x * x) * ((rnd.nextFloat() * 2 - 1) - lp)
-                    v += lp * 0.55f * x
-                }
-                // Metallische Akzente (unharmonische Teiltöne)
-                for (hit in floatArrayOf(1.7f, 2.35f)) {
-                    if (t >= hit) {
-                        val d = t - hit
-                        val e = exp(-d * 5f)
-                        v += e * 0.12f * (sin(2 * PI * 740 * d).toFloat() + 0.6f * sin(2 * PI * 740 * 2.76 * d).toFloat() +
-                            0.35f * sin(2 * PI * 740 * 5.4 * d).toFloat() + 0.2f * sin(2 * PI * 740 * 8.93 * d).toFloat())
-                    }
-                }
+            // 1) Weicher Sub-Puls (Aufbau des Schriftzugs)
+            if (t >= pulseAt) {
+                val d = t - pulseAt
+                val f = 52f + 30f * exp(-d * 9f)
+                v += sin(2 * PI * f * d).toFloat() * 0.55f * exp(-d * 3.2f) * minOf(1f, d / 0.02f)
             }
-            // Impact
-            if (t >= impactAt) {
-                val d = t - impactAt
-                val f = 34f + 50f * exp(-d * 6f)
-                v += sin(2 * PI * f * d).toFloat() * 0.9f * exp(-d * 2.8f)
-                v += (rnd.nextFloat() * 2 - 1) * 0.35f * exp(-d * 22f)
-                // Premium-Schimmer zum Abschluss
-                val sh = exp(-d * 1.6f) * ((d) / 0.25f).coerceIn(0f, 1f)
-                v += sh * 0.07f * (sin(2 * PI * 2093 * d).toFloat() + sin(2 * PI * 2637 * d).toFloat() + sin(2 * PI * 3136 * d).toFloat()) *
-                    (0.75f + 0.25f * sin(2 * PI * 6 * d).toFloat())
+            // 2) Whoosh: gefiltertes Rauschen, das bis zur Landung heller und lauter wird
+            if (t in whooshFrom..(land + 0.05f)) {
+                val x = ((t - whooshFrom) / (land - whooshFrom)).coerceIn(0f, 1f)
+                val noise = rnd.nextFloat() * 2 - 1
+                lp += (0.04f + 0.5f * x * x) * (noise - lp)
+                hp = lp - prev; prev = lp
+                v += (lp * 0.5f + hp * 1.2f) * x * x * 0.55f
+            }
+            // 3) Bling: Glockenklang mit leicht unharmonischen Teiltönen + Schwebung
+            if (t >= land) {
+                val d = t - land
+                val att = minOf(1f, d / 0.004f)
+                val f0 = 1975.5f // H6
+                val bell = sin(2 * PI * f0 * d).toFloat() * exp(-d * 2.6f) +
+                    0.55f * sin(2 * PI * f0 * 1.5 * d).toFloat() * exp(-d * 3.4f) +
+                    0.35f * sin(2 * PI * f0 * 2.76 * d).toFloat() * exp(-d * 5.5f) +
+                    0.22f * sin(2 * PI * f0 * 4.07 * d).toFloat() * exp(-d * 8f) +
+                    0.4f * sin(2 * PI * (f0 * 1.003f) * d).toFloat() * exp(-d * 2.2f)
+                v += bell * 0.32f * att
+                // Kurzer heller Anschlag
+                v += (rnd.nextFloat() * 2 - 1) * 0.18f * exp(-d * 60f)
+                // Glitzer: kleine, zufällig gestreute Sinus-Funken
+                val sp = exp(-d * 2.2f)
+                v += sp * 0.05f * (sin(2 * PI * 3951 * d).toFloat() * (0.5f + 0.5f * sin(2 * PI * 9 * d).toFloat()) +
+                    sin(2 * PI * 5274 * d).toFloat() * (0.5f + 0.5f * sin(2 * PI * 13 * d + 1).toFloat()))
+                // Tiefer Körper unter dem Bling
+                v += sin(2 * PI * 98 * d).toFloat() * 0.25f * exp(-d * 5f)
             }
             buf[i] = v
         }
-        // Normalisieren + Fade-out
+        // Einfacher Hall (zwei Rückkopplungs-Verzögerungen) für Raum und Glanz
+        for ((dl, g) in listOf(0.083f to 0.28f, 0.127f to 0.2f)) {
+            val ds = (RATE * dl).toInt()
+            for (i in ds until n) buf[i] += buf[i - ds] * g
+        }
         val peak = buf.maxOf { abs(it) }.coerceAtLeast(0.001f)
-        val fade = (RATE * 0.25f).toInt()
+        val fade = (RATE * 0.4f).toInt()
         return ShortArray(n) { i ->
             val f = if (i > n - fade) (n - i).toFloat() / fade else 1f
             ((buf[i] / peak) * 0.85f * f * Short.MAX_VALUE).toInt().toShort()
@@ -193,6 +204,20 @@ class AudioExperienceEngine @Inject constructor() {
     fun select() = fire(selectTrack)
     fun back() = fire(backTrack)
     fun transition() = fire(transitionTrack)
+
+    /**
+     * Wie [playIntro], kehrt aber erst zurück, wenn der Klang tatsächlich startet – so laufen Bild und Ton
+     * synchron (der „Bling“ fällt genau auf die Landung des PRO-Abzeichens).
+     */
+    suspend fun playIntroAligned(short: Boolean) {
+        val data = withContext(Dispatchers.Default) { Synth.intro(short) }
+        val t = make(data) ?: return
+        try { t.setVolume(maxOf(volume, 0.6f)); t.play() } catch (_: Exception) { runCatching { t.release() }; return }
+        scope.launch {
+            delay((data.size * 1000L / Synth.RATE) + 300)
+            runCatching { t.stop() }; t.release()
+        }
+    }
 
     /** Spielt den Intro-Sound ab (lautstärkeunabhängig vom UI-Schalter, aber mit eigener Einstellung). */
     fun playIntro(short: Boolean) {
