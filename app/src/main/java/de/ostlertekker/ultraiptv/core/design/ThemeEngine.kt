@@ -77,12 +77,13 @@ data class UiPrefs(
     val proStyle: Int = 1,
     val proSize: Int = 0,
     val proPosition: Int = 0,
+    val proAnim: Int = 0,
 ) {
     companion object {
         fun from(s: AppSettings) = UiPrefs(
             s.showChannelNumbers, s.showChannelLogos, s.showChannelEpg, s.channelDensity.coerceIn(0, 2),
             when (s.posterSize) { 0 -> 130.dp; 2 -> 200.dp; 3 -> 240.dp; else -> 160.dp }, s.menuClock, s.clock24h, s.showChannelProgress,
-            s.proStyle, s.proSize, s.proPosition,
+            s.proStyle, s.proSize, s.proPosition, s.proAnim,
         )
     }
 }
@@ -90,7 +91,9 @@ data class UiPrefs(
 val LocalUiPrefs = staticCompositionLocalOf { UiPrefs() }
 
 object DesignOptions {
-    val proStyleNames = listOf("Aus", "Verlauf", "Akzentfarbe", "Weiß", "Nur Rahmen", "Nur Schrift")
+    val proStyleNames = listOf("Aus", "Verlauf", "Akzentfarbe", "Weiß", "Nur Rahmen", "Nur Schrift",
+        "Gold", "Chrom", "Neon", "Glas", "Regenbogen", "Carbon", "Feuer")
+    val proAnimNames = listOf("Aus", "Glanz", "Pulsieren", "Leuchten", "Farbwechsel", "Rahmenlauf", "Funkeln")
     val proSizeNames = listOf("Sehr klein", "Klein", "Mittel")
     val proPositionNames = listOf("Hochgestellt", "Mittig")
     val cornerNames = listOf("Theme-Standard", "Eckig", "Leicht gerundet", "Rund", "Extra rund")

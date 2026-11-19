@@ -370,6 +370,9 @@ private fun LazyListScope.appearancePage(vm: SettingsViewModel, s: AppSettings) 
                 SRow("Position", DesignOptions.proPositionNames.getOrElse(s.proPosition) { "Hochgestellt" }) {
                     vm.set(Keys.PRO_POSITION, (s.proPosition + 1) % DesignOptions.proPositionNames.size)
                 }
+                SRow("Animation", DesignOptions.proAnimNames.getOrElse(s.proAnim) { "Aus" }) {
+                    vm.set(Keys.PRO_ANIM, (s.proAnim + 1) % DesignOptions.proAnimNames.size)
+                }
             }
             SHeader("Uhr")
             SSwitch("Uhr in der Menüleiste", s.menuClock) { vm.set(Keys.MENU_CLOCK, it) }

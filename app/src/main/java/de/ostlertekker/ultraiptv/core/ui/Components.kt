@@ -228,7 +228,10 @@ fun Modifier.outlineButton(focused: Boolean, primary: Boolean, enabled: Boolean,
 fun outlineButtonText(focused: Boolean, enabled: Boolean): Color =
     when { !enabled -> Color.White.copy(alpha = 0.4f); focused -> Color(0xFF111111); else -> Color.White }
 
-/** Kleines „PRO“-Abzeichen neben dem Schriftzug – Stil, Größe und Position in Einstellungen › Erscheinungsbild. */
+/**
+ * Kleines „PRO“-Abzeichen neben dem Schriftzug – Stil, Größe, Position und Animation in
+ * Einstellungen › Erscheinungsbild › PRO-Abzeichen.
+ */
 @Composable
 fun ProBadge(modifier: Modifier = Modifier) {
     val p = LocalUltraTheme.current.palette
@@ -238,16 +241,99 @@ fun ProBadge(modifier: Modifier = Modifier) {
     val raise = if (prefs.proPosition == 0) Modifier.offset(y = (-5).dp) else Modifier
     val shape = RoundedCornerShape(3.dp)
     val dark = Color(0xFF0B0D10)
-    val box = when (prefs.proStyle) {
-        1 -> Modifier.background(Brush.linearGradient(listOf(p.primary, Color.White)), shape)
-        2 -> Modifier.background(p.primary, shape)
-        3 -> Modifier.background(Color.White, shape)
-        4 -> Modifier.border(1.dp, Color.White.copy(alpha = 0.85f), shape)
-        else -> Modifier
+    val anim = prefs.proAnim
+
+    // Animationstakt (nur wenn eine Animation gewählt ist)
+    val t: Float = if (anim == 0) 0f else {
+        val tr = androidx.compose.animation.core.rememberInfiniteTransition(label = "pro")
+        val v by tr.animateFloat(0f, 1f, androidx.compose.animation.core.infiniteRepeatable(
+            androidx.compose.animation.core.tween(if (anim == 1 || anim == 6) 3600 else 2400, easing = androidx.compose.animation.core.LinearEasing)), label = "proT")
+        v
     }
-    val textColor = when (prefs.proStyle) { 4 -> Color.White; 5 -> p.primary; else -> dark }
-    Box(modifier.then(raise).then(box).padding(horizontal = if (prefs.proStyle == 5) 0.dp else 3.dp, vertical = 0.dp),
-        contentAlignment = Alignment.Center) {
+    val hue = if (anim == 4) t * 360f else 0f
+    fun hsv(h: Float, s: Float = 0.75f, v: Float = 1f) = Color.hsv(((h % 360f) + 360f) % 360f, s, v)
+
+    val gold = listOf(Color(0xFFFFE08A), Color(0xFFD4A017), Color(0xFFFFF3C4), Color(0xFFB8860B))
+    val chrome = listOf(Color(0xFFF5F7FA), Color(0xFF9AA3AD), Color(0xFFFFFFFF), Color(0xFF6B737C))
+    val fire = listOf(Color(0xFFFFE259), Color(0xFFFF7A18), Color(0xFFE5282E))
+    val rainbow = listOf(hsv(hue), hsv(hue + 60), hsv(hue + 120), hsv(hue + 200), hsv(hue + 280))
+    val accentShift = if (anim == 4) hsv(hue, 0.55f) else p.primary
+
+    val bg: Brush? = when (prefs.proStyle) {
+        1 -> Brush.linearGradient(listOf(accentShift, Color.White))
+        2 -> androidx.compose.ui.graphics.SolidColor(accentShift)
+        3 -> androidx.compose.ui.graphics.SolidColor(Color.White)
+        6 -> Brush.linearGradient(gold)
+        7 -> Brush.linearGradient(chrome)
+        9 -> androidx.compose.ui.graphics.SolidColor(Color.White.copy(alpha = 0.18f))
+        10 -> Brush.linearGradient(rainbow)
+        11 -> Brush.linearGradient(listOf(Color(0xFF2A2D31), Color(0xFF15171A), Color(0xFF2A2D31), Color(0xFF15171A)),
+            end = androidx.compose.ui.geometry.Offset(8f, 8f), tileMode = androidx.compose.ui.graphics.TileMode.Repeated)
+        12 -> Brush.linearGradient(fire)
+        else -> null
+    }
+    val neon = if (anim == 4) hsv(hue) else p.primary
+    val borderBrush: Brush? = when {
+        anim == 5 -> Brush.linearGradient(listOf(Color.White, neon, Color.Transparent, neon, Color.White),
+            start = androidx.compose.ui.geometry.Offset(t * 120f - 60f, 0f), end = androidx.compose.ui.geometry.Offset(t * 120f, 30f),
+            tileMode = androidx.compose.ui.graphics.TileMode.Mirror)
+        prefs.proStyle == 4 -> androidx.compose.ui.graphics.SolidColor(Color.White.copy(alpha = 0.85f))
+        prefs.proStyle == 8 -> androidx.compose.ui.graphics.SolidColor(neon)
+        prefs.proStyle == 9 -> androidx.compose.ui.graphics.SolidColor(Color.White.copy(alpha = 0.5f))
+        prefs.proStyle == 11 -> androidx.compose.ui.graphics.SolidColor(Color(0xFF55595F))
+        else -> null
+    }
+    val textColor = when (prefs.proStyle) {
+        4, 9 -> Color.White; 5 -> accentShift; 8 -> neon; 11 -> Color(0xFFE8EAED); else -> dark
+    }
+    val pulse = if (anim == 2) 1f + 0.12f * kotlin.math.sin(t * 2f * Math.PI.toFloat()) else 1f
+    val glowA = when {
+        anim == 3 -> 0.25f + 0.45f * (0.5f + 0.5f * kotlin.math.sin(t * 2f * Math.PI.toFloat()))
+        prefs.proStyle == 8 -> 0.35f
+        else -> 0f
+    }
+    val glowColor = if (prefs.proStyle == 6) Color(0xFFFFD34D) else if (prefs.proStyle == 12) Color(0xFFFF7A18) else neon
+
+    Box(
+        modifier.then(raise)
+            .graphicsLayer {
+                scaleX = pulse; scaleY = pulse
+                // Nur für den Glanz nötig (Lichtstreif nur auf dem Abzeichen); sonst würde das Leuchten abgeschnitten
+                if (anim == 1) compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
+            }
+            .drawBehind {
+                // Leuchten: weiche Ringe um das Abzeichen
+                if (glowA > 0f) for (k in 1..3) {
+                    val g = k * 1.6.dp.toPx()
+                    drawRoundRect(glowColor.copy(alpha = glowA / (k + 0.5f)), topLeft = androidx.compose.ui.geometry.Offset(-g, -g),
+                        size = androidx.compose.ui.geometry.Size(size.width + 2 * g, size.height + 2 * g),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx() + g))
+                }
+            }
+            .then(if (bg != null) Modifier.background(bg, shape) else Modifier)
+            .then(if (borderBrush != null) Modifier.border(1.dp, borderBrush, shape) else Modifier)
+            .drawWithContent {
+                drawContent()
+                // Glanz: Lichtstreif läuft alle paar Sekunden über das Abzeichen
+                if (anim == 1) {
+                    val x = -size.width + t * size.width * 3f
+                    drawRect(Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.85f), Color.Transparent),
+                        start = androidx.compose.ui.geometry.Offset(x, 0f), end = androidx.compose.ui.geometry.Offset(x + size.width * 0.6f, size.height)),
+                        blendMode = androidx.compose.ui.graphics.BlendMode.SrcAtop)
+                }
+                // Funkeln: kleiner Stern oben rechts blitzt auf
+                if (anim == 6 && t > 0.7f) {
+                    val q = (t - 0.7f) / 0.3f
+                    val a = if (q < 0.4f) q / 0.4f else 1f - (q - 0.4f) / 0.6f
+                    val r = 2.5.dp.toPx() * (0.5f + q)
+                    val c = androidx.compose.ui.geometry.Offset(size.width - 1.dp.toPx(), 1.dp.toPx())
+                    drawLine(Color.White.copy(alpha = a), c.copy(x = c.x - r), c.copy(x = c.x + r), strokeWidth = 1.dp.toPx() * 0.8f)
+                    drawLine(Color.White.copy(alpha = a), c.copy(y = c.y - r), c.copy(y = c.y + r), strokeWidth = 1.dp.toPx() * 0.8f)
+                }
+            }
+            .padding(horizontal = if (prefs.proStyle == 5 || prefs.proStyle == 8 && borderBrush == null) 0.dp else 3.dp, vertical = 0.dp),
+        contentAlignment = Alignment.Center,
+    ) {
         Text("PRO", color = textColor, fontSize = fs, lineHeight = fs, fontWeight = FontWeight.Black, letterSpacing = 0.8.sp,
             fontFamily = de.ostlertekker.ultraiptv.core.design.AppFonts.Inter, maxLines = 1)
     }

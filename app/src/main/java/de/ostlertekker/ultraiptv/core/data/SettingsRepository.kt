@@ -73,6 +73,7 @@ data class AppSettings(
     val proStyle: Int = 1,
     val proSize: Int = 0,
     val proPosition: Int = 0,
+    val proAnim: Int = 0,
     val epgRefreshHours: Int = 12,
     val epgOffsetHours: Int = 0,
     val epgDays: Int = 2,
@@ -190,6 +191,7 @@ object Keys {
     val PRO_STYLE = intPreferencesKey("pro_style")
     val PRO_SIZE = intPreferencesKey("pro_size")
     val PRO_POSITION = intPreferencesKey("pro_position")
+    val PRO_ANIM = intPreferencesKey("pro_anim")
     val EPG_REFRESH = intPreferencesKey("epg_refresh")
     val EPG_OFFSET = intPreferencesKey("epg_offset")
     val EPG_DAYS = intPreferencesKey("epg_days")
@@ -301,6 +303,7 @@ fun Preferences.toSettings(): AppSettings {
         proStyle = this[Keys.PRO_STYLE] ?: d.proStyle,
         proSize = this[Keys.PRO_SIZE] ?: d.proSize,
         proPosition = this[Keys.PRO_POSITION] ?: d.proPosition,
+        proAnim = this[Keys.PRO_ANIM] ?: d.proAnim,
         epgRefreshHours = this[Keys.EPG_REFRESH] ?: d.epgRefreshHours,
         epgOffsetHours = this[Keys.EPG_OFFSET] ?: d.epgOffsetHours,
         epgDays = this[Keys.EPG_DAYS] ?: d.epgDays,
