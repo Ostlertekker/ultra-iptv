@@ -73,6 +73,7 @@ import de.ostlertekker.ultraiptv.core.database.ContentDao
 import de.ostlertekker.ultraiptv.core.model.Countries
 import de.ostlertekker.ultraiptv.core.notify.NotificationCenter
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
