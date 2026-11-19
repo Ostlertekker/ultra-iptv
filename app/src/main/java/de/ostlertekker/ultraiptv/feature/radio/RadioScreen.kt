@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.feature.radio
 
+import de.ostlertekker.ultraiptv.core.ui.outlineButton
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -203,7 +204,7 @@ private fun StationRow(s: RadioStation, modifier: Modifier = Modifier, rank: Int
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(theme.spec.corner.coerceAtMost(14.dp))
     Row(modifier.fillMaxWidth().tvFocusable(shape, onClick, onLong, scaleOnFocus = false, onFocus = { focused = it })
-        .background(if (focused) pal.surfaceFocused else pal.surface, shape).padding(horizontal = 12.dp, vertical = 8.dp),
+        .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Text("$rank", color = pal.textDim, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(28.dp))
         StationLogo(s, 48)
@@ -224,7 +225,7 @@ private fun RadioBar(s: RadioStation, playing: Boolean, buffering: Boolean, titl
                      onToggle: () -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onStop: () -> Unit, onFav: () -> Unit) {
     val theme = LocalUltraTheme.current
     val pal = theme.palette
-    Row(Modifier.fillMaxWidth().background(pal.surface, RoundedCornerShape(16.dp)).padding(horizontal = 14.dp, vertical = 10.dp),
+    Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically) {
         StationLogo(s, 56)
         Spacer(Modifier.width(14.dp))
@@ -244,9 +245,9 @@ internal fun RoundIcon(symbol: String, onClick: () -> Unit, primary: Boolean = f
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(50)
     Box(Modifier.padding(start = 8.dp).size(46.dp).tvFocusable(shape, onClick, focusRequester = focus, onFocus = { focused = it })
-        .background(if (focused) pal.primary else if (primary) pal.primary.copy(alpha = 0.25f) else pal.surfaceFocused.copy(alpha = 0.6f), shape),
+        .then(Modifier.outlineButton(focused, primary, true, shape)),
         contentAlignment = Alignment.Center) {
-        Text(symbol, color = if (focused) Color.Black else pal.text, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        Text(symbol, color = de.ostlertekker.ultraiptv.core.ui.outlineButtonText(focused, true), fontSize = 17.sp, fontWeight = FontWeight.Bold)
     }
 }
 

@@ -359,6 +359,18 @@ private fun LazyListScope.appearancePage(vm: SettingsViewModel, s: AppSettings) 
             SRow("Schriftart", DesignOptions.fontNames.getOrElse(s.fontStyle) { "Standard" }) {
                 vm.set(Keys.FONT_STYLE, (s.fontStyle + 1) % DesignOptions.fontNames.size)
             }
+            SHeader("PRO-Abzeichen")
+            SRow("Stil", DesignOptions.proStyleNames.getOrElse(s.proStyle) { "Verlauf" }) {
+                vm.set(Keys.PRO_STYLE, (s.proStyle + 1) % DesignOptions.proStyleNames.size)
+            }
+            if (s.proStyle != 0) {
+                SRow("Größe", DesignOptions.proSizeNames.getOrElse(s.proSize) { "Sehr klein" }) {
+                    vm.set(Keys.PRO_SIZE, (s.proSize + 1) % DesignOptions.proSizeNames.size)
+                }
+                SRow("Position", DesignOptions.proPositionNames.getOrElse(s.proPosition) { "Hochgestellt" }) {
+                    vm.set(Keys.PRO_POSITION, (s.proPosition + 1) % DesignOptions.proPositionNames.size)
+                }
+            }
             SHeader("Uhr")
             SSwitch("Uhr in der Menüleiste", s.menuClock) { vm.set(Keys.MENU_CLOCK, it) }
             SSwitch("24-Stunden-Format", s.clock24h) { vm.set(Keys.CLOCK_24H, it) }

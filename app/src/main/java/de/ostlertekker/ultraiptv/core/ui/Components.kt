@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.core.ui
 
+import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -227,13 +228,27 @@ fun Modifier.outlineButton(focused: Boolean, primary: Boolean, enabled: Boolean,
 fun outlineButtonText(focused: Boolean, enabled: Boolean): Color =
     when { !enabled -> Color.White.copy(alpha = 0.4f); focused -> Color(0xFF111111); else -> Color.White }
 
-/** Kleines „PRO“-Abzeichen neben dem Schriftzug: Verlauf in der Akzentfarbe, dunkle Schrift. */
+/** Kleines „PRO“-Abzeichen neben dem Schriftzug – Stil, Größe und Position in Einstellungen › Erscheinungsbild. */
 @Composable
 fun ProBadge(modifier: Modifier = Modifier) {
     val p = LocalUltraTheme.current.palette
-    Box(modifier.background(Brush.linearGradient(listOf(p.primary, Color.White)), RoundedCornerShape(4.dp))
-        .padding(horizontal = 5.dp, vertical = 1.dp), contentAlignment = Alignment.Center) {
-        Text("PRO", color = Color(0xFF0B0D10), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp,
+    val prefs = de.ostlertekker.ultraiptv.core.design.LocalUiPrefs.current
+    if (prefs.proStyle == 0) return
+    val fs = when (prefs.proSize) { 1 -> 7.5.sp; 2 -> 9.sp; else -> 6.sp }
+    val raise = if (prefs.proPosition == 0) Modifier.offset(y = (-5).dp) else Modifier
+    val shape = RoundedCornerShape(3.dp)
+    val dark = Color(0xFF0B0D10)
+    val box = when (prefs.proStyle) {
+        1 -> Modifier.background(Brush.linearGradient(listOf(p.primary, Color.White)), shape)
+        2 -> Modifier.background(p.primary, shape)
+        3 -> Modifier.background(Color.White, shape)
+        4 -> Modifier.border(1.dp, Color.White.copy(alpha = 0.85f), shape)
+        else -> Modifier
+    }
+    val textColor = when (prefs.proStyle) { 4 -> Color.White; 5 -> p.primary; else -> dark }
+    Box(modifier.then(raise).then(box).padding(horizontal = if (prefs.proStyle == 5) 0.dp else 3.dp, vertical = 0.dp),
+        contentAlignment = Alignment.Center) {
+        Text("PRO", color = textColor, fontSize = fs, lineHeight = fs, fontWeight = FontWeight.Black, letterSpacing = 0.8.sp,
             fontFamily = de.ostlertekker.ultraiptv.core.design.AppFonts.Inter, maxLines = 1)
     }
 }
@@ -668,7 +683,7 @@ fun TopNavBar(items: List<NavItem>, utility: List<NavItem>, selectedRoute: Strin
         }
         Text("ULTRA IPTV", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp,
             fontFamily = de.ostlertekker.ultraiptv.core.design.AppFonts.Inter, maxLines = 1)
-        ProBadge(Modifier.padding(start = 6.dp))
+        ProBadge(Modifier.padding(start = 3.dp))
         Spacer(Modifier.weight(1f))
         Row(Modifier.padding(start = 8.dp).background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(50)).padding(3.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp)) {

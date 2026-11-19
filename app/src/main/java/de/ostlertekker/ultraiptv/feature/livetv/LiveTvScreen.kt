@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.feature.livetv
 
+import androidx.compose.foundation.layout.offset
 import de.ostlertekker.ultraiptv.core.ui.outlineButton
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.nativeKeyCode
@@ -460,9 +461,10 @@ internal fun CategoryItem(name: String, selected: Boolean, onClick: () -> Unit) 
     Box(
         Modifier.fillMaxWidth()
             .tvFocusable(shape, onClick, scaleOnFocus = false, onFocus = { focused = it })
-            .background(if (focused) p.surfaceFocused else if (selected) p.surface else Color.Transparent, shape)
+            // Transparent: Auswahl an fetter weißer Schrift + Akzentstrich, Fokus am weißen Rahmen
             .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
+        if (selected) Box(Modifier.align(Alignment.CenterStart).offset(x = (-10).dp).size(3.dp, 18.dp).background(p.primary, RoundedCornerShape(2.dp)))
         Text(name, color = if (selected || focused) p.text else p.textDim, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
     }

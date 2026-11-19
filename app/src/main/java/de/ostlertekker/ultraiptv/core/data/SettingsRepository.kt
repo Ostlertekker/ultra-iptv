@@ -69,6 +69,10 @@ data class AppSettings(
     val weatherEnabled: Boolean = true,
     val newsEnabled: Boolean = true,
     val sportTickerEnabled: Boolean = true,
+    /** „PRO“-Abzeichen neben ULTRA IPTV: Stil (0 = aus), Größe, Position (0 = hochgestellt, 1 = mittig). */
+    val proStyle: Int = 1,
+    val proSize: Int = 0,
+    val proPosition: Int = 0,
     val epgRefreshHours: Int = 12,
     val epgOffsetHours: Int = 0,
     val epgDays: Int = 2,
@@ -183,6 +187,9 @@ object Keys {
     val WEATHER_ENABLED = booleanPreferencesKey("weather_enabled")
     val NEWS_ENABLED = booleanPreferencesKey("news_enabled")
     val SPORT_TICKER_ENABLED = booleanPreferencesKey("sport_ticker_enabled")
+    val PRO_STYLE = intPreferencesKey("pro_style")
+    val PRO_SIZE = intPreferencesKey("pro_size")
+    val PRO_POSITION = intPreferencesKey("pro_position")
     val EPG_REFRESH = intPreferencesKey("epg_refresh")
     val EPG_OFFSET = intPreferencesKey("epg_offset")
     val EPG_DAYS = intPreferencesKey("epg_days")
@@ -291,6 +298,9 @@ fun Preferences.toSettings(): AppSettings {
         weatherEnabled = this[Keys.WEATHER_ENABLED] ?: d.weatherEnabled,
         newsEnabled = (this[Keys.NEWS_ENABLED] ?: d.newsEnabled) && this[Keys.NEWS_SOURCE] != "off",
         sportTickerEnabled = this[Keys.SPORT_TICKER_ENABLED] ?: d.sportTickerEnabled,
+        proStyle = this[Keys.PRO_STYLE] ?: d.proStyle,
+        proSize = this[Keys.PRO_SIZE] ?: d.proSize,
+        proPosition = this[Keys.PRO_POSITION] ?: d.proPosition,
         epgRefreshHours = this[Keys.EPG_REFRESH] ?: d.epgRefreshHours,
         epgOffsetHours = this[Keys.EPG_OFFSET] ?: d.epgOffsetHours,
         epgDays = this[Keys.EPG_DAYS] ?: d.epgDays,
