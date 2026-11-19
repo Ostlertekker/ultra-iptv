@@ -194,7 +194,6 @@ fun JellyfinScreen(nav: NavController, vm: JellyfinViewModel = hiltViewModel()) 
                     Text("Jellyfin", color = p.text, fontSize = 26.sp, fontWeight = FontWeight.Bold)
                     Text("${session?.serverName ?: ""} · ${session?.userName ?: ""} · ${session?.server?.substringAfter("://") ?: ""}", color = p.textDim, fontSize = 13.sp,
                         maxLines = 1, modifier = Modifier.padding(end = 10.dp))
-                    TvChip("🔎 Suchen", false, { nav.navigate(Routes.JF_SEARCH) })
                     libs.forEach { l -> TvChip(l.name, false, { nav.navigate(Routes.jfLibrary(l.id, l.name)) }) }
                     TvChip("↻ Aktualisieren", false, { vm.refresh() })
                     TvChip("Abmelden", false, { vm.logout() })

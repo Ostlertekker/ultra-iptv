@@ -98,7 +98,6 @@ object Routes {
     fun jfMovie(id: String) = "jfMovie/${Uri.encode(id)}"
     fun jfSeries(id: String) = "jfSeries/${Uri.encode(id)}"
     fun jfLibrary(id: String, name: String) = "jfLibrary/${Uri.encode(id)}?name=${Uri.encode(name)}"
-    const val JF_SEARCH = "jfSearch"
     const val WHATSON = "whatson"
     const val EVENTS = "events"
     const val SPORTS = "sports"
@@ -249,7 +248,6 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
                     composable(Routes.SPORTS) { de.ostlertekker.ultraiptv.feature.discover.SportsScreen(nav) }
                     composable(Routes.RADIO) { de.ostlertekker.ultraiptv.feature.radio.RadioScreen() }
                     composable(Routes.JELLYFIN) { de.ostlertekker.ultraiptv.feature.jellyfin.JellyfinScreen(nav) }
-                    composable(Routes.JF_SEARCH) { de.ostlertekker.ultraiptv.feature.jellyfin.JellyfinSearchScreen(nav) }
                     composable("jfMovie/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) {
                         de.ostlertekker.ultraiptv.feature.jellyfin.JellyfinMovieScreen(nav)
                     }
