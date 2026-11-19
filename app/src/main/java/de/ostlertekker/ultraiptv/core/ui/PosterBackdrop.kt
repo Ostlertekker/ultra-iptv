@@ -31,8 +31,19 @@ import coil.request.ImageRequest
  */
 @Composable
 fun PosterBackdrop(backdrop: String?, poster: String?, modifier: Modifier = Modifier, showPoster: Boolean = true,
-                   posterPadding: Dp = 28.dp, alpha: Float = 1f) {
+                   posterPadding: Dp = 28.dp, alpha: Float = 1f, posterOnly: Boolean = false) {
     Box(modifier) {
+        // posterOnly: schwarzer Hintergrund, nur das Cover rechts (kein Breitbild, keine Unschärfe)
+        if (posterOnly && !poster.isNullOrBlank()) {
+            BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
+                Box(Modifier.align(Alignment.CenterEnd).padding(end = maxWidth * 0.07f, top = posterPadding, bottom = posterPadding).fillMaxHeight()) {
+                    val shape = RoundedCornerShape(14.dp)
+                    AsyncImage(poster, null, contentScale = ContentScale.Crop, alpha = alpha,
+                        modifier = Modifier.fillMaxHeight().aspectRatio(2f / 3f).clip(shape))
+                }
+            }
+            return@Box
+        }
         if (!backdrop.isNullOrBlank()) {
             AsyncImage(backdrop, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), alpha = alpha)
             return@Box

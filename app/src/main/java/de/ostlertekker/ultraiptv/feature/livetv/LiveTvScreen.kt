@@ -490,7 +490,7 @@ private fun ChannelItem(
     Row(
         modifier.fillMaxWidth()
             .tvFocusable(shape, onClick, onLongClick, focusRequester = focusRequester, scaleOnFocus = false, onFocus = { focused = it; if (it) onFocus() })
-            .background(if (focused) p.surfaceFocused else p.surface, shape)
+            // Transparent: nur Schrift/Logo sichtbar; der ausgewählte Sender bekommt den weißen Fokusrahmen
             .padding(horizontal = 12.dp, vertical = vPad),
         verticalAlignment = Alignment.CenterVertically,
     ) {

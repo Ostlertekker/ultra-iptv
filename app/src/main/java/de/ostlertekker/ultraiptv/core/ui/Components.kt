@@ -227,6 +227,17 @@ fun Modifier.outlineButton(focused: Boolean, primary: Boolean, enabled: Boolean,
 fun outlineButtonText(focused: Boolean, enabled: Boolean): Color =
     when { !enabled -> Color.White.copy(alpha = 0.4f); focused -> Color(0xFF111111); else -> Color.White }
 
+/** Kleines „PRO“-Abzeichen neben dem Schriftzug: Verlauf in der Akzentfarbe, dunkle Schrift. */
+@Composable
+fun ProBadge(modifier: Modifier = Modifier) {
+    val p = LocalUltraTheme.current.palette
+    Box(modifier.background(Brush.linearGradient(listOf(p.primary, Color.White)), RoundedCornerShape(4.dp))
+        .padding(horizontal = 5.dp, vertical = 1.dp), contentAlignment = Alignment.Center) {
+        Text("PRO", color = Color(0xFF0B0D10), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp,
+            fontFamily = de.ostlertekker.ultraiptv.core.design.AppFonts.Inter, maxLines = 1)
+    }
+}
+
 @Composable
 fun TvButton(
     text: String,
@@ -657,6 +668,7 @@ fun TopNavBar(items: List<NavItem>, utility: List<NavItem>, selectedRoute: Strin
         }
         Text("ULTRA IPTV", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp,
             fontFamily = de.ostlertekker.ultraiptv.core.design.AppFonts.Inter, maxLines = 1)
+        ProBadge(Modifier.padding(start = 6.dp))
         Spacer(Modifier.weight(1f))
         Row(Modifier.padding(start = 8.dp).background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(50)).padding(3.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp)) {
