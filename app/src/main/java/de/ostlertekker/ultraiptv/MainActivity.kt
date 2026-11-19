@@ -51,6 +51,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Lint-Fehlalarm: Überschreiben von ComponentActivity.dispatchKeyEvent ist erlaubt (bekanntes androidx-Problem)
+    @android.annotation.SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
         if (event.action == android.view.KeyEvent.ACTION_DOWN) de.ostlertekker.ultraiptv.core.motion.InputActivity.mark(event.keyCode)
         else de.ostlertekker.ultraiptv.core.motion.InputActivity.mark()

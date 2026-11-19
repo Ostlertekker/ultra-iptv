@@ -136,7 +136,7 @@ class SettingsViewModel @Inject constructor(
     val activeProfile = user.activeProfile.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
     val encryption get() = creds.encryptionAvailable
     val deviceReport: List<InfoEntry> by lazy { device.report() }
-    var epgCount by mutableStateOf(-1)
+    var epgCount by androidx.compose.runtime.mutableIntStateOf(-1)
         private set
 
     fun <T> set(key: Preferences.Key<T>, value: T) = viewModelScope.launch { repo.set(key, value) }
@@ -544,7 +544,7 @@ private fun errorEntries(context: android.content.Context, vm: SettingsViewModel
 private fun androidx.compose.foundation.layout.RowScope.ErrorLogView(vm: SettingsViewModel, onClose: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val p = LocalUltraTheme.current.palette
-    var version by remember { mutableStateOf(0) }
+    var version by remember { androidx.compose.runtime.mutableIntStateOf(0) }
     val entries = remember(version) { errorEntries(context, vm) }
     val first = remember { androidx.compose.ui.focus.FocusRequester() }
     androidx.compose.runtime.LaunchedEffect(Unit) { kotlinx.coroutines.delay(150); runCatching { first.requestFocus() } }

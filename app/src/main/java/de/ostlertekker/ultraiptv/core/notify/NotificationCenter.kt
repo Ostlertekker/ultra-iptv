@@ -142,7 +142,8 @@ class NotificationCenter @Inject constructor(
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val at = maxOf(atMs, System.currentTimeMillis() + 5_000)
         if (Build.VERSION.SDK_INT >= 31 && !am.canScheduleExactAlarms()) am.setWindow(AlarmManager.RTC_WAKEUP, at, 60_000, alarmIntent(id))
-        else am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, alarmIntent(id))
+        else try { am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, alarmIntent(id)) }
+        catch (_: SecurityException) { am.setWindow(AlarmManager.RTC_WAKEUP, at, 60_000, alarmIntent(id)) }
     }
 
     private fun cancelAlarm(id: Long) {
@@ -216,7 +217,10 @@ class NotificationCenter @Inject constructor(
                 .setContentTitle(title).setContentText(body)
                 .setContentIntent(pi).setAutoCancel(true)
                 .build()
-            runCatching { NotificationManagerCompat.from(context).notify(id, n) }
+            // Android 13+: nur mit erteilter Benachrichtigungs-Berechtigung (sonst still überspringen)
+            if (Build.VERSION.SDK_INT >= 33 && androidx.core.content.ContextCompat.checkSelfPermission(context,
+                    android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) return
+            try { NotificationManagerCompat.from(context).notify(id, n) } catch (_: SecurityException) { }
         }
 
         /** Plant die automatische Playlist-/EPG-Aktualisierung (0 = aus). */

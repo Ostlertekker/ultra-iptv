@@ -81,7 +81,6 @@ class WebAppActivity : ComponentActivity() {
             isFocusableInTouchMode = true
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
-            settings.databaseEnabled = true
             settings.mediaPlaybackRequiresUserGesture = false
             settings.userAgentString = app.userAgent
             settings.loadWithOverviewMode = true
@@ -273,6 +272,8 @@ class WebAppActivity : ComponentActivity() {
         web.dispatchKeyEvent(KeyEvent(t, t + 20, KeyEvent.ACTION_UP, code, 0))
     }
 
+    // Lint-Fehlalarm: Überschreiben von ComponentActivity.dispatchKeyEvent ist erlaubt (bekanntes androidx-Problem)
+    @android.annotation.SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val code = event.keyCode
         if (helpView != null && (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER)) {

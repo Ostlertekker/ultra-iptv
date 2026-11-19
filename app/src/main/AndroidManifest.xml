@@ -16,6 +16,13 @@
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
+    <!-- Android 11+: ohne diese Angabe findet die App keinen Spracherkenner (Sprachsuche) -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+    </queries>
+
     <application
         android:largeHeap="true"
         android:name=".UltraApp"

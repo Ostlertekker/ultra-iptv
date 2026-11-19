@@ -58,6 +58,9 @@ class UiSmokeTest {
 
     @Before fun setUp() {
         StabilityGuard.clear(context)
+        // Laufschriften im Test aus: auf dem langsamen Emulator wird der Hauptthread sonst nie „ruhig“
+        // und ActivityScenario.close() wartet endlos (auf echten Geräten kein Problem)
+        runBlocking { hooks.settings().set(Keys.NEWS_ENABLED, false); hooks.settings().set(Keys.SPORT_TICKER_ENABLED, false) }
         if (seeded) return
         seeded = true
         server = MockWebServer()
@@ -328,10 +331,14 @@ class UiSmokeTest {
             ScoreEvent("t1", League.ATP, "Sinner – Alcaraz", System.currentTimeMillis(), "in", "", null, listOf(c("J. Sinner", listOf(6, 3)), c("C. Alcaraz", listOf(4, 2))), null),
             ScoreEvent("t2", League.WTA, "Swiatek – Gauff", System.currentTimeMillis(), "in", "", null, listOf(c("I. Swiatek", listOf(2)), c("C. Gauff", listOf(5))), null),
         )
-        openRoute(Routes.HOME).use {
-            Thread.sleep(2500)
-            repeat(14) { i -> shot("sportticker_%02d".format(i)); Thread.sleep(700) }
-        }
+        runBlocking { hooks.settings().set(Keys.SPORT_TICKER_ENABLED, true) }
+        val sc = openRoute(Routes.HOME)
+        Thread.sleep(2500)
+        repeat(14) { i -> shot("sportticker_%02d".format(i)); Thread.sleep(700) }
+        // Ticker vor dem Schließen abschalten, damit der Test das Fenster schließen kann
+        runBlocking { hooks.settings().set(Keys.SPORT_TICKER_ENABLED, false) }
+        Thread.sleep(1500)
+        sc.close()
         de.ostlertekker.ultraiptv.feature.home.HomeViewModel.testSportEvents = null
         finish()
     }

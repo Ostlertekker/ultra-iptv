@@ -158,7 +158,7 @@ fun SportsScreen(nav: NavController, vm: DiscoverViewModel = hiltViewModel()) {
     androidx.compose.runtime.DisposableEffect(Unit) { vm.startScores(); onDispose { vm.stopScores() } }
     val failed by vm.boardFailed.collectAsStateWithLifecycle()
     val nextAt by vm.nextRefreshAt.collectAsStateWithLifecycle()
-    var tick by remember { mutableStateOf(System.currentTimeMillis()) }
+    var tick by remember { androidx.compose.runtime.mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(1000); tick = System.currentTimeMillis() } }
     LaunchedEffect(selected?.id) { selected?.let { vm.loadDetail(it.league, it.id) } }
     // Laufende Spiele: Detail-Feld zeigt immer den aktuellen Stand aus der Live-Liste

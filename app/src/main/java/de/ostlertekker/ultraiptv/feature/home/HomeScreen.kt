@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.currentStateAsState
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
@@ -74,7 +75,6 @@ import de.ostlertekker.ultraiptv.core.notify.NotificationCenter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import de.ostlertekker.ultraiptv.core.database.ChannelEntity
 import de.ostlertekker.ultraiptv.core.database.MovieEntity
@@ -473,10 +473,14 @@ private fun SmoothMarquee(text: androidx.compose.ui.text.AnnotatedString, modifi
     // Rundenlänge: mindestens die Zeilenbreite – kurzer Text läuft komplett hinaus, bevor er rechts wieder hereinkommt
     val loop = kotlin.math.max(width + gapPx, box.toFloat())
     val loopNow by androidx.compose.runtime.rememberUpdatedState(loop)
+    // Nur im Vordergrund animieren: spart Leistung (z. B. wenn der Player darüber liegt) und lässt das System
+    // zur Ruhe kommen, wenn die App pausiert/geschlossen wird.
+    val lifeState by androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     // Läuft durchgehend weiter – neue Spielstände/Schlagzeilen setzen die Zeile NICHT zurück an den Anfang
     LaunchedEffect(Unit) {
         delay(1200)
         while (true) {
+            if (!lifeState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) { delay(300); continue }
             androidx.compose.runtime.withFrameNanos { }
             val l = loopNow
             if (width <= 0 || box <= 0 || l <= 0f) continue

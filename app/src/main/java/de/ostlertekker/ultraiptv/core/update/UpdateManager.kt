@@ -115,7 +115,7 @@ class UpdateManager @Inject constructor(
     fun canInstall(): Boolean = Build.VERSION.SDK_INT < 26 || context.packageManager.canRequestPackageInstalls()
 
     /** Öffnet die System-Einstellung "Unbekannte Apps installieren" für ULTRA IPTV. */
-    fun openInstallPermissionSettings(): Boolean = try {
+    fun openInstallPermissionSettings(): Boolean = if (Build.VERSION.SDK_INT < 26) false else try {
         context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         true

@@ -1,3 +1,5 @@
+@file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package de.ostlertekker.ultraiptv.core.player
 
 import android.content.Context

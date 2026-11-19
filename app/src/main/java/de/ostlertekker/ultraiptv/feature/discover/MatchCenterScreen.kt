@@ -187,8 +187,9 @@ private fun Scoreboard(e: ScoreEvent, m: MatchCenter?) {
                         x.indices.count { i -> !(e.live && i == x.lastIndex) && x[i].games > (y.getOrNull(i)?.games ?: 0) }
                     Text("${won(ch.sets, ca.sets)} : ${won(ca.sets, ch.sets)}", color = Color.White, fontSize = 46.sp, fontWeight = FontWeight.Black)
                     Text(e.tennisSets(), color = Color.White.copy(alpha = 0.85f), fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                } else
-                Text("${ch?.score ?: h?.score ?: "–"} : ${ca?.score ?: a?.score ?: "–"}", color = Color.White, fontSize = 52.sp, fontWeight = FontWeight.Black)
+                } else {
+                    Text("${ch?.score ?: h?.score ?: "–"} : ${ca?.score ?: a?.score ?: "–"}", color = Color.White, fontSize = 52.sp, fontWeight = FontWeight.Black)
+                }
                 if (e.live) {
                     val inf = rememberInfiniteTransition(label = "live")
                     val al by inf.animateFloat(1f, 0.3f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "blink")

@@ -95,7 +95,7 @@ class PlayerActivity : ComponentActivity() {
 
     /** Bild-in-Bild, sofern das Gerät es unterstützt (viele Fire-TV-Modelle nicht → Mini-Player). */
     private fun enterPip(): Boolean {
-        if (!pipSupported || Build.VERSION.SDK_INT < 26) return false
+        if (!pipSupported) return false
         return runCatching { enterPictureInPictureMode(PictureInPictureParams.Builder().setAspectRatio(Rational(16, 9)).build()) }.getOrDefault(false)
     }
 
