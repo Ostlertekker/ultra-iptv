@@ -180,7 +180,7 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
     val items = remember {
         listOf(
             NavItem(Routes.HOME, "Start"), NavItem(Routes.LIVE, "Live-TV"), NavItem(Routes.MOVIES, "Filme"),
-            NavItem(Routes.SERIES, "Serien"), NavItem(Routes.RADIO, "Radio"), NavItem(Routes.JELLYFIN, "Jellyfin"), NavItem("app:YOUTUBE", "YouTube"),
+            NavItem(Routes.SERIES, "Serien"), NavItem(Routes.RADIO, "Radio"), NavItem(Routes.JELLYFIN, "Jellyfin"), NavItem("app:YOUTUBE", "YouTube"), NavItem("app:BROWSER", "Browser"),
             NavItem(Routes.EXPLORE, "Mehr"),
         )
     }
@@ -270,7 +270,8 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
         val ctx = androidx.compose.ui.platform.LocalContext.current
         TopNavBar(items, utility, railRouteFor(route), onSelect = { r ->
             // YouTube läuft als eingebettete Weboberfläche im eigenen Vollbild – keine externe App
-            if (r.startsWith("app:")) de.ostlertekker.ultraiptv.feature.web.WebAppActivity.open(ctx, de.ostlertekker.ultraiptv.feature.web.WebApp.valueOf(r.removePrefix("app:")))
+            if (r == "app:BROWSER") de.ostlertekker.ultraiptv.feature.web.BrowserActivity.open(ctx)
+            else if (r.startsWith("app:")) de.ostlertekker.ultraiptv.feature.web.WebAppActivity.open(ctx, de.ostlertekker.ultraiptv.feature.web.WebApp.valueOf(r.removePrefix("app:")))
             else navigateTop(nav, r)
             sounds?.transition()
         }, firstFocus = railFocus,
