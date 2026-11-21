@@ -266,7 +266,11 @@ class BootReceiver : BroadcastReceiver() {
             try {
                 runCatching { runBlocking { center.rescheduleAll() } }
                 // Automatisch öffnen (Einstellungen › Allgemein): kurz warten, bis der Startbildschirm des Geräts fertig ist
-                if (AutoStart.isEnabled(app) && AutoStart.canLaunch(app)) { Thread.sleep(3_000); AutoStart.launch(app) }
+                if (AutoStart.isEnabled(app) && AutoStart.canLaunch(app)) {
+                    Thread.sleep(2_500)
+                    AutoStart.launchFromBackground(app)
+                    Thread.sleep(6_500) // Empfänger offen halten, bis beide Startversuche erfolgt sind
+                }
             } finally { pending.finish() }
         }.start()
     }
