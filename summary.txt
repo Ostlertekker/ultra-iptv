@@ -1,0 +1,27 @@
+API 30 · AOSP TV on x86 · emulator
+Overlay-Berechtigung: SYSTEM_ALERT_WINDOW: allow
+Test 1 Neustart → App vorne: OK (    mResumedActivity: ActivityRecord{27e3ea0 u0 de.ostlertekker.ultraiptv.debug/de.ostlertekker.ultraiptv.MainActivity t7})
+Instanzen MainActivity: 9
+Broadcast: Broadcasting: Intent { act=android.intent.action.BOOT_COMPLETED flg=0x400000 pkg=de.ostlertekker.ultraiptv.debug }
+
+Exception occurred while executing 'broadcast':
+java.lang.SecurityException: Permission Denial: not allowed to send broadcast android.intent.action.BOOT_COMPLETED from pid=2622, uid=2000
+	at com.android.server.am.ActivityManagerService.broadcastIntentLocked(ActivityManagerService.java:16073)
+	at com.android.server.am.ActivityManagerService.broadcastIntentLocked(ActivityManagerService.java:15931)
+	at com.android.server.am.ActivityManagerService.broadcastIntentWithFeature(ActivityManagerService.java:16746)
+	at com.android.server.am.ActivityManagerShellCommand.runSendBroadcast(ActivityManagerShellCommand.java:746)
+	at com.android.server.am.ActivityManagerShellCommand.onCommand(ActivityManagerShellCommand.java:198)
+	at android.os.BasicShellCommandHandler.exec(BasicShellCommandHandler.java:98)
+	at android.os.ShellCommand.exec(ShellCommand.java:44)
+	at com.android.server.am.ActivityManagerService.onShellCommand(ActivityManagerService.java:10523)
+	at android.os.Binder.shellCommand(Binder.java:929)
+	at android.os.Binder.onTransact(Binder.java:813)
+	at android.app.IActivityManager$Stub.onTransact(IActivityManager.java:5027)
+	at com.android.server.am.ActivityManagerService.onTransact(ActivityManagerService.java:2883)
+	at android.os.Binder.execTransactInternal(Binder.java:1159)
+	at android.os.Binder.execTransact(Binder.java:1123)
+Test 2 doppelte Bootmeldung: nicht prüfbar (Senden nicht erlaubt)
+Test 3 Standby ohne Doppelstart: FEHLER (11 → 12)
+Test 4 Absturz → neu geöffnet: OK
+Test 5 Neustart-Sperre nach 2 Abstürzen: OK
+Test 6 nach Beenden erzwingen + Neustart: App öffnete sich
