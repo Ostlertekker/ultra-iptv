@@ -123,6 +123,7 @@ class SettingsViewModel @Inject constructor(
     val weather: de.ostlertekker.ultraiptv.core.weather.WeatherRepository,
     val news: de.ostlertekker.ultraiptv.core.news.NewsRepository,
     val jellyfin: de.ostlertekker.ultraiptv.core.jellyfin.JellyfinRepository,
+    val seerr: de.ostlertekker.ultraiptv.core.seerr.SeerrRepository,
     val device: DeviceCapabilityManager,
     private val sync: SyncRepository,
     private val creds: CredentialStore,
@@ -431,6 +432,56 @@ private fun LazyListScope.jellyfinPage(vm: SettingsViewModel, s: AppSettings, na
                 SSwitch(r, r !in hidden) { visible -> vm.set(Keys.JF_HIDDEN_ROWS, (if (visible) hidden - r else hidden + r).joinToString("\n")) }
             }
         }
+    }
+    item { SeerrSettings(vm, s) }
+}
+
+/** Seerr (optional): Server, Anmeldung mit dem Jellyfin-Konto, Funktionen. */
+@Composable
+private fun SeerrSettings(vm: SettingsViewModel, s: AppSettings) {
+    val p = LocalUltraTheme.current.palette
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val st by vm.seerr.state.collectAsStateWithLifecycle()
+    val jf by vm.jellyfin.session.collectAsStateWithLifecycle()
+    var server by remember { mutableStateOf(vm.seerr.savedServer()) }
+    var user by remember(jf?.userName) { mutableStateOf(jf?.userName ?: "") }
+    var pw by remember { mutableStateOf("") }
+    var msg by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    Column {
+        SHeader("Seerr (optional)")
+        SSwitch("Seerr verwenden", s.seerrEnabled, "Filme und Serien anfragen, die noch nicht in Jellyfin sind (auch Jellyseerr/Overseerr)") {
+            vm.set(Keys.SEERR_ENABLED, it)
+        }
+        if (!s.seerrEnabled) return@Column
+        if (!st.loggedIn) {
+            Text("Anmeldung mit deinem Jellyfin-Konto – das Passwort wird nicht gespeichert, nur die Seerr-Sitzung (verschlüsselt).",
+                color = p.textDim, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
+            Column(Modifier.padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                TvTextField(server, { server = it }, "Seerr-Adresse (z. B. 192.168.1.10:5055 oder seerr.meinedomain.de)", modifier = Modifier.fillMaxWidth())
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TvTextField(user, { user = it }, "Jellyfin-Benutzername", modifier = Modifier.weight(1f))
+                    TvTextField(pw, { pw = it }, "Jellyfin-Passwort", password = true, modifier = Modifier.weight(1f))
+                }
+                TvButton(if (busy) "Anmelden …" else "Bei Seerr anmelden", primary = true, enabled = !busy && server.isNotBlank() && user.isNotBlank(), onClick = {
+                    busy = true; msg = null
+                    scope.launch {
+                        msg = runCatching { "Angemeldet als " + vm.seerr.login(server, user, pw) }.getOrElse { "⚠ " + (it.message ?: "Anmeldung fehlgeschlagen") }
+                        pw = ""; busy = false
+                    }
+                })
+            }
+        } else {
+            SInfo("Server", st.server.substringAfter("://"))
+            SInfo("Angemeldet als", st.user ?: "")
+            SRow("Verbindung testen") { scope.launch { msg = runCatching { vm.seerr.test() }.getOrElse { "⚠ " + (it.message ?: "Fehler") } } }
+            SRow("Bei Seerr abmelden") { vm.seerr.logout(); msg = null }
+            SSwitch("Reihe „Meine Anfragen“", s.seerrRequestsRow, "In der Jellyfin-Übersicht, mit Status jeder Anfrage") { vm.set(Keys.SEERR_REQUESTS_ROW, it) }
+            SSwitch("Reihe „Entdecken“", s.seerrDiscoverRow, "Angesagte Filme und Serien aus Seerr, direkt anfragbar") { vm.set(Keys.SEERR_DISCOVER_ROW, it) }
+            SSwitch("Hinweis, wenn eine Anfrage verfügbar ist", s.seerrNotify, "Einblendung oben links (Prüfung alle 15 Minuten)") { vm.set(Keys.SEERR_NOTIFY, it) }
+        }
+        msg?.let { Text(it, color = if (it.startsWith("⚠")) Color(0xFFFF8A80) else p.primary, fontSize = 14.sp,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)) }
     }
 }
 

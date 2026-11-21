@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,8 +70,16 @@ data class JfSearchFilter(
 }
 
 @HiltViewModel
-class JellyfinSearchViewModel @Inject constructor(val repo: JellyfinRepository) : ViewModel() {
-    val filter = MutableStateFlow(JfSearchFilter())
+class JellyfinSearchViewModel @Inject constructor(
+    val repo: JellyfinRepository,
+    val seerr: de.ostlertekker.ultraiptv.core.seerr.SeerrRepository,
+    savedState: androidx.lifecycle.SavedStateHandle,
+) : ViewModel() {
+    // Start-Suchbegriff (z. B. aus dem Hinweis „Deine Anfrage ist da“)
+    val filter = MutableStateFlow(JfSearchFilter(query = savedState.get<String>("q").orEmpty()))
+    /** Seerr-Treffer, die (noch) nicht verfügbar sind – zum Anfragen. */
+    val seerrResults = MutableStateFlow<List<de.ostlertekker.ultraiptv.core.seerr.SeerrItem>>(emptyList())
+    private var seerrJob: Job? = null
     val results = MutableStateFlow<List<JfItem>>(emptyList())
     val total = MutableStateFlow(-1)
     val genres = MutableStateFlow<List<String>>(emptyList())
@@ -98,7 +107,18 @@ class JellyfinSearchViewModel @Inject constructor(val repo: JellyfinRepository) 
             if (!immediate) delay(450)
             results.value = emptyList(); total.value = -1; error.value = null
             loadingMore = false
+            searchSeerr()
             load(0)
+        }
+    }
+
+    private fun searchSeerr() {
+        seerrJob?.cancel()
+        val q = filter.value.query
+        if (q.trim().length < 2) { seerrResults.value = emptyList(); return }
+        seerrJob = viewModelScope.launch {
+            seerrResults.value = runCatching { seerr.search(q) }.getOrDefault(emptyList())
+                .filter { it.status != de.ostlertekker.ultraiptv.core.seerr.SeerrStatus.AVAILABLE }.take(20)
         }
     }
 
@@ -133,6 +153,9 @@ fun JellyfinSearchScreen(nav: NavController, vm: JellyfinSearchViewModel = hiltV
     val total by vm.total.collectAsStateWithLifecycle()
     val genres by vm.genres.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
+    val seerrHits by vm.seerrResults.collectAsStateWithLifecycle()
+    var requestItem by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<de.ostlertekker.ultraiptv.core.seerr.SeerrItem?>(null) }
+    requestItem?.let { SeerrRequestDialog(it, vm.seerr) { requestItem = null } }
     val grid = rememberLazyGridState()
     LaunchedEffect(grid) {
         snapshotFlow { grid.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }.collect { last ->
@@ -175,6 +198,8 @@ fun JellyfinSearchScreen(nav: NavController, vm: JellyfinSearchViewModel = hiltV
         }
 
         error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp)) }
+        // Seerr (optional): nicht vorhandene Titel direkt anfragen
+        if (seerrHits.isNotEmpty()) SeerrRow("Nicht in deiner Bibliothek? Bei Seerr anfragen", seerrHits) { requestItem = it }
         if (total < 0) UltraLoader(Modifier.padding(top = 24.dp), "Suche läuft …")
         else if (total == 0 && error == null) Text("Nichts gefunden – anderen Begriff oder weniger Filter probieren.",
             color = p.textDim, fontSize = 15.sp, modifier = Modifier.padding(top = 20.dp))

@@ -249,7 +249,9 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
                     composable(Routes.SPORTS) { de.ostlertekker.ultraiptv.feature.discover.SportsScreen(nav) }
                     composable(Routes.RADIO) { de.ostlertekker.ultraiptv.feature.radio.RadioScreen() }
                     composable(Routes.JELLYFIN) { de.ostlertekker.ultraiptv.feature.jellyfin.JellyfinScreen(nav) }
-                    composable(Routes.JF_SEARCH) { de.ostlertekker.ultraiptv.feature.jellyfin.JellyfinSearchScreen(nav) }
+                    composable(Routes.JF_SEARCH + "?q={q}", arguments = listOf(navArgument("q") { type = NavType.StringType; defaultValue = "" })) {
+                        de.ostlertekker.ultraiptv.feature.jellyfin.JellyfinSearchScreen(nav)
+                    }
                     composable("jfMovie/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) {
                         de.ostlertekker.ultraiptv.feature.jellyfin.JellyfinMovieScreen(nav)
                     }
@@ -278,7 +280,13 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
         MiniPlayerOverlay(vm.engine, Modifier.align(Alignment.BottomEnd).padding(28.dp))
         ReminderPopup(vm, Modifier.align(Alignment.TopStart).padding(start = 28.dp, top = 24.dp))
         val rem by vm.reminderPopup.collectAsStateWithLifecycle()
-        if (rem == null) de.ostlertekker.ultraiptv.core.notify.UpdatePopup(vm.notify, Modifier.align(Alignment.TopStart).padding(start = 28.dp, top = 24.dp))
+        val seerrAvail by vm.seerr.availablePopup.collectAsStateWithLifecycle()
+        if (rem == null) de.ostlertekker.ultraiptv.core.notify.SeerrAvailablePopup(seerrAvail, Modifier.align(Alignment.TopStart).padding(start = 28.dp, top = 24.dp),
+            onDismiss = { vm.seerr.availablePopup.value = null }) {
+            vm.seerr.availablePopup.value = null
+            nav.navigate(Routes.JF_SEARCH + "?q=" + android.net.Uri.encode(seerrAvail?.title ?: ""))
+        }
+        if (rem == null && seerrAvail == null) de.ostlertekker.ultraiptv.core.notify.UpdatePopup(vm.notify, Modifier.align(Alignment.TopStart).padding(start = 28.dp, top = 24.dp))
         if (route != Routes.RADIO) de.ostlertekker.ultraiptv.feature.radio.RadioMiniOverlay(vm.radio, Modifier.align(Alignment.BottomStart).padding(28.dp))
     }
     }

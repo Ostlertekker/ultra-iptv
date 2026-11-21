@@ -104,7 +104,14 @@ fun JellyfinRepository.tile(i: JfItem, resume: Boolean = false): CinemaTile = Ci
 // =====================================================================================================
 
 @HiltViewModel
-class JellyfinViewModel @Inject constructor(val repo: JellyfinRepository, settings: de.ostlertekker.ultraiptv.core.data.SettingsRepository) : ViewModel() {
+class JellyfinViewModel @Inject constructor(
+    val repo: JellyfinRepository,
+    private val settings: de.ostlertekker.ultraiptv.core.data.SettingsRepository,
+    val seerr: de.ostlertekker.ultraiptv.core.seerr.SeerrRepository,
+) : ViewModel() {
+    /** Seerr-Kacheln der Übersicht (id → Eintrag), für den Anfrage-Dialog. */
+    var seerrItems: Map<String, de.ostlertekker.ultraiptv.core.seerr.SeerrItem> = emptyMap()
+        private set
     /** In Einstellungen › Jellyfin ausgeblendete Reihen. */
     val hiddenRows = settings.settings.map { s -> s.jfHiddenRows.split('\n').filter { it.isNotBlank() }.toSet() }
         .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), emptySet())
@@ -150,16 +157,30 @@ class JellyfinViewModel @Inject constructor(val repo: JellyfinRepository, settin
             val movies = async { runCatching { repo.items("Movie", sortBy = "DateCreated", descending = true, limit = 30).first }.getOrDefault(emptyList()) }
             val series = async { runCatching { repo.items("Series", sortBy = "DateCreated", descending = true, limit = 30).first }.getOrDefault(emptyList()) }
             val libs = async { repo.libraries() }
+            // Seerr (optional): eigene Anfragen + „Entdecken“
+            val cfg = settings.current()
+            val sReq = async { if (cfg.seerrEnabled && cfg.seerrRequestsRow) runCatching { seerr.myRequests() }.getOrDefault(emptyList()) else emptyList() }
+            val sDisc = async {
+                if (cfg.seerrEnabled && cfg.seerrDiscoverRow) runCatching { seerr.discover() }.getOrDefault(emptyList())
+                    .filter { it.status != de.ostlertekker.ultraiptv.core.seerr.SeerrStatus.AVAILABLE } else emptyList()
+            }
             awaitAll(resume, nextUp, latest, recent, favs, movies, series)
+            val reqs = sReq.await(); val disc = sDisc.await()
+            seerrItems = (reqs.map { it.item } + disc).associateBy { it.key }
             libraries.value = libs.await()
             rows.value = listOf(
                 CinemaRow("Weiterschauen", resume.await().map { repo.tile(it, resume = true) }, landscape = true),
                 CinemaRow("Nächste Folgen", nextUp.await().map { repo.tile(it, resume = true) }, landscape = true),
+                CinemaRow("Meine Anfragen", reqs.map {
+                    it.item.tile(listOfNotNull(if (it.item.isTv) "Serie" else "Film",
+                        de.ostlertekker.ultraiptv.core.seerr.SeerrStatus.request(it.status, it.item.status)).joinToString(" · "))
+                }),
                 CinemaRow("Zuletzt hinzugefügt", latest.await().map { repo.tile(it) }),
                 CinemaRow("Zuletzt angesehen", recent.await().map { repo.tile(it) }),
                 CinemaRow("Meine Favoriten", favs.await().map { repo.tile(it) }),
                 CinemaRow("Filme", movies.await().map { repo.tile(it) }),
                 CinemaRow("Serien", series.await().map { repo.tile(it) }),
+                CinemaRow("Entdecken (Seerr)", disc.map { it.tile() }),
                 CinemaRow("Meine Bibliotheken", libraries.value.map { repo.tile(it) }, landscape = true),
             )
         } catch (e: Exception) {
@@ -190,6 +211,7 @@ fun JellyfinScreen(nav: NavController, vm: JellyfinViewModel = hiltViewModel()) 
     val hiddenRows by vm.hiddenRows.collectAsStateWithLifecycle()
     val rows = remember(allRows, hiddenRows) { allRows.filter { it.title !in hiddenRows } }
     val libs by vm.libraries.collectAsStateWithLifecycle()
+    var seerrDialog by remember { mutableStateOf<de.ostlertekker.ultraiptv.core.seerr.SeerrItem?>(null) }
     val loading by vm.loading.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { if (allRows.isEmpty() && !loading) vm.load() }
@@ -210,8 +232,9 @@ fun JellyfinScreen(nav: NavController, vm: JellyfinViewModel = hiltViewModel()) 
                 error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp)) }
             }
         },
-        onOpen = { openJellyfin(nav, context, it, play = false) },
-        onPlay = { openJellyfin(nav, context, it, play = true) })
+        onOpen = { t -> if (t.kind == "seerr") seerrDialog = vm.seerrItems[t.id] else openJellyfin(nav, context, t, play = false) },
+        onPlay = { t -> if (t.kind == "seerr") seerrDialog = vm.seerrItems[t.id] else openJellyfin(nav, context, t, play = true) })
+    seerrDialog?.let { SeerrRequestDialog(it, vm.seerr) { seerrDialog = null; vm.refresh() } }
 }
 
 @Composable

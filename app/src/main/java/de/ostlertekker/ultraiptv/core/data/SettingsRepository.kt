@@ -81,6 +81,11 @@ data class AppSettings(
     val jfSubtitles: Int = 0,
     val jfReportProgress: Boolean = true,
     val jfHiddenRows: String = "",
+    /** Seerr (optional): an/aus und die einzelnen Funktionen. Server/Sitzung liegen verschlüsselt im SeerrRepository. */
+    val seerrEnabled: Boolean = false,
+    val seerrRequestsRow: Boolean = true,
+    val seerrDiscoverRow: Boolean = true,
+    val seerrNotify: Boolean = true,
     val epgRefreshHours: Int = 12,
     val epgOffsetHours: Int = 0,
     val epgDays: Int = 2,
@@ -205,6 +210,10 @@ object Keys {
     val JF_SUBTITLES = intPreferencesKey("jf_subtitles")
     val JF_REPORT_PROGRESS = booleanPreferencesKey("jf_report_progress")
     val JF_HIDDEN_ROWS = stringPreferencesKey("jf_hidden_rows")
+    val SEERR_ENABLED = booleanPreferencesKey("seerr_enabled")
+    val SEERR_REQUESTS_ROW = booleanPreferencesKey("seerr_requests_row")
+    val SEERR_DISCOVER_ROW = booleanPreferencesKey("seerr_discover_row")
+    val SEERR_NOTIFY = booleanPreferencesKey("seerr_notify")
     val EPG_REFRESH = intPreferencesKey("epg_refresh")
     val EPG_OFFSET = intPreferencesKey("epg_offset")
     val EPG_DAYS = intPreferencesKey("epg_days")
@@ -323,6 +332,10 @@ fun Preferences.toSettings(): AppSettings {
         jfSubtitles = this[Keys.JF_SUBTITLES] ?: d.jfSubtitles,
         jfReportProgress = this[Keys.JF_REPORT_PROGRESS] ?: d.jfReportProgress,
         jfHiddenRows = this[Keys.JF_HIDDEN_ROWS] ?: d.jfHiddenRows,
+        seerrEnabled = this[Keys.SEERR_ENABLED] ?: d.seerrEnabled,
+        seerrRequestsRow = this[Keys.SEERR_REQUESTS_ROW] ?: d.seerrRequestsRow,
+        seerrDiscoverRow = this[Keys.SEERR_DISCOVER_ROW] ?: d.seerrDiscoverRow,
+        seerrNotify = this[Keys.SEERR_NOTIFY] ?: d.seerrNotify,
         epgRefreshHours = this[Keys.EPG_REFRESH] ?: d.epgRefreshHours,
         epgOffsetHours = this[Keys.EPG_OFFSET] ?: d.epgOffsetHours,
         epgDays = this[Keys.EPG_DAYS] ?: d.epgDays,

@@ -117,6 +117,29 @@ fun ReminderPopup(r: ReminderEntity?, modifier: Modifier, onDismiss: () -> Unit,
     }
 }
 
+/** Seerr: eine eigene Anfrage ist jetzt verfügbar – Einblendung oben links (30 s), „Ansehen“ öffnet Jellyfin. */
+@Composable
+fun SeerrAvailablePopup(item: de.ostlertekker.ultraiptv.core.seerr.SeerrItem?, modifier: Modifier, onDismiss: () -> Unit, onOpen: () -> Unit) {
+    val it = item ?: return
+    val focus = remember { FocusRequester() }
+    var left by remember(it.key) { mutableIntStateOf(30) }
+    LaunchedEffect(it.key) {
+        delay(250); runCatching { focus.requestFocus() }
+        while (left > 0) { delay(1000); left-- }
+        onDismiss()
+    }
+    BackHandler { onDismiss() }
+    PopupCard(StarVec, "Seerr · Deine Anfrage ist da", it.title,
+        listOfNotNull(if (it.isTv) "Serie" else "Film", it.year, "jetzt in Jellyfin verfügbar").joinToString(" · "), modifier, progress = left / 30f) {
+        TvButton("In Jellyfin ansehen", onClick = onOpen, primary = true, focusRequester = focus)
+        TvButton("Schließen", onClick = onDismiss)
+        Spacer(Modifier.weight(1f))
+        Text("${left}s", color = LocalUltraTheme.current.palette.textDim, fontSize = 13.sp)
+    }
+}
+
+private val StarVec by lazy { vec("star", "M12,17.27L18.18,21l-1.64,-7.03L22,9.24l-7.19,-0.61L12,2 9.19,8.63 2,9.24l5.46,4.73L5.82,21z") }
+
 /** Neues App-Update: Einblendung oben links mit „Jetzt aktualisieren“ (lädt und installiert direkt) oder „Später“. */
 @Composable
 fun UpdatePopup(center: NotificationCenter, modifier: Modifier) {

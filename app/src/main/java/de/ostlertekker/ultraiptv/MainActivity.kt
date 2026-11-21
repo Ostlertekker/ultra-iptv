@@ -72,6 +72,7 @@ class RootViewModel @Inject constructor(
     val radio: de.ostlertekker.ultraiptv.core.radio.RadioPlayer,
     val weather: de.ostlertekker.ultraiptv.core.weather.WeatherRepository,
     private val notifications: NotificationCenter,
+    val seerr: de.ostlertekker.ultraiptv.core.seerr.SeerrRepository,
     private val epg: de.ostlertekker.ultraiptv.core.data.EpgRepository,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
