@@ -51,6 +51,8 @@ data class SeerrItem(
     val overview: String?,
     /** [SeerrStatus] Medien-Status (1 unbekannt … 5 verfügbar). */
     val status: Int,
+    /** ID des Titels in Jellyfin (von Seerr gemeldet, sobald verfügbar) – für den direkten Sprung zur Übersicht. */
+    val jellyfinId: String? = null,
 ) {
     val isTv get() = mediaType == "tv"
     val key get() = "$mediaType:$tmdbId"
@@ -150,8 +152,10 @@ object SeerrParser {
         val id = o["id"].int() ?: return null
         val title = (o["title"].str() ?: o["name"].str() ?: o["originalTitle"].str() ?: o["originalName"].str()) ?: return null
         val date = o["releaseDate"].str() ?: o["firstAirDate"].str()
-        val status = (o["mediaInfo"] as? JsonObject)?.get("status").int() ?: SeerrStatus.UNKNOWN
-        return SeerrItem(id, type, title, date?.take(4), img(o["posterPath"].str()), img(o["backdropPath"].str(), "w780"), o["overview"].str(), status)
+        val info = o["mediaInfo"] as? JsonObject
+        val status = info?.get("status").int() ?: SeerrStatus.UNKNOWN
+        return SeerrItem(id, type, title, date?.take(4), img(o["posterPath"].str()), img(o["backdropPath"].str(), "w780"), o["overview"].str(), status,
+            info?.get("jellyfinMediaId").str() ?: info?.get("jellyfinMediaId4k").str())
     }
 
     fun results(el: JsonElement?): List<SeerrItem> =
@@ -190,6 +194,7 @@ object SeerrParser {
         val id: Int, val status: Int, val tmdbId: Int, val type: String, val mediaStatus: Int, val by: Int?,
         val byName: String? = null, val createdAt: Long? = null, val is4k: Boolean = false,
         val seasons: List<Int> = emptyList(), val downloads: List<SeerrDownload> = emptyList(),
+        val jellyfinId: String? = null,
     )
 
     fun request(r: JsonObject): RawRequest? {
@@ -204,14 +209,15 @@ object SeerrParser {
         return RawRequest(r["id"].int() ?: return null, r["status"].int() ?: 1, media["tmdbId"].int() ?: return null, type,
             media[if (is4k) "status4k" else "status"].int() ?: 1, by?.get("id").int(),
             by?.get("displayName").str() ?: by?.get("jellyfinUsername").str() ?: by?.get("username").str(),
-            isoMillis(r["createdAt"].str()), is4k, seasons, dl)
+            isoMillis(r["createdAt"].str()), is4k, seasons, dl,
+            media[if (is4k) "jellyfinMediaId4k" else "jellyfinMediaId"].str() ?: media["jellyfinMediaId"].str())
     }
 
     fun requests(el: JsonElement?): List<RawRequest> =
         ((el as? JsonObject)?.get("results") as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.let(::request) }
 
     fun toRequest(r: RawRequest, item: SeerrItem) =
-        SeerrRequest(r.id, r.status, item.copy(status = r.mediaStatus), r.byName, r.createdAt, r.is4k, r.seasons, r.downloads)
+        SeerrRequest(r.id, r.status, item.copy(status = r.mediaStatus, jellyfinId = r.jellyfinId ?: item.jellyfinId), r.byName, r.createdAt, r.is4k, r.seasons, r.downloads)
 
     fun searchUrl(server: String, q: String, lang: String) =
         "$server/api/v1/search?query=" + URLEncoder.encode(q.trim(), "UTF-8").replace("+", "%20") + "&page=1&language=$lang"

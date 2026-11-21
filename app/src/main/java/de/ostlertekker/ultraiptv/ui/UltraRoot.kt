@@ -284,8 +284,9 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
         val seerrAvail by vm.seerr.availablePopup.collectAsStateWithLifecycle()
         if (rem == null) de.ostlertekker.ultraiptv.core.notify.SeerrAvailablePopup(seerrAvail, Modifier.align(Alignment.TopStart).padding(start = 28.dp, top = 24.dp),
             onDismiss = { vm.seerr.availablePopup.value = null }) {
+            val item = vm.seerr.availablePopup.value ?: seerrAvail
             vm.seerr.availablePopup.value = null
-            nav.navigate(Routes.JF_SEARCH + "?q=" + android.net.Uri.encode(seerrAvail?.title ?: ""))
+            item?.let { de.ostlertekker.ultraiptv.feature.jellyfin.openSeerrInJellyfin(nav, it) }
         }
         if (rem == null && seerrAvail == null) de.ostlertekker.ultraiptv.core.notify.UpdatePopup(vm.notify, Modifier.align(Alignment.TopStart).padding(start = 28.dp, top = 24.dp))
         if (route != Routes.RADIO) de.ostlertekker.ultraiptv.feature.radio.RadioMiniOverlay(vm.radio, Modifier.align(Alignment.BottomStart).padding(28.dp))

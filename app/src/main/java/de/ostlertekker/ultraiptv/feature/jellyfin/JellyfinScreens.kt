@@ -214,6 +214,16 @@ class JellyfinViewModel @Inject constructor(
     }
 }
 
+/** Seerr-Titel in Jellyfin öffnen: direkt die Film-/Serienübersicht (Jellyfin-ID von Seerr), sonst die Suche nach dem Titel. */
+fun openSeerrInJellyfin(nav: NavController, item: de.ostlertekker.ultraiptv.core.seerr.SeerrItem) {
+    val id = item.jellyfinId
+    when {
+        id != null && item.isTv -> nav.navigate(Routes.jfSeries(id))
+        id != null -> nav.navigate(Routes.jfMovie(id))
+        else -> nav.navigate(Routes.JF_SEARCH + "?q=" + android.net.Uri.encode(item.title))
+    }
+}
+
 /** Gemeinsame Aktion für alle Jellyfin-Kacheln: Details öffnen oder direkt abspielen. */
 fun openJellyfin(nav: NavController, context: android.content.Context, t: CinemaTile, play: Boolean) {
     when (t.kind) {
@@ -263,7 +273,12 @@ fun JellyfinScreen(nav: NavController, vm: JellyfinViewModel = hiltViewModel()) 
         },
         onOpen = { t -> when (t.kind) {
             "seerr" -> seerrDialog = vm.seerrItems[t.id]
-            "seerrReq" -> requestDetail = vm.seerrRequests[t.id]
+            // Verfügbare Anfrage: direkt zur Film-/Serienübersicht in Jellyfin, sonst Anfrage-Ansicht
+            "seerrReq" -> vm.seerrRequests[t.id]?.let { r ->
+                if (r.item.jellyfinId != null && (r.item.status == de.ostlertekker.ultraiptv.core.seerr.SeerrStatus.AVAILABLE ||
+                        r.item.status == de.ostlertekker.ultraiptv.core.seerr.SeerrStatus.PARTIAL)) openSeerrInJellyfin(nav, r.item)
+                else requestDetail = r
+            }
             else -> openJellyfin(nav, context, t, play = false)
         } },
         onPlay = { t -> when (t.kind) {
@@ -273,7 +288,7 @@ fun JellyfinScreen(nav: NavController, vm: JellyfinViewModel = hiltViewModel()) 
         } })
     requestDetail?.let { r ->
         SeerrRequestDetail(r, vm.seerr, onDismiss = { requestDetail = null },
-            onOpenJellyfin = { title -> requestDetail = null; nav.navigate(Routes.JF_SEARCH + "?q=" + android.net.Uri.encode(title)) },
+            onOpenJellyfin = { item -> requestDetail = null; openSeerrInJellyfin(nav, item) },
             onRequestMore = { item -> requestDetail = null; seerrDialog = item })
     }
     seerrDialog?.let { SeerrRequestDialog(it, vm.seerr) { seerrDialog = null; vm.refresh() } }

@@ -220,7 +220,7 @@ fun SeerrRequestDetail(
     initial: SeerrRequest,
     repo: SeerrRepository,
     onDismiss: () -> Unit,
-    onOpenJellyfin: (String) -> Unit,
+    onOpenJellyfin: (SeerrItem) -> Unit,
     onRequestMore: (SeerrItem) -> Unit,
 ) {
     val p = LocalUltraTheme.current.palette
@@ -289,7 +289,7 @@ fun SeerrRequestDetail(
                     }
                     Spacer(Modifier.height(18.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        if (canOpen) TvButton("In Jellyfin ansehen", primary = true, focusRequester = focus, onClick = { onOpenJellyfin(r.item.title) })
+                        if (canOpen) TvButton("In Jellyfin ansehen", primary = true, focusRequester = focus, onClick = { onOpenJellyfin(r.item) })
                         if (more) TvButton("Weitere Staffeln anfragen", focusRequester = if (canOpen) null else focus, onClick = { onRequestMore(r.item) })
                         TvButton("Schließen", focusRequester = if (canOpen || more) null else focus, onClick = onDismiss)
                     }
