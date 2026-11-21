@@ -1,8 +1,5 @@
 package de.ostlertekker.ultraiptv.feature.jellyfin
 
-import androidx.compose.ui.focus.focusRequester
-import de.ostlertekker.ultraiptv.core.ui.contentEntry
-import de.ostlertekker.ultraiptv.core.ui.rememberFocus
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.foundation.horizontalScroll
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
@@ -254,7 +251,7 @@ fun JellyfinScreen(nav: NavController, vm: JellyfinViewModel = hiltViewModel()) 
     val error by vm.error.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { if (allRows.isEmpty() && !loading) vm.load() }
     val hero = allRows.firstOrNull { it.title == "Zuletzt hinzugefügt" }?.tiles?.firstOrNull { !it.backdrop.isNullOrBlank() && it.kind != "Episode" }
-    CinemaOverview(hero, rows, entryOnHero = false,
+    CinemaOverview(hero, rows,
         header = {
             Column {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -263,9 +260,9 @@ fun JellyfinScreen(nav: NavController, vm: JellyfinViewModel = hiltViewModel()) 
                         maxLines = 1)
                 }
                 // Eigene Zeile, linksbündig direkt über „Abspielen“ – so führt Pfeil hoch zuverlässig hierher
-                Row(Modifier.padding(top = 6.dp).focusBleed(14.dp, 8.dp).horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(vertical = 8.dp, horizontal = 14.dp),
+                Row(Modifier.padding(top = 6.dp).horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(vertical = 4.dp, horizontal = 2.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TvChip("Suchen", false, { nav.navigate(Routes.JF_SEARCH) }, modifier = Modifier.contentEntry(), icon = androidx.compose.material.icons.Icons.Default.Search)
+                    TvChip("Suchen", false, { nav.navigate(Routes.JF_SEARCH) }, icon = androidx.compose.material.icons.Icons.Default.Search)
                     libs.forEach { l -> TvChip(l.name, false, { nav.navigate(Routes.jfLibrary(l.id, l.name)) }) }
                     TvChip("↻ Aktualisieren", false, { vm.refresh() })
                     TvChip("Abmelden", false, { vm.logout() })
@@ -373,8 +370,6 @@ fun JellyfinLibraryScreen(nav: NavController, vm: JellyfinLibraryViewModel = hil
     val sort by vm.sort.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
     val grid = rememberLazyGridState()
-    val libFirst = remember { androidx.compose.ui.focus.FocusRequester() }
-    de.ostlertekker.ultraiptv.core.ui.InitialFocus(libFirst, ready = list.isNotEmpty())
     LaunchedEffect(grid) {
         snapshotFlow { grid.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }.collect { last ->
             if (last >= grid.layoutInfo.totalItemsCount - 18) vm.loadMore()
@@ -392,13 +387,12 @@ fun JellyfinLibraryScreen(nav: NavController, vm: JellyfinLibraryViewModel = hil
         error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 14.sp) }
         if (total < 0) UltraLoader(Modifier.padding(top = 30.dp), "Bibliothek wird geladen …")
         LazyVerticalGrid(GridCells.Adaptive(160.dp), state = grid, horizontalArrangement = Arrangement.spacedBy(20.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 12.dp + FocusBleedV, bottom = 60.dp + FocusBleedV), modifier = Modifier.focusBleed().rememberFocus()) {
+            verticalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 12.dp + FocusBleedV, bottom = 60.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
             items(list.size, key = { list[it].id }, contentType = { "poster" }) { i ->
                 val it2 = list[i]
                 val t = vm.repo.tile(it2)
                 FocusCard(it2.name, t.image, 150.dp, 222.dp, onClick = { openJellyfin(nav, context, t, play = false) },
-                    subtitle = t.subtitle, progress = it2.progress,
-                    modifier = if (i == 0) Modifier.contentEntry().focusRequester(libFirst) else Modifier)
+                    subtitle = t.subtitle, progress = it2.progress)
             }
         }
     }
@@ -492,7 +486,7 @@ fun JellyfinMovieScreen(nav: NavController, vm: JellyfinItemViewModel = hiltView
                 if (credits.isNotBlank()) Text(credits, color = p.textDim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
                 Spacer(Modifier.height(16.dp))
                 // Scrollbar: passt die Reihe nicht auf den Bildschirm, rückt der fokussierte Button ins Bild
-                Row(Modifier.focusBleed(14.dp, 8.dp).horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(vertical = 8.dp, horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(vertical = 4.dp, horizontal = 2.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (m.positionMs > 30_000 && !m.played) {
                         TvButton("▶ Fortsetzen · ${m.positionMs / 60_000} Min.", onClick = { context.openPlayer(ContentKind.MOVIE, JF_PREFIX + m.id, m.positionMs) },
                             primary = true, focusRequester = playFocus)
@@ -510,7 +504,7 @@ fun JellyfinMovieScreen(nav: NavController, vm: JellyfinItemViewModel = hiltView
         }
         if (similar.isNotEmpty()) Column(Modifier.align(Alignment.BottomStart).padding(start = 24.dp, bottom = 10.dp)) {
             Text("Ähnliche Titel", color = p.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 4.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.focusBleed().rememberFocus(lockHorizontal = true), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
                 items(similar, key = { it.id }) { s ->
                     FocusCard(s.name, vm.repo.image(s), 84.dp, 124.dp, onClick = { openJellyfin(nav, context, vm.repo.tile(s), play = false) })
                 }
@@ -551,13 +545,10 @@ fun JellyfinSeriesScreen(nav: NavController, vm: JellyfinItemViewModel = hiltVie
             if (s.people.isNotEmpty()) Text("Mit: ${s.people.joinToString(", ")}", color = p.text, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.width(780.dp).padding(top = 4.dp))
             Spacer(Modifier.height(12.dp))
-            Row(Modifier.focusBleed(14.dp, 8.dp).horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(vertical = 8.dp, horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                val resumeFocus = remember { androidx.compose.ui.focus.FocusRequester() }
-                if (resume != null) de.ostlertekker.ultraiptv.core.ui.InitialFocus(resumeFocus)
+            Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(vertical = 4.dp, horizontal = 2.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (resume != null) TvButton(
                     (if (resume.positionMs > 0) "▶ Weiter: " else "▶ ") + "S${resume.parentIndex ?: 0} E${resume.index ?: 0}",
-                    onClick = { context.openPlayer(ContentKind.EPISODE, JF_PREFIX + resume.id, if (resume.played) 0 else resume.positionMs) }, primary = true,
-                    focusRequester = resumeFocus)
+                    onClick = { context.openPlayer(ContentKind.EPISODE, JF_PREFIX + resume.id, if (resume.played) 0 else resume.positionMs) }, primary = true)
                 TvButton(if (s.favorite) "♥ Favorit" else "♡ Favorit", onClick = { vm.toggleFavorite() })
                 val scope = androidx.compose.runtime.rememberCoroutineScope()
                 TvButton("Trailer", onClick = { scope.launch { openJfTrailer(context, vm.repo, s) } })
@@ -565,12 +556,12 @@ fun JellyfinSeriesScreen(nav: NavController, vm: JellyfinItemViewModel = hiltVie
             }
             error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 13.sp) }
             Spacer(Modifier.height(10.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.focusBleed().rememberFocus(lockHorizontal = true), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
                 items(seasons, key = { it.id }) { st -> TvChip(st.name, st.id == season, { vm.selectSeason(st.id) }) }
             }
             Spacer(Modifier.height(10.dp))
             if (epsLoading && eps.isEmpty()) UltraLoader(label = "Folgen werden geladen …")
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 60.dp), modifier = Modifier.rememberFocus()) {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 60.dp)) {
                 items(eps, key = { it.id }) { ep ->
                     JfEpisodeRow(ep, vm.repo.image(ep, width = 480),
                         onLongClick = { vm.togglePlayed(ep) }) {

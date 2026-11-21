@@ -76,7 +76,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 object Routes {
     const val HOME = "home"
@@ -204,31 +203,9 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
             3 -> runCatching { navigateTop(nav, Routes.EPG) }
         }
     }
-    // Zurück-Taste: auf Hauptseiten erst nach oben scrollen und in die Menüzeile, dann zur Startseite;
-    // in Detailansichten eine Ebene zurück. Startseite + Menüzeile: App wie gewohnt verlassen.
-    val scrollTop = remember { de.ostlertekker.ultraiptv.core.ui.ScrollTopHolder() }
-    var menuFocused by remember { mutableStateOf(false) }
-    val backScope = androidx.compose.runtime.rememberCoroutineScope()
-    val topRoutes = remember { setOf(Routes.HOME, Routes.LIVE, Routes.MOVIES, Routes.SERIES, Routes.RADIO, Routes.JELLYFIN, Routes.EXPLORE, Routes.SEARCH, Routes.SETTINGS) }
-    BackHandler(enabled = route != Routes.HOME || !menuFocused) {
+    BackHandler(enabled = route != Routes.HOME) {
         sounds?.back()
-        if (route in topRoutes && !menuFocused) {
-            backScope.launch { runCatching { scrollTop.fn?.invoke() } }
-            runCatching { railFocus.requestFocus() }
-        } else if (!nav.popBackStack()) nav.navigate(Routes.HOME)
-    }
-    // Rücksprung erkennen (Seite per Zurück wieder sichtbar) → dort Fokus auf die zuletzt gewählte Kachel.
-    // Seitenwechsel über die Menüzeile zählen nicht (Fokus bleibt dann oben im Menü).
-    val menuNav = remember { booleanArrayOf(false) }
-    val prevSize = remember { intArrayOf(0) }
-    LaunchedEffect(entry?.id) {
-        @Suppress("RestrictedApi") val size = runCatching { nav.currentBackStack.value.size }.getOrDefault(0)
-        val id = entry?.id
-        if (id != null && size < prevSize[0] && !menuNav[0]) {
-            de.ostlertekker.ultraiptv.core.ui.FocusMemory.restore += id
-            backScope.launch { delay(1500); de.ostlertekker.ultraiptv.core.ui.FocusMemory.restore.remove(id) }
-        }
-        prevSize[0] = size; menuNav[0] = false
+        if (!nav.popBackStack()) nav.navigate(Routes.HOME)
     }
 
     val motion = LocalMotion.current
@@ -258,9 +235,6 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
         // Startseite läuft wie bei Apple TV bis unter die Menüleiste, alle anderen Seiten beginnen darunter
         val topPad = 66.dp // wie bei Filme: Inhalte beginnen unter der Menüleiste (nichts rutscht beim Scrollen darunter)
         Box(Modifier.fillMaxSize().padding(top = topPad)) {
-            androidx.compose.runtime.CompositionLocalProvider(
-                de.ostlertekker.ultraiptv.core.ui.LocalRouteKey provides (entry?.id ?: ""),
-                de.ostlertekker.ultraiptv.core.ui.LocalScrollTop provides scrollTop) {
             PageTransitionHost(key = entry?.id, modifier = Modifier.fillMaxSize()) {
                 NavHost(nav, startDestination = Routes.HOME, enterTransition = { enter }, exitTransition = { exit },
                     popEnterTransition = { enter }, popExitTransition = { exit }) {
@@ -298,16 +272,15 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
                     composable(Routes.SETUP) { ProviderSetupScreen(onDone = { nav.popBackStack() }, firstRun = false) }
                 }
             }
-            }
         }
         val ctx = androidx.compose.ui.platform.LocalContext.current
         TopNavBar(items, utility, railRouteFor(route), onSelect = { r ->
             // YouTube läuft als eingebettete Weboberfläche im eigenen Vollbild – keine externe App
             if (r == "app:BROWSER") de.ostlertekker.ultraiptv.feature.web.BrowserActivity.open(ctx)
             else if (r.startsWith("app:")) de.ostlertekker.ultraiptv.feature.web.WebAppActivity.open(ctx, de.ostlertekker.ultraiptv.feature.web.WebApp.valueOf(r.removePrefix("app:")))
-            else { menuNav[0] = true; navigateTop(nav, r) }
+            else navigateTop(nav, r)
             sounds?.transition()
-        }, firstFocus = railFocus, onMenuFocus = { menuFocused = it },
+        }, firstFocus = railFocus,
             modifier = Modifier.align(Alignment.TopCenter),
             weatherCode = vm.weather.weather.collectAsStateWithLifecycle().value?.code,
             weatherTemp = vm.weather.weather.collectAsStateWithLifecycle().value?.temp)

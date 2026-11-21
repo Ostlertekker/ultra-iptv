@@ -1,8 +1,5 @@
 package de.ostlertekker.ultraiptv.feature.common
 
-import de.ostlertekker.ultraiptv.core.ui.contentEntry
-
-import de.ostlertekker.ultraiptv.core.ui.rememberFocus
 import kotlinx.coroutines.launch
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedH
@@ -84,15 +81,12 @@ fun CinemaOverview(
     header: @Composable () -> Unit,
     onOpen: (CinemaTile) -> Unit,
     onPlay: (CinemaTile) -> Unit,
-    /** Einstieg „Pfeil runter aus der Menüzeile“: Abspielen im Titelbild (sonst erste Kachel). false = Seite setzt ihn selbst. */
-    entryOnHero: Boolean = true,
 ) {
     val p = LocalUltraTheme.current.palette
     val heroHeight = (LocalConfiguration.current.screenHeightDp * 0.5f).dp
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    de.ostlertekker.ultraiptv.core.ui.RegisterScrollTop(listState)
-    LazyColumn(Modifier.fillMaxSize().rememberFocus(), state = listState, contentPadding = PaddingValues(bottom = 60.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 60.dp)) {
         item(key = "header") { Box(Modifier.padding(horizontal = 24.dp, vertical = 6.dp)) { header() } }
         if (hero != null) item(key = "hero") {
             Box(Modifier.padding(horizontal = 24.dp).fillMaxWidth().height(heroHeight)
@@ -112,23 +106,21 @@ fun CinemaOverview(
                     // Fokus im Titelbild → ganz nach oben scrollen, damit die Kopfzeile (Suchen …) sichtbar und per Pfeil hoch erreichbar ist
                     Row(Modifier.padding(top = 14.dp).onFocusChanged { if (it.hasFocus) scope.launch { listState.animateScrollToItem(0) } },
                         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        PillButton("▶  Abspielen", primary = true, modifier = if (entryOnHero) Modifier.contentEntry() else Modifier) { onPlay(hero) }
+                        PillButton("▶  Abspielen", primary = true) { onPlay(hero) }
                         PillButton("Weitere Informationen") { onOpen(hero) }
                     }
                 }
             }
         }
-        val firstRow = rows.firstOrNull { it.tiles.isNotEmpty() }
         rows.filter { it.tiles.isNotEmpty() }.forEach { row ->
             item(key = "row_" + row.title) {
                 Column(Modifier.padding(horizontal = 24.dp)) {
                     SectionHeader(row.title)
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 8.dp + FocusBleedV, bottom = 8.dp + FocusBleedV), modifier = Modifier.focusBleed().rememberFocus(lockHorizontal = true)) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 8.dp + FocusBleedV, bottom = 8.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
                         items(row.tiles, key = { it.kind + it.id }, contentType = { if (row.landscape) "wide" else "poster" }) { t ->
-                            val entry = if (hero == null && entryOnHero && row === firstRow && t === row.tiles.first()) Modifier.contentEntry() else Modifier
-                            if (row.landscape) FocusCard(t.title, t.backdrop ?: t.image, 280.dp, 158.dp, modifier = entry, onClick = { if (t.resume) onPlay(t) else onOpen(t) },
+                            if (row.landscape) FocusCard(t.title, t.backdrop ?: t.image, 280.dp, 158.dp, onClick = { if (t.resume) onPlay(t) else onOpen(t) },
                                 subtitle = t.subtitle, progress = t.progress, badge = t.badge, progressColor = t.progressColor, badgePulse = t.badgePulse)
-                            else FocusCard(t.title, t.image, 150.dp, 222.dp, modifier = entry, onClick = { if (t.resume) onPlay(t) else onOpen(t) },
+                            else FocusCard(t.title, t.image, 150.dp, 222.dp, onClick = { if (t.resume) onPlay(t) else onOpen(t) },
                                 subtitle = t.subtitle, progress = t.progress, badge = t.badge, progressColor = t.progressColor, badgePulse = t.badgePulse)
                         }
                     }
@@ -143,10 +135,10 @@ fun CinemaOverview(
 
 /** Einheitlicher Pillen-Knopf (Designsystem): weiß für die Hauptaktion, Glas für Nebenaktionen. */
 @Composable
-fun PillButton(label: String, primary: Boolean = false, modifier: Modifier = Modifier, onClick: () -> Unit) {
+fun PillButton(label: String, primary: Boolean = false, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (focused) 1.06f else 1f, tween(140), label = "pill")
-    Box(modifier.graphicsLayer { scaleX = scale; scaleY = scale }
+    Box(Modifier.graphicsLayer { scaleX = scale; scaleY = scale }
         .onFocusChanged { focused = it.isFocused }
         .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
         .outlineButton(focused, primary, true, RoundedCornerShape(12.dp))

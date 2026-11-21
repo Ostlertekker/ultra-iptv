@@ -2,9 +2,6 @@
 
 package de.ostlertekker.ultraiptv.feature.livetv
 
-import de.ostlertekker.ultraiptv.core.ui.contentEntry
-import de.ostlertekker.ultraiptv.core.ui.rememberFocus
-
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
 
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedH
@@ -277,7 +274,7 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
     Box(Modifier.fillMaxSize()) {
     Row(Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         // Anteilige Breiten: die Senderliste behält auf jedem Bildschirm genug Platz für die Sendernamen
-        LazyColumn(Modifier.weight(0.25f).fillMaxHeight().rememberFocus(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        LazyColumn(Modifier.weight(0.25f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             item {
                 Text("Live-TV", color = p.text, fontSize = 24.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily,
                     modifier = Modifier.padding(bottom = 10.dp))
@@ -290,7 +287,7 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
                     modifier = Modifier.weight(1f))
                 Text("${channels.size} Sender", color = p.textDim, fontSize = 13.sp)
             }
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 8.dp + FocusBleedV, bottom = 8.dp + FocusBleedV), modifier = Modifier.focusBleed().rememberFocus(lockHorizontal = true)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 8.dp + FocusBleedV, bottom = 8.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
                 item { TvChip(if (sortByName) "↕ A–Z" else "↕ Nummer", false, { vm.sortByName.value = !sortByName }) }
                 item { TvChip("TV-Programm", false, { nav.navigate(Routes.epg(current.takeIf { !isVirtualCategory(it) })) }) }
                 if (current == CAT_FAVORITES && channels.size > 1) item {
@@ -316,7 +313,7 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
                 if (idx <= first) chList.animateScrollToItem(maxOf(0, idx - 1))
                 else if (idx >= last) chList.animateScrollToItem(maxOf(0, idx - (last - first) + 2))
             }
-            LazyColumn(Modifier.contentEntry().then(if (editMode) Modifier.border(2.dp, p.primary.copy(alpha = 0.5f), RoundedCornerShape(14.dp)).padding(6.dp) else Modifier).rememberFocus(),
+            LazyColumn(Modifier.then(if (editMode) Modifier.border(2.dp, p.primary.copy(alpha = 0.5f), RoundedCornerShape(14.dp)).padding(6.dp) else Modifier),
                 state = chList, verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 40.dp)) {
                 itemsIndexed(channels, key = { _, c -> c.id }, contentType = { _, _ -> "channel" }) { index, ch ->
                     val nowProg = ch.epgId?.let { id -> programs[id]?.firstOrNull { it.startMs <= now && it.endMs > now } }

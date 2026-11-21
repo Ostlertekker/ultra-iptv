@@ -1,6 +1,5 @@
 package de.ostlertekker.ultraiptv.feature.livetv
 
-import de.ostlertekker.ultraiptv.core.ui.rememberFocus
 import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -173,7 +172,7 @@ fun EpgScreen(vm: EpgViewModel = hiltViewModel()) {
                     }
                 }
                 Box(Modifier.fillMaxSize()) {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(bottom = 40.dp), modifier = Modifier.rememberFocus()) {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(bottom = 40.dp)) {
                     items(channels, key = { it.id }) { ch ->
                         Row(Modifier.fillMaxWidth().height(56.dp)) {
                             Row(Modifier.width(nameW).fillMaxHeight().background(p.surface, RoundedCornerShape(8.dp)).padding(horizontal = 8.dp),
