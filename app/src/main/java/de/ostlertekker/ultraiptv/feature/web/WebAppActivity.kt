@@ -179,6 +179,12 @@ class WebAppActivity : ComponentActivity() {
             val js = """
                 (function(){try{
                   var w=3840,h=2160, MW=${dec.first}, MH=${dec.second}, MF=${dec.third};
+                  // Bildrate bei 4K je Codec getrennt (VP9 und AV1 laufen oft über unterschiedliche Decoder)
+                  var F4={vp9:${fps4k("video/x-vnd.on2.vp9")},av1:${fps4k("video/av01")}};
+                  function codecOf(s){ s=s.toLowerCase(); return (s.indexOf('av01')>=0)?'av1':((s.indexOf('vp09')>=0||s.indexOf('vp9')>=0)?'vp9':null); }
+                  // HDR: Die WebView gibt kein echtes HDR aus, muss es aufwendig umrechnen → Ruckeln. Deshalb SDR anfordern.
+                  function isHdr(s){ s=s.toLowerCase(); return /eotf=(smpte2084|arib-std-b67)/.test(s)||/vp09\.0[23]\./.test(s)||/av01\.\d\.\d+[mh]\.10/.test(s); }
+                  function tooMuch(s,W,H,F){ var c=codecOf(s); if(H>1440&&c&&F4[c]!==undefined&&F>F4[c]) return true; return false; }
                   ['width','availWidth'].forEach(function(k){Object.defineProperty(screen,k,{get:function(){return w}})});
                   ['height','availHeight'].forEach(function(k){Object.defineProperty(screen,k,{get:function(){return h}})});
                   Object.defineProperty(window,'devicePixelRatio',{get:function(){return w/Math.max(1,window.innerWidth)}});
@@ -187,7 +193,7 @@ class WebAppActivity : ComponentActivity() {
                   function wrap(obj,name){ if(!obj||!obj[name]) return; var orig0=obj[name];
                     obj[name]=function(t){ var self=this; var orig=function(x){ return orig0.call(self,x); }; try{
                       var s=String(t), g=function(k){var m=new RegExp(k+'=([0-9.]+)').exec(s); return m?parseFloat(m[1]):0;};
-                      if(g('width')>MW||g('height')>MH||g('framerate')>MF) return name==='canPlayType'?'':false;
+                      if(g('width')>MW||g('height')>MH||g('framerate')>MF||isHdr(s)||tooMuch(s,g('width'),g('height'),g('framerate'))) return name==='canPlayType'?'':false;
                       var base=s.replace(/;\s*(width|height|framerate|bitrate|eotf|channels|decode-to-texture|cryptoblockformat|features)=[^;]*/gi,'');
                       return orig(base);
                     }catch(e){ return orig(t); } }; }
@@ -196,6 +202,10 @@ class WebAppActivity : ComponentActivity() {
                   try{ if(navigator.mediaCapabilities&&navigator.mediaCapabilities.decodingInfo){
                     var di=navigator.mediaCapabilities.decodingInfo.bind(navigator.mediaCapabilities);
                     navigator.mediaCapabilities.decodingInfo=function(cfg){
+                      var v0=cfg&&cfg.video;
+                      if(v0&&(String(v0.transferFunction||'').match(/pq|hlg/)||isHdr(String(v0.contentType||''))||
+                         tooMuch(String(v0.contentType||''),v0.width,v0.height,v0.framerate||0)))
+                        return Promise.resolve({supported:false,smooth:false,powerEfficient:false,configuration:cfg});
                       return di(cfg).then(function(r){ try{ var v=cfg&&cfg.video;
                         if(r&&r.supported&&v&&v.width<=MW&&v.height<=MH&&(!v.framerate||v.framerate<=MF))
                           return {supported:true,smooth:true,powerEfficient:true,configuration:r.configuration||cfg};
@@ -272,14 +282,30 @@ class WebAppActivity : ComponentActivity() {
                 // Manche TV-Chips melden 4K nur über die Grenzwerte (supportedWidths/Heights), nicht über isSizeSupported
                 val can4k = v.isSizeSupported(3840, 2160) || (v.supportedWidths.upper >= 3840 && v.supportedHeights.upper >= 2160)
                 if (can4k) {
-                    val fps = if (runCatching { v.areSizeAndRateSupported(3840, 2160, 60.0) }.getOrDefault(false) ||
-                        (v.supportedFrameRates.upper >= 60)) 60 else 30
+                    val fps = if (runCatching { v.areSizeAndRateSupported(3840, 2160, 60.0) }.getOrDefault(false)) 60 else 30
                     if (fps >= best.third || best.first < 3840) best = Triple(3840, 2160, fps)
                 }
             }
         }
         best
     }.getOrDefault(Triple(1920, 1080, 30))
+
+    /** Höchste flüssige Bildrate bei 4K für einen Codec (Hardware-Decoder; 0 = kein 4K). */
+    private fun fps4k(mime: String): Int = runCatching {
+        var best = 0
+        for (info in android.media.MediaCodecList(android.media.MediaCodecList.REGULAR_CODECS).codecInfos) {
+            if (info.isEncoder || info.supportedTypes.none { it.equals(mime, true) }) continue
+            if (android.os.Build.VERSION.SDK_INT >= 29 && !info.isHardwareAccelerated) continue
+            val v = runCatching { info.getCapabilitiesForType(mime).videoCapabilities }.getOrNull() ?: continue
+            val f = when {
+                runCatching { v.areSizeAndRateSupported(3840, 2160, 60.0) }.getOrDefault(false) -> 60
+                runCatching { v.areSizeAndRateSupported(3840, 2160, 30.0) }.getOrDefault(false) || v.isSizeSupported(3840, 2160) -> 30
+                else -> 0
+            }
+            best = maxOf(best, f)
+        }
+        best
+    }.getOrDefault(0)
 
     private fun maxDisplayHeight(): Int = runCatching {
         @Suppress("DEPRECATION") val d = windowManager.defaultDisplay
