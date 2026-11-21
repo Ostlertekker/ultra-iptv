@@ -15,6 +15,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import de.ostlertekker.ultraiptv.feature.jellyfin.tile
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -49,12 +53,28 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-enum class SearchFilter(val label: String) { ALL("Alle"), LIVE("Live-TV"), MOVIES("Filme"), SERIES("Serien"), EPISODES("Episoden") }
+enum class SearchFilter(val label: String) { ALL("Alle"), LIVE("Live-TV"), MOVIES("Filme"), SERIES("Serien"), EPISODES("Episoden"), JELLYFIN("Jellyfin"), RADIO("Radio") }
 
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 @HiltViewModel
-class SearchViewModel @Inject constructor(private val content: ContentRepository, private val settings: SettingsRepository) : ViewModel() {
+class SearchViewModel @Inject constructor(
+    private val content: ContentRepository,
+    private val settings: SettingsRepository,
+    val jellyfin: de.ostlertekker.ultraiptv.core.jellyfin.JellyfinRepository,
+    val seerr: de.ostlertekker.ultraiptv.core.seerr.SeerrRepository,
+    private val radio: de.ostlertekker.ultraiptv.core.radio.RadioRepository,
+    val radioPlayer: de.ostlertekker.ultraiptv.core.radio.RadioPlayer,
+) : ViewModel() {
     val query = MutableStateFlow("")
+    // Zusätzliche Quellen – jede für sich: nicht verbunden/nicht erreichbar → einfach keine Treffer (max. 8 s warten, nie ein Fehler)
+    init { runCatching { if (jellyfin.session.value == null) jellyfin.restore() } }
+    val jellyfinOn = jellyfin.session.map { it != null }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), jellyfin.session.value != null)
+    private fun <T> source(block: suspend (String) -> List<T>) = query.debounce(400).mapLatest { q ->
+        if (q.trim().length < 2) emptyList() else runCatching { kotlinx.coroutines.withTimeoutOrNull(8_000) { block(q.trim()) } }.getOrNull().orEmpty()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val jfResults = source { q -> if (jellyfin.session.value == null) emptyList() else jellyfin.items("Movie,Series", searchTerm = q, limit = 30).first }
+    val seerrResults = source { q -> seerr.search(q).filter { it.status != de.ostlertekker.ultraiptv.core.seerr.SeerrStatus.AVAILABLE }.take(20) }
+    val radioResults = source { q -> radio.search(q).take(20) }
     val filter = MutableStateFlow(SearchFilter.ALL)
     val history = settings.settings.map { it.searchHistory }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val results = query.debounce(300).mapLatest { q -> content.search(q) }
@@ -73,6 +93,12 @@ fun SearchScreen(nav: NavController, vm: SearchViewModel = hiltViewModel()) {
     val filter by vm.filter.collectAsStateWithLifecycle()
     val history by vm.history.collectAsStateWithLifecycle()
     val r by vm.results.collectAsStateWithLifecycle()
+    val jf by vm.jfResults.collectAsStateWithLifecycle()
+    val sr by vm.seerrResults.collectAsStateWithLifecycle()
+    val radio by vm.radioResults.collectAsStateWithLifecycle()
+    val jfOn by vm.jellyfinOn.collectAsStateWithLifecycle()
+    var seerrItem by remember { mutableStateOf<de.ostlertekker.ultraiptv.core.seerr.SeerrItem?>(null) }
+    seerrItem?.let { de.ostlertekker.ultraiptv.feature.jellyfin.SeerrRequestDialog(it, vm.seerr) { seerrItem = null } }
     val show = { f: SearchFilter -> filter == SearchFilter.ALL || filter == f }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp)) {
@@ -93,10 +119,11 @@ fun SearchScreen(nav: NavController, vm: SearchViewModel = hiltViewModel()) {
         }
         item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 8.dp + FocusBleedV, bottom = 8.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
-                items(SearchFilter.entries, key = { it.name }) { f -> TvChip(f.label, f == filter, { vm.filter.value = f }) }
+                // Jellyfin-Filter nur, wenn Jellyfin verbunden ist
+                items(SearchFilter.entries.filter { it != SearchFilter.JELLYFIN || jfOn }, key = { it.name }) { f -> TvChip(f.label, f == filter, { vm.filter.value = f }) }
             }
         }
-        if (q.trim().length >= 2 && r.isEmpty) item { Text("Keine Treffer für „$q“.", color = p.textDim, fontSize = 16.sp) }
+        if (q.trim().length >= 2 && r.isEmpty && jf.isEmpty() && sr.isEmpty() && radio.isEmpty()) item { Text("Keine Treffer für „$q“.", color = p.textDim, fontSize = 16.sp) }
         if (show(SearchFilter.LIVE) && r.channels.isNotEmpty()) item {
             SectionHeader("Live-TV (${r.channels.size})")
             LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
@@ -129,6 +156,28 @@ fun SearchScreen(nav: NavController, vm: SearchViewModel = hiltViewModel()) {
                 items(r.episodes, key = { it.id }) { e ->
                     FocusCard(e.title, e.image, 240.dp, 135.dp, subtitle = "S${e.season} E${e.episode}",
                         onClick = { vm.saveQuery(); context.openPlayer(ContentKind.EPISODE, e.id) })
+                }
+            }
+        }
+        if (show(SearchFilter.JELLYFIN) && jf.isNotEmpty()) item {
+            SectionHeader("Jellyfin (${jf.size})")
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
+                items(jf, key = { "jf" + it.id }) { i ->
+                    val t = vm.jellyfin.tile(i)
+                    FocusCard(i.name, t.image, 150.dp, 222.dp, subtitle = t.subtitle,
+                        onClick = { vm.saveQuery(); de.ostlertekker.ultraiptv.feature.jellyfin.openJellyfin(nav, context, t, play = false) })
+                }
+            }
+        }
+        if (show(SearchFilter.JELLYFIN) && sr.isNotEmpty()) item {
+            de.ostlertekker.ultraiptv.feature.jellyfin.SeerrRow("Nicht in Jellyfin? Bei Seerr anfragen", sr) { seerrItem = it }
+        }
+        if (show(SearchFilter.RADIO) && radio.isNotEmpty()) item {
+            SectionHeader("Radio (${radio.size})")
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
+                items(radio, key = { "r" + it.id }) { s ->
+                    FocusCard(s.name, s.logo, 160.dp, 160.dp, contentScale = ContentScale.Fit, subtitle = s.country.ifBlank { null },
+                        onClick = { vm.saveQuery(); vm.radioPlayer.play(s, radio) })
                 }
             }
         }
