@@ -262,7 +262,8 @@ class PlayerViewModel @Inject constructor(
                 else -> null
             } ?: return@mapNotNull null
             de.ostlertekker.ultraiptv.feature.smartskip.SkipSegment(type, s.startMs, s.endMs,
-                de.ostlertekker.ultraiptv.feature.smartskip.MarkerSource.PROVIDER, 0.9f)
+                // Nie automatisch springen – nur der Knopf „Intro überspringen“ wird angeboten (Sicherheit unter der Auto-Schwelle)
+                de.ostlertekker.ultraiptv.feature.smartskip.MarkerSource.PROVIDER, 0.5f)
         }
         val idx = list.indexOfFirst { it.id == ep.id }
         nextEpisode = if (idx >= 0) list.getOrNull(idx + 1) else null
