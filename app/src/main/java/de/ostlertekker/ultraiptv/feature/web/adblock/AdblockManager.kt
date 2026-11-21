@@ -136,7 +136,7 @@ class AdblockManager @Inject constructor(
             "@@||imasdk.googleapis.com/js/sdkloader/ima3_dai.js",
             "@@||imasdk.googleapis.com/pal/sdkloader/pal.js",
         )
-        val readers = LISTS.mapNotNull { lines(it) }.let { if (it.isEmpty()) it else it + own }
+        val readers = LISTS.mapNotNull { lines(it) }.let { if (it.isEmpty()) it else it + listOf(own) }
         if (readers.isEmpty()) { status = "Filterlisten fehlen – werden geladen"; return@withLock }
         val e = FilterEngine.build(readers)
         _engine.value = e

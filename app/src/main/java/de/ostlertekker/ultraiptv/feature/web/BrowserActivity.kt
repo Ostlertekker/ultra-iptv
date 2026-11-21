@@ -2,6 +2,7 @@ package de.ostlertekker.ultraiptv.feature.web
 
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+import de.ostlertekker.ultraiptv.feature.web.adblock.FilterEngine.Type as AdType
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
@@ -364,21 +365,20 @@ class BrowserActivity : ComponentActivity() {
 
     /** Ressourcentyp aus Anfrage ableiten (WebView meldet ihn nicht direkt). */
     private fun typeOf(r: WebResourceRequest, url: String): de.ostlertekker.ultraiptv.feature.web.adblock.FilterEngine.Type {
-        val T = de.ostlertekker.ultraiptv.feature.web.adblock.FilterEngine.Type
         val path = (r.url.path ?: "").lowercase()
         val accept = (r.requestHeaders["Accept"] ?: r.requestHeaders["accept"] ?: "").lowercase()
         val ext = path.substringAfterLast('.', "")
         return when {
-            r.requestHeaders.keys.any { it.equals("X-Requested-With", true) } && r.requestHeaders.values.any { it == "XMLHttpRequest" } -> T.XHR
-            ext == "js" || ext == "mjs" -> T.SCRIPT
-            ext == "css" || accept.startsWith("text/css") -> T.STYLESHEET
-            ext in setOf("png", "jpg", "jpeg", "gif", "webp", "svg", "ico", "avif", "bmp") || accept.startsWith("image/") -> T.IMAGE
-            ext in setOf("woff", "woff2", "ttf", "otf", "eot") -> T.FONT
-            ext in setOf("mp4", "webm", "m3u8", "mpd", "ts", "m4s", "mp3", "aac", "ogg", "m4a") || accept.startsWith("video/") || accept.startsWith("audio/") -> T.MEDIA
-            accept.startsWith("text/html") -> T.SUBDOCUMENT
-            accept.contains("javascript") -> T.SCRIPT
-            url.startsWith("ws") -> T.WEBSOCKET
-            else -> T.OTHER
+            r.requestHeaders.keys.any { it.equals("X-Requested-With", true) } && r.requestHeaders.values.any { it == "XMLHttpRequest" } -> AdType.XHR
+            ext == "js" || ext == "mjs" -> AdType.SCRIPT
+            ext == "css" || accept.startsWith("text/css") -> AdType.STYLESHEET
+            ext in setOf("png", "jpg", "jpeg", "gif", "webp", "svg", "ico", "avif", "bmp") || accept.startsWith("image/") -> AdType.IMAGE
+            ext in setOf("woff", "woff2", "ttf", "otf", "eot") -> AdType.FONT
+            ext in setOf("mp4", "webm", "m3u8", "mpd", "ts", "m4s", "mp3", "aac", "ogg", "m4a") || accept.startsWith("video/") || accept.startsWith("audio/") -> AdType.MEDIA
+            accept.startsWith("text/html") -> AdType.SUBDOCUMENT
+            accept.contains("javascript") -> AdType.SCRIPT
+            url.startsWith("ws") -> AdType.WEBSOCKET
+            else -> AdType.OTHER
         }
     }
 
@@ -387,10 +387,9 @@ class BrowserActivity : ComponentActivity() {
         if (!adOn) return false
         val e = adblocker.engine.value ?: return false
         val host = runCatching { android.net.Uri.parse(target).host?.lowercase() }.getOrNull() ?: return false
-        val T = de.ostlertekker.ultraiptv.feature.web.adblock.FilterEngine.Type
         val bad = runCatching {
-            e.shouldBlock(target, host, T.DOCUMENT, pageHost) ||
-                ((isRedirect || !gesture) && host != pageHost && e.shouldBlock(target, host, T.POPUP, pageHost))
+            e.shouldBlock(target, host, AdType.DOCUMENT, pageHost) ||
+                ((isRedirect || !gesture) && host != pageHost && e.shouldBlock(target, host, AdType.POPUP, pageHost))
         }.getOrDefault(false)
         if (bad) toastOnce("Werbe- bzw. Schadseite blockiert")
         return bad
