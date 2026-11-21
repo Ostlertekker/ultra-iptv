@@ -90,7 +90,7 @@ class BrowserActivity : ComponentActivity() {
         column.addView(bar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (52 * dp).toInt()))
         column.addView(web, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         root.addView(column, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        cursor = CursorView(this)
+        cursor = CursorView(this).apply { setLayerType(View.LAYER_TYPE_HARDWARE, null) }
         root.addView(cursor, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         setContentView(root)
         root.post { cursor.x0 = root.width / 2f; cursor.y0 = root.height / 2f; cursor.invalidate() }
@@ -151,6 +151,9 @@ class BrowserActivity : ComponentActivity() {
         settings.textZoom = prefs.getInt("zoom", 100)
         settings.cacheMode = WebSettings.LOAD_DEFAULT
         settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+        // Leistung: Seitenbereiche außerhalb des Bildes vorab zeichnen (flüssigeres Scrollen), Renderer mit hoher Priorität
+        settings.offscreenPreRaster = true
+        if (android.os.Build.VERSION.SDK_INT >= 26) setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true)
         // Desktop-ähnliche Ansicht wie auf großen Bildschirmen (viele Seiten zeigen sonst die Handy-Version)
         settings.userAgentString = settings.userAgentString.replace("; wv", "").replace("Mobile ", "")
         CookieManager.getInstance().setAcceptCookie(true)
@@ -329,13 +332,14 @@ class BrowserActivity : ComponentActivity() {
             var e=document.elementFromPoint(x,y);
             while(e&&e!==document.body&&e!==document.documentElement){var s=getComputedStyle(e);
               if((dy&&/(auto|scroll)/.test(s.overflowY)&&e.scrollHeight>e.clientHeight)||(dx&&/(auto|scroll)/.test(s.overflowX)&&e.scrollWidth>e.clientWidth)){
-                var a=e.scrollTop,b=e.scrollLeft;e.scrollBy(dx,dy);if(e.scrollTop!==a||e.scrollLeft!==b)return true;}
+                var a=e.scrollTop,b=e.scrollLeft;e.scrollBy({left:dx,top:dy,behavior:'instant'});if(e.scrollTop!==a||e.scrollLeft!==b)return true;}
               e=e.parentElement;}
-            var a=window.scrollY,b=window.scrollX;window.scrollBy(dx,dy);return window.scrollY!==a||window.scrollX!==b;})($x,$y,$dx,$dy)""") { r -> done?.invoke(r == "true") }
+            var a=window.scrollY,b=window.scrollX;window.scrollBy({left:dx,top:dy,behavior:'instant'});return window.scrollY!==a||window.scrollX!==b;})($x,$y,$dx,$dy)""") { r -> done?.invoke(r == "true") }
     }
 
     private fun moveCursor(code: Int, repeat: Int) {
-        val step = (7 + repeat * 3).coerceAtMost(46) * dp / 2f
+        // Schneller Zeiger: zügiger Start, beschleunigt beim Halten deutlich
+        val step = (12 + repeat * 6).coerceAtMost(80) * dp / 2f
         val w = root.width.toFloat(); val h = root.height.toFloat(); val edge = 8 * dp
         when (code) {
             KeyEvent.KEYCODE_DPAD_LEFT -> if (cursor.x0 <= edge) scroll(0, -step.toInt() * 3) else cursor.x0 = (cursor.x0 - step).coerceAtLeast(0f)
@@ -350,8 +354,14 @@ class BrowserActivity : ComponentActivity() {
             }
             KeyEvent.KEYCODE_DPAD_DOWN -> if (cursor.y0 >= h - edge) scroll(step.toInt() * 3) else cursor.y0 = (cursor.y0 + step).coerceAtMost(h - 1)
         }
-        cursor.invalidate(); hover()
+        cursor.invalidate()
+        // Hover nur alle 80 ms an die Seite melden – spart Neuberechnungen der Webseite beim schnellen Bewegen
+        val now = SystemClock.uptimeMillis()
+        if (now - lastHover > 80) { lastHover = now; hover() }
+        else if (!hoverPending) { hoverPending = true; web.postDelayed({ hoverPending = false; lastHover = SystemClock.uptimeMillis(); hover() }, 90) }
     }
+    private var lastHover = 0L
+    private var hoverPending = false
 
     // ------------------------------------------------------------------ Tasten
 
