@@ -38,6 +38,11 @@ class MainActivity : ComponentActivity() {
 
     companion object { const val EXTRA_ROUTE = "ultra_route" }
 
+    override fun onResume() {
+        super.onResume()
+        de.ostlertekker.ultraiptv.core.notify.AutoStart.markResumed()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val startRoute = intent?.getStringExtra(EXTRA_ROUTE)

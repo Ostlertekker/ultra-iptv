@@ -260,17 +260,23 @@ class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action !in BOOT_ACTIONS) return
         val app = context.applicationContext
-        val center = EntryPointAccessors.fromApplication(app, NotifyEntryPoint::class.java).notificationCenter()
         val pending = goAsync()
         Thread {
             try {
-                runCatching { runBlocking { center.rescheduleAll() } }
-                // Automatisch öffnen (Einstellungen › Allgemein): kurz warten, bis der Startbildschirm des Geräts fertig ist
-                if (AutoStart.isEnabled(app) && AutoStart.canLaunch(app)) {
-                    Thread.sleep(2_500)
-                    AutoStart.launchFromBackground(app)
-                    Thread.sleep(6_500) // Empfänger offen halten, bis beide Startversuche erfolgt sind
+                // Zuerst öffnen (Einstellungen › Allgemein), danach Erinnerungen neu planen
+                if (AutoStart.isEnabled(app)) {
+                    AutoStart.log(app, "Gerätestart gemeldet (${intent.action?.substringAfterLast('.')})")
+                    if (AutoStart.canLaunch(app)) {
+                        Thread.sleep(2_500) // kurz warten, bis der Startbildschirm des Geräts fertig ist
+                        AutoStart.launchFromBackground(app, "Autostart")
+                    } else AutoStart.log(app, "✕ Berechtigung „Über anderen Apps einblenden“ fehlt")
                 }
+                runCatching {
+                    val center = EntryPointAccessors.fromApplication(app, NotifyEntryPoint::class.java).notificationCenter()
+                    runBlocking { center.rescheduleAll() }
+                }
+                if (AutoStart.isEnabled(app)) Thread.sleep(9_500) // Empfänger offen halten, bis alle Startversuche erfolgt sind
+            } catch (e: Throwable) { runCatching { AutoStart.log(app, "Fehler: ${e.javaClass.simpleName}") }
             } finally { pending.finish() }
         }.start()
     }

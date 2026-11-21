@@ -590,6 +590,24 @@ private fun AutoStartSetting() {
             else "Dieses Gerät hat dafür keine Einstellungsseite – einmalig per ADB: adb shell appops set ${ctx.packageName} SYSTEM_ALERT_WINDOW allow"
         }
     }
+    if (on) {
+        var testMsg by remember { mutableStateOf<String?>(null) }
+        SRow("Autostart jetzt testen (ohne Neustart)", testMsg ?: "Nach dem Drücken die Home-Taste drücken – die App sollte sich nach ca. 10 Sekunden von selbst öffnen") {
+            testMsg = "Jetzt Home-Taste drücken …"
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                de.ostlertekker.ultraiptv.core.notify.AutoStart.launchFromBackground(ctx.applicationContext, "Test")
+            }, 10_000)
+        }
+        var log by remember { mutableStateOf(de.ostlertekker.ultraiptv.core.notify.AutoStart.readLog(ctx)) }
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            while (true) { kotlinx.coroutines.delay(2000); log = de.ostlertekker.ultraiptv.core.notify.AutoStart.readLog(ctx) }
+        }
+        SRow("Autostart-Protokoll", if (log.isBlank()) "Noch kein Gerätestart erkannt" else "OK = Protokoll löschen") {
+            de.ostlertekker.ultraiptv.core.notify.AutoStart.clearLog(ctx); log = ""
+        }
+        if (log.isNotBlank()) androidx.compose.material3.Text(log.lines().reversed().take(8).joinToString("\n"),
+            color = p.textDim, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+    }
 }
 
 private fun LazyListScope.homePage(vm: SettingsViewModel, s: AppSettings) {
