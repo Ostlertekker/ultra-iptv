@@ -440,6 +440,18 @@ class JellyfinRepository @Inject constructor(
     suspend fun recentlyWatched() = items("Movie,Episode", sortBy = "DatePlayed", descending = true, filters = "IsPlayed", limit = 30).first
     suspend fun favorites() = items("Movie,Series,Episode", sortBy = "SortName", filters = "IsFavorite", limit = 60).first
     suspend fun item(id: String): JfItem? = parse(authed("GET", "/Users/${uid()}/Items/$id"))
+
+    /**
+     * Zeitmarken einer Folge (Intro, Rückblick, Abspann …) vom Server – erkannt z. B. vom Plugin „Intro Skipper“.
+     * Jellyfin 10.10+: /MediaSegments; ältere Intro-Skipper-Versionen: /Episode/{id}/IntroSkipperSegments bzw. /IntroTimestamps.
+     * Kein Plugin / keine Marken → leere Liste (kein Fehler).
+     */
+    suspend fun segments(id: String): List<JfSegment> {
+        runCatching { JfSegments.mediaSegments(authed("GET", "/MediaSegments/$id")) }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return it }
+        runCatching { JfSegments.introSkipper(authed("GET", "/Episode/$id/IntroSkipperSegments")) }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return it }
+        runCatching { JfSegments.introSkipper(authed("GET", "/Episode/$id/IntroTimestamps/v1")) }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return it }
+        return emptyList()
+    }
     suspend fun seasons(seriesId: String) = itemsOf(cachedGet("/Shows/$seriesId/Seasons?userId=${uid()}&Fields=$fields"))
     suspend fun episodes(seriesId: String, seasonId: String? = null): List<JfItem> =
         itemsOf(authed("GET", "/Shows/$seriesId/Episodes?userId=${uid()}&Fields=$fields" + (seasonId?.let { "&SeasonId=$it" } ?: "")))
@@ -623,5 +635,38 @@ class JellyfinRepository @Inject constructor(
             remoteTrailer = (o["RemoteTrailers"] as? JsonArray)?.firstNotNullOfOrNull { (it as? JsonObject)?.get("Url")?.str() },
             localTrailers = o["LocalTrailerCount"]?.int() ?: 0,
         )
+    }
+}
+
+/** Zeitmarke einer Folge: Typ wie bei Jellyfin („Intro“, „Recap“, „Outro“, „Preview“, „Commercial“). */
+data class JfSegment(val type: String, val startMs: Long, val endMs: Long)
+
+/** Auswertung der Jellyfin-Zeitmarken (ohne Android, testbar). */
+object JfSegments {
+    private fun JsonElement?.d(): Double? = (this as? JsonPrimitive)?.contentOrNull?.toDoubleOrNull()
+    private fun JsonElement?.s(): String? = (this as? JsonPrimitive)?.contentOrNull
+
+    /** Jellyfin 10.10+: {"Items":[{"Type":"Intro","StartTicks":…,"EndTicks":…}]} – 1 Tick = 100 ns. */
+    fun mediaSegments(el: JsonElement?): List<JfSegment> =
+        ((el as? JsonObject)?.get("Items") as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }.mapNotNull { o ->
+            val t = o["Type"].s() ?: return@mapNotNull null
+            val a = o["StartTicks"].d() ?: return@mapNotNull null
+            val b = o["EndTicks"].d() ?: return@mapNotNull null
+            JfSegment(t, (a / 10_000).toLong(), (b / 10_000).toLong())
+        }
+
+    /** Ältere Intro-Skipper-Versionen: {"Introduction":{"Valid":true,"IntroStart":12.5,"IntroEnd":80.1},"Credits":{…}} oder ein einzelnes Objekt (Sekunden). */
+    fun introSkipper(el: JsonElement?): List<JfSegment> {
+        val o = el as? JsonObject ?: return emptyList()
+        fun one(x: JsonObject?, type: String): JfSegment? {
+            x ?: return null
+            if (x["Valid"].s() == "false") return null
+            val a = x["IntroStart"].d() ?: x["Start"].d() ?: return null
+            val b = x["IntroEnd"].d() ?: x["End"].d() ?: return null
+            return if (b > a) JfSegment(type, (a * 1000).toLong(), (b * 1000).toLong()) else null
+        }
+        val multi = listOfNotNull(one(o["Introduction"] as? JsonObject, "Intro"), one(o["Credits"] as? JsonObject, "Outro"),
+            one(o["Recap"] as? JsonObject, "Recap"), one(o["Preview"] as? JsonObject, "Preview"))
+        return multi.ifEmpty { listOfNotNull(one(o, "Intro")) }
     }
 }

@@ -94,7 +94,7 @@ import de.ostlertekker.ultraiptv.core.ui.UltraLoader
 import de.ostlertekker.ultraiptv.feature.smartskip.SegmentType
 import kotlinx.coroutines.delay
 
-private enum class Panel { AUDIO, SUBTITLES, ASPECT, SPEED, SMART_SKIP, CHANNELS, CINEMA, SYNC }
+private enum class Panel { AUDIO, SUBTITLES, ASPECT, SPEED, CHANNELS, CINEMA, SYNC }
 
 private val subtitleColors = listOf(android.graphics.Color.WHITE, android.graphics.Color.YELLOW, android.graphics.Color.CYAN)
 private val subtitleColorNames = listOf("Weiß", "Gelb", "Cyan")
@@ -369,7 +369,6 @@ fun PlayerScreen(
                             if (!isLive || ui.shiftBehindMs > 0) PlayerCtl("Tempo ${ui.speed}×", onClick = { panel = Panel.SPEED })
                             PlayerCtl("Sync", onClick = { panel = Panel.SYNC })
                             PlayerCtl(if (health) "Zustand aus" else "Stream-Zustand", onClick = { health = !health }, active = health)
-                            if (ui.kind == ContentKind.EPISODE) PlayerCtl("Intro überspringen", onClick = { panel = Panel.SMART_SKIP })
                             val left = if (ui.sleepAt > 0) ((ui.sleepAt - System.currentTimeMillis()) / 60_000L + 1).coerceAtLeast(1) else 0
                             PlayerCtl(if (left > 0) "Sleep $left min" else "Sleep-Timer", onClick = { vm.cycleSleep() }, active = left > 0)
                             PlayerCtl(if (ui.showStats) "Statistik aus" else "Statistik", onClick = { vm.toggleStats() }, active = ui.showStats)
@@ -497,23 +496,6 @@ private fun PanelContent(panel: Panel, vm: PlayerViewModel, ui: PlayerUi, settin
             options = listOf(0, 250, 500, 1000, 1500, 2000, 3000, 5000).map { d ->
                 Opt(if (d == 0) "Untertitel: ohne Verzögerung" else "Untertitel: +${d} ms später", settings.subDelayMs == d) { vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.SUB_DELAY, d); close() }
             } + listOf(Opt("Ton-Verschiebung: vom Player (Media3) auf diesem Gerät nicht unterstützt", false) { })
-        }
-        Panel.SMART_SKIP -> {
-            title = "Intro überspringen"
-            val pending = ui.pendingMarkStart
-            options = buildList {
-                if (pending != null) add(Opt("■ ${pending.first.label}-Ende = jetzt", false) { vm.markEnd(); close() })
-                add(Opt("Intro-Beginn = jetzt", false) { vm.markStart(SegmentType.INTRO); close() })
-                add(Opt("Rückblick-Beginn = jetzt", false) { vm.markStart(SegmentType.RECAP); close() })
-                add(Opt("Credits-Beginn = jetzt", false) { vm.markStart(SegmentType.CREDITS); close() })
-                add(Opt("Abspann ab hier bis Ende", false) { vm.markOutroFromHere(); close() })
-                add(Opt("Markierungen dieser Folge löschen", false) { vm.clearMarkers(); close() })
-                ui.segments.forEach { s ->
-                    add(Opt("${s.type.label}: ${fmt(s.startMs)}–${fmt(s.endMs)} · ${s.source.label} · ${(s.confidence * 100).toInt()} %", false) {
-                        vm.engine.player?.seekTo(s.startMs); close()
-                    })
-                }
-            }
         }
         Panel.CHANNELS -> {
             title = "Senderliste"

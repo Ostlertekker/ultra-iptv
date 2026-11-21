@@ -31,7 +31,6 @@ import de.ostlertekker.ultraiptv.feature.smartskip.SkipAction
 import de.ostlertekker.ultraiptv.feature.smartskip.skipPolicyFrom
 import de.ostlertekker.ultraiptv.feature.smartskip.SkipSegment
 import de.ostlertekker.ultraiptv.feature.smartskip.SmartSkipEngine
-import de.ostlertekker.ultraiptv.feature.smartskip.SmartSkipRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -67,7 +66,6 @@ data class PlayerUi(
     val toast: String? = null,
     val ended: Boolean = false,
     val segments: List<SkipSegment> = emptyList(),
-    val pendingMarkStart: Pair<SegmentType, Long>? = null,
     /** Zeitpunkt des letzten Senderwechsels (für das Info-Banner). */
     val zapAt: Long = 0,
     val qualityNote: String? = null,
@@ -110,7 +108,6 @@ class PlayerViewModel @Inject constructor(
     private val settingsRepo: SettingsRepository,
     private val resolver: StreamResolver,
     private val epg: EpgRepository,
-    private val skipRepo: SmartSkipRepository,
     private val device: DeviceCapabilityManager,
     private val extras: ExtrasDao,
     private val discover: de.ostlertekker.ultraiptv.core.discover.DiscoverRepository,
@@ -254,13 +251,25 @@ class PlayerViewModel @Inject constructor(
         jfEpisodes = list
         episode = ep; itemId = ep.id; image = ep.image
         logName = ep.title; logCategory = "Serie"
-        skip.reset(); countdownCancelled = false; countdownJob?.cancel(); segments = emptyList()
+        skip.reset(); countdownCancelled = false; countdownJob?.cancel()
+        // Intro/Abspann-Marken vom Jellyfin-Server (Plugin „Intro Skipper“)
+        segments = runCatching { jellyfin.segments(ep.id.removePrefix(JF)) }.getOrDefault(emptyList()).mapNotNull { s ->
+            val type = when (s.type.lowercase()) {
+                "intro", "introduction" -> SegmentType.INTRO
+                "recap" -> SegmentType.RECAP
+                "outro", "credits" -> SegmentType.OUTRO
+                "preview" -> SegmentType.CREDITS
+                else -> null
+            } ?: return@mapNotNull null
+            de.ostlertekker.ultraiptv.feature.smartskip.SkipSegment(type, s.startMs, s.endMs,
+                de.ostlertekker.ultraiptv.feature.smartskip.MarkerSource.PROVIDER, 0.9f)
+        }
         val idx = list.indexOfFirst { it.id == ep.id }
         nextEpisode = if (idx >= 0) list.getOrNull(idx + 1) else null
         val seriesName = runCatching { jellyfin.item(ep.seriesId.removePrefix(JF))?.name }.getOrNull()
         _ui.update {
             it.copy(title = seriesName ?: ep.title, artwork = image, subtitle = "S${ep.season} E${ep.episode} · ${ep.title}", hasNext = nextEpisode != null,
-                countdown = null, skipOffer = null, ended = false, segments = segments, pendingMarkStart = null)
+                countdown = null, skipOffer = null, ended = false, segments = segments)
         }
         playJf(ep.id.removePrefix(JF), start)
     }
@@ -364,10 +373,10 @@ class PlayerViewModel @Inject constructor(
         nextEpisode = if (idx >= 0) all.getOrNull(idx + 1) else null
         val series = content.seriesOnce(ep.seriesId)
         if (image == null) image = series?.poster
-        segments = skipRepo.segmentsFor(ep)
+        segments = emptyList() // IPTV: kein Intro-Überspringen (nur Jellyfin liefert Zeitmarken)
         _ui.update {
             it.copy(title = series?.name ?: ep.title, artwork = image, subtitle = "S${ep.season} E${ep.episode} · ${ep.title}", hasNext = nextEpisode != null,
-                countdown = null, skipOffer = null, ended = false, segments = segments, pendingMarkStart = null)
+                countdown = null, skipOffer = null, ended = false, segments = segments)
         }
         play(ep.streamUrl, start)
     }
@@ -468,51 +477,6 @@ class PlayerViewModel @Inject constructor(
         val p = engine.player ?: return
         if (offer.targetMs >= _ui.value.durationMs - 1000 && nextEpisode != null) playNext() else p.seekTo(offer.targetMs)
         _ui.update { it.copy(skipOffer = null) }
-        val ep = episode
-        if (ep != null) viewModelScope.launch { skipRepo.confirm(ep, offer.segment); segments = skipRepo.segmentsFor(ep); _ui.update { it.copy(segments = segments) } }
-    }
-
-    // ---------------------------------------------------- Smart-Skip-Markierungen
-
-    fun markStart(type: SegmentType) {
-        _ui.update { it.copy(pendingMarkStart = type to (engine.player?.currentPosition ?: 0L)) }
-        toast("${type.label}-Beginn gesetzt – jetzt Ende markieren")
-    }
-
-    fun markEnd() {
-        val ep = episode ?: return
-        val (type, start) = _ui.value.pendingMarkStart ?: return
-        val end = engine.player?.currentPosition ?: return
-        if (end <= start + 3000) { toast("Ende muss mindestens 3 s nach dem Beginn liegen"); return }
-        viewModelScope.launch {
-            skipRepo.saveUserMarker(ep, type, start, end)
-            segments = skipRepo.segmentsFor(ep)
-            skip.reset()
-            _ui.update { it.copy(pendingMarkStart = null, segments = segments) }
-            toast("${type.label} gespeichert (${start / 1000}s–${end / 1000}s)")
-        }
-    }
-
-    fun markOutroFromHere() {
-        val ep = episode ?: return
-        val pos = engine.player?.currentPosition ?: return
-        val dur = _ui.value.durationMs
-        if (dur <= 0) return
-        viewModelScope.launch {
-            skipRepo.saveUserMarker(ep, SegmentType.OUTRO, pos, dur)
-            segments = skipRepo.segmentsFor(ep)
-            _ui.update { it.copy(segments = segments) }
-            toast("Abspann ab ${pos / 1000}s gespeichert")
-        }
-    }
-
-    fun clearMarkers() {
-        val ep = episode ?: return
-        viewModelScope.launch {
-            skipRepo.clear(ep); segments = skipRepo.segmentsFor(ep); skip.reset()
-            _ui.update { it.copy(segments = segments) }
-            toast("Markierungen dieser Folge gelöscht")
-        }
     }
 
     // ---------------------------------------------------- Steuerung

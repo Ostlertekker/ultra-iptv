@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.feature.smartskip
 
+import de.ostlertekker.ultraiptv.core.data.AppSettings
 import de.ostlertekker.ultraiptv.core.model.OutroMode
 
 enum class SegmentType(val label: String) { INTRO("Intro"), RECAP("Rückblick"), OUTRO("Abspann"), CREDITS("Credits") }
@@ -107,3 +108,9 @@ class SmartSkipEngine {
                 .sortedBy { it.startMs }
     }
 }
+
+fun skipPolicyFrom(s: AppSettings) = SkipPolicy(
+    enabled = s.smartSkipEnabled, autoIntro = s.autoSkipIntro, autoRecap = s.autoSkipRecap,
+    autoOutro = s.autoSkipOutro, outroMode = s.outroMode, manualOnly = s.skipManualOnly,
+    autoNext = s.autoNextEpisode, countdownSec = s.nextCountdownSec,
+)
