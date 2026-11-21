@@ -243,7 +243,8 @@ class FilterEngine private constructor(
                 specific, excluded, exceptions, genericExceptionsAll, selExc, count)
         }
 
-        private val COSMETIC = Regex("#@?[#?$%]#|#\\+js|##\\+js")
+        // Reihenfolge wichtig: „###id“ = Trenner „##“ + Selektor „#id“
+        private val COSMETIC = Regex("#@#|#@?\\?#|#@?\\$#|#@?%#|##")
 
         fun parseNet(line0: String): NetRule? {
             var line = line0
