@@ -273,10 +273,10 @@ fun JellyfinScreen(nav: NavController, vm: JellyfinViewModel = hiltViewModel()) 
         },
         onOpen = { t -> when (t.kind) {
             "seerr" -> seerrDialog = vm.seerrItems[t.id]
-            // Verfügbare Anfrage: direkt zur Film-/Serienübersicht in Jellyfin, sonst Anfrage-Ansicht
+            // Komplett verfügbar: direkt zur Film-/Serienübersicht in Jellyfin. Teilweise verfügbar (Serien) oder noch offen:
+            // erst die Anfrage-Ansicht – dort „In Jellyfin ansehen“ oder „Weitere Staffeln anfragen“
             "seerrReq" -> vm.seerrRequests[t.id]?.let { r ->
-                if (r.item.jellyfinId != null && (r.item.status == de.ostlertekker.ultraiptv.core.seerr.SeerrStatus.AVAILABLE ||
-                        r.item.status == de.ostlertekker.ultraiptv.core.seerr.SeerrStatus.PARTIAL)) openSeerrInJellyfin(nav, r.item)
+                if (r.item.jellyfinId != null && r.item.status == de.ostlertekker.ultraiptv.core.seerr.SeerrStatus.AVAILABLE) openSeerrInJellyfin(nav, r.item)
                 else requestDetail = r
             }
             else -> openJellyfin(nav, context, t, play = false)
