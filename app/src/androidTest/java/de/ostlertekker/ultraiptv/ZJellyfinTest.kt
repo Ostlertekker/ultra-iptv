@@ -208,7 +208,8 @@ class ZJellyfinTest {
 
             open(Routes.jfMovie("m1")).use {
                 Thread.sleep(2500); shot("film")
-                key("Favorit + gesehen", R, R, OK, R, OK, pauseMs = 400)
+                // Reihenfolge: Fortsetzen · Von vorne · Trailer · Favorit · Gesehen
+                key("Favorit + gesehen", R, R, R, OK, R, OK, pauseMs = 400)
                 Thread.sleep(1200); shot("film_nach_gesehen") // Fokus springt automatisch zurück auf „Abspielen“
                 key("Film abspielen", OK); Thread.sleep(8000); responsive("Jellyfin-Film im Player"); shot("film_player")
                 key("Player Overlay + Spulen", OK, BACK, R, R, L, pauseMs = 500); Thread.sleep(2000)

@@ -275,7 +275,7 @@ fun MovieDetailScreen(nav: NavController, vm: MovieDetailViewModel = hiltViewMod
                 if (!m.actors.isNullOrBlank()) Text("Mit: ${m.actors}", color = p.text, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
                 if (!m.director.isNullOrBlank()) Text("Regie: ${m.director}", color = p.textDim, fontSize = 13.sp, maxLines = 1)
                 Spacer(Modifier.height(16.dp))
-                Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(vertical = 4.dp, horizontal = 2.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(Modifier.focusBleed(14.dp, 8.dp).horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(vertical = 8.dp, horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     val pr = progress
                     if (pr != null && pr.positionMs > 30_000 && (pr.durationMs == 0L || pr.positionMs < pr.durationMs * 0.95)) {
                         TvButton("▶ Fortsetzen · ${pr.positionMs / 60000} Min.", onClick = { context.openPlayer(ContentKind.MOVIE, m.id, pr.positionMs) },
