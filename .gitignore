@@ -11,3 +11,4 @@ captures/
 # FFmpeg-Quellen/Bibliotheken werden im CI gebaut
 ffmpeg/src/main/jni/ffmpeg/
 ffmpeg/.cxx/
+app/src/main/assets/adblock/

@@ -1,5 +1,7 @@
 package de.ostlertekker.ultraiptv.feature.web
 
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
@@ -47,6 +49,12 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class BrowserActivity : ComponentActivity() {
     @Inject lateinit var engine: PlayerEngine
+    @Inject lateinit var adblocker: de.ostlertekker.ultraiptv.feature.web.adblock.AdblockManager
+    /** Host und Ausnahmen der gerade angezeigten Seite (für Drittanbieter-Erkennung und Seiten-Ausnahmen). */
+    @Volatile private var pageHost: String? = null
+    @Volatile private var pageFlags: de.ostlertekker.ultraiptv.feature.web.adblock.FilterEngine.PageFlags? = null
+    @Volatile private var adOn = true
+    private var docStartHandler: androidx.webkit.ScriptHandler? = null
 
     companion object {
         fun open(context: Context) = context.startActivity(Intent(context, BrowserActivity::class.java))
@@ -95,6 +103,14 @@ class BrowserActivity : ComponentActivity() {
         setContentView(root)
         root.post { cursor.x0 = root.width / 2f; cursor.y0 = root.height / 2f; cursor.invalidate() }
 
+        // Werbeblocker: Filterlisten laden/aktualisieren (einmal pro App-Lauf) und die Seitenskripte aktuell halten
+        adOn = adblock()
+        adblocker.start()
+        runCatching {
+            if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT))
+                androidx.webkit.WebViewCompat.addDocumentStartJavaScript(web, de.ostlertekker.ultraiptv.feature.web.adblock.AdblockScripts.ANTI_ADBLOCK, setOf("*"))
+        }
+        lifecycleScope.launch { adblocker.engine.collect { e -> registerGenericCss(e) } }
         if (savedInstanceState != null) web.restoreState(savedInstanceState) else showStart()
         Toast.makeText(this, "Pfeiltasten: Zeiger · OK: Klick · Zurück lang: ULTRA IPTV", Toast.LENGTH_LONG).show()
     }
@@ -133,7 +149,12 @@ class BrowserActivity : ComponentActivity() {
         star = pill("☆") { toggleBookmark() }; add(star)
         add(pill("A−") { zoom(-10) })
         add(pill("A+") { zoom(10) })
-        adBtn = pill("") { prefs.edit().putBoolean("adblock", !adblock()).apply(); updateAdBtn(); web.reload() }
+        adBtn = pill("") {
+            prefs.edit().putBoolean("adblock", !adblock()).apply(); adOn = adblock(); updateAdBtn()
+            registerGenericCss(adblocker.engine.value)
+            Toast.makeText(this@BrowserActivity, if (adOn) "Werbeblocker an · ${adblocker.status}" else "Werbeblocker aus", Toast.LENGTH_SHORT).show()
+            web.reload()
+        }
         add(adBtn)
         updateAdBtn()
     }
@@ -166,19 +187,52 @@ class BrowserActivity : ComponentActivity() {
                 if (u.host?.endsWith("accounts.google.com") == true) {
                     Toast.makeText(this@BrowserActivity, "Google erlaubt die Anmeldung nicht in eingebetteten Browsern", Toast.LENGTH_LONG).show(); return true
                 }
-                return u.scheme != "http" && u.scheme != "https"   // keine App-Links (intent:// usw.)
+                if (u.scheme != "http" && u.scheme != "https") return true   // keine App-Links (intent:// usw.)
+                // Werbe-Weiterleitungen und Schadseiten gar nicht erst laden
+                if (request.isForMainFrame && blockNavigation(u.toString(), request.isRedirect, request.hasGesture())) return true
+                return false
             }
-            override fun onPageStarted(view: WebView, u: String?, favicon: android.graphics.Bitmap?) { showUrl(u) }
+            override fun onPageStarted(view: WebView, u: String?, favicon: android.graphics.Bitmap?) {
+                showUrl(u)
+                val host = runCatching { android.net.Uri.parse(u).host?.lowercase() }.getOrNull()
+                pageHost = host
+                pageFlags = if (host != null && u != null) runCatching { adblocker.engine.value?.pageFlags(u, host) }.getOrNull() else null
+            }
+            override fun onPageCommitVisible(view: WebView, u: String?) { injectCosmetics(view) }
             override fun onPageFinished(view: WebView, u: String?) {
+                injectCosmetics(view)
                 showUrl(u); CookieManager.getInstance().flush()
                 if (u != null && !u.startsWith(START) && u.startsWith("http")) addHistory(view.title ?: u, u)
             }
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
-                if (adblock() && BrowserAdBlock.isAd(request.url))
-                    WebResourceResponse("text/plain", "utf-8", 204, "No Content", emptyMap(), java.io.ByteArrayInputStream(ByteArray(0)))
-                else null
+                runCatching { interceptAd(request) }.getOrNull()   // ein Fehler im Filter darf nie die Seite blockieren
         }
+        // Pop-ups/Pop-unders: nur nach echtem Klick, und nie zu Werbe-/Schadseiten; erlaubte Fenster öffnen im selben Browser
+        settings.setSupportMultipleWindows(true)
+        settings.javaScriptCanOpenWindowsAutomatically = false
         webChromeClient = object : WebChromeClient() {
+            override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: android.os.Message): Boolean {
+                if (!isUserGesture && adOn) { toastOnce("Pop-up blockiert"); return false }
+                val catcher = WebView(this@BrowserActivity)
+                catcher.webViewClient = object : WebViewClient() {
+                    private var done = false
+                    private fun take(v: WebView, target: String?) {
+                        if (done || target == null || target == "about:blank") return
+                        done = true; v.stopLoading(); v.post { runCatching { v.destroy() } }
+                        if (adOn && runCatching { adblocker.engine.value?.let { e ->
+                                val h = android.net.Uri.parse(target).host?.lowercase() ?: ""
+                                e.shouldBlock(target, h, de.ostlertekker.ultraiptv.feature.web.adblock.FilterEngine.Type.POPUP, pageHost) ||
+                                    e.shouldBlock(target, h, de.ostlertekker.ultraiptv.feature.web.adblock.FilterEngine.Type.OTHER, pageHost)
+                            } ?: BrowserAdBlock.isAd(android.net.Uri.parse(target)) }.getOrDefault(false)) toastOnce("Werbe-Pop-up blockiert")
+                        else web.loadUrl(target)
+                    }
+                    override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest): Boolean { take(v, r.url.toString()); return true }
+                    override fun onPageStarted(v: WebView, u: String?, f: android.graphics.Bitmap?) { take(v, u) }
+                }
+                (resultMsg.obj as? WebView.WebViewTransport)?.webView = catcher
+                resultMsg.sendToTarget()
+                return true
+            }
             override fun onShowCustomView(view: View, callback: CustomViewCallback) {
                 fullView?.let { onHideCustomView() }
                 fullView = view; fullCallback = callback
@@ -279,6 +333,98 @@ class BrowserActivity : ComponentActivity() {
         }
     }
 
+    // ------------------------------------------------------------------ Werbeblocker
+
+    private var lastToast = 0L
+    private fun toastOnce(msg: String) {
+        val now = SystemClock.uptimeMillis()
+        if (now - lastToast > 4000) { lastToast = now; runOnUiThread { Toast.makeText(this, msg, Toast.LENGTH_SHORT).show() } }
+    }
+
+    /** Netzwerkfilter (läuft im Hintergrund-Thread der WebView). */
+    private fun interceptAd(request: WebResourceRequest): WebResourceResponse? {
+        if (!adOn || request.isForMainFrame) return null
+        if (pageFlags?.allowAll == true) return null
+        val u = request.url
+        val scheme = u.scheme ?: return null
+        if (scheme != "http" && scheme != "https") return null
+        val host = u.host?.lowercase() ?: return null
+        val url = u.toString()
+        val e = adblocker.engine.value
+        val blocked = if (e != null) e.shouldBlock(url, host, typeOf(request, url), pageHost) else BrowserAdBlock.isAd(u)
+        if (!blocked) return null
+        // Bekannte Werbe-/Statistikskripte durch harmlose Platzhalter ersetzen, damit Seiten (und Videoplayer) weiterlaufen
+        de.ostlertekker.ultraiptv.feature.web.adblock.AdblockScripts.surrogate(host, u.path ?: "")?.let { js ->
+            return WebResourceResponse("application/javascript", "utf-8", 200, "OK", mapOf("Access-Control-Allow-Origin" to "*"),
+                java.io.ByteArrayInputStream(js.toByteArray()))
+        }
+        return WebResourceResponse("text/plain", "utf-8", 204, "No Content", mapOf("Access-Control-Allow-Origin" to "*"),
+            java.io.ByteArrayInputStream(ByteArray(0)))
+    }
+
+    /** Ressourcentyp aus Anfrage ableiten (WebView meldet ihn nicht direkt). */
+    private fun typeOf(r: WebResourceRequest, url: String): de.ostlertekker.ultraiptv.feature.web.adblock.FilterEngine.Type {
+        val T = de.ostlertekker.ultraiptv.feature.web.adblock.FilterEngine.Type
+        val path = (r.url.path ?: "").lowercase()
+        val accept = (r.requestHeaders["Accept"] ?: r.requestHeaders["accept"] ?: "").lowercase()
+        val ext = path.substringAfterLast('.', "")
+        return when {
+            r.requestHeaders.keys.any { it.equals("X-Requested-With", true) } && r.requestHeaders.values.any { it == "XMLHttpRequest" } -> T.XHR
+            ext == "js" || ext == "mjs" -> T.SCRIPT
+            ext == "css" || accept.startsWith("text/css") -> T.STYLESHEET
+            ext in setOf("png", "jpg", "jpeg", "gif", "webp", "svg", "ico", "avif", "bmp") || accept.startsWith("image/") -> T.IMAGE
+            ext in setOf("woff", "woff2", "ttf", "otf", "eot") -> T.FONT
+            ext in setOf("mp4", "webm", "m3u8", "mpd", "ts", "m4s", "mp3", "aac", "ogg", "m4a") || accept.startsWith("video/") || accept.startsWith("audio/") -> T.MEDIA
+            accept.startsWith("text/html") -> T.SUBDOCUMENT
+            accept.contains("javascript") -> T.SCRIPT
+            url.startsWith("ws") -> T.WEBSOCKET
+            else -> T.OTHER
+        }
+    }
+
+    /** Hauptfenster: Schadseiten immer sperren; Werbe-Weiterleitungen (ohne Klick oder per Umleitung) ebenfalls. */
+    private fun blockNavigation(target: String, isRedirect: Boolean, gesture: Boolean): Boolean {
+        if (!adOn) return false
+        val e = adblocker.engine.value ?: return false
+        val host = runCatching { android.net.Uri.parse(target).host?.lowercase() }.getOrNull() ?: return false
+        val T = de.ostlertekker.ultraiptv.feature.web.adblock.FilterEngine.Type
+        val bad = runCatching {
+            e.shouldBlock(target, host, T.DOCUMENT, pageHost) ||
+                ((isRedirect || !gesture) && host != pageHost && e.shouldBlock(target, host, T.POPUP, pageHost))
+        }.getOrDefault(false)
+        if (bad) toastOnce("Werbe- bzw. Schadseite blockiert")
+        return bad
+    }
+
+    /** Allgemeine Werbeflächen-Regeln als Skript, das in jede Seite schon vor dem Laden eingesetzt wird. */
+    private fun registerGenericCss(e: de.ostlertekker.ultraiptv.feature.web.adblock.FilterEngine?) {
+        runCatching { docStartHandler?.remove() }
+        docStartHandler = null
+        if (e == null || !adOn) return
+        if (!androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) return
+        docStartHandler = runCatching {
+            androidx.webkit.WebViewCompat.addDocumentStartJavaScript(web, de.ostlertekker.ultraiptv.feature.web.adblock.AdblockScripts.genericCssScript(e.genericCss), setOf("*"))
+        }.onFailure { android.util.Log.w("UltraAdblock", "Skript nicht eingesetzt: ${it.message}") }.getOrNull()
+    }
+
+    /** Seitenspezifische Werbeflächen ausblenden (und Ausnahmen der Seite beachten). */
+    private fun injectCosmetics(view: WebView) {
+        if (!adOn) return
+        val host = pageHost ?: return
+        val e = adblocker.engine.value ?: return
+        val flags = pageFlags
+        val js = runCatching {
+            val noGeneric = flags?.allowAll == true || flags?.noElemHide == true || flags?.noGenericHide == true
+            val exceptions = e.genericExceptionsFor(host)
+            val specific = if (flags?.allowAll == true || flags?.noElemHide == true) "" else e.specificCss(host)
+            // Ohne Dokumentstart-Skript (alte WebView): allgemeine Regeln hier nachreichen
+            val fallback = if (docStartHandler == null && !noGeneric) e.genericCss.joinToString("\n") else ""
+            de.ostlertekker.ultraiptv.feature.web.adblock.AdblockScripts.cosmeticScript(specific + "\n" + fallback, noGeneric || exceptions.isNotEmpty(),
+                if (!noGeneric && exceptions.isNotEmpty()) e.genericCss.joinToString("\n") else "", exceptions)
+        }.getOrNull() ?: return
+        view.evaluateJavascript(js, null)
+    }
+
     private fun adblock() = prefs.getBoolean("adblock", true)
     private fun updateAdBtn() { adBtn.text = if (adblock()) "Werbeblocker an" else "Werbeblocker aus" }
 
@@ -346,11 +492,15 @@ class BrowserActivity : ComponentActivity() {
             KeyEvent.KEYCODE_DPAD_RIGHT -> if (cursor.x0 >= w - edge) scroll(0, step.toInt() * 3) else cursor.x0 = (cursor.x0 + step).coerceAtMost(w - 1)
             KeyEvent.KEYCODE_DPAD_UP -> {
                 val webTop = if (bar.visibility == View.VISIBLE) bar.height.toFloat() else 0f
-                // Am oberen Rand der Seite: erst nach oben scrollen; ist die Seite schon oben, geht der Zeiger in die Adressleiste
-                if (cursor.y0 <= webTop + edge && cursor.y0 > webTop - 1) scroll(-step.toInt() * 3) { moved ->
-                    if (!moved) { cursor.y0 = (cursor.y0 - step).coerceAtLeast(0f); cursor.invalidate() }
+                when {
+                    // In der Seite: höchstens bis an den oberen Seitenrand (nicht in einem Schritt darüber hinweg in die Adressleiste)
+                    cursor.y0 > webTop + edge -> cursor.y0 = (cursor.y0 - step).coerceAtLeast(webTop + 1f)
+                    // Am oberen Rand: nach oben scrollen; ist die Seite schon ganz oben, geht der Zeiger in die Adressleiste
+                    cursor.y0 > webTop - 1 -> scroll(-step.toInt() * 3) { moved ->
+                        if (!moved) { cursor.y0 = (webTop - 1f - step / 2).coerceAtLeast(0f); cursor.invalidate() }
+                    }
+                    else -> cursor.y0 = (cursor.y0 - step).coerceAtLeast(0f)
                 }
-                else cursor.y0 = (cursor.y0 - step).coerceAtLeast(0f)
             }
             KeyEvent.KEYCODE_DPAD_DOWN -> if (cursor.y0 >= h - edge) scroll(step.toInt() * 3) else cursor.y0 = (cursor.y0 + step).coerceAtMost(h - 1)
         }
