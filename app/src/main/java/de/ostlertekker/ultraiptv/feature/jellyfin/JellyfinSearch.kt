@@ -7,12 +7,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,7 +33,6 @@ import de.ostlertekker.ultraiptv.core.design.LocalUltraTheme
 import de.ostlertekker.ultraiptv.core.jellyfin.JellyfinRepository
 import de.ostlertekker.ultraiptv.core.jellyfin.JfItem
 import de.ostlertekker.ultraiptv.core.ui.FocusCard
-import de.ostlertekker.ultraiptv.core.ui.TvChip
 import de.ostlertekker.ultraiptv.core.ui.TvTextField
 import de.ostlertekker.ultraiptv.core.ui.UltraLoader
 import kotlinx.coroutines.Job
@@ -82,13 +78,11 @@ class JellyfinSearchViewModel @Inject constructor(
     private var seerrJob: Job? = null
     val results = MutableStateFlow<List<JfItem>>(emptyList())
     val total = MutableStateFlow(-1)
-    val genres = MutableStateFlow<List<String>>(emptyList())
     val error = MutableStateFlow<String?>(null)
     private var job: Job? = null
     private var loadingMore = false
 
     init {
-        viewModelScope.launch { runCatching { repo.genres() }.onSuccess { genres.value = it } }
         search(immediate = true)
     }
 
@@ -143,7 +137,7 @@ class JellyfinSearchViewModel @Inject constructor(
     }
 }
 
-/** Jellyfin-Suche: Suchbegriff plus Filter für Typ, Status, Genre, Jahrzehnt und Sortierung. */
+/** Jellyfin-Suche: reine Titelsuche (Filme, Serien, Folgen). */
 @Composable
 fun JellyfinSearchScreen(nav: NavController, vm: JellyfinSearchViewModel = hiltViewModel()) {
     val p = LocalUltraTheme.current.palette
@@ -151,7 +145,6 @@ fun JellyfinSearchScreen(nav: NavController, vm: JellyfinSearchViewModel = hiltV
     val f by vm.filter.collectAsStateWithLifecycle()
     val list by vm.results.collectAsStateWithLifecycle()
     val total by vm.total.collectAsStateWithLifecycle()
-    val genres by vm.genres.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
     val seerrHits by vm.seerrResults.collectAsStateWithLifecycle()
     var requestItem by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<de.ostlertekker.ultraiptv.core.seerr.SeerrItem?>(null) }
@@ -171,37 +164,12 @@ fun JellyfinSearchScreen(nav: NavController, vm: JellyfinSearchViewModel = hiltV
         TvTextField(f.query, { q -> vm.update { it.copy(query = q) } }, "Titel, Schauspieler oder Stichwort …",
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
 
-        FilterRow("Typ") {
-            listOf("" to "Filme & Serien", "Movie" to "Filme", "Series" to "Serien", "Episode" to "Folgen").forEach { (k, l) ->
-                item { TvChip(l, f.type == k, { vm.update { it.copy(type = k) } }) }
-            }
-        }
-        FilterRow("Status") {
-            listOf("" to "Alle", "IsUnplayed" to "Ungesehen", "IsPlayed" to "Gesehen", "IsFavorite" to "Favoriten").forEach { (k, l) ->
-                item { TvChip(l, f.status == k, { vm.update { it.copy(status = k) } }) }
-            }
-        }
-        FilterRow("Jahr") {
-            listOf(0 to "Alle", 2020 to "2020er", 2010 to "2010er", 2000 to "2000er", 1990 to "90er", 1980 to "80er", -1 to "Älter").forEach { (k, l) ->
-                item { TvChip(l, f.decade == k, { vm.update { it.copy(decade = k) } }) }
-            }
-        }
-        FilterRow("Sortierung") {
-            listOf("SortName" to "A–Z", "DateCreated" to "Neu hinzugefügt", "CommunityRating" to "Bewertung", "ProductionYear" to "Erscheinungsjahr").forEach { (k, l) ->
-                item { TvChip(l, f.sort == k, { vm.update { it.copy(sort = k) } }) }
-            }
-            if (!f.isDefault) item { TvChip("✕ Filter zurücksetzen", false, { vm.reset() }) }
-        }
-        if (genres.isNotEmpty()) FilterRow("Genre") {
-            item { TvChip("Alle", f.genre == null, { vm.update { it.copy(genre = null) } }) }
-            items(genres, key = { it }) { g -> TvChip(g, f.genre == g, { vm.update { it.copy(genre = g) } }) }
-        }
 
         error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp)) }
         // Seerr (optional): nicht vorhandene Titel direkt anfragen
         if (seerrHits.isNotEmpty()) SeerrRow("Nicht in deiner Bibliothek? Bei Seerr anfragen", seerrHits) { requestItem = it }
         if (total < 0) UltraLoader(Modifier.padding(top = 24.dp), "Suche läuft …")
-        else if (total == 0 && error == null) Text("Nichts gefunden – anderen Begriff oder weniger Filter probieren.",
+        else if (total == 0 && error == null) Text("Nichts gefunden – anderen Begriff probieren.",
             color = p.textDim, fontSize = 15.sp, modifier = Modifier.padding(top = 20.dp))
 
         LazyVerticalGrid(GridCells.Adaptive(160.dp), state = grid, horizontalArrangement = Arrangement.spacedBy(20.dp),
@@ -213,14 +181,5 @@ fun JellyfinSearchScreen(nav: NavController, vm: JellyfinSearchViewModel = hiltV
                     subtitle = t.subtitle, progress = item.progress)
             }
         }
-    }
-}
-
-@Composable
-private fun FilterRow(label: String, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
-    val p = LocalUltraTheme.current.palette
-    Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, color = p.textDim, fontSize = 13.sp, modifier = Modifier.width(92.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), content = content)
     }
 }
