@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.jellyfin
 
+import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
+import de.ostlertekker.ultraiptv.core.ui.FocusBleedH
+import de.ostlertekker.ultraiptv.core.ui.focusBleed
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -362,7 +365,7 @@ fun JellyfinLibraryScreen(nav: NavController, vm: JellyfinLibraryViewModel = hil
         error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 14.sp) }
         if (total < 0) UltraLoader(Modifier.padding(top = 30.dp), "Bibliothek wird geladen …")
         LazyVerticalGrid(GridCells.Adaptive(160.dp), state = grid, horizontalArrangement = Arrangement.spacedBy(20.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(top = 12.dp, bottom = 60.dp)) {
+            verticalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 12.dp + FocusBleedV, bottom = 60.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
             items(list.size, key = { list[it].id }, contentType = { "poster" }) { i ->
                 val it2 = list[i]
                 val t = vm.repo.tile(it2)
@@ -478,7 +481,7 @@ fun JellyfinMovieScreen(nav: NavController, vm: JellyfinItemViewModel = hiltView
         }
         if (similar.isNotEmpty()) Column(Modifier.align(Alignment.BottomStart).padding(start = 24.dp, bottom = 10.dp)) {
             Text("Ähnliche Titel", color = p.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 4.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
                 items(similar, key = { it.id }) { s ->
                     FocusCard(s.name, vm.repo.image(s), 84.dp, 124.dp, onClick = { openJellyfin(nav, context, vm.repo.tile(s), play = false) })
                 }
@@ -530,7 +533,7 @@ fun JellyfinSeriesScreen(nav: NavController, vm: JellyfinItemViewModel = hiltVie
             }
             error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 13.sp) }
             Spacer(Modifier.height(10.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
                 items(seasons, key = { it.id }) { st -> TvChip(st.name, st.id == season, { vm.selectSeason(st.id) }) }
             }
             Spacer(Modifier.height(10.dp))

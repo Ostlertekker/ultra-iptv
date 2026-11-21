@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.jellyfin
 
+import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
+import de.ostlertekker.ultraiptv.core.ui.FocusBleedH
+import de.ostlertekker.ultraiptv.core.ui.focusBleed
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -173,7 +176,7 @@ fun JellyfinSearchScreen(nav: NavController, vm: JellyfinSearchViewModel = hiltV
             color = p.textDim, fontSize = 15.sp, modifier = Modifier.padding(top = 20.dp))
 
         LazyVerticalGrid(GridCells.Adaptive(160.dp), state = grid, horizontalArrangement = Arrangement.spacedBy(20.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(top = 12.dp, bottom = 60.dp)) {
+            verticalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 12.dp + FocusBleedV, bottom = 60.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
             items(list.size, key = { list[it].id }, contentType = { "poster" }) { i ->
                 val item = list[i]
                 val t = vm.repo.tile(item)

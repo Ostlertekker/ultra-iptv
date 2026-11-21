@@ -71,6 +71,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -128,12 +129,29 @@ fun UltraThemeHost(settings: AppSettings, tier: DeviceTier, sounds: AudioExperie
     )
     val baseDensity = androidx.compose.ui.platform.LocalDensity.current
     val scale = settings.uiScale.coerceIn(0.8f, 1.3f)
+    // Automatische Bildschirmanpassung: Die Oberfläche ist für 960 dp Breite gebaut (Fire TV 1080p/4K).
+    // Melden Fernseher/Boxen eine andere Pixeldichte, wird auf diese Breite umgerechnet – damit sieht die App
+    // auf jedem Gerät gleich aus und nichts ragt über den Rand.
+    val baseConfig = androidx.compose.ui.platform.LocalConfiguration.current
+    val dm = androidx.compose.ui.platform.LocalContext.current.resources.displayMetrics
+    val widthPx = maxOf(dm.widthPixels, dm.heightPixels).toFloat()
+    val heightPx = minOf(dm.widthPixels, dm.heightPixels).toFloat()
+    val fit = if (widthPx > 0f) minOf(widthPx / 960f, heightPx / 540f) else baseDensity.density
+    val targetDensity = (if (kotlin.math.abs(fit - baseDensity.density) / baseDensity.density > 0.03f) fit else baseDensity.density) * scale
+    val config = remember(baseConfig, targetDensity) {
+        if (targetDensity == baseDensity.density) baseConfig
+        else android.content.res.Configuration(baseConfig).apply {
+            screenWidthDp = (widthPx / targetDensity).toInt(); screenHeightDp = (heightPx / targetDensity).toInt()
+            smallestScreenWidthDp = minOf(screenWidthDp, screenHeightDp); densityDpi = (targetDensity * 160).toInt()
+        }
+    }
     val prefs = remember(settings) { de.ostlertekker.ultraiptv.core.design.UiPrefs.from(settings) }
     CompositionLocalProvider(LocalUltraTheme provides theme, LocalUiSounds provides sounds,
         de.ostlertekker.ultraiptv.core.motion.LocalMotion provides motion,
         de.ostlertekker.ultraiptv.core.design.LocalUiPrefs provides prefs,
         LocalPerfMode provides true,
-        androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(baseDensity.density * scale, baseDensity.fontScale)) {
+        androidx.compose.ui.platform.LocalConfiguration provides config,
+        androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(targetDensity, baseDensity.fontScale)) {
         // Gewählte Schrift (oder Theme-Schrift aus dem Schriften-Paket) gilt für die gesamte Oberfläche
         val ff = theme.spec.fontFamily
         val global = settings.fontStyle > 0 || ff !in listOf(androidx.compose.ui.text.font.FontFamily.SansSerif, androidx.compose.ui.text.font.FontFamily.Serif,
@@ -894,4 +912,22 @@ private fun Modifier.longPressKeys(onLongClick: () -> Unit): Modifier {
 private fun entryDown(): Modifier {
     val e = LocalContentEntry.current
     return if (e.attached) Modifier.focusProperties { down = e.requester } else Modifier
+}
+
+/** Platz, den ein fokussiertes (vergrößertes) Element samt Rahmen seitlich bzw. oben/unten braucht. */
+val FocusBleedH = 18.dp
+val FocusBleedV = 14.dp
+
+/**
+ * Für Reihen und Raster: vergrößert den Zeichenbereich (und damit den Clip der Lazy-Liste) um [h]/[v] in jede Richtung,
+ * ohne das Layout zu verschieben. Zusammen mit gleich großem contentPadding bleibt die Position der Kacheln gleich,
+ * aber vergrößerte Kacheln und ihr Fokusrahmen werden am Rand nicht mehr abgeschnitten.
+ */
+fun Modifier.focusBleed(h: Dp = FocusBleedH, v: Dp = FocusBleedV): Modifier = this.layout { measurable, c ->
+    val hp = h.roundToPx(); val vp = v.roundToPx()
+    val wc = if (c.hasBoundedWidth) c.copy(minWidth = c.minWidth + 2 * hp, maxWidth = c.maxWidth + 2 * hp) else c
+    val cc = if (c.hasBoundedHeight) wc.copy(minHeight = c.minHeight + 2 * vp, maxHeight = c.maxHeight + 2 * vp) else wc
+    val p = measurable.measure(cc)
+    val w = (p.width - 2 * hp).coerceAtLeast(0); val hh = (p.height - 2 * vp).coerceAtLeast(0)
+    layout(w, hh) { p.place(-hp, -vp) }
 }

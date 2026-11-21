@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.series
 
+import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
+import de.ostlertekker.ultraiptv.core.ui.FocusBleedH
+import de.ostlertekker.ultraiptv.core.ui.focusBleed
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -167,7 +170,7 @@ fun SeriesScreen(nav: NavController, vm: SeriesViewModel = hiltViewModel()) {
         items(cats, key = { it }) { c -> de.ostlertekker.ultraiptv.feature.livetv.CategoryItem(c, c == cat) { vm.category.value = c } }
     }
     Column(Modifier.weight(0.75f).fillMaxHeight()) {
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
             items(SortOrder.entries, key = { it.name }) { s -> TvChip("↕ ${s.label}", s == sort, { vm.sort.value = s }) }
         }
         Spacer(Modifier.height(12.dp))
@@ -175,8 +178,7 @@ fun SeriesScreen(nav: NavController, vm: SeriesViewModel = hiltViewModel()) {
         LazyVerticalGrid(
             columns = GridCells.Adaptive(de.ostlertekker.ultraiptv.core.design.LocalUiPrefs.current.posterWidth), state = grid,
             horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(18.dp),
-            contentPadding = PaddingValues(top = 8.dp, bottom = 60.dp, start = 8.dp, end = 8.dp),
-        ) {
+            contentPadding = PaddingValues(start = 8.dp + FocusBleedH, end = 8.dp + FocusBleedH, top = 8.dp + FocusBleedV, bottom = 60.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
             items(list.size, key = { list[it].id }) { i ->
                 val s = list[i]
                 FocusCard(s.name, s.poster, 150.dp, 222.dp, onClick = { nav.navigate(Routes.seriesDetail(s.id)) }, subtitle = s.year, entranceIndex = i % 8)
@@ -280,7 +282,7 @@ fun SeriesDetailScreen(nav: NavController, vm: SeriesDetailViewModel = hiltViewM
             Spacer(Modifier.height(14.dp))
             if (loading && eps.isEmpty()) UltraLoader(label = "Episoden werden geladen …")
             if (!loading && eps.isEmpty()) Text(if (failed) "Episoden konnten nicht geladen werden." else "Keine Episoden vorhanden.", color = p.textDim)
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
                 items(seasons, key = { it }) { n -> TvChip("Staffel $n", n == season, { vm.season.value = n }) }
             }
             Spacer(Modifier.height(10.dp))
@@ -295,7 +297,7 @@ fun SeriesDetailScreen(nav: NavController, vm: SeriesDetailViewModel = hiltViewM
                 }
                 if (similar.isNotEmpty()) item {
                     Text("Ähnliche Serien", color = p.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp, bottom = 6.dp))
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
                         items(similar, key = { it.id }) { sm -> FocusCard(sm.name, sm.poster, 110.dp, 162.dp, onClick = { nav.navigate(Routes.seriesDetail(sm.id)) }) }
                     }
                 }

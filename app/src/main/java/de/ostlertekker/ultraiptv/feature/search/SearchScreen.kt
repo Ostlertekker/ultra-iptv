@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.search
 
+import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
+import de.ostlertekker.ultraiptv.core.ui.FocusBleedH
+import de.ostlertekker.ultraiptv.core.ui.focusBleed
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -76,20 +79,20 @@ fun SearchScreen(nav: NavController, vm: SearchViewModel = hiltViewModel()) {
         item { ScreenTitle("Suche", subtitle = "Nach Titel suchen – Sender, Filme, Serien und Episoden") }
         item { TvTextField(q, { vm.query.value = it }, "Titel eingeben (OK drücken für Tastatur)", modifier = Modifier.width(620.dp)) }
         if (q.isBlank() && history.isNotEmpty()) item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 10.dp)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 10.dp + FocusBleedV, bottom = 10.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
                 items(history, key = { it }) { h -> TvChip(h, false, { vm.query.value = h }) }
                 item { TvChip("Verlauf löschen", false, { vm.clearHistory() }) }
             }
         }
         item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 8.dp + FocusBleedV, bottom = 8.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
                 items(SearchFilter.entries, key = { it.name }) { f -> TvChip(f.label, f == filter, { vm.filter.value = f }) }
             }
         }
         if (q.trim().length >= 2 && r.isEmpty) item { Text("Keine Treffer für „$q“.", color = p.textDim, fontSize = 16.sp) }
         if (show(SearchFilter.LIVE) && r.channels.isNotEmpty()) item {
             SectionHeader("Live-TV (${r.channels.size})")
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
                 items(r.channels, key = { it.id }) { c ->
                     FocusCard(c.name, c.logo, 200.dp, 112.dp, contentScale = ContentScale.Fit, subtitle = c.category,
                         onClick = { vm.saveQuery(); context.openPlayer(ContentKind.LIVE, c.id, category = c.category) })
@@ -98,7 +101,7 @@ fun SearchScreen(nav: NavController, vm: SearchViewModel = hiltViewModel()) {
         }
         if (show(SearchFilter.MOVIES) && r.movies.isNotEmpty()) item {
             SectionHeader("Filme (${r.movies.size})")
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
                 items(r.movies, key = { it.id }) { m ->
                     FocusCard(m.name, m.poster, 150.dp, 222.dp, subtitle = listOfNotNull(m.year, m.genre).joinToString(" · ").ifBlank { null },
                         onClick = { vm.saveQuery(); nav.navigate(Routes.movie(m.id)) })
@@ -107,7 +110,7 @@ fun SearchScreen(nav: NavController, vm: SearchViewModel = hiltViewModel()) {
         }
         if (show(SearchFilter.SERIES) && r.series.isNotEmpty()) item {
             SectionHeader("Serien (${r.series.size})")
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
                 items(r.series, key = { it.id }) { s ->
                     FocusCard(s.name, s.poster, 150.dp, 222.dp, subtitle = s.year, onClick = { vm.saveQuery(); nav.navigate(Routes.seriesDetail(s.id)) })
                 }
@@ -115,7 +118,7 @@ fun SearchScreen(nav: NavController, vm: SearchViewModel = hiltViewModel()) {
         }
         if (show(SearchFilter.EPISODES) && r.episodes.isNotEmpty()) item {
             SectionHeader("Episoden (${r.episodes.size})")
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
                 items(r.episodes, key = { it.id }) { e ->
                     FocusCard(e.title, e.image, 240.dp, 135.dp, subtitle = "S${e.season} E${e.episode}",
                         onClick = { vm.saveQuery(); context.openPlayer(ContentKind.EPISODE, e.id) })

@@ -2,6 +2,12 @@
 
 package de.ostlertekker.ultraiptv.feature.livetv
 
+import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
+
+import de.ostlertekker.ultraiptv.core.ui.FocusBleedH
+
+import de.ostlertekker.ultraiptv.core.ui.focusBleed
+
 import androidx.compose.foundation.layout.offset
 import de.ostlertekker.ultraiptv.core.ui.outlineButton
 import androidx.compose.ui.input.key.type
@@ -281,7 +287,7 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
                     modifier = Modifier.weight(1f))
                 Text("${channels.size} Sender", color = p.textDim, fontSize = 13.sp)
             }
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 8.dp + FocusBleedV, bottom = 8.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
                 item { TvChip(if (sortByName) "↕ A–Z" else "↕ Nummer", false, { vm.sortByName.value = !sortByName }) }
                 item { TvChip("TV-Programm", false, { nav.navigate(Routes.epg(current.takeIf { !isVirtualCategory(it) })) }) }
                 if (current == CAT_FAVORITES && channels.size > 1) item {

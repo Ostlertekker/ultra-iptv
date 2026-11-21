@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.home
 
+import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
+import de.ostlertekker.ultraiptv.core.ui.FocusBleedH
+import de.ostlertekker.ultraiptv.core.ui.focusBleed
 import de.ostlertekker.ultraiptv.core.ui.outlineButton
 import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.foundation.background
@@ -326,7 +329,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
         if (cw.isNotEmpty()) item(key = "cw") {
             Column(pad) {
                 SectionHeader("Weiterschauen")
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 8.dp + FocusBleedV, bottom = 8.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
                     itemsIndexed(cw, key = { _, it -> it.kind + it.itemId }) { i, pr ->
                         FocusCard(pr.title, pr.image, 300.dp, 169.dp, entranceIndex = i,
                             onClick = {
@@ -349,7 +352,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
         if (favMovies.isNotEmpty() || favSeries.isNotEmpty()) item(key = "favVod") {
             Column(pad) {
                 SectionHeader("Meine Merkliste")
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 8.dp + FocusBleedV, bottom = 8.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
                     items(favMovies, key = { "m" + it.id }) { m -> FocusCard(m.name, m.poster, 150.dp, 222.dp, onClick = { nav.navigate(Routes.movie(m.id)) }, subtitle = m.year) }
                     items(favSeries, key = { "s" + it.id }) { se -> FocusCard(se.name, se.poster, 150.dp, 222.dp, onClick = { nav.navigate(Routes.seriesDetail(se.id)) }, subtitle = se.year) }
                 }
@@ -370,7 +373,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
 @Composable
 private fun SeriesRow(title: String, list: List<SeriesEntity>, onClick: (SeriesEntity) -> Unit) {
     SectionHeader(title)
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 8.dp + FocusBleedV, bottom = 8.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
         itemsIndexed(list, key = { _, s -> s.id }, contentType = { _, _ -> "poster" }) { i, s ->
             FocusCard(s.name, s.poster, 150.dp, 222.dp, onClick = { onClick(s) }, entranceIndex = i,
                 subtitle = listOfNotNull(s.year, s.rating?.takeIf { it > 0 }?.let { de.ostlertekker.ultraiptv.core.ui.ratingLabel(it) }).joinToString(" · ").ifBlank { null })
@@ -384,7 +387,7 @@ private fun ProgramRow(title: String, list: List<de.ostlertekker.ultraiptv.core.
     val now = System.currentTimeMillis()
     val fmt = remember { java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY) }
     SectionHeader(title)
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 8.dp + FocusBleedV, bottom = 8.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
         items(list, key = { it.channelId + it.startMs }, contentType = { "program" }) { pr ->
             val live = pr.startMs <= now && now < pr.endMs
             FocusCard(pr.title, pr.logo, 260.dp, 146.dp, onClick = { onClick(pr) }, contentScale = ContentScale.Fit,
@@ -418,7 +421,7 @@ private fun HeroButton(label: String, primary: Boolean = false, modifier: Modifi
 @Composable
 private fun MovieRow(title: String, movies: List<MovieEntity>, onClick: (MovieEntity) -> Unit) {
     SectionHeader(title)
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 8.dp + FocusBleedV, bottom = 8.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
         itemsIndexed(movies, key = { _, m -> m.id }, contentType = { _, _ -> "poster" }) { i, m ->
             FocusCard(m.name, m.poster, 150.dp, 222.dp, onClick = { onClick(m) }, entranceIndex = i,
                 subtitle = listOfNotNull(m.year, m.rating?.takeIf { it > 0 }?.let { de.ostlertekker.ultraiptv.core.ui.ratingLabel(it) }).joinToString(" · ").ifBlank { null })
@@ -429,7 +432,7 @@ private fun MovieRow(title: String, movies: List<MovieEntity>, onClick: (MovieEn
 @Composable
 private fun ChannelRow(title: String, channels: List<ChannelEntity>, onClick: (ChannelEntity) -> Unit) {
     SectionHeader(title)
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 8.dp + FocusBleedV, bottom = 8.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
         itemsIndexed(channels, key = { _, c -> c.id }, contentType = { _, _ -> "channel" }) { i, c ->
             FocusCard(c.name, c.logo, 240.dp, 135.dp, onClick = { onClick(c) }, entranceIndex = i, subtitle = c.category, contentScale = ContentScale.Fit)
         }

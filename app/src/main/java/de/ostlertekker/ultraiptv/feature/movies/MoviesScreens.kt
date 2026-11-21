@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.movies
 
+import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
+import de.ostlertekker.ultraiptv.core.ui.FocusBleedH
+import de.ostlertekker.ultraiptv.core.ui.focusBleed
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.aspectRatio
@@ -183,7 +186,7 @@ fun MoviesScreen(nav: NavController, vm: MoviesViewModel = hiltViewModel()) {
         items(cats, key = { it }) { c -> de.ostlertekker.ultraiptv.feature.livetv.CategoryItem(c, c == cat) { vm.category.value = c; vm.resetPaging() } }
     }
     Column(Modifier.weight(0.75f).fillMaxHeight()) {
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
             items(SortOrder.entries, key = { it.name }) { s -> TvChip("↕ ${s.label}", s == sort, { vm.sort.value = s; vm.resetPaging() }) }
         }
         Spacer(Modifier.height(12.dp))
@@ -191,8 +194,7 @@ fun MoviesScreen(nav: NavController, vm: MoviesViewModel = hiltViewModel()) {
         LazyVerticalGrid(
             columns = GridCells.Adaptive(de.ostlertekker.ultraiptv.core.design.LocalUiPrefs.current.posterWidth), state = grid,
             horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(18.dp),
-            contentPadding = PaddingValues(top = 8.dp, bottom = 60.dp, start = 8.dp, end = 8.dp),
-        ) {
+            contentPadding = PaddingValues(start = 8.dp + FocusBleedH, end = 8.dp + FocusBleedH, top = 8.dp + FocusBleedV, bottom = 60.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
             items(movies.size, key = { movies[it].id }, contentType = { "poster" }) { i ->
                 val m = movies[i]
                 FocusCard(m.name, m.poster, 150.dp, 222.dp, onClick = { nav.navigate(Routes.movie(m.id)) }, entranceIndex = i % 8,
@@ -288,7 +290,7 @@ fun MovieDetailScreen(nav: NavController, vm: MovieDetailViewModel = hiltViewMod
         }
         if (similar.isNotEmpty()) Column(Modifier.padding(top = 12.dp)) {
             Text("Ähnliche Titel", color = p.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 4.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
                 items(similar, key = { it.id }) { sm -> FocusCard(sm.name, sm.poster, 84.dp, 124.dp, onClick = { nav.navigate(Routes.movie(sm.id)) }) }
             }
         }

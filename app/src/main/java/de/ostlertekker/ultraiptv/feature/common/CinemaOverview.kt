@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.common
 
+import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
+import de.ostlertekker.ultraiptv.core.ui.FocusBleedH
+import de.ostlertekker.ultraiptv.core.ui.focusBleed
 import de.ostlertekker.ultraiptv.core.ui.outlineButton
 import androidx.compose.ui.draw.clip
 import androidx.compose.animation.Crossfade
@@ -107,7 +110,7 @@ fun CinemaOverview(
             item(key = "row_" + row.title) {
                 Column(Modifier.padding(horizontal = 24.dp)) {
                     SectionHeader(row.title)
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 8.dp + FocusBleedV, bottom = 8.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
                         items(row.tiles, key = { it.kind + it.id }, contentType = { if (row.landscape) "wide" else "poster" }) { t ->
                             if (row.landscape) FocusCard(t.title, t.backdrop ?: t.image, 280.dp, 158.dp, onClick = { if (t.resume) onPlay(t) else onOpen(t) },
                                 subtitle = t.subtitle, progress = t.progress, badge = t.badge, progressColor = t.progressColor)

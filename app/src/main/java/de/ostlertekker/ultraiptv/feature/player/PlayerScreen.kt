@@ -2,6 +2,14 @@
 
 package de.ostlertekker.ultraiptv.feature.player
 
+import androidx.compose.foundation.layout.PaddingValues
+
+import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
+
+import de.ostlertekker.ultraiptv.core.ui.FocusBleedH
+
+import de.ostlertekker.ultraiptv.core.ui.focusBleed
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -371,7 +379,7 @@ fun PlayerScreen(
                     }
                     val lbl: (String) -> (Boolean) -> Unit = { name -> { f -> if (f) ctlLabel = name else if (ctlLabel == name) ctlLabel = null } }
                     Row(Modifier.fillMaxWidth().crazyEntrance(1, overlayShown), verticalAlignment = Alignment.CenterVertically) {
-                        LazyRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        LazyRow(Modifier.weight(1f).focusBleed(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically, contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
                             item {
                                 TmIcon(if (ui.isPlaying) "Pause" else "Wiedergabe", { vm.togglePlay() }, lbl(if (ui.isPlaying) "Pause" else "Wiedergabe"), playFocus) { c ->
                                     if (ui.isPlaying) PauseGlyph(c) else Icon(Icons.Default.PlayArrow, null, tint = c, modifier = Modifier.size(24.dp))

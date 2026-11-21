@@ -1,5 +1,9 @@
 package de.ostlertekker.ultraiptv.feature.discover
 
+import androidx.compose.foundation.layout.PaddingValues
+import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
+import de.ostlertekker.ultraiptv.core.ui.FocusBleedH
+import de.ostlertekker.ultraiptv.core.ui.focusBleed
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -113,7 +117,7 @@ fun MatchCenterScreen(e: ScoreEvent, vm: DiscoverViewModel, onClose: () -> Unit)
             if (tab >= tabs.size) tab = 0
             val tabFocus = remember { FocusRequester() }
             LaunchedEffect(Unit) { kotlinx.coroutines.delay(150); runCatching { tabFocus.requestFocus() } }
-            LazyRow(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyRow(Modifier.padding(vertical = 10.dp).focusBleed(), horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
                 itemsIndexed(tabs) { i, t ->
                     TvChip(t.label, i == tab, { tab = i }, Modifier.then(if (i == tab) Modifier.focusRequester(tabFocus) else Modifier)
                         .onFocusChanged { if (it.isFocused) tab = i })
