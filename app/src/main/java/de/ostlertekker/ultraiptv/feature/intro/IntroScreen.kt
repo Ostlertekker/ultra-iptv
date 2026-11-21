@@ -108,7 +108,7 @@ fun IntroScreen(full: Boolean, soundEnabled: Boolean, sounds: AudioExperienceEng
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("OSTLERTEKKER PRESENTS", color = Color.White.copy(alpha = 0.55f), fontSize = 13.sp, letterSpacing = 6.sp,
+            Text("OstlerTekker&HorstyHaze Presents", color = Color.White.copy(alpha = 0.55f), fontSize = 13.sp, letterSpacing = 6.sp,
                 fontFamily = AppFonts.Inter, fontWeight = FontWeight.Medium,
                 modifier = Modifier.graphicsLayer {
                     val a = easeOutCubic(clamp01((time.floatValue - 0.15f) / 0.6f))
