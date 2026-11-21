@@ -44,9 +44,9 @@ class AdblockManager @Inject constructor(
                 "https://easylist-downloads.adblockplus.org/easyprivacy.txt")),
             FilterList("easylistgermany", "EasyList Germany", listOf("https://easylist.to/easylistgermany/easylistgermany.txt",
                 "https://easylist-downloads.adblockplus.org/easylistgermany.txt")),
-            FilterList("urlhaus", "URLhaus (Schadsoftware)", listOf("https://malware-filter.gitlab.io/malware-filter/urlhaus-filter-online.txt",
-                "https://curbengh.github.io/malware-filter/urlhaus-filter-online.txt",
-                "https://cdn.jsdelivr.net/gh/curbengh/urlhaus-filter/urlhaus-filter-online.txt"), malware = true),
+            FilterList("urlhaus", "URLhaus (Schadsoftware)", listOf("https://malware-filter.gitlab.io/malware-filter/urlhaus-filter-agh-online.txt",
+                "https://curbengh.github.io/malware-filter/urlhaus-filter-agh-online.txt",
+                "https://cdn.jsdelivr.net/gh/curbengh/urlhaus-filter/urlhaus-filter-agh-online.txt"), malware = true),
         )
     }
 
