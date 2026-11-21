@@ -1,0 +1,9 @@
+API 34 · AOSP TV on x86 · emulator
+Overlay-Berechtigung: SYSTEM_ALERT_WINDOW: allow
+Test 1 Neustart → App vorne: FEHLER ()
+Instanzen MainActivity: 0
+Broadcast: adb: device 'emulator-5554' not found
+Test 2 doppelte Bootmeldung: nicht prüfbar (Senden nicht erlaubt)
+Test 3 Standby ohne Doppelstart: OK (0 → 0 Instanz)
+Test 4 Absturz → neu geöffnet: FEHLER ()
+Test 5 Neustart-Sperre nach 2 Abstürzen: OK
