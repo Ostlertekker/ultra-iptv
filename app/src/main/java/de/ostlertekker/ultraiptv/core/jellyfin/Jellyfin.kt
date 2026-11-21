@@ -466,9 +466,35 @@ class JellyfinRepository @Inject constructor(
         }.joinToString(",")
     }
 
+    /**
+     * Tonformate, die dieses Gerät wirklich abspielen kann: eigener Decoder ODER Durchreichen an Fernseher/AV-Receiver (HDMI).
+     * Früher wurden z. B. DTS/AC3 pauschal gemeldet – hat das Gerät dafür keinen Decoder, kam das Bild ohne Ton.
+     * Jetzt lässt der Server nicht unterstützten Ton automatisch umwandeln (Bild bleibt im Original).
+     */
+    fun audioCodecs(): List<String> {
+        val caps = runCatching { @Suppress("DEPRECATION") androidx.media3.exoplayer.audio.AudioCapabilities.getCapabilities(context) }.getOrNull()
+        fun pass(enc: Int) = runCatching { caps?.supportsEncoding(enc) == true }.getOrDefault(false)
+        return buildList {
+            add("aac"); add("mp3")
+            if (hasDecoder("audio/ac3") || pass(androidx.media3.common.C.ENCODING_AC3)) add("ac3")
+            if (hasDecoder("audio/eac3") || pass(androidx.media3.common.C.ENCODING_E_AC3)) add("eac3")
+            if (hasDecoder("audio/vnd.dts") || pass(androidx.media3.common.C.ENCODING_DTS)) add("dts")
+            if (hasDecoder("audio/vnd.dts.hd") || pass(androidx.media3.common.C.ENCODING_DTS_HD)) add("dca")
+            if (hasDecoder("audio/true-hd") || pass(androidx.media3.common.C.ENCODING_DOLBY_TRUEHD)) add("truehd")
+            if (hasDecoder("audio/opus")) add("opus")
+            if (hasDecoder("audio/flac")) add("flac")
+            if (hasDecoder("audio/vorbis")) add("vorbis")
+            if (hasDecoder("audio/mpeg-L2")) add("mp2")
+            if (hasDecoder("audio/raw")) { add("pcm_s16le"); add("pcm_s24le") }
+        }.distinct()
+    }
+
     /** Geräteprofil für den Server – mit den Werten aus Einstellungen › Jellyfin (Bitrate, Audiokanäle). */
     private fun deviceProfile(maxBitrate: Int, audioChannels: Int): JsonObject {
         val video = videoCodecs
+        val audio = audioCodecs()
+        // Beim Umwandeln nur Formate verlangen, die sicher abspielbar sind (AAC zuerst)
+        val transAudio = listOf("aac", "ac3", "eac3", "mp3").filter { it in audio }.joinToString(",")
         return buildJsonObject {
             put("Name", "ULTRA IPTV")
             put("MaxStreamingBitrate", maxBitrate)
@@ -476,12 +502,12 @@ class JellyfinRepository @Inject constructor(
             put("DirectPlayProfiles", buildJsonArray {
                 add(buildJsonObject {
                     put("Container", "mp4,m4v,mkv,webm,ts,mov,avi"); put("Type", "Video")
-                    put("VideoCodec", video); put("AudioCodec", "aac,mp3,ac3,eac3,opus,flac,vorbis,mp2,dts")
+                    put("VideoCodec", video); put("AudioCodec", audio.joinToString(","))
                 })
             })
             put("TranscodingProfiles", buildJsonArray {
                 add(buildJsonObject {
-                    put("Container", "ts"); put("Type", "Video"); put("VideoCodec", "h264"); put("AudioCodec", "aac,ac3,eac3,mp3")
+                    put("Container", "ts"); put("Type", "Video"); put("VideoCodec", if (hasDecoder("video/hevc")) "h264,hevc" else "h264"); put("AudioCodec", transAudio)
                     put("Protocol", "hls"); put("Context", "Streaming"); put("MaxAudioChannels", audioChannels.toString()); put("MinSegments", 1); put("BreakOnNonKeyFrames", true)
                 })
             })
