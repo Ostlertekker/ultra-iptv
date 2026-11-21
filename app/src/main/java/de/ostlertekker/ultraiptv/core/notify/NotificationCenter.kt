@@ -264,7 +264,9 @@ class BootReceiver : BroadcastReceiver() {
         Thread {
             try {
                 // Zuerst öffnen (Einstellungen › Allgemein), danach Erinnerungen neu planen
-                if (AutoStart.isEnabled(app)) {
+                val first = AutoStart.claimBoot(app)
+                if (AutoStart.isEnabled(app) && !first) AutoStart.log(app, "Weitere Startmeldung (${intent.action?.substringAfterLast('.')}) – ignoriert")
+                if (AutoStart.isEnabled(app) && first) {
                     AutoStart.log(app, "Gerätestart gemeldet (${intent.action?.substringAfterLast('.')})")
                     if (AutoStart.canLaunch(app)) {
                         Thread.sleep(2_500) // kurz warten, bis der Startbildschirm des Geräts fertig ist
@@ -275,7 +277,7 @@ class BootReceiver : BroadcastReceiver() {
                     val center = EntryPointAccessors.fromApplication(app, NotifyEntryPoint::class.java).notificationCenter()
                     runBlocking { center.rescheduleAll() }
                 }
-                if (AutoStart.isEnabled(app)) Thread.sleep(9_500) // Empfänger offen halten, bis alle Startversuche erfolgt sind
+                if (AutoStart.isEnabled(app) && first) Thread.sleep(10_500) // Empfänger offen halten, bis alle Startversuche erfolgt sind
             } catch (e: Throwable) { runCatching { AutoStart.log(app, "Fehler: ${e.javaClass.simpleName}") }
             } finally { pending.finish() }
         }.start()

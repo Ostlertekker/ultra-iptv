@@ -21,6 +21,19 @@ class UltraApp : Application(), ImageLoaderFactory {
         super.onCreate()
         de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.install(this)
         credentialStore.init()
+        // Autostart: Sichtbarkeit (Erfolgsprüfung, Absturz im Vordergrund) und Standby-Erkennung – ohne Hintergrunddienst
+        de.ostlertekker.ultraiptv.core.notify.AutoStart.registerScreenState(this)
+        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+            override fun onActivityStarted(a: android.app.Activity) { de.ostlertekker.ultraiptv.core.notify.AutoStart.startedActivities++ }
+            override fun onActivityStopped(a: android.app.Activity) {
+                de.ostlertekker.ultraiptv.core.notify.AutoStart.startedActivities = (de.ostlertekker.ultraiptv.core.notify.AutoStart.startedActivities - 1).coerceAtLeast(0)
+            }
+            override fun onActivityResumed(a: android.app.Activity) { de.ostlertekker.ultraiptv.core.notify.AutoStart.markResumed() }
+            override fun onActivityCreated(a: android.app.Activity, b: android.os.Bundle?) {}
+            override fun onActivityPaused(a: android.app.Activity) {}
+            override fun onActivitySaveInstanceState(a: android.app.Activity, b: android.os.Bundle) {}
+            override fun onActivityDestroyed(a: android.app.Activity) {}
+        })
     }
 
     /** Bild-Cache passend zum Gerät: auf schwachen Sticks kleiner und mit RGB565. */

@@ -34,6 +34,7 @@ object StabilityGuard {
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
             runCatching { write(CRASH, "Absturz in Thread „${thread.name}“\n\n" + stack(error)) }
+            runCatching { de.ostlertekker.ultraiptv.core.notify.AutoStart.onCrash(context.applicationContext) }
             previous?.uncaughtException(thread, error)
         }
         startFreezeWatchdog()

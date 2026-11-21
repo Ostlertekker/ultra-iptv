@@ -91,6 +91,9 @@ class PlayerEngine @Inject constructor(
     private val settingsRepo: SettingsRepository,
 ) {
 
+    /** Für Einstellungen, die außerhalb von DataStore liegen (z. B. Autostart/Standby). */
+    val appContext: Context? get() = context
+
     private var exo: ExoPlayer? = null
     private var bufferProfile: BufferProfile? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
