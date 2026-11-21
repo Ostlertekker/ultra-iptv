@@ -258,10 +258,23 @@ class ReminderReceiver : BroadcastReceiver() {
 /** Plant Erinnerungen nach einem Geräteneustart neu. */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
-        val center = EntryPointAccessors.fromApplication(context.applicationContext, NotifyEntryPoint::class.java).notificationCenter()
+        if (intent.action !in BOOT_ACTIONS) return
+        val app = context.applicationContext
+        val center = EntryPointAccessors.fromApplication(app, NotifyEntryPoint::class.java).notificationCenter()
         val pending = goAsync()
-        Thread { try { runBlocking { center.rescheduleAll() } } finally { pending.finish() } }.start()
+        Thread {
+            try {
+                runCatching { runBlocking { center.rescheduleAll() } }
+                // Automatisch öffnen (Einstellungen › Allgemein): kurz warten, bis der Startbildschirm des Geräts fertig ist
+                if (AutoStart.isEnabled(app) && AutoStart.canLaunch(app)) { Thread.sleep(3_000); AutoStart.launch(app) }
+            } finally { pending.finish() }
+        }.start()
+    }
+
+    companion object {
+        /** Gerätestart – je nach Hersteller unter verschiedenen Namen gemeldet. */
+        val BOOT_ACTIONS = setOf(Intent.ACTION_BOOT_COMPLETED, "android.intent.action.QUICKBOOT_POWERON",
+            "com.htc.intent.action.QUICKBOOT_POWERON", "android.intent.action.REBOOT")
     }
 }
 

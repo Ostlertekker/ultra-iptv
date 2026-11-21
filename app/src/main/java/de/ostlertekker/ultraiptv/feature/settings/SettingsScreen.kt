@@ -559,7 +559,35 @@ private fun LazyListScope.generalPage(vm: SettingsViewModel, s: AppSettings) {
                 vm.set(Keys.START_ACTION, (s.startAction + 1) % 4)
             }
             SSwitch("Startintro anzeigen", s.introEnabled) { vm.set(Keys.INTRO, it) }
+            AutoStartSetting()
             SSwitch("Menü-Töne", s.uiSounds) { vm.set(Keys.UI_SOUNDS, it) }
+        }
+    }
+}
+
+/** „Nach dem Gerätestart automatisch öffnen“ inkl. nötiger Berechtigung ab Android 10. */
+@Composable
+private fun AutoStartSetting() {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val p = LocalUltraTheme.current.palette
+    var on by remember { mutableStateOf(de.ostlertekker.ultraiptv.core.notify.AutoStart.isEnabled(ctx)) }
+    var allowed by remember { mutableStateOf(de.ostlertekker.ultraiptv.core.notify.AutoStart.canLaunch(ctx)) }
+    var hint by remember { mutableStateOf<String?>(null) }
+    // Nach Rückkehr aus den Systemeinstellungen den Status aktualisieren
+    androidx.compose.runtime.LaunchedEffect(on) {
+        while (on && !allowed) { kotlinx.coroutines.delay(1500); allowed = de.ostlertekker.ultraiptv.core.notify.AutoStart.canLaunch(ctx) }
+    }
+    SSwitch("Nach dem Gerätestart automatisch öffnen", on,
+        subtitle = if (!on) "ULTRA IPTV startet selbst, wenn das Gerät eingeschaltet bzw. neu gestartet wird"
+            else if (allowed) "Aktiv – startet nach dem Einschalten bzw. Neustart des Geräts"
+            else "Noch eine Berechtigung nötig (siehe unten)") {
+        on = it; de.ostlertekker.ultraiptv.core.notify.AutoStart.setEnabled(ctx, it)
+        allowed = de.ostlertekker.ultraiptv.core.notify.AutoStart.canLaunch(ctx)
+    }
+    if (on && !allowed) {
+        SRow("Berechtigung erteilen: „Über anderen Apps einblenden“", hint ?: "Android verlangt sie ab Version 10 für den automatischen Start") {
+            hint = if (de.ostlertekker.ultraiptv.core.notify.AutoStart.openPermission(ctx)) "In der Liste „ULTRA IPTV“ erlauben, dann zurück"
+            else "Dieses Gerät hat dafür keine Einstellungsseite – einmalig per ADB: adb shell appops set ${ctx.packageName} SYSTEM_ALERT_WINDOW allow"
         }
     }
 }
