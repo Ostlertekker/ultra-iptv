@@ -165,7 +165,7 @@ class SeerrRepository @Inject constructor(
             delay(20_000)
             while (true) {
                 runCatching { checkAvailable() }
-                delay(15 * 60_000L)
+                delay(5 * 60_000L)
             }
         }
     }

@@ -478,7 +478,7 @@ private fun SeerrSettings(vm: SettingsViewModel, s: AppSettings) {
             SRow("Bei Seerr abmelden") { vm.seerr.logout(); msg = null }
             SSwitch("Reihe „Meine Anfragen“", s.seerrRequestsRow, "In der Jellyfin-Übersicht, mit Status jeder Anfrage") { vm.set(Keys.SEERR_REQUESTS_ROW, it) }
             SSwitch("Reihe „Entdecken“", s.seerrDiscoverRow, "Angesagte Filme und Serien aus Seerr, direkt anfragbar") { vm.set(Keys.SEERR_DISCOVER_ROW, it) }
-            SSwitch("Hinweis, wenn eine Anfrage verfügbar ist", s.seerrNotify, "Einblendung oben links (Prüfung alle 15 Minuten)") { vm.set(Keys.SEERR_NOTIFY, it) }
+            SSwitch("Hinweis, wenn eine Anfrage verfügbar ist", s.seerrNotify, "Einblendung oben links (Prüfung alle 5 Minuten)") { vm.set(Keys.SEERR_NOTIFY, it) }
         }
         msg?.let { Text(it, color = if (it.startsWith("⚠")) Color(0xFFFF8A80) else p.primary, fontSize = 14.sp,
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)) }
