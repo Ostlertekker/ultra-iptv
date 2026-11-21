@@ -101,6 +101,8 @@ dependencies {
     implementation(libs.media3.exoplayer.dash)
     implementation(libs.media3.ui)
     implementation(libs.media3.session)
+    // Eigener Software-Tondecoder (DTS, DTS-HD MA, TrueHD, AC3/E-AC3, FLAC, Opus …) – FFmpeg, nur LGPL-Teile
+    implementation(project(":ffmpeg"))
     implementation(libs.work.runtime)
 
     implementation(libs.hilt.android)

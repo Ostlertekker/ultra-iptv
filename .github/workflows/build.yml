@@ -42,7 +42,7 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 80
     env:
       VERSION_CODE: ${{ github.run_number }}
       VERSION_NAME: 1.0.${{ github.run_number }}
@@ -65,6 +65,28 @@ jobs:
           echo "ULTRA_KEYSTORE_PASSWORD=${{ secrets.ULTRA_KEYSTORE_PASSWORD }}" >> "$GITHUB_ENV"
           echo "ULTRA_KEY_ALIAS=${{ secrets.ULTRA_KEY_ALIAS }}" >> "$GITHUB_ENV"
           echo "ULTRA_KEY_PASSWORD=${{ secrets.ULTRA_KEY_PASSWORD }}" >> "$GITHUB_ENV"
+
+      # Eigener Software-Tondecoder: FFmpeg nur mit LGPL-Bausteinen (Audio-Decoder), einmal bauen und zwischenspeichern
+      - name: FFmpeg-Zwischenspeicher
+        id: ffcache
+        uses: actions/cache@v4
+        with:
+          path: ffmpeg/src/main/jni/ffmpeg
+          key: ffmpeg-6.0-lgpl-audio-ndk27-v1-${{ hashFiles('ffmpeg/src/main/jni/build_ffmpeg.sh') }}
+
+      - name: NDK und CMake bereitstellen
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.0.12077973" "cmake;3.22.1" > /dev/null || true
+          ls "$ANDROID_HOME/ndk"
+
+      - name: FFmpeg bauen (nur Ton-Decoder, LGPL) – nur wenn nicht zwischengespeichert
+        if: steps.ffcache.outputs.cache-hit != 'true'
+        run: |
+          rm -rf ffmpeg/src/main/jni/ffmpeg
+          git clone -q --depth 1 --branch release/6.0 https://github.com/FFmpeg/FFmpeg.git ffmpeg/src/main/jni/ffmpeg
+          ffmpeg/src/main/jni/build_ffmpeg.sh "$PWD/ffmpeg/src/main" "$ANDROID_HOME/ndk/27.0.12077973" linux-x86_64 25 \
+            ac3 eac3 dca truehd mlp flac alac opus vorbis mp3 mp2 pcm_mulaw pcm_alaw > ffmpeg-build.log 2>&1 || { tail -60 ffmpeg-build.log; exit 1; }
+          ls -la ffmpeg/src/main/jni/ffmpeg/android-libs/*
 
       - name: APKs bauen (Debug + Release)
         run: |

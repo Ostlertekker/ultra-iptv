@@ -471,6 +471,11 @@ class JellyfinRepository @Inject constructor(
      * Früher wurden z. B. DTS/AC3 pauschal gemeldet – hat das Gerät dafür keinen Decoder, kam das Bild ohne Ton.
      * Jetzt lässt der Server nicht unterstützten Ton automatisch umwandeln (Bild bleibt im Original).
      */
+    private val ffmpegAudio: Boolean by lazy {
+        runCatching { androidx.media3.decoder.ffmpeg.FfmpegLibrary.isAvailable() &&
+            androidx.media3.decoder.ffmpeg.FfmpegLibrary.supportsFormat(androidx.media3.common.MimeTypes.AUDIO_DTS) }.getOrDefault(false)
+    }
+
     fun audioCodecs(): List<String> {
         val caps = runCatching { @Suppress("DEPRECATION") androidx.media3.exoplayer.audio.AudioCapabilities.getCapabilities(context) }.getOrNull()
         fun pass(enc: Int) = runCatching { caps?.supportsEncoding(enc) == true }.getOrDefault(false)
@@ -486,6 +491,8 @@ class JellyfinRepository @Inject constructor(
             if (hasDecoder("audio/vorbis")) add("vorbis")
             if (hasDecoder("audio/mpeg-L2")) add("mp2")
             if (hasDecoder("audio/raw")) { add("pcm_s16le"); add("pcm_s24le") }
+            // Eigener FFmpeg-Tondecoder vorhanden → diese Formate kann die App selbst abspielen
+            if (ffmpegAudio) addAll(listOf("ac3", "eac3", "dts", "dca", "truehd", "flac", "opus", "vorbis", "mp2", "alac"))
         }.distinct()
     }
 

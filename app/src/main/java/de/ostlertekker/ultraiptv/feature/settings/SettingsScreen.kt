@@ -230,6 +230,16 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
                 SettingsCategory.UPDATES -> updatesSection(x, s, vm)
                 SettingsCategory.ABOUT -> {
                     aboutSection(vm)
+                    item { SHeader("Tondecoder") }
+                    item {
+                        val ok = remember { runCatching { androidx.media3.decoder.ffmpeg.FfmpegLibrary.isAvailable() }.getOrDefault(false) }
+                        SInfo("Software-Tondecoder", if (ok) "aktiv – FFmpeg ${runCatching { androidx.media3.decoder.ffmpeg.FfmpegLibrary.getVersion() }.getOrNull() ?: ""}".trim()
+                            else "nicht enthalten (Gerätedecoder/Server-Umwandlung)")
+                    }
+                    item {
+                        SInfo("Lizenz", "Diese App nutzt Bibliotheken des FFmpeg-Projekts (ffmpeg.org) unter der LGPL 2.1, nur Audio-Decoder. " +
+                            "Quellcode: github.com/FFmpeg/FFmpeg (release/6.0), Einbindung: AndroidX Media3 decoder_ffmpeg (Apache 2.0).")
+                    }
                     item { SHeader("Fehler") }
                     item {
                         val ctx = androidx.compose.ui.platform.LocalContext.current

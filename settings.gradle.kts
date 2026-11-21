@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "UltraIPTV"
 include(":app")
+include(":ffmpeg")

@@ -447,7 +447,9 @@ class PlayerEngine @Inject constructor(
             .build()
         val renderers = DefaultRenderersFactory(context)
             .setEnableDecoderFallback(true)
-            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
+            // Eigener FFmpeg-Tondecoder als Rückfallebene: zuerst Gerätedecoder bzw. Durchreichen an den Receiver,
+            // nur wenn das Gerät ein Tonformat (z. B. DTS-HD MA, TrueHD) nicht kann, dekodiert die App selbst
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
         val http = DefaultHttpDataSource.Factory()
             .setUserAgent(USER_AGENT)
             .setAllowCrossProtocolRedirects(true)
