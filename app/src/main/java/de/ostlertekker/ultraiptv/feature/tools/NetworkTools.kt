@@ -5,6 +5,35 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.Dp
+import de.ostlertekker.ultraiptv.core.ui.PulsingDot
+import de.ostlertekker.ultraiptv.core.ui.motionOk
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -77,7 +106,12 @@ data class SpeedState(
     val live: Double? = null,
     val server: String? = null,
     val error: String? = null,
+    /** Live-Messwerte der laufenden Phase (für die Verlaufskurve). */
+    val samples: List<Double> = emptyList(),
 )
+
+/** Balken in der App-Diagnose (Anteil 0..1). */
+data class DiagBar(val id: String, val label: String, val fraction: Float, val text: String)
 
 data class CheckRow(val name: String, val ok: Boolean?, val ms: Long? = null, val detail: String = "")
 
@@ -110,6 +144,10 @@ class NetworkToolsViewModel @Inject constructor(
     val speed = MutableStateFlow(SpeedState())
     val checks = MutableStateFlow<List<CheckRow>>(emptyList())
     val checking = MutableStateFlow(false)
+    /** Gerade laufende Prüfung (für die Dreh-Anzeige) und Gesamtzahl der Prüfungen. */
+    val checkCurrent = MutableStateFlow<String?>(null)
+    val checkTotal = 6
+    val wifiRssi = MutableStateFlow<Int?>(null)
     val info = MutableStateFlow<List<Pair<String, String>>>(emptyList())
     private var speedJob: Job? = null
 
@@ -126,9 +164,9 @@ class NetworkToolsViewModel @Inject constructor(
                 speed.value = speed.value.copy(server = server, phase = "Ping wird gemessen …")
                 val (ping, jitter) = ping()
                 speed.value = speed.value.copy(pingMs = ping, jitterMs = jitter, phase = "Download wird gemessen …")
-                val down = transfer(upload = false) { live -> speed.value = speed.value.copy(live = live) }
-                speed.value = speed.value.copy(downMbps = down, live = null, phase = "Upload wird gemessen …")
-                val up = transfer(upload = true) { live -> speed.value = speed.value.copy(live = live) }
+                val down = transfer(upload = false) { live -> speed.value = speed.value.copy(live = live, samples = speed.value.samples + live) }
+                speed.value = speed.value.copy(downMbps = down, live = null, samples = emptyList(), phase = "Upload wird gemessen …")
+                val up = transfer(upload = true) { live -> speed.value = speed.value.copy(live = live, samples = speed.value.samples + live) }
                 speed.value = speed.value.copy(upMbps = up, live = null, running = false, phase = "Fertig")
             } catch (e: kotlinx.coroutines.CancellationException) { throw e
             } catch (e: Exception) {
@@ -223,32 +261,43 @@ class NetworkToolsViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             checking.value = true
             val rows = ArrayList<CheckRow>()
-            fun publish(r: CheckRow) { rows += r; checks.value = rows.toList() }
             checks.value = emptyList()
-            // Internet
-            publish(probe("Internet", "https://cp.cloudflare.com/generate_204"))
-            // Namensauflösung (DNS)
-            publish(run {
+            // Nacheinander prüfen; jede Zeile bleibt kurz sichtbar „in Arbeit“ (nur Darstellung, Ergebnis bleibt echt)
+            fun step(name: String, block: () -> CheckRow) {
+                checkCurrent.value = name
+                val t0 = System.currentTimeMillis()
+                val r = block()
+                val rest = 280 - (System.currentTimeMillis() - t0)
+                if (rest > 0) Thread.sleep(rest)
+                rows += r; checks.value = rows.toList()
+            }
+            step("Internet") { probe("Internet", "https://cp.cloudflare.com/generate_204") }
+            step("Namensauflösung (DNS)") {
                 val t0 = System.nanoTime()
                 runCatching { java.net.InetAddress.getByName("example.org") }.fold(
                     { CheckRow("Namensauflösung (DNS)", true, (System.nanoTime() - t0) / 1_000_000, it.hostAddress ?: "") },
                     { CheckRow("Namensauflösung (DNS)", false, detail = it.message ?: "Fehler") })
-            })
+            }
             // IPTV-Anbieter (nur Serveradresse, keine Zugangsdaten)
-            val cfg = runCatching { creds.load() }.getOrNull()
-            val providerUrl = cfg?.let { c -> (c.server.ifBlank { c.m3uUrl }).takeIf { it.isNotBlank() } }
-            publish(if (providerUrl == null) CheckRow("IPTV-Anbieter", null, detail = "Keine Quelle eingerichtet")
-                else probe("IPTV-Anbieter", originOf(providerUrl), anyHttpIsOk = true))
-            // Jellyfin
-            val jf = jellyfin.session.value ?: runCatching { jellyfin.restore() }.getOrNull()
-            publish(if (jf == null) CheckRow("Jellyfin", null, detail = "Nicht angemeldet")
-                else probe("Jellyfin", jf.server.trimEnd('/') + "/System/Info/Public"))
-            // Seerr
-            val st = seerr.state.value
-            publish(if (!st.loggedIn) CheckRow("Seerr", null, detail = "Nicht verbunden")
-                else probe("Seerr", st.server.trimEnd('/') + "/api/v1/status"))
+            step("IPTV-Anbieter") {
+                val cfg = runCatching { creds.load() }.getOrNull()
+                val providerUrl = cfg?.let { c -> (c.server.ifBlank { c.m3uUrl }).takeIf { it.isNotBlank() } }
+                if (providerUrl == null) CheckRow("IPTV-Anbieter", null, detail = "Keine Quelle eingerichtet")
+                else probe("IPTV-Anbieter", originOf(providerUrl), anyHttpIsOk = true)
+            }
+            step("Jellyfin") {
+                val jf = jellyfin.session.value ?: runCatching { jellyfin.restore() }.getOrNull()
+                if (jf == null) CheckRow("Jellyfin", null, detail = "Nicht angemeldet")
+                else probe("Jellyfin", jf.server.trimEnd('/') + "/System/Info/Public")
+            }
+            step("Seerr") {
+                val st = seerr.state.value
+                if (!st.loggedIn) CheckRow("Seerr", null, detail = "Nicht verbunden")
+                else probe("Seerr", st.server.trimEnd('/') + "/api/v1/status")
+            }
             // Filterlisten (Browser-Werbeblocker)
-            publish(probe("Filterlisten (Werbeblocker)", "https://easylist.to/", anyHttpIsOk = true))
+            step("Filterlisten (Werbeblocker)") { probe("Filterlisten (Werbeblocker)", "https://easylist.to/", anyHttpIsOk = true) }
+            checkCurrent.value = null
             checking.value = false
         }
     }
@@ -273,6 +322,7 @@ class NetworkToolsViewModel @Inject constructor(
     // ---------------------------------------------------------------- App-Diagnose
 
     val diag = MutableStateFlow<List<Pair<String, String>>>(emptyList())
+    val diagBars = MutableStateFlow<List<DiagBar>>(emptyList())
     val lastErrors = MutableStateFlow<String?>(null)
 
     private fun sizeOf(f: java.io.File?): Long = when {
@@ -281,29 +331,39 @@ class NetworkToolsViewModel @Inject constructor(
         else -> f.listFiles()?.sumOf { sizeOf(it) } ?: 0L
     }
 
+    private fun frac(a: Long, b: Long): Float = if (b <= 0) 0f else (a.toDouble() / b).toFloat().coerceIn(0f, 1f)
+
     private fun mb(b: Long) = "%.1f MB".format(java.util.Locale.GERMANY, b / 1_048_576.0)
 
     fun loadDiag() {
         viewModelScope.launch(Dispatchers.IO) {
             val out = ArrayList<Pair<String, String>>()
+            val bars = ArrayList<DiagBar>()
             out += "App-Version" to "${de.ostlertekker.ultraiptv.BuildConfig.VERSION_NAME} (${de.ostlertekker.ultraiptv.BuildConfig.VERSION_CODE})"
             out += "Gerät" to "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}"
             out += "Android" to "${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})"
             val rt = Runtime.getRuntime()
             out += "Arbeitsspeicher der App" to "${mb(rt.totalMemory() - rt.freeMemory())} von max. ${mb(rt.maxMemory())}"
+            bars += DiagBar("ram_app", "Arbeitsspeicher der App", frac(rt.totalMemory() - rt.freeMemory(), rt.maxMemory()), mb(rt.totalMemory() - rt.freeMemory()))
             ctx.getSystemService(android.app.ActivityManager::class.java)?.let { am ->
                 val mi = android.app.ActivityManager.MemoryInfo(); am.getMemoryInfo(mi)
                 out += "Arbeitsspeicher des Geräts" to "${mb(mi.availMem)} frei von ${mb(mi.totalMem)}" + if (mi.lowMemory) " · knapp!" else ""
+                bars += DiagBar("ram_dev", "Arbeitsspeicher des Geräts", frac(mi.totalMem - mi.availMem, mi.totalMem), "${mb(mi.totalMem - mi.availMem)} belegt")
             }
-            out += "Cache (Bilder, Web …)" to mb(sizeOf(ctx.cacheDir))
+            val cacheB = sizeOf(ctx.cacheDir)
+            out += "Cache (Bilder, Web …)" to mb(cacheB)
             val dbDir = ctx.getDatabasePath("x").parentFile
+            val appTotal = sizeOf(ctx.filesDir) + sizeOf(dbDir) + cacheB
             out += "Datenbank (Sender, Filme, EPG)" to mb(sizeOf(dbDir))
-            out += "App-Daten gesamt" to mb(sizeOf(ctx.filesDir) + sizeOf(dbDir) + sizeOf(ctx.cacheDir))
+            out += "App-Daten gesamt" to mb(appTotal)
+            bars += DiagBar("cache", "Cache (Anteil an App-Daten)", frac(cacheB, appTotal), mb(cacheB))
             runCatching { android.os.StatFs(ctx.filesDir.path) }.getOrNull()?.let { st ->
                 out += "Freier Gerätespeicher" to "${mb(st.availableBytes)} von ${mb(st.totalBytes)}"
+                bars += DiagBar("disk", "Gerätespeicher", frac(st.totalBytes - st.availableBytes, st.totalBytes), "${mb(st.totalBytes - st.availableBytes)} belegt")
             }
             out += "Software-Tondecoder" to (if (runCatching { androidx.media3.decoder.ffmpeg.FfmpegLibrary.isAvailable() }.getOrDefault(false)) "aktiv" else "nicht verfügbar")
             diag.value = out
+            diagBars.value = bars.sortedBy { listOf("ram_app", "ram_dev", "disk", "cache").indexOf(it.id) }
             lastErrors.value = listOfNotNull(
                 de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.lastCrash(ctx)?.let { "ABSTURZ\n$it" },
                 de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.lastFreeze(ctx)?.let { "HÄNGER\n$it" },
@@ -315,6 +375,8 @@ class NetworkToolsViewModel @Inject constructor(
     fun clearCache(onDone: (String) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             val before = sizeOf(ctx.cacheDir)
+            // Cache-Balken sofort auf 0 laufen lassen
+            diagBars.value = diagBars.value.map { if (it.id == "cache") it.copy(fraction = 0f, text = "wird geleert …") else it }
             ctx.cacheDir.listFiles()?.forEach { runCatching { it.deleteRecursively() } }
             withContext(Dispatchers.Main) {
                 runCatching { coil.Coil.imageLoader(ctx).memoryCache?.clear() }
@@ -336,6 +398,7 @@ class NetworkToolsViewModel @Inject constructor(
     fun loadInfo() {
         viewModelScope.launch(Dispatchers.IO) {
             val out = ArrayList<Pair<String, String>>()
+            wifiRssi.value = null
             val cm = ctx.getSystemService(ConnectivityManager::class.java)
             val net = cm?.activeNetwork
             val caps = net?.let { cm.getNetworkCapabilities(it) }
@@ -355,6 +418,7 @@ class NetworkToolsViewModel @Inject constructor(
                     val f = wi.frequency
                     if (f > 0) out += "WLAN-Band" to when { f >= 5925 -> "6 GHz"; f >= 4900 -> "5 GHz"; else -> "2,4 GHz" } + " (Kanal-Frequenz $f MHz)"
                     val rssi = wi.rssi
+                    if (rssi > -127 && rssi < 0) wifiRssi.value = rssi
                     out += "Signalstärke" to "$rssi dBm · " + when { rssi >= -55 -> "sehr gut"; rssi >= -67 -> "gut"; rssi >= -75 -> "mittel"; else -> "schwach" }
                     if (wi.linkSpeed > 0) out += "Verbindungsrate" to "${wi.linkSpeed} Mbit/s"
                 }
@@ -388,10 +452,13 @@ class NetworkToolsViewModel @Inject constructor(
 
 private enum class Tool(val label: String) { SPEED("Speedtest"), CHECK("Verbindungs-Check"), INFO("Netzwerk-Infos"), DIAG("App-Diagnose") }
 
-/** „Mehr“: Netzwerk-Werkzeuge. */
+private val Good = Color(0xFF4ADE80)
+private val Warn = Color(0xFFFFC857)
+private val Bad = Color(0xFFFF6B6B)
+
+/** „Tools“: Netzwerk-Werkzeuge und App-Diagnose. */
 @Composable
 fun ToolsScreen(vm: NetworkToolsViewModel = hiltViewModel()) {
-    val p = LocalUltraTheme.current.palette
     var tool by remember { mutableStateOf(Tool.SPEED) }
     Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 12.dp)) {
         ScreenTitle("Tools", subtitle = "Netzwerk prüfen und App-Zustand – Geschwindigkeit, Erreichbarkeit, Verbindungsdaten, Diagnose")
@@ -406,6 +473,136 @@ fun ToolsScreen(vm: NetworkToolsViewModel = hiltViewModel()) {
             Tool.DIAG -> DiagPane(vm)
         }
     }
+}
+
+// ---------------------------------------------------------------- Animations-Bausteine
+
+/** Zählt beim Eintreffen eines Endwerts kurz von 0 hoch (4). */
+@Composable
+private fun countUp(final: Double?): Double? {
+    val ok = motionOk()
+    val a = remember { Animatable(0f) }
+    LaunchedEffect(final) {
+        if (final == null) return@LaunchedEffect
+        if (!ok) { a.snapTo(final.toFloat()); return@LaunchedEffect }
+        a.snapTo(0f); a.animateTo(final.toFloat(), tween(700, easing = FastOutSlowInEasing))
+    }
+    return final?.let { a.value.toDouble() }
+}
+
+/** Wert läuft beim ersten Anzeigen von 0 auf das Ziel (Balken 8/10/11). */
+@Composable
+private fun growTo(target: Float, durationMs: Int = 650, delayMs: Long = 0): Float {
+    val ok = motionOk()
+    val a = remember { Animatable(if (ok) 0f else target) }
+    LaunchedEffect(target) {
+        if (!ok) { a.snapTo(target); return@LaunchedEffect }
+        if (delayMs > 0 && a.value == 0f) delay(delayMs)
+        a.animateTo(target, tween(durationMs, easing = FastOutSlowInEasing))
+    }
+    return a.value
+}
+
+/** Weiches Einblenden mit kleinem Versatz, gestaffelt nach Index (9). */
+@Composable
+private fun Modifier.staggerIn(index: Int): Modifier {
+    val ok = motionOk()
+    val a = remember { Animatable(if (ok) 0f else 1f) }
+    LaunchedEffect(Unit) { if (ok) { delay(index.coerceAtMost(12) * 45L); a.animateTo(1f, tween(260)) } }
+    return this.graphicsLayer { alpha = a.value; translationX = (1f - a.value) * 24.dp.toPx() }
+}
+
+/** Kurzes Aufploppen beim Erscheinen (6, 11). */
+@Composable
+private fun Modifier.popIn(): Modifier {
+    val ok = motionOk()
+    val a = remember { Animatable(if (ok) 0.4f else 1f) }
+    LaunchedEffect(Unit) { if (ok) a.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMediumLow)) }
+    return this.graphicsLayer { scaleX = a.value; scaleY = a.value; alpha = ((a.value - 0.4f) / 0.6f).coerceIn(0f, 1f) }
+}
+
+/** Logarithmische Tacho-Skala 0 … 1000 Mbit/s. */
+private fun gaugeFrac(v: Double): Float = (kotlin.math.ln(1 + v.coerceAtLeast(0.0)) / kotlin.math.ln(1001.0)).toFloat().coerceIn(0f, 1f)
+
+/** (1) Tacho mit nachfedernder Nadel. */
+@Composable
+private fun SpeedGauge(value: Double, label: String, modifier: Modifier = Modifier) {
+    val p = LocalUltraTheme.current.palette
+    val ok = motionOk()
+    val target = gaugeFrac(value)
+    val a = remember { Animatable(0f) }
+    LaunchedEffect(target) {
+        if (ok) a.animateTo(target, spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessLow)) else a.snapTo(target)
+    }
+    Box(modifier.width(250.dp).height(150.dp), contentAlignment = Alignment.BottomCenter) {
+        Canvas(Modifier.fillMaxSize()) {
+            val stroke = 14.dp.toPx()
+            val r = minOf(size.width / 2f, size.height) - stroke
+            val c = Offset(size.width / 2f, size.height - stroke / 2f)
+            val tl = Offset(c.x - r, c.y - r); val sz = Size(2 * r, 2 * r)
+            drawArc(p.surface.copy(alpha = 0.8f), 180f, 180f, false, tl, sz, style = Stroke(stroke, cap = StrokeCap.Round))
+            val f = a.value.coerceIn(0f, 1.04f)
+            if (f > 0.002f) drawArc(Brush.sweepGradient(listOf(p.primary.copy(alpha = 0.6f), p.primary, p.primary.copy(alpha = 0.6f)), c),
+                180f, 180f * f.coerceAtMost(1f), false, tl, sz, style = Stroke(stroke, cap = StrokeCap.Round))
+            // Skalenstriche bei 1, 10, 100, 1000
+            listOf(1.0, 10.0, 100.0, 1000.0).forEach { m ->
+                val ang = Math.toRadians(180.0 + 180.0 * gaugeFrac(m))
+                val o = Offset(c.x + (r + stroke).times(kotlin.math.cos(ang)).toFloat(), c.y + (r + stroke).times(kotlin.math.sin(ang)).toFloat())
+                val i2 = Offset(c.x + (r + stroke * 0.6f).times(kotlin.math.cos(ang)).toFloat(), c.y + (r + stroke * 0.6f).times(kotlin.math.sin(ang)).toFloat())
+                drawLine(p.textDim.copy(alpha = 0.6f), i2, o, 2.dp.toPx())
+            }
+            val ang = Math.toRadians(180.0 + 180.0 * f)
+            val len = r - stroke * 1.2f
+            val end = Offset(c.x + (len * kotlin.math.cos(ang)).toFloat(), c.y + (len * kotlin.math.sin(ang)).toFloat())
+            drawLine(p.text, c, end, 4.dp.toPx(), cap = StrokeCap.Round)
+            drawCircle(p.text, 7.dp.toPx(), c)
+        }
+        Text(label, color = p.textDim, fontSize = 12.sp, modifier = Modifier.padding(bottom = 22.dp))
+    }
+}
+
+/** (2) Live-Verlaufskurve der laufenden Messphase. */
+@Composable
+private fun Sparkline(samples: List<Double>, modifier: Modifier = Modifier) {
+    val p = LocalUltraTheme.current.palette
+    Canvas(modifier.width(420.dp).height(64.dp).clip(RoundedCornerShape(10.dp)).background(p.surface.copy(alpha = 0.35f))) {
+        if (samples.size < 2) return@Canvas
+        val max = (samples.maxOrNull() ?: 1.0).coerceAtLeast(1.0) * 1.15
+        val n = maxOf(samples.size - 1, 36) // ~9 s bei 250 ms: Kurve wächst von links nach rechts
+        val pad = 6.dp.toPx()
+        fun pt(i: Int) = Offset(pad + (size.width - 2 * pad) * i / n, size.height - pad - (size.height - 2 * pad) * (samples[i] / max).toFloat())
+        val line = Path().apply { moveTo(pt(0).x, pt(0).y); for (i in 1 until samples.size) lineTo(pt(i).x, pt(i).y) }
+        val fill = Path().apply { addPath(line); lineTo(pt(samples.size - 1).x, size.height - pad); lineTo(pt(0).x, size.height - pad); close() }
+        drawPath(fill, Brush.verticalGradient(listOf(p.primary.copy(alpha = 0.35f), Color.Transparent)))
+        drawPath(line, p.primary, style = Stroke(2.5.dp.toPx(), cap = StrokeCap.Round))
+        drawCircle(p.primary, 3.5.dp.toPx(), pt(samples.size - 1))
+    }
+}
+
+/** (3) Phasen-Anzeige Ping → Download → Upload. */
+@Composable
+private fun PhaseSteps(s: SpeedState) {
+    val p = LocalUltraTheme.current.palette
+    Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
+        listOf("Ping" to s.pingMs, "Download" to s.downMbps, "Upload" to s.upMbps).forEach { (name, v) ->
+            val active = s.running && s.phase.startsWith(name)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.width(18.dp), contentAlignment = Alignment.Center) {
+                    when {
+                        v != null -> Text("✓", color = Good, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.popIn())
+                        active -> PulsingDot(p.primary, 10.dp)
+                        else -> Box(Modifier.size(8.dp).background(p.textDim.copy(alpha = 0.4f), CircleShape))
+                    }
+                }
+                Text(" $name", color = if (active || v != null) p.text else p.textDim, fontSize = 15.sp,
+                    fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal)
+            }
+        }
+    }
+}
+
+private fun ratingColor(mbps: Double): Color = when {
+    mbps >= 25 -> Good; mbps >= 10 -> Color(0xFFA3E635); mbps >= 5 -> Warn; mbps >= 2.5 -> Color(0xFFFF9F43); else -> Bad
 }
 
 @Composable
@@ -426,22 +623,54 @@ private fun fmt(v: Double?, digits: Int = 1): String = v?.let { "%.${digits}f".f
 private fun SpeedPane(vm: NetworkToolsViewModel) {
     val p = LocalUltraTheme.current.palette
     val s by vm.speed.collectAsStateWithLifecycle()
+    val ok = motionOk()
+    val pingC = countUp(s.pingMs)
+    val downC = countUp(s.downMbps)
+    val upC = countUp(s.upMbps)
+    val inDown = s.downMbps == null && s.phase.startsWith("Download")
+    val inUp = s.upMbps == null && s.phase.startsWith("Upload")
     Column {
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Stat("Ping", fmt(s.pingMs, 0), "ms", Modifier.width(200.dp))
-            Stat("Download", fmt(if (s.downMbps == null && s.phase.startsWith("Download")) s.live else s.downMbps), "Mbit/s", Modifier.width(260.dp))
-            Stat("Upload", fmt(if (s.upMbps == null && s.phase.startsWith("Upload")) s.live else s.upMbps), "Mbit/s", Modifier.width(260.dp))
+            Stat("Ping", fmt(pingC, 0), "ms", Modifier.width(200.dp))
+            Stat("Download", fmt(if (inDown) s.live else downC), "Mbit/s", Modifier.width(260.dp))
+            Stat("Upload", fmt(if (inUp) s.live else upC), "Mbit/s", Modifier.width(260.dp))
         }
-        Spacer(Modifier.height(14.dp))
-        val sub = listOfNotNull(s.phase.ifBlank { null }, s.jitterMs?.let { "Jitter ${fmt(it, 0)} ms" }, s.server?.let { "Messserver: $it" }).joinToString(" · ")
-        if (sub.isNotBlank()) Text(sub, color = p.textDim, fontSize = 15.sp)
-        s.downMbps?.let { Text(streamRating(it), color = p.primary, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp)) }
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.CenterVertically) {
+            val gaugeVal = when { inDown || inUp -> s.live ?: 0.0; s.running -> 0.0; else -> s.upMbps?.let { s.downMbps } ?: s.downMbps ?: 0.0 }
+            SpeedGauge(gaugeVal, when { inDown -> "Download"; inUp -> "Upload"; s.downMbps != null -> "Download"; else -> "Mbit/s" })
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                PhaseSteps(s)
+                if (s.samples.size >= 2 || inDown || inUp) Sparkline(s.samples)
+                val sub = listOfNotNull(s.phase.ifBlank { null }, s.jitterMs?.let { "Jitter ${fmt(it, 0)} ms" }, s.server?.let { "Messserver: $it" }).joinToString(" · ")
+                if (sub.isNotBlank()) Text(sub, color = p.textDim, fontSize = 14.sp)
+            }
+        }
+        // (5) Bewertung gleitet mit farbigem Rand ein
+        AnimatedVisibility(visible = s.downMbps != null,
+            enter = if (ok) fadeIn(tween(350)) + slideInVertically(tween(350)) { it / 2 } else EnterTransition.None,
+            exit = if (ok) fadeOut(tween(200)) else ExitTransition.None) {
+            val d = s.downMbps ?: 0.0
+            Text(streamRating(d), color = p.text, fontSize = 19.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(top = 10.dp).clip(RoundedCornerShape(12.dp))
+                    .border(2.dp, ratingColor(d), RoundedCornerShape(12.dp))
+                    .background(ratingColor(d).copy(alpha = 0.12f)).padding(horizontal = 16.dp, vertical = 8.dp))
+        }
         s.error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 15.sp, modifier = Modifier.padding(top = 8.dp)) }
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(14.dp))
         TvButton(if (s.running) "Test läuft …" else if (s.downMbps != null) "Erneut testen" else "Test starten",
             onClick = { if (!s.running) vm.startSpeedtest() }, primary = true, enabled = !s.running)
         Text("Gemessen wird zum nächstgelegenen Cloudflare-Server (etwa 20 Sekunden, bis zu einige 100 MB Datenverbrauch bei schnellen Leitungen).",
             color = p.textDim.copy(alpha = 0.8f), fontSize = 12.sp, modifier = Modifier.padding(top = 10.dp))
+    }
+}
+
+/** Dünner Fortschritts-/Füllbalken mit weich laufendem Wert. */
+@Composable
+private fun Bar(fraction: Float, color: Color, modifier: Modifier = Modifier, height: Dp = 4.dp) {
+    val p = LocalUltraTheme.current.palette
+    Box(modifier.height(height).clip(RoundedCornerShape(height)).background(p.surface.copy(alpha = 0.7f))) {
+        Box(Modifier.fillMaxHeight().fillMaxWidth(fraction.coerceIn(0f, 1f)).clip(RoundedCornerShape(height)).background(color))
     }
 }
 
@@ -450,9 +679,17 @@ private fun CheckPane(vm: NetworkToolsViewModel) {
     val p = LocalUltraTheme.current.palette
     val rows by vm.checks.collectAsStateWithLifecycle()
     val busy by vm.checking.collectAsStateWithLifecycle()
+    val current by vm.checkCurrent.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { if (rows.isEmpty()) vm.runChecks() }
     Column {
-        TvButton(if (busy) "Prüfe …" else "Erneut prüfen", onClick = { vm.runChecks() }, primary = true, enabled = !busy)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            TvButton(if (busy) "Prüfe …" else "Erneut prüfen", onClick = { vm.runChecks() }, primary = true, enabled = !busy)
+            Text("${rows.size} / ${vm.checkTotal}", color = p.textDim, fontSize = 14.sp)
+        }
+        Spacer(Modifier.height(10.dp))
+        // (7) Fortschrittsbalken
+        val prog by animateFloatAsState(rows.size / vm.checkTotal.toFloat(), if (motionOk()) tween(300) else snap(), label = "chk")
+        Bar(prog, if (!busy && rows.any { it.ok == false }) Warn else p.primary, Modifier.fillMaxWidth())
         Spacer(Modifier.height(12.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 60.dp)) {
             items(rows, key = { it.name }) { r ->
@@ -460,15 +697,44 @@ private fun CheckPane(vm: NetworkToolsViewModel) {
                 Row(Modifier.fillMaxWidth().tvFocusable(RoundedCornerShape(12.dp), {}, scaleOnFocus = false)
                     .clip(RoundedCornerShape(12.dp)).background(p.surface.copy(alpha = 0.5f)).padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    val (sym, col) = when (r.ok) { true -> "✓" to Color(0xFF4ADE80); false -> "✕" to Color(0xFFFF6B6B); null -> "–" to p.textDim }
-                    Box(Modifier.width(36.dp)) { Text(sym, color = col, fontSize = 20.sp, fontWeight = FontWeight.Bold) }
+                    val (sym, col) = when (r.ok) { true -> "✓" to Good; false -> "✕" to Bad; null -> "–" to p.textDim }
+                    // (6) Ergebnis ploppt auf
+                    Box(Modifier.width(36.dp)) { Text(sym, color = col, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.popIn()) }
                     Column(Modifier.weight(1f)) {
                         Text(r.name, color = p.text, fontSize = 17.sp, fontWeight = FontWeight.Medium)
                         if (r.detail.isNotBlank()) Text(r.detail, color = p.textDim, fontSize = 13.sp, maxLines = 1)
                     }
-                    r.ms?.let { Text("$it ms", color = if (it < 150) p.text else Color(0xFFFFC857), fontSize = 16.sp) }
+                    r.ms?.let { Text("$it ms", color = if (it < 150) p.text else Warn, fontSize = 16.sp) }
                 }
             }
+            // (6) laufende Prüfung mit drehendem Ring
+            val cur = current
+            if (busy && cur != null && rows.none { it.name == cur }) item(key = "läuft:$cur") {
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(p.surface.copy(alpha = 0.3f)).padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.width(36.dp)) {
+                        if (motionOk()) CircularProgressIndicator(Modifier.size(20.dp), color = p.primary, strokeWidth = 2.5.dp)
+                        else Text("…", color = p.textDim, fontSize = 20.sp)
+                    }
+                    Text(cur, color = p.textDim, fontSize = 17.sp, modifier = Modifier.weight(1f))
+                    Text("prüfe …", color = p.textDim, fontSize = 14.sp)
+                }
+            }
+        }
+    }
+}
+
+/** (8) WLAN-Signalbalken, füllen sich nacheinander. */
+@Composable
+private fun WifiBars(rssi: Int) {
+    val p = LocalUltraTheme.current.palette
+    val level = when { rssi >= -55 -> 4; rssi >= -67 -> 3; rssi >= -75 -> 2; else -> 1 }
+    val col = when (level) { 4, 3 -> Good; 2 -> Warn; else -> Bad }
+    Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(start = 12.dp)) {
+        (1..4).forEach { b ->
+            val on = growTo(if (b <= level) 1f else 0f, 220, delayMs = 120L + b * 110L)
+            Box(Modifier.width(5.dp).height((4 + b * 4).dp).clip(RoundedCornerShape(2.dp))
+                .background(androidx.compose.ui.graphics.lerp(p.textDim.copy(alpha = 0.3f), col, on)))
         }
     }
 }
@@ -477,19 +743,36 @@ private fun CheckPane(vm: NetworkToolsViewModel) {
 private fun InfoPane(vm: NetworkToolsViewModel) {
     val p = LocalUltraTheme.current.palette
     val rows by vm.info.collectAsStateWithLifecycle()
+    val rssi by vm.wifiRssi.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.loadInfo() }
     Column {
         TvButton("Aktualisieren", onClick = { vm.loadInfo() }, primary = true)
         Spacer(Modifier.height(12.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 60.dp)) {
-            items(rows.size) { i ->
+            items(rows.size, key = { i -> rows[i].first + "#" + i }) { i ->
                 val (k, v) = rows[i]
-                Row(Modifier.fillMaxWidth().tvFocusable(RoundedCornerShape(8.dp), {}, scaleOnFocus = false).padding(vertical = 6.dp, horizontal = 6.dp)) {
+                // (9) gestaffeltes Einblenden
+                Row(Modifier.fillMaxWidth().staggerIn(i).tvFocusable(RoundedCornerShape(8.dp), {}, scaleOnFocus = false).padding(vertical = 6.dp, horizontal = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
                     Text(k, color = p.textDim, fontSize = 15.sp, modifier = Modifier.width(240.dp))
                     Text(v, color = p.text, fontSize = 15.sp)
+                    if (k == "Signalstärke") rssi?.let { WifiBars(it) }
                 }
             }
         }
+    }
+}
+
+/** (10) Speicherbalken, wachsen beim Öffnen auf ihren Wert; (11) Cache-Balken schrumpft beim Leeren. */
+@Composable
+private fun DiagBarRow(b: DiagBar, index: Int) {
+    val p = LocalUltraTheme.current.palette
+    val f = growTo(b.fraction, 700, delayMs = index * 90L)
+    val col = when { b.id == "cache" -> p.primary; b.fraction > 0.85f -> Bad; b.fraction > 0.65f -> Warn; else -> p.primary }
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp, horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(b.label, color = p.textDim, fontSize = 15.sp, modifier = Modifier.width(280.dp))
+        Bar(f, col, Modifier.width(320.dp), height = 10.dp)
+        Text("  ${b.text} · ${(b.fraction * 100).toInt()} %", color = p.text, fontSize = 14.sp)
     }
 }
 
@@ -497,18 +780,25 @@ private fun InfoPane(vm: NetworkToolsViewModel) {
 private fun DiagPane(vm: NetworkToolsViewModel) {
     val p = LocalUltraTheme.current.palette
     val rows by vm.diag.collectAsStateWithLifecycle()
+    val bars by vm.diagBars.collectAsStateWithLifecycle()
     val errors by vm.lastErrors.collectAsStateWithLifecycle()
     var msg by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { vm.loadDiag() }
     LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 60.dp)) {
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                TvButton("Cache leeren", onClick = { vm.clearCache { msg = it } }, primary = true)
+                TvButton("Cache leeren", onClick = { msg = null; vm.clearCache { msg = it } }, primary = true)
                 TvButton("Aktualisieren", onClick = { vm.loadDiag() })
                 if (errors != null) TvButton("Fehler löschen", onClick = { vm.clearErrors() })
-                msg?.let { Text(it, color = p.primary, fontSize = 15.sp) }
+                // (11) Bestätigung ploppt auf
+                msg?.let { m -> androidx.compose.runtime.key(m) {
+                    Text("✓ $m", color = Good, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.popIn())
+                } }
             }
             Spacer(Modifier.height(10.dp))
+        }
+        if (bars.isNotEmpty()) item {
+            Column(Modifier.padding(bottom = 8.dp)) { bars.forEachIndexed { i, b -> androidx.compose.runtime.key(b.id) { DiagBarRow(b, i) } } }
         }
         items(rows.size) { i ->
             val (k, v) = rows[i]
@@ -520,7 +810,7 @@ private fun DiagPane(vm: NetworkToolsViewModel) {
         item {
             Text("Letzte Fehler", color = p.text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(top = 14.dp, bottom = 4.dp).tvFocusable(RoundedCornerShape(8.dp), {}, scaleOnFocus = false))
-            Text(errors ?: "Keine Abstürze oder Hänger aufgezeichnet.", color = if (errors != null) Color(0xFFFFC857) else p.textDim, fontSize = 13.sp)
+            Text(errors ?: "Keine Abstürze oder Hänger aufgezeichnet.", color = if (errors != null) Warn else p.textDim, fontSize = 13.sp)
             Text("Cache leeren löscht nur Zwischenspeicher (Bilder, Web). Favoriten, Einstellungen, Profile und Fortschritte bleiben erhalten.",
                 color = p.textDim.copy(alpha = 0.8f), fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp))
         }
