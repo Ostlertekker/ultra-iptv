@@ -1,0 +1,11 @@
+API 29 · Android SDK built for x86_64 · emulator
+Overlay-Berechtigung: SYSTEM_ALERT_WINDOW: allow
+Test 1 Neustart → App vorne: OK (    mResumedActivity: ActivityRecord{6f343c3 u0 de.ostlertekker.ultraiptv.debug/de.ostlertekker.ultraiptv.MainActivity t8})
+Instanzen MainActivity: 6
+Broadcast: Broadcasting: Intent { act=android.intent.action.BOOT_COMPLETED flg=0x400000 pkg=de.ostlertekker.ultraiptv.debug }
+Broadcast completed: result=0
+Test 2 doppelte Bootmeldung ignoriert: OK
+Test 3 Standby ohne Doppelstart: FEHLER (8 → 9)
+Test 4 Absturz → neu geöffnet: OK
+Test 5 Neustart-Sperre nach 2 Abstürzen: FEHLER (öffnet sich weiter)
+Test 6 nach Beenden erzwingen + Neustart: App öffnete sich

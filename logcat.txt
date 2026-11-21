@@ -1,0 +1,7 @@
+11-21 20:51:52.901  1911  1911 I PackageManager: Un-granting permission android.permission.GLOBAL_SEARCH from package com.android.quicksearchbox (protectionLevel=18 flags=0x3008be45)
+11-21 20:51:53.471  1911  1911 I PackageManager: Un-granting permission android.permission.GLOBAL_SEARCH from package com.android.quicksearchbox (protectionLevel=18 flags=0x3088be45)
+11-21 20:51:59.174  3016  3065 I UltraAutoStart: Gerätestart gemeldet (BOOT_COMPLETED)
+11-21 20:52:01.773  3016  3016 I UltraAutoStart: Autostart · Android · Android 10 · Berechtigung ja · Overlay ja
+11-21 20:52:02.116  1911  2204 I ActivityTaskManager: START u0 {act=android.intent.action.MAIN cat=[android.intent.category.LEANBACK_LAUNCHER] flg=0x10220000 pkg=de.ostlertekker.ultraiptv.debug cmp=de.ostlertekker.ultraiptv.debug/de.ostlertekker.ultraiptv.MainActivity (has extras)} from uid 10116
+11-21 20:52:02.739  1911  1940 I ActivityTaskManager: Displayed de.ostlertekker.ultraiptv.debug/de.ostlertekker.ultraiptv.MainActivity: +618ms
+11-21 20:52:11.778  3016  3016 I UltraAutoStart: ✓ App wurde geöffnet
