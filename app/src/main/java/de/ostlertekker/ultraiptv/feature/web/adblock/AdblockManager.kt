@@ -35,6 +35,7 @@ class AdblockManager @Inject constructor(
 
     companion object {
         private const val TAG = "UltraAdblock"
+        private val MALWARE_HOST = Regex("""\|\|[A-Za-z0-9.-]+\^(\$.*)?""")
         private const val UPDATE_EVERY_MS = 3L * 24 * 60 * 60 * 1000
         val LISTS = listOf(
             FilterList("easylist", "EasyList", listOf("https://easylist.to/easylist/easylist.txt",
@@ -125,7 +126,8 @@ class AdblockManager @Inject constructor(
         // Datei wird beim Durchlaufen gelesen und danach sicher geschlossen
         val seq = sequence { reader.use { r -> r.lineSequence().forEach { yield(it) } } }
         // Schadsoftware-Liste: auch ganze Seiten (Hauptfenster) und Pop-ups sperren
-        return if (l.malware) seq.map { if (it.startsWith("||") && !it.contains('$')) "$it\$all" else it } else seq
+        // Nur ganze Schad-Domains übernehmen (einzelne Pfade würden viel Speicher kosten); diese auch als Hauptfenster/Pop-up sperren
+        return if (l.malware) seq.filter { MALWARE_HOST.matches(it) }.map { if (!it.contains('$')) "$it\$all" else it } else seq
     }
 
     private suspend fun rebuild() = buildLock.withLock {
