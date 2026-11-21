@@ -164,8 +164,12 @@ fun JellyfinSearchScreen(nav: NavController, vm: JellyfinSearchViewModel = hiltV
             Text("Jellyfin-Suche", color = p.text, fontSize = 26.sp, fontWeight = FontWeight.Bold)
             if (total >= 0) Text("$total Treffer", color = p.textDim, fontSize = 14.sp)
         }
-        TvTextField(f.query, { q -> vm.update { it.copy(query = q) } }, "Titel, Schauspieler oder Stichwort …",
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+        val voice = de.ostlertekker.ultraiptv.core.ui.rememberVoiceSearch { spoken -> vm.update { it.copy(query = spoken) } }
+        Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            TvTextField(f.query, { q -> vm.update { it.copy(query = q) } }, "Titel, Schauspieler oder Stichwort …",
+                modifier = Modifier.weight(1f))
+            de.ostlertekker.ultraiptv.core.ui.VoiceSearchButton(voice)
+        }
 
 
         error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp)) }

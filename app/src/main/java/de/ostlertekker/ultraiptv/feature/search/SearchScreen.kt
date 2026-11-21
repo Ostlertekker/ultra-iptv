@@ -64,7 +64,7 @@ class SearchViewModel @Inject constructor(private val content: ContentRepository
     fun clearHistory() = viewModelScope.launch { settings.clearSearchHistory() }
 }
 
-/** Titelsuche über Live-TV, Filme, Serien und Episoden (keine Sprach- oder „natürliche“ Suche). */
+/** Titelsuche über Live-TV, Filme, Serien und Episoden – per Tastatur oder Spracheingabe. */
 @Composable
 fun SearchScreen(nav: NavController, vm: SearchViewModel = hiltViewModel()) {
     val context = LocalContext.current
@@ -77,7 +77,14 @@ fun SearchScreen(nav: NavController, vm: SearchViewModel = hiltViewModel()) {
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp)) {
         item { ScreenTitle("Suche", subtitle = "Nach Titel suchen – Sender, Filme, Serien und Episoden") }
-        item { TvTextField(q, { vm.query.value = it }, "Titel eingeben (OK drücken für Tastatur)", modifier = Modifier.width(620.dp)) }
+        item {
+            val voice = de.ostlertekker.ultraiptv.core.ui.rememberVoiceSearch { vm.query.value = it; vm.saveQuery() }
+            androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                TvTextField(q, { vm.query.value = it }, "Titel eingeben (OK drücken für Tastatur)", modifier = Modifier.width(620.dp))
+                de.ostlertekker.ultraiptv.core.ui.VoiceSearchButton(voice)
+            }
+        }
         if (q.isBlank() && history.isNotEmpty()) item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 10.dp + FocusBleedV, bottom = 10.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
                 items(history, key = { it }) { h -> TvChip(h, false, { vm.query.value = h }) }
