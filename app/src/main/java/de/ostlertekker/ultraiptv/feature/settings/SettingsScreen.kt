@@ -400,7 +400,7 @@ private fun LazyListScope.jellyfinPage(vm: SettingsViewModel, s: AppSettings, na
     item {
         val session by vm.jellyfin.session.collectAsStateWithLifecycle()
         val scope = androidx.compose.runtime.rememberCoroutineScope()
-        val hidden = s.jfHiddenRows.split('\n').filter { it.isNotBlank() }.toSet()
+        val hidden = s.jfHiddenRows.split('\n').filter { it.isNotBlank() }.map { if (it == "Meine Bibliotheken") "Bibliotheken" else it }.toSet()
         Column {
             SHeader("Server & Konto")
             val js = session
@@ -476,7 +476,7 @@ private fun SeerrSettings(vm: SettingsViewModel, s: AppSettings) {
             SInfo("Angemeldet als", st.user ?: "")
             SRow("Verbindung testen") { scope.launch { msg = runCatching { vm.seerr.test() }.getOrElse { "⚠ " + (it.message ?: "Fehler") } } }
             SRow("Bei Seerr abmelden") { vm.seerr.logout(); msg = null }
-            SSwitch("Reihe „Meine Anfragen“", s.seerrRequestsRow, "In der Jellyfin-Übersicht, mit Status jeder Anfrage") { vm.set(Keys.SEERR_REQUESTS_ROW, it) }
+            SSwitch("Reihe „Anfragen“", s.seerrRequestsRow, "Alle Anfragen in der Jellyfin-Übersicht, mit Status und Download-Fortschritt") { vm.set(Keys.SEERR_REQUESTS_ROW, it) }
             SSwitch("Reihe „Entdecken“", s.seerrDiscoverRow, "Angesagte Filme und Serien aus Seerr, direkt anfragbar") { vm.set(Keys.SEERR_DISCOVER_ROW, it) }
             SSwitch("Hinweis, wenn eine Anfrage verfügbar ist", s.seerrNotify, "Einblendung oben links (Prüfung alle 5 Minuten)") { vm.set(Keys.SEERR_NOTIFY, it) }
         }

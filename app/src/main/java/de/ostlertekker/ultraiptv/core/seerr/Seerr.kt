@@ -123,7 +123,7 @@ object SeerrStatus {
         6 -> "Gesperrt"; else -> null
     }
 
-    /** Text für „Meine Anfragen“: zuerst Ablehnung/Fehler, sonst der Medien-Status. */
+    /** Text für „Anfragen“: zuerst Ablehnung/Fehler, sonst der Medien-Status. */
     fun request(req: Int, media: Int): String = when {
         req == REQ_DECLINED -> "Abgelehnt"
         req == REQ_FAILED -> "Fehlgeschlagen"
@@ -367,11 +367,14 @@ class SeerrRepository @Inject constructor(
         })
     }
 
-    /** Eigene Anfragen (neueste zuerst) mit Titel und Poster. */
-    suspend fun myRequests(): List<SeerrRequest> = coroutineScope {
+    /**
+     * Anfragen (neueste zuerst) mit Titel und Poster. [all] = alle Anfragen auf dem Server – Seerr liefert die nur,
+     * wenn das Konto Anfragen ansehen/verwalten darf, sonst automatisch nur die eigenen.
+     */
+    suspend fun myRequests(all: Boolean = false): List<SeerrRequest> = coroutineScope {
         if (!ready()) return@coroutineScope emptyList()
-        val uid = prefs.getInt("uid", -1)
-        val raw = SeerrParser.requests(get("/api/v1/request?take=30&skip=0&sort=added&filter=all" + (if (uid > 0) "&requestedBy=$uid" else "")))
+        val uid = if (all) -1 else prefs.getInt("uid", -1)
+        val raw = SeerrParser.requests(get("/api/v1/request?take=40&skip=0&sort=added&filter=all" + (if (uid > 0) "&requestedBy=$uid" else "")))
             .filter { uid <= 0 || it.by == null || it.by == uid }
             .distinctBy { it.type + it.tmdbId }
         raw.map { r ->

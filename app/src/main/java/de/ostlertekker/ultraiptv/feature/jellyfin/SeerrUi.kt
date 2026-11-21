@@ -175,7 +175,7 @@ fun seasonColor(status: Int): Color = when (status) {
     else -> SeerrColors.gray
 }
 
-/** Kachel für „Meine Anfragen“: Abzeichen oben links, Download-Balken unten (kind „seerrReq“). */
+/** Kachel für „Anfragen“: Abzeichen oben links, Download-Balken unten (kind „seerrReq“). */
 fun SeerrRequest.tile() = CinemaTile(
     id = "req:$id", title = item.title, image = item.poster, backdrop = item.backdrop, plot = item.overview, kind = "seerrReq",
     subtitle = listOfNotNull(if (item.isTv) "Serie" else "Film", item.year).joinToString(" · "),

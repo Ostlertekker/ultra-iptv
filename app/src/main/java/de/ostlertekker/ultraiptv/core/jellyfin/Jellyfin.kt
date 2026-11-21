@@ -91,7 +91,7 @@ object JfOptions {
     fun channels(i: Int) = listOf(2, 6, 8).getOrElse(i) { 6 }
     val subtitleNames = listOf("Wie Wiedergabe-Einstellungen", "Aus", "Immer einblenden")
     /** Reihen der Jellyfin-Übersicht, die man ausblenden kann. */
-    val rows = listOf("Weiterschauen", "Nächste Folgen", "Zuletzt hinzugefügt", "Zuletzt angesehen", "Meine Favoriten", "Filme", "Serien", "Meine Bibliotheken")
+    val rows = listOf("Bibliotheken", "Weiterschauen", "Nächste Folgen", "Zuletzt hinzugefügt", "Zuletzt angesehen", "Meine Favoriten", "Filme", "Serien")
 }
 
 data class JfSubtitle(val url: String, val language: String?, val label: String, val format: String)

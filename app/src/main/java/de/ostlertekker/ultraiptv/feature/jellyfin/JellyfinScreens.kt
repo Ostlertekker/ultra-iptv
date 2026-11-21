@@ -116,12 +116,12 @@ class JellyfinViewModel @Inject constructor(
     /** Seerr-Kacheln der Übersicht (id → Eintrag), für den Anfrage-Dialog. */
     var seerrItems: Map<String, de.ostlertekker.ultraiptv.core.seerr.SeerrItem> = emptyMap()
         private set
-    /** Eigene Seerr-Anfragen der Reihe „Meine Anfragen“ (Kachel-id → Anfrage). */
+    /** Seerr-Anfragen der Reihe „Anfragen“ (Kachel-id → Anfrage). */
     var seerrRequests: Map<String, de.ostlertekker.ultraiptv.core.seerr.SeerrRequest> = emptyMap()
         private set
     private var seerrTicker: kotlinx.coroutines.Job? = null
 
-    /** Solange etwas lädt oder bearbeitet wird: „Meine Anfragen“ regelmäßig auffrischen (Fortschrittsbalken). */
+    /** Solange etwas lädt oder bearbeitet wird: „Anfragen“ regelmäßig auffrischen (Fortschrittsbalken). */
     private fun watchRequests() {
         seerrTicker?.cancel()
         seerrTicker = viewModelScope.launch {
@@ -129,14 +129,15 @@ class JellyfinViewModel @Inject constructor(
                 val active = seerrRequests.values.any { it.downloading || it.item.status == de.ostlertekker.ultraiptv.core.seerr.SeerrStatus.PROCESSING }
                 if (!active) return@launch
                 kotlinx.coroutines.delay(if (seerrRequests.values.any { it.downloading }) 15_000 else 60_000)
-                val fresh = runCatching { seerr.myRequests() }.getOrNull() ?: continue
+                val fresh = runCatching { seerr.myRequests(all = true) }.getOrNull() ?: continue
                 seerrRequests = fresh.associateBy { "req:${it.id}" }
-                rows.value = rows.value.map { if (it.title == "Meine Anfragen") it.copy(tiles = fresh.map { r -> r.tile() }) else it }
+                rows.value = rows.value.map { if (it.title == "Anfragen") it.copy(tiles = fresh.map { r -> r.tile() }) else it }
             }
         }
     }
     /** In Einstellungen › Jellyfin ausgeblendete Reihen. */
-    val hiddenRows = settings.settings.map { s -> s.jfHiddenRows.split('\n').filter { it.isNotBlank() }.toSet() }
+    val hiddenRows = settings.settings.map { s -> s.jfHiddenRows.split('\n').filter { it.isNotBlank() }
+        .map { if (it == "Meine Bibliotheken") "Bibliotheken" else it }.toSet() }
         .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), emptySet())
     val session = repo.session
     val rows = MutableStateFlow<List<CinemaRow>>(emptyList())
@@ -182,7 +183,7 @@ class JellyfinViewModel @Inject constructor(
             val libs = async { repo.libraries() }
             // Seerr (optional): eigene Anfragen + „Entdecken“
             val cfg = settings.current()
-            val sReq = async { if (cfg.seerrEnabled && cfg.seerrRequestsRow) runCatching { seerr.myRequests() }.getOrDefault(emptyList()) else emptyList() }
+            val sReq = async { if (cfg.seerrEnabled && cfg.seerrRequestsRow) runCatching { seerr.myRequests(all = true) }.getOrDefault(emptyList()) else emptyList() }
             val sDisc = async {
                 if (cfg.seerrEnabled && cfg.seerrDiscoverRow) runCatching { seerr.discover() }.getOrDefault(emptyList())
                     .filter { it.status != de.ostlertekker.ultraiptv.core.seerr.SeerrStatus.AVAILABLE } else emptyList()
@@ -193,16 +194,16 @@ class JellyfinViewModel @Inject constructor(
             seerrRequests = reqs.associateBy { "req:${it.id}" }
             libraries.value = libs.await()
             rows.value = listOf(
+                CinemaRow("Bibliotheken", libraries.value.map { repo.tile(it) }, landscape = true),
                 CinemaRow("Weiterschauen", resume.await().map { repo.tile(it, resume = true) }, landscape = true),
                 CinemaRow("Nächste Folgen", nextUp.await().map { repo.tile(it, resume = true) }, landscape = true),
-                CinemaRow("Meine Anfragen", reqs.map { it.tile() }),
+                CinemaRow("Anfragen", reqs.map { it.tile() }),
                 CinemaRow("Zuletzt hinzugefügt", latest.await().map { repo.tile(it) }),
                 CinemaRow("Zuletzt angesehen", recent.await().map { repo.tile(it) }),
                 CinemaRow("Meine Favoriten", favs.await().map { repo.tile(it) }),
                 CinemaRow("Filme", movies.await().map { repo.tile(it) }),
                 CinemaRow("Serien", series.await().map { repo.tile(it) }),
                 CinemaRow("Entdecken (Seerr)", disc.map { it.tile() }),
-                CinemaRow("Meine Bibliotheken", libraries.value.map { repo.tile(it) }, landscape = true),
             )
             watchRequests()
         } catch (e: Exception) {
