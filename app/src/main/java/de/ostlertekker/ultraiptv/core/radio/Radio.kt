@@ -103,6 +103,17 @@ class RadioRepository @Inject constructor(@ApplicationContext private val ctx: C
             .take(20).also { topCache[code] = System.currentTimeMillis() to it }
     }
 
+    /** Weltweite Suche nach Sendernamen (meistgehörte zuerst). */
+    suspend fun search(q: String): List<RadioStation> = withContext(Dispatchers.IO) {
+        val t = q.trim()
+        if (t.length < 2) return@withContext emptyList()
+        val arr = get("/json/stations/search?name=" + java.net.URLEncoder.encode(t, "UTF-8").replace("+", "%20") +
+            "&order=clickcount&reverse=true&limit=80&hidebroken=true") ?: error("Radio-Datenbank nicht erreichbar")
+        arr.mapNotNull { it as? JsonObject }.mapNotNull { o -> o.toStation() }
+            .distinctBy { it.name.lowercase().replace(Regex("[^a-z0-9]"), "") + it.country }
+            .take(50)
+    }
+
     /** Meldet der Datenbank einen Aufruf (Bitte der Betreiber, damit die Beliebtheit stimmt). */
     suspend fun countClick(id: String) = withContext(Dispatchers.IO) { runCatching { get("/json/url/$id") } }
 

@@ -64,6 +64,7 @@ import java.util.Locale
 import javax.inject.Inject
 
 const val RADIO_FAVS = "★FAV"
+const val RADIO_SEARCH = "🔍SEARCH"
 
 @HiltViewModel
 class RadioViewModel @Inject constructor(private val repo: RadioRepository, val player: RadioPlayer) : ViewModel() {
@@ -72,6 +73,22 @@ class RadioViewModel @Inject constructor(private val repo: RadioRepository, val 
     val failed = MutableStateFlow<String?>(null)
     val selected = MutableStateFlow(repo.lastCountry ?: Locale.getDefault().country.uppercase().ifBlank { "DE" })
     val favorites = repo.favorites
+    val query = MutableStateFlow("")
+    private var searchJob: kotlinx.coroutines.Job? = null
+
+    /** Suche nach Sendern weltweit (kurz warten beim Tippen). */
+    fun search(q: String, immediate: Boolean = false) {
+        query.value = q
+        searchJob?.cancel()
+        if (selected.value != RADIO_SEARCH) return
+        if (q.trim().length < 2) { stations.value = emptyList(); failed.value = null; return }
+        searchJob = viewModelScope.launch {
+            if (!immediate) kotlinx.coroutines.delay(450)
+            stations.value = null; failed.value = null
+            runCatching { repo.search(q) }.onSuccess { if (query.value == q) stations.value = it }
+                .onFailure { if (query.value == q) failed.value = it.message ?: "Fehler" }
+        }
+    }
 
     init {
         viewModelScope.launch {
@@ -85,6 +102,7 @@ class RadioViewModel @Inject constructor(private val repo: RadioRepository, val 
         if (code != RADIO_FAVS) repo.lastCountry = code
         stations.value = null; failed.value = null
         if (code == RADIO_FAVS) { stations.value = favorites.value; return }
+        if (code == RADIO_SEARCH) { stations.value = emptyList(); search(query.value, immediate = true); return }
         viewModelScope.launch {
             runCatching { repo.top(code) }.onSuccess { if (selected.value == code) stations.value = it }
                 .onFailure { if (selected.value == code) failed.value = it.message ?: "Fehler" }
@@ -126,7 +144,8 @@ fun RadioScreen(vm: RadioViewModel = hiltViewModel()) {
 
     Column(Modifier.fillMaxSize().padding(24.dp).then(toBar)) {
         val cName = countries?.firstOrNull { it.code == selected }?.name
-        ScreenTitle("Radio", subtitle = if (selected == RADIO_FAVS) "Deine Lieblingssender" else
+        ScreenTitle("Radio", subtitle = if (selected == RADIO_FAVS) "Deine Lieblingssender" else if (selected == RADIO_SEARCH)
+            "Alle Sender weltweit durchsuchen – Name eingeben oder Mikrofon nutzen" else
             "Top 20 ${cName?.let { "· $it " } ?: ""}· meistgehört laut Radio Browser" +
                 (if (current != null) " · Pfeil rechts = Wiedergabe-Leiste" else ""))
         Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -134,6 +153,7 @@ fun RadioScreen(vm: RadioViewModel = hiltViewModel()) {
             val list = countries
             val listState = rememberLazyListState()
             LazyColumn(Modifier.width(260.dp).fillMaxHeight(), state = listState, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                item(key = "search") { CategoryItem("Sender suchen", selected == RADIO_SEARCH) { vm.select(RADIO_SEARCH) } }
                 item(key = "fav") { CategoryItem("★ Favoriten (${favs.size})", selected == RADIO_FAVS) { vm.select(RADIO_FAVS) } }
                 if (list == null) item { if (failed == null) UltraLoader() }
                 else {
@@ -147,7 +167,18 @@ fun RadioScreen(vm: RadioViewModel = hiltViewModel()) {
             // Sender
             Column(Modifier.weight(1f).fillMaxHeight()) {
                 val st = stations
+                if (selected == RADIO_SEARCH) {
+                    val q by vm.query.collectAsStateWithLifecycle()
+                    val voice = de.ostlertekker.ultraiptv.core.ui.rememberVoiceSearch { vm.search(it, immediate = true) }
+                    Row(Modifier.padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        de.ostlertekker.ultraiptv.core.ui.TvTextField(q, { vm.search(it) }, "Sendername, z. B. „1Live“ oder „Radio Paradise“", modifier = Modifier.weight(1f))
+                        de.ostlertekker.ultraiptv.core.ui.VoiceSearchButton(voice)
+                    }
+                }
                 when {
+                    selected == RADIO_SEARCH && st != null && st.isEmpty() -> Text(
+                        if (vm.query.collectAsStateWithLifecycle().value.trim().length < 2) "Mindestens 2 Zeichen eingeben." else "Keine Sender gefunden.",
+                        color = pal.textDim, fontSize = 14.sp)
                     failed != null && st == null -> Text("Radio-Datenbank gerade nicht erreichbar. Bitte später erneut versuchen.", color = pal.textDim, fontSize = 14.sp)
                     st == null -> UltraLoader()
                     st.isEmpty() -> Text(if (selected == RADIO_FAVS) "Noch keine Favoriten – bei einem Sender lange OK drücken." else "Für dieses Land sind keine funktionierenden Sender eingetragen.",
@@ -155,7 +186,7 @@ fun RadioScreen(vm: RadioViewModel = hiltViewModel()) {
                     else -> LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         items(st, key = { it.id }) { s ->
                             val last = s.id == st.last().id
-                            StationRow(s, modifier = Modifier
+                            StationRow(s, showCountry = selected == RADIO_SEARCH || selected == RADIO_FAVS, modifier = Modifier
                                 .then(if (st.first().id == s.id) Modifier.focusRequester(listFocus) else Modifier)
                                 .then(if (last && current != null) Modifier.focusProperties { down = barFocus } else Modifier)
                                 .onPreviewKeyEvent { ev ->
@@ -198,7 +229,7 @@ private fun StationLogo(s: RadioStation, size: Int) {
 }
 
 @Composable
-private fun StationRow(s: RadioStation, modifier: Modifier = Modifier, rank: Int, isFav: Boolean, isCurrent: Boolean, playing: Boolean, onClick: () -> Unit, onLong: () -> Unit) {
+private fun StationRow(s: RadioStation, modifier: Modifier = Modifier, showCountry: Boolean = false, rank: Int, isFav: Boolean, isCurrent: Boolean, playing: Boolean, onClick: () -> Unit, onLong: () -> Unit) {
     val theme = LocalUltraTheme.current
     val pal = theme.palette
     var focused by remember { mutableStateOf(false) }
@@ -211,7 +242,11 @@ private fun StationRow(s: RadioStation, modifier: Modifier = Modifier, rank: Int
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(s.name, color = pal.text, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (s.info.isNotBlank()) Text(s.info, color = pal.textDim, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val info = if (showCountry && s.country.isNotBlank()) {
+                val c = de.ostlertekker.ultraiptv.core.radio.RadioCountry(s.country, "", 0)
+                listOf(c.flag + " " + java.util.Locale("", s.country).getDisplayCountry(java.util.Locale.GERMAN), s.info).filter { it.isNotBlank() }.joinToString(" · ")
+            } else s.info
+            if (info.isNotBlank()) Text(info, color = pal.textDim, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         if (isFav) Text("★", color = pal.primary, fontSize = 16.sp, modifier = Modifier.padding(start = 8.dp))
         if (isCurrent) Text(if (playing) "● LÄUFT" else "❚❚", color = if (focused) Color.Black else pal.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold,
