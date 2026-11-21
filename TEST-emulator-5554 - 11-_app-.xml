@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="de.ostlertekker.ultraiptv.UiSmokeTest" tests="1" failures="0" errors="0" skipped="0" time="38.322" timestamp="2026-11-21T08:03:50" hostname="localhost">
+  <properties>
+    <property name="device" value="emulator-5554 - 11" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="f_settingsAndIntro" classname="de.ostlertekker.ultraiptv.UiSmokeTest" time="36.326" />
+</testsuite>

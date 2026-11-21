@@ -1,0 +1,283 @@
+11-21 08:02:40.365   279   279 D AndroidRuntime: >>>>>> START com.android.internal.os.ZygoteInit uid 0 <<<<<<
+11-21 08:02:40.367     0     0 I init    : starting service 'vendor.camera-provider-2-6-google'...
+11-21 08:02:40.371   304   304 D HostConnection: createUnique: call
+11-21 08:02:40.372   304   304 D HostConnection: HostConnection::get() New Host Connection established 0x706a96138210, tid 304
+11-21 08:02:40.372     0     0 I init    : starting service 'vendor.cas-hal-1-2'...
+11-21 08:02:40.380   304   304 D HostConnection: HostComposition ext ANDROID_EMU_CHECKSUM_HELPER_v1 ANDROID_EMU_native_sync_v2 ANDROID_EMU_dma_v1 ANDROID_EMU_direct_mem ANDROID_EMU_host_composition_v1 ANDROID_EMU_host_composition_v2 ANDROID_EMU_vulkan ANDROID_EMU_deferred_vulkan_commands ANDROID_EMU_vulkan_null_optional_strings ANDROID_EMU_vulkan_create_resources_with_requirements ANDROID_EMU_YUV_Cache ANDROID_EMU_vulkan_ignored_handles ANDROID_EMU_has_shared_slots_host_memory_allocator ANDROID_EMU_vulkan_free_memory_sync ANDROID_EMU_vulkan_shader_float16_int8 ANDROID_EMU_vulkan_async_queue_submit ANDROID_EMU_sync_buffer_data ANDROID_EMU_vulkan_async_qsri ANDROID_EMU_read_color_buffer_dma ANDROID_EMU_hwc_color_transform ANDROID_EMU_hwc_display_power_mode GL_OES_EGL_image_external_essl3 GL_OES_vertex_array_object GL_KHR_texture_compression_astc_ldr ANDROID_EMU_host_side_tracing ANDROID_EMU_gles_max_version_3_0 
+11-21 08:02:40.380   162   162 I hwservicemanager: getTransport: Cannot find entry android.hardware.graphics.mapper@4.0::IMapper/default in either framework or device manifest.
+11-21 08:02:40.381   304   304 I Gralloc4: mapper 4.x is not supported
+11-21 08:02:40.381   305   305 I android.hardware.health@2.1-service: default instance initializing with healthd_config...
+11-21 08:02:40.381   276   276 I ServiceManager: Waiting for service 'statscompanion' on '/dev/binder'...
+11-21 08:02:40.381   304   304 D HostConnection: createUnique: call
+11-21 08:02:40.381     0     0 E init    : failed to write pid to files: couldn't write 292 to /dev/cpuset/camera-daemon/tasks: No such file or directory
+11-21 08:02:40.382   304   304 D HostConnection: HostConnection::get() New Host Connection established 0x706a961397d0, tid 304
+11-21 08:02:40.382   304   304 D goldfish-address-space: allocate: Ask for block of size 0x100
+11-21 08:02:40.382   304   304 D goldfish-address-space: allocate: ioctl allocate returned offset 0x3ffffe000 size 0x2000
+11-21 08:02:40.382     0     0 I init    : starting service 'vendor.contexthub-hal-1-1-mock'...
+11-21 08:02:40.384   162   162 I hwservicemanager: getTransport: Cannot find entry android.hardware.graphics.allocator@4.0::IAllocator/default in either framework or device manifest.
+11-21 08:02:40.384   304   304 W Gralloc4: allocator 3.x is not supported
+11-21 08:02:40.385   305   305 I HidlServiceManagement: Registered android.hardware.health@2.1::IHealth/default (start delay of 261ms)
+11-21 08:02:40.385   305   305 I HidlServiceManagement: Removing namespace from process name android.hardware.health@2.1-service to health@2.1-service.
+11-21 08:02:40.385   305   305 I android.hardware.health@2.1-service: default: Hal init done
+11-21 08:02:40.389   302   317 D HostConnection: HostComposition ext ANDROID_EMU_CHECKSUM_HELPER_v1 ANDROID_EMU_native_sync_v2 ANDROID_EMU_dma_v1 ANDROID_EMU_direct_mem ANDROID_EMU_host_composition_v1 ANDROID_EMU_host_composition_v2 ANDROID_EMU_vulkan ANDROID_EMU_deferred_vulkan_commands ANDROID_EMU_vulkan_null_optional_strings ANDROID_EMU_vulkan_create_resources_with_requirements ANDROID_EMU_YUV_Cache ANDROID_EMU_vulkan_ignored_handles ANDROID_EMU_has_shared_slots_host_memory_allocator ANDROID_EMU_vulkan_free_memory_sync ANDROID_EMU_vulkan_shader_float16_int8 ANDROID_EMU_vulkan_async_queue_submit ANDROID_EMU_sync_buffer_data ANDROID_EMU_vulkan_async_qsri ANDROID_EMU_read_color_buffer_dma ANDROID_EMU_hwc_color_transform ANDROID_EMU_hwc_display_power_mode GL_OES_EGL_image_external_essl3 GL_OES_vertex_array_object GL_KHR_texture_compression_astc_ldr ANDROID_EMU_host_side_tracing ANDROID_EMU_gles_max_version_3_0 
+11-21 08:02:40.391   302   317 D goldfish-address-space: claimShared: Ask to claim region [0x3fc000000 0x3fc7e9000]
+11-21 08:02:40.393   291   291 I android.hardware.camera.provider@2.4-service: CameraProvider@2.4 legacy service is starting.
+11-21 08:02:40.396     0     0 W libprocessgroup: Failed to open /dev/cpuset/camera-daemon/tasks: No such file or directory: No such file or directory
+11-21 08:02:40.397   304   304 D HostConnection: HostComposition ext ANDROID_EMU_CHECKSUM_HELPER_v1 ANDROID_EMU_native_sync_v2 ANDROID_EMU_dma_v1 ANDROID_EMU_direct_mem ANDROID_EMU_host_composition_v1 ANDROID_EMU_host_composition_v2 ANDROID_EMU_vulkan ANDROID_EMU_deferred_vulkan_commands ANDROID_EMU_vulkan_null_optional_strings ANDROID_EMU_vulkan_create_resources_with_requirements ANDROID_EMU_YUV_Cache ANDROID_EMU_vulkan_ignored_handles ANDROID_EMU_has_shared_slots_host_memory_allocator ANDROID_EMU_vulkan_free_memory_sync ANDROID_EMU_vulkan_shader_float16_int8 ANDROID_EMU_vulkan_async_queue_submit ANDROID_EMU_sync_buffer_data ANDROID_EMU_vulkan_async_qsri ANDROID_EMU_read_color_buffer_dma ANDROID_EMU_hwc_color_transform ANDROID_EMU_hwc_display_power_mode GL_OES_EGL_image_external_essl3 GL_OES_vertex_array_object GL_KHR_texture_compression_astc_ldr ANDROID_EMU_host_side_tracing ANDROID_EMU_gles_max_version_3_0 
+--
+11-21 08:02:40.469   279   279 I AndroidRuntime: Using default boot image
+11-21 08:02:40.469   279   279 I AndroidRuntime: Leaving lock profiling enabled
+11-21 08:02:40.776     0     0 I init    : Service 'exec 14 (/system/bin/gsid run-startup-tasks)' (pid 347) exited with status 0 oneshot service took 0.060000 seconds in background
+11-21 08:02:40.803     0     0 I init    : Sending signal 9 to service 'exec 14 (/system/bin/gsid run-startup-tasks)' (pid 347) process group...
+11-21 08:02:40.481   276   276 I ServiceManager: Waiting for service 'statscompanion' on '/dev/binder'...
+11-21 08:02:40.482   279   279 I zygote64: option[0]=-Xzygote
+11-21 08:02:40.482   279   279 I zygote64: option[1]=exit
+11-21 08:02:40.482   279   279 I zygote64: option[2]=vfprintf
+11-21 08:02:40.482   279   279 I zygote64: option[3]=sensitiveThread
+11-21 08:02:40.482   279   279 I zygote64: option[4]=-verbose:gc
+11-21 08:02:40.482   279   279 I zygote64: option[5]=-XX:PerfettoHprof=true
+11-21 08:02:40.482   279   279 I zygote64: option[6]=-Xprimaryzygote
+11-21 08:02:40.482   279   279 I zygote64: option[7]=-Xms8m
+11-21 08:02:40.482   279   279 I zygote64: option[8]=-Xmx512m
+11-21 08:02:40.482   279   279 I zygote64: option[9]=-XX:HeapGrowthLimit=192m
+11-21 08:02:40.482   279   279 I zygote64: option[10]=-XX:HeapMinFree=512k
+11-21 08:02:40.482   279   279 I zygote64: option[11]=-XX:HeapMaxFree=8m
+11-21 08:02:40.482   279   279 I zygote64: option[12]=-XX:HeapTargetUtilization=0.75
+11-21 08:02:40.482   279   279 I zygote64: option[13]=-Xusejit:true
+11-21 08:02:40.482   279   279 I zygote64: option[14]=-Xjitsaveprofilinginfo
+11-21 08:02:40.482   279   279 I zygote64: option[15]=-XjdwpOptions:suspend=n,server=y
+11-21 08:02:40.482   279   279 I zygote64: option[16]=-XjdwpProvider:default
+11-21 08:02:40.482   279   279 I zygote64: option[17]=-Xopaque-jni-ids:swapable
+11-21 08:02:40.482   279   279 I zygote64: option[18]=-Xlockprofthreshold:500
+11-21 08:02:40.482   279   279 I zygote64: option[19]=-Xcompiler-option
+11-21 08:02:40.482   279   279 I zygote64: option[20]=--instruction-set-variant=x86_64
+11-21 08:02:40.482   279   279 I zygote64: option[21]=-Xcompiler-option
+--
+11-21 08:02:40.619   280   280 D AndroidRuntime: >>>>>> START com.android.internal.os.ZygoteInit uid 0 <<<<<<
+11-21 08:02:40.946     0     0 I libprocessgroup: Successfully killed process cgroup uid 0 pid 367 in 0ms
+11-21 08:02:40.950     0     0 I init    : processing action (sys.init.perf_lsm_hooks=1) from (/system/etc/init/hw/init.rc:1017)
+11-21 08:02:40.955     0     0 I init    : processing action (security.perf_harden=1) from (/system/etc/init/hw/init.rc:1031)
+11-21 08:02:40.960     0     0 I init    : processing action (ro.debuggable=1) from (/system/etc/init/hw/init.rc:1058)
+11-21 08:02:40.968     0     0 I init    : processing action (sys.usb.config=adb && sys.usb.configfs=0) from (/system/etc/init/hw/init.usb.rc:37)
+11-21 08:02:40.980     0     0 I init    : Command 'write /sys/class/android_usb/android0/enable 0' action=sys.usb.config=adb && sys.usb.configfs=0 (/system/etc/init/hw/init.usb.rc:38) took 2ms and failed: Unable to write to file '/sys/class/android_usb/android0/enable': open() failed: Permission denied
+11-21 08:02:40.995     0     0 I init    : Command 'write /sys/class/android_usb/android0/idVendor 18d1' action=sys.usb.config=adb && sys.usb.configfs=0 (/system/etc/init/hw/init.usb.rc:39) took 0ms and failed: Unable to write to file '/sys/class/android_usb/android0/idVendor': open() failed: Permission denied
+11-21 08:02:41.006     0     0 I init    : Command 'write /sys/class/android_usb/android0/idProduct 4EE7' action=sys.usb.config=adb && sys.usb.configfs=0 (/system/etc/init/hw/init.usb.rc:40) took 0ms and failed: Unable to write to file '/sys/class/android_usb/android0/idProduct': open() failed: Permission denied
+11-21 08:02:40.692   276   276 I ServiceManager: Waiting for service 'statscompanion' on '/dev/binder'...
+11-21 08:02:41.018     0     0 I init    : Command 'write /sys/class/android_usb/android0/functions ${sys.usb.config}' action=sys.usb.config=adb && sys.usb.configfs=0 (/system/etc/init/hw/init.usb.rc:41) took 0ms and failed: Unable to write to file '/sys/class/android_usb/android0/functions': open() failed: Permission denied
+11-21 08:02:41.030     0     0 I init    : Command 'write /sys/class/android_usb/android0/enable 1' action=sys.usb.config=adb && sys.usb.configfs=0 (/system/etc/init/hw/init.usb.rc:42) took 0ms and failed: Unable to write to file '/sys/class/android_usb/android0/enable': open() failed: Permission denied
+11-21 08:02:40.720   354   354 I ServiceManager: Waiting for service 'media.metrics' on '/dev/binder'...
+11-21 08:02:40.721   280   280 I AndroidRuntime: Using default boot image
+11-21 08:02:40.721   280   280 I AndroidRuntime: Leaving lock profiling enabled
+11-21 08:02:41.044     0     0 I init    : starting service 'adbd'...
+11-21 08:02:41.051     0     0 I init    : Created socket '/dev/socket/adbd', mode 660, user 1000, group 1000
+11-21 08:02:40.729   280   280 I zygote  : option[0]=-Xzygote
+11-21 08:02:40.729   280   280 I zygote  : option[1]=exit
+11-21 08:02:40.729   280   280 I zygote  : option[2]=vfprintf
+11-21 08:02:40.729   280   280 I zygote  : option[3]=sensitiveThread
+11-21 08:02:40.729   280   280 I zygote  : option[4]=-verbose:gc
+11-21 08:02:40.729   280   280 I zygote  : option[5]=-XX:PerfettoHprof=true
+11-21 08:02:40.729   280   280 I zygote  : option[6]=-Xms8m
+11-21 08:02:40.729   280   280 I zygote  : option[7]=-Xmx512m
+11-21 08:02:40.729   280   280 I zygote  : option[8]=-XX:HeapGrowthLimit=192m
+11-21 08:02:40.729   280   280 I zygote  : option[9]=-XX:HeapMinFree=512k
+11-21 08:02:40.729   280   280 I zygote  : option[10]=-XX:HeapMaxFree=8m
+11-21 08:02:40.729   280   280 I zygote  : option[11]=-XX:HeapTargetUtilization=0.75
+11-21 08:02:40.729   280   280 I zygote  : option[12]=-Xusejit:true
+11-21 08:02:40.729   280   280 I zygote  : option[13]=-Xjitsaveprofilinginfo
+11-21 08:02:40.729   280   280 I zygote  : option[14]=-XjdwpOptions:suspend=n,server=y
+11-21 08:02:40.729   280   280 I zygote  : option[15]=-XjdwpProvider:default
+11-21 08:02:40.729   280   280 I zygote  : option[16]=-Xopaque-jni-ids:swapable
+11-21 08:02:40.729   280   280 I zygote  : option[17]=-Xlockprofthreshold:500
+11-21 08:02:40.729   280   280 I zygote  : option[18]=-Xcompiler-option
+11-21 08:02:40.729   280   280 I zygote  : option[19]=--instruction-set-variant=x86_64
+11-21 08:02:40.729   280   280 I zygote  : option[20]=-Xcompiler-option
+11-21 08:02:40.729   280   280 I zygote  : option[21]=--instruction-set-features=default
+11-21 08:02:40.729   280   280 I zygote  : option[22]=-Xcompiler-option
+--
+11-21 08:02:46.459   838   838 I AndroidRuntime: VM exiting with result code 0, cleanup skipped.
+11-21 08:02:46.459   450   450 E OMXNodeInstance: getExtensionIndex(0xea080f60:google.vp8.decoder, OMX.google.android.index.configureVideoTunnelMode) ERROR: UnsupportedIndex(0x8000101a)
+11-21 08:02:46.459   445   462 D MediaCodecInfo: detail feature-tunneled-playback wasn't present to remove
+11-21 08:02:46.459   450   450 E OMXNodeInstance: getExtensionIndex(0xea080f60:google.vp8.decoder, OMX.google.android.index.enableAndroidNativeBuffers) ERROR: UnsupportedIndex(0x8000101a)
+11-21 08:02:46.461   832   832 I WebViewLoader-: System.exit called, status: 0
+11-21 08:02:46.461   832   832 I AndroidRuntime: VM exiting with result code 0, cleanup skipped.
+11-21 08:02:46.462   504   643 I ActivityManager: Process WebViewLoader-x86_64 (pid 838) has died: psvc PER 
+11-21 08:02:46.462   504   647 W BestClock: java.time.DateTimeException: Missing NTP fix
+11-21 08:02:46.462   279   279 I Zygote  : Process 838 exited cleanly (0)
+11-21 08:02:46.462   504   647 W BestClock: java.time.DateTimeException: Missing NTP fix
+11-21 08:02:46.465   445   462 I OMXClient: IOmx service obtained
+11-21 08:02:46.465   450   450 I OMXMaster: makeComponentInstance(OMX.android.goldfish.vp9.decoder) in android.hardwar process
+11-21 08:02:46.465   450   450 I GoldfishOMXPlugin: makeComponentInstance 'OMX.android.goldfish.vp9.decoder'
+11-21 08:02:46.465   450   450 I GoldfishOMXPlugin: Using goldfish codec for 'vpxdec'
+11-21 08:02:46.465   699   699 D BluetoothDatabase: start()
+11-21 08:02:46.465   450   450 I goldfish_vpxdec: calling constructor of GoldfishVPX
+11-21 08:02:46.465   450   450 E OMXNodeInstance: getExtensionIndex(0xea080f60:android.goldfish.vp9.decoder, OMX.google.android.index.configureVideoTunnelMode) ERROR: UnsupportedIndex(0x8000101a)
+11-21 08:02:46.465   445   462 D MediaCodecInfo: detail feature-tunneled-playback wasn't present to remove
+11-21 08:02:46.465   450   450 W OMXNodeInstance: [0xea080f60:android.goldfish.vp9.decoder] component does not support metadata mode; using fallback
+11-21 08:02:46.466   504   643 I ActivityManager: Process WebViewLoader-x86 (pid 832) has died: psvc PER 
+11-21 08:02:46.467   280   280 I Zygote  : Process 832 exited cleanly (0)
+11-21 08:02:46.467   450   450 I goldfish_vpxdec: calling destructor of GoldfishVPX
+11-21 08:02:46.467   445   462 I OMXClient: IOmx service obtained
+11-21 08:02:46.467   450   450 I OMXMaster: makeComponentInstance(OMX.google.vp9.decoder) in android.hardwar process
+11-21 08:02:46.468   450   450 E OMXNodeInstance: getExtensionIndex(0xea080f60:google.vp9.decoder, OMX.google.android.index.configureVideoTunnelMode) ERROR: UnsupportedIndex(0x8000101a)
+11-21 08:02:46.468   445   462 D MediaCodecInfo: detail feature-tunneled-playback wasn't present to remove
+11-21 08:02:46.468   450   450 E OMXNodeInstance: getExtensionIndex(0xea080f60:google.vp9.decoder, OMX.google.android.index.enableAndroidNativeBuffers) ERROR: UnsupportedIndex(0x8000101a)
+11-21 08:02:46.797     0     0 I init    : starting service 'vendor.gnss-2-0'...
+11-21 08:02:46.801     0     0 I init    : Control message: Processed ctl.interface_start for 'android.hardware.gnss@2.0::IGnss/default' from pid: 162 (/system/bin/hwservicemanager)
+11-21 08:02:46.473   445   462 I OMXClient: IOmx service obtained
+11-21 08:02:46.473   450   450 I OMXMaster: makeComponentInstance(OMX.google.h264.encoder) in android.hardwar process
+--
+11-21 08:02:49.719  1582  1582 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 08:02:49.733   720   720 V KeyguardUpdateMonitor: SubInfo:{id=1 iccId=89014103211118510720 simSlotIndex=0 carrierId=1 displayName=Android carrierName=No service nameSource=0 iconTint=-16746133 number=+15555215554 dataRoaming=0 iconBitmap=android.graphics.Bitmap@14b76ea mcc=310 mnc=260 countryIso=us isEmbedded=false nativeAccessRules=null cardString=89014103211118510720 cardId=-1 isOpportunistic=false groupUUID=null isGroupDisabled=false profileClass=-1 ehplmns=null hplmns=null subscriptionType=0 groupOwner=null carrierConfigAccessRules=null areUiccApplicationsEnabled=true}
+11-21 08:02:49.738   720   720 V KeyguardUpdateMonitor: onSubscriptionInfoChanged()
+11-21 08:02:49.740   720   720 V KeyguardUpdateMonitor: SubInfo:{id=1 iccId=89014103211118510720 simSlotIndex=0 carrierId=1 displayName=Android carrierName=No service nameSource=0 iconTint=-16746133 number=+15555215554 dataRoaming=0 iconBitmap=android.graphics.Bitmap@1e217b6 mcc=310 mnc=260 countryIso=us isEmbedded=false nativeAccessRules=null cardString=89014103211118510720 cardId=-1 isOpportunistic=false groupUUID=null isGroupDisabled=false profileClass=-1 ehplmns=null hplmns=null subscriptionType=0 groupOwner=null carrierConfigAccessRules=null areUiccApplicationsEnabled=true}
+11-21 08:02:49.763  1582  1582 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.profilebootclasspath"
+11-21 08:02:49.763  1582  1582 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.enable_apex_image"
+11-21 08:02:49.763  1582  1582 I AndroidRuntime: Using default boot image
+11-21 08:02:49.763  1582  1582 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.disable_lock_profiling"
+11-21 08:02:49.763  1582  1582 I AndroidRuntime: Leaving lock profiling enabled
+11-21 08:02:49.763  1582  1582 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.enable_generational_cc"
+11-21 08:02:49.768  1582  1582 I app_process: Core platform API reporting enabled, enforcing=false
+11-21 08:02:49.837  1030  1030 I Telephony: TelecomAccountRegistry: onSubscriptionsChanged - update accounts
+11-21 08:02:49.837  1030  1030 I Telephony: PstnIncomingCallNotifier: Unregistering: Handler (com.android.internal.telephony.GsmCdmaPhone) {894a39b}
+11-21 08:02:49.837  1030  1030 D Telephony: Unregistering: Handler (com.android.internal.telephony.GsmCdmaPhone) {894a39b}
+11-21 08:02:49.837  1030  1030 I Telephony: TelecomAccountRegistry: setupAccounts: Found 1 phones.  Attempting to register.
+11-21 08:02:49.837  1030  1030 I Telephony: TelecomAccountRegistry: setupAccounts: Phone with subscription id 1
+11-21 08:02:49.838  1030  1030 D Telephony: isEmergencyPreferredAccount: subId=1, activeData=-1
+11-21 08:02:49.838  1030  1030 D Telephony: isEmergencyPreferredAccount: Device does not require preference.
+11-21 08:02:49.839  1030  1030 I Telephony: isRttCurrentlySupported -- regular acct, hasVoiceAvailability: false
+11-21 08:02:49.839  1030  1030 I Telephony:  isRttSupported: false
+11-21 08:02:49.839  1030  1030 I Telephony:  isRoaming: false
+11-21 08:02:49.839  1030  1030 I Telephony:  isOnWfc: false
+11-21 08:02:49.840   504  1091 I Telecom : PhoneAccountRegistrar: New phone account registered: [[ ] PhoneAccount: ComponentInfo{com.android.phone/com.android.services.telephony.TelephonyConnectionService}, ***, UserHandle{0} Capabilities: CallProvider MultiUser PlaceEmerg SimSub  Audio Routes: BESW Schemes: tel voicemail  Extras: Bundle[{android.telecom.extra.SUPPORTS_VIDEO_CALLING_FALLBACK=true}] GroupId: ***]: TSI.rPA@ABw
+11-21 08:02:49.841   504  1091 I Telecom : CallsManager: Sending phone-account ComponentInfo{com.android.phone/com.android.services.telephony.TelephonyConnectionService}, ***, UserHandle{0} registered intent as user: TSI.rPA@ABw
+11-21 08:02:49.842   504  1091 I Telecom : CallsManager: Sending phone-account registered intent to default dialer: TSI.rPA@ABw
+11-21 08:02:49.843  1030  1030 I Telephony: AccountEntry: Registered phoneAccount: [[ ] PhoneAccount: ComponentInfo{com.android.phone/com.android.services.telephony.TelephonyConnectionService}, ***, UserHandle{0} Capabilities: CallProvider MultiUser PlaceEmerg SimSub  Audio Routes: BESW Schemes: tel voicemail  Extras: Bundle[{android.telecom.extra.SUPPORTS_VIDEO_CALLING_FALLBACK=true}] GroupId: ***] with handle: ComponentInfo{com.android.phone/com.android.services.telephony.TelephonyConnectionService}, ***, UserHandle{0}
+11-21 08:02:49.843  1030  1030 I Telephony: PstnIncomingCallNotifier: Registering: Handler (com.android.internal.telephony.GsmCdmaPhone) {894a39b}
+11-21 08:02:49.843  1030  1030 D Telephony: Registering: Handler (com.android.internal.telephony.GsmCdmaPhone) {894a39b}
+11-21 08:02:49.843  1030  1030 I Telephony: TelecomAccountRegistry: Unregistering phone account ComponentInfo{com.android.phone/com.android.services.telephony.TelephonyConnectionService}, ***, UserHandle{0}.
+11-21 08:02:49.844   504  1091 I Telecom : CallsManager: Sending phone-account ComponentInfo{com.android.phone/com.android.services.telephony.TelephonyConnectionService}, ***, UserHandle{0} unregistered intent as user: TSI.uPA@AB4
+11-21 08:02:49.844   504  1091 I Telecom : CallsManager: Sending phone-account unregistered intent to default dialer: TSI.uPA@AB4
+11-21 08:02:49.844  1030  1030 D MultiSimSettingController: onSubscriptionsChanged
+11-21 08:02:49.844  1030  1030 D MultiSimSettingController: Carrier config subId 1 is not loaded.
+11-21 08:02:49.845  1030  1030 I Telephony: TelecomAccountRegistry: onSubscriptionsChanged - update accounts
+--
+11-21 08:02:50.054  1582  1582 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-21 08:02:50.061   504   595 I InputDispatcher: Dropping KEY event because there is no focused window or focused application in display 0.
+11-21 08:02:50.061   504  1091 W InputManager: Input event injection from pid 1582 failed.
+11-21 08:02:50.061   504  1238 W ActivityManager: Slow operation: 100ms so far, now at attachApplicationLocked: after mServices.attachApplicationLocked
+11-21 08:02:50.061   504   537 D EventSequenceValidator: dec AccIntentStartedEvents to 1
+11-21 08:02:50.062   504   535 W Looper  : Slow dispatch took 117ms android.ui h=com.android.server.am.ActivityManagerService$UiHandler c=null m=53
+11-21 08:02:50.064   504   534 I RoleManagerService: Granting default roles...
+11-21 08:02:50.064   504   595 I InputDispatcher: Dropping KEY event because there is no focused window or focused application in display 0.
+11-21 08:02:50.064   504  1238 W InputManager: Input event injection from pid 1582 failed.
+11-21 08:02:50.064   699   699 V AvrcpMediaPlayerList: mPackageChangedBroadcastReceiver: action: android.intent.action.PACKAGE_CHANGED
+11-21 08:02:50.064   699   699 D AvrcpMediaPlayerList: Name of package changed: com.android.sdksetup
+11-21 08:02:50.065  1030  1030 I CallNotifier: onCallForwardingIndicatorChanged(): subId=1, visible=N
+11-21 08:02:50.065   504   537 D EventSequenceValidator: inc AccIntentStartedEvents to 2
+11-21 08:02:50.066   956   956 D CdmaServiceCategoryProgramHandler: Idle: release wakelock
+11-21 08:02:50.066   956   956 D CellBroadcastHandler: Idle: release wakelock
+11-21 08:02:50.066   956   956 D GsmCellBroadcastHandler: Idle: release wakelock
+11-21 08:02:50.067   504   543 D CompatibilityChangeReporter: Compat change id reported: 135634846; UID 10099; state: DISABLED
+11-21 08:02:50.068   504   544 D CompatibilityChangeReporter: Compat change id reported: 143937733; UID 10099; state: DISABLED
+11-21 08:02:50.068   504   647 W BestClock: java.time.DateTimeException: Missing NTP fix
+11-21 08:02:50.068   504   537 D CompatibilityChangeReporter: Compat change id reported: 135634846; UID 10116; state: DISABLED
+11-21 08:02:50.069   504   596 I InputReader: Reconfiguring input devices, changes=KEYBOARD_LAYOUTS | 
+11-21 08:02:50.071   279   279 D Zygote  : Forked child process 1690
+11-21 08:02:50.073   504   647 W BestClock: java.time.DateTimeException: Missing NTP fix
+11-21 08:02:50.073  1030  1030 D CallNotifier: updatePhoneStateListeners: update CF notifications.
+11-21 08:02:50.073  1030  1030 I NotificationMgr: updateCfi: subId= 1, visible=N
+11-21 08:02:50.074  1030  1030 I NotificationMgr: updateMwi(): subId 1 update to false
+--
+11-21 08:02:50.107  1582  1582 D AndroidRuntime: Shutting down VM
+11-21 08:02:50.111   720   720 V KeyguardUpdateMonitor: action android.intent.action.SIM_STATE_CHANGED state: LOADED slotId: 0 subid: 1
+11-21 08:02:50.111   720   720 V KeyguardUpdateMonitor: onSubscriptionInfoChanged()
+11-21 08:02:50.112   720   720 V KeyguardUpdateMonitor: SubInfo:{id=1 iccId=89014103211118510720 simSlotIndex=0 carrierId=1 displayName=Android carrierName=No service nameSource=0 iconTint=-16746133 number=+15555215554 dataRoaming=0 iconBitmap=android.graphics.Bitmap@d41bcb7 mcc=310 mnc=260 countryIso=us isEmbedded=false nativeAccessRules=null cardString=89014103211118510720 cardId=-1 isOpportunistic=false groupUUID=null isGroupDisabled=false profileClass=-1 ehplmns=null hplmns=null subscriptionType=0 groupOwner=null carrierConfigAccessRules=null areUiccApplicationsEnabled=true}
+11-21 08:02:50.113   720   720 V KeyguardUpdateMonitor: onSubscriptionInfoChanged()
+11-21 08:02:50.113   720   720 V KeyguardUpdateMonitor: SubInfo:{id=1 iccId=89014103211118510720 simSlotIndex=0 carrierId=1 displayName=Android carrierName=No service nameSource=0 iconTint=-16746133 number=+15555215554 dataRoaming=0 iconBitmap=android.graphics.Bitmap@26ff942 mcc=310 mnc=260 countryIso=us isEmbedded=false nativeAccessRules=null cardString=89014103211118510720 cardId=-1 isOpportunistic=false groupUUID=null isGroupDisabled=false profileClass=-1 ehplmns=null hplmns=null subscriptionType=0 groupOwner=null carrierConfigAccessRules=null areUiccApplicationsEnabled=true}
+11-21 08:02:50.113   720   720 D KeyguardUpdateMonitor: handleSimStateChange(subId=1, slotId=0, state=5)
+11-21 08:02:50.115  1261  1261 I AlarmClock: AlarmInitReceiver android.intent.action.TIMEZONE_CHANGED
+11-21 08:02:50.115  1653  1653 I d.carrierconfi: The ClassLoaderContext is a special shared library.
+11-21 08:02:50.116  1261  1311 I AlarmClock: Fixing alarm instances
+11-21 08:02:50.119   379   394 I adbd    : jdwp connection from 1690
+11-21 08:02:50.119  1261  1311 V AlarmClock: AlarmInitReceiver finished
+11-21 08:02:50.120  1653  1653 D NetworkSecurityConfig: No Network Security Config specified, using platform default
+11-21 08:02:50.120  1261  1261 I DigitalWidgetProvider: onReceive: Intent { act=android.intent.action.TIMEZONE_CHANGED flg=0x25200010 cmp=com.android.deskclock/com.android.alarmclock.DigitalAppWidgetProvider (has extras) }
+11-21 08:02:50.121   504  1556 D CompatibilityChangeReporter: Compat change id reported: 135634846; UID 10076; state: DISABLED
+11-21 08:02:50.122  1653  1653 D NetworkSecurityConfig: No Network Security Config specified, using platform default
+11-21 08:02:50.124  1653  1653 D DefaultCarrierConfigService: Service created
+11-21 08:02:50.124  1030  1030 I Telephony: handleVideoCapabilitesChanged. Video capability - false
+11-21 08:02:50.124  1030  1030 D Telephony: isEmergencyPreferredAccount: subId=1, activeData=1
+11-21 08:02:50.124  1030  1030 D Telephony: isEmergencyPreferredAccount: Device does not require preference.
+11-21 08:02:50.125  1030  1030 D PhoneSwitcherNetworkRequstListener: got request NetworkRequest [ TRACK_DEFAULT id=19, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED Uid: 1001 AdministratorUids: [] RequestorUid: 1001 RequestorPackageName: com.android.phone] ] with score 0 and providerId 0
+11-21 08:02:50.125  1030  1030 I Telephony: handleVideoCapabilitesChanged. Video capability - false
+11-21 08:02:50.125  1030  1030 I Telephony: handleVideoCapabilitesChanged. Video capability - false
+11-21 08:02:50.127  1030  1030 D Telephony: isEmergencyPreferredAccount: subId=1, activeData=1
+11-21 08:02:50.127  1030  1030 D Telephony: isEmergencyPreferredAccount: Device does not require preference.
+11-21 08:02:50.127  1030  1030 I Telephony: isRttCurrentlySupported -- regular acct, hasVoiceAvailability: false
+--
+11-21 08:03:09.825  2303  2303 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-21 08:03:09.827  2303  2303 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.profilebootclasspath"
+11-21 08:03:09.827  2303  2303 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.enable_apex_image"
+11-21 08:03:09.827  2303  2303 I AndroidRuntime: Using default boot image
+11-21 08:03:09.827  2303  2303 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.disable_lock_profiling"
+11-21 08:03:09.827  2303  2303 I AndroidRuntime: Leaving lock profiling enabled
+11-21 08:03:09.827  2303  2303 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.enable_generational_cc"
+11-21 08:03:09.828  2303  2303 I app_process: Core platform API reporting enabled, enforcing=false
+11-21 08:03:09.868  2303  2303 D app_process: Time zone APEX ICU file found: /apex/com.android.tzdata/etc/icu/icu_tzdata.dat
+11-21 08:03:09.868  2303  2303 D app_process: I18n APEX ICU file found: /apex/com.android.i18n/etc/icu/icudt66l.dat
+11-21 08:03:09.870  2303  2303 W app_process: Unexpected CPU variant for X86 using defaults: x86_64
+11-21 08:03:09.872  2303  2303 I app_process: The ClassLoaderContext is a special shared library.
+11-21 08:03:09.878  2303  2303 W app_process: JNI RegisterNativeMethods: attempt to register 0 native methods for android.media.AudioAttributes
+11-21 08:03:09.880  2303  2303 D AndroidRuntime: Calling main entry com.android.commands.am.Am
+11-21 08:03:09.882   504  1588 I ActivityManager: Force stopping de.ostlertekker.ultraiptv.debug appid=10130 user=0: start instr
+11-21 08:03:09.883   504  1588 D CompatibilityChangeReporter: Compat change id reported: 135634846; UID 10130; state: DISABLED
+11-21 08:03:09.883   504   544 D CompatibilityChangeReporter: Compat change id reported: 143937733; UID 10130; state: ENABLED
+11-21 08:03:09.887   279   279 D Zygote  : Forked child process 2315
+11-21 08:03:09.888   504   544 I ActivityManager: Start proc 2315:de.ostlertekker.ultraiptv.debug/u0a130 for added application de.ostlertekker.ultraiptv.debug
+11-21 08:03:09.891  2315  2315 I ultraiptv.debu: Late-enabling -Xcheck:jni
+11-21 08:03:09.900  2315  2315 I ultraiptv.debu: Unquickening 12 vdex files!
+11-21 08:03:09.902  2315  2315 W ultraiptv.debu: Unexpected CPU variant for X86 using defaults: x86_64
+11-21 08:03:09.903   379   394 I adbd    : jdwp connection from 2315
+11-21 08:03:09.915  2315  2315 W ActivityThread: Package uses different ABI(s) than its instrumentation: package[de.ostlertekker.ultraiptv.debug]: x86_64, null instrumentation[de.ostlertekker.ultraiptv.debug.test]: null, null
+11-21 08:03:09.916  2315  2315 I ultraiptv.debu: The ClassLoaderContext is a special shared library.
+11-21 08:03:09.917  2315  2315 I chatty  : uid=10130(u0_a130) de.ostlertekker.ultraiptv.debug identical 1 line
+11-21 08:03:09.918  2315  2315 I ultraiptv.debu: The ClassLoaderContext is a special shared library.
+11-21 08:03:10.350  2315  2315 D ApplicationLoaders: Returning zygote-cached class loader: /system/framework/android.test.base.jar
+11-21 08:03:10.350  2315  2315 D ApplicationLoaders: Returning zygote-cached class loader: /system/framework/android.test.base.jar
+11-21 08:03:10.350  2315  2315 I ultraiptv.debu: The ClassLoaderContext is a special shared library.
+11-21 08:03:10.351  2315  2315 D ApplicationLoaders: Returning zygote-cached class loader: /system/framework/android.test.base.jar
+11-21 08:03:10.352  2315  2315 D ApplicationLoaders: Returning zygote-cached class loader: /system/framework/android.test.base.jar
+11-21 08:03:10.352  2315  2315 I ultraiptv.debu: The ClassLoaderContext is a special shared library.
+11-21 08:03:10.410   504   534 I RoleManagerService: Granting default roles...
+11-21 08:03:10.353  2315  2315 I chatty  : uid=10130(u0_a130) de.ostlertekker.ultraiptv.debug identical 2 lines
+11-21 08:03:10.354  2315  2315 I ultraiptv.debu: The ClassLoaderContext is a special shared library.
+11-21 08:03:10.778  2315  2315 W ultraiptv.debu: Accessing hidden method Landroid/app/Instrumentation;->execStartActivity(Landroid/content/Context;Landroid/os/IBinder;Landroid/os/IBinder;Landroid/app/Activity;Landroid/content/Intent;ILandroid/os/Bundle;)Landroid/app/Instrumentation$ActivityResult; (greylist, linking, allowed)
+11-21 08:03:10.778  2315  2315 W ultraiptv.debu: Accessing hidden method Landroid/app/Instrumentation;->execStartActivity(Landroid/content/Context;Landroid/os/IBinder;Landroid/os/IBinder;Ljava/lang/String;Landroid/content/Intent;ILandroid/os/Bundle;)Landroid/app/Instrumentation$ActivityResult; (greylist, linking, allowed)
+11-21 08:03:10.780  2315  2315 D NetworkSecurityConfig: No Network Security Config specified, using platform default
+--
+11-21 08:03:47.378  2303  2303 D AndroidRuntime: Shutting down VM
+11-21 08:03:47.417   504   531 D ConnectivityService: ConnectivityService NetworkRequestInfo binderDied(NetworkRequest [ LISTEN id=20, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&FOREGROUND Uid: 10130 AdministratorUids: [] RequestorUid: 10130 RequestorPackageName: de.ostlertekker.ultraiptv.debug] ], android.os.BinderProxy@256fbda)
+11-21 08:03:47.424   504   545 I libprocessgroup: Successfully killed process cgroup uid 10130 pid 2315 in 47ms
+11-21 08:03:47.429   504   514 I system_server: NativeAlloc concurrent copying GC freed 56567(3426KB) AllocSpace objects, 19(636KB) LOS objects, 49% free, 9731KB/19MB, paused 26us total 276.329ms
+11-21 08:03:47.735     0     0 I binder  : undelivered TRANSACTION_COMPLETE
+11-21 08:03:47.737     0     0 I binder  : undelivered transaction 147718, process died.
+11-21 08:03:47.430   279   279 I Zygote  : Process 2315 exited due to signal 9 (Killed)
+11-21 08:03:47.437   504   537 W ActivityManager: setHasOverlayUi called on unknown pid: 2315
+11-21 08:03:47.453  2715  2715 W dex2oat32: Unexpected CPU variant for X86 using defaults: x86_64
+11-21 08:03:47.456  2715  2715 I dex2oat32: /apex/com.android.art/bin/dex2oat32 --input-vdex-fd=-1 --output-vdex-fd=9 --updatable-bcp-packages-file=/system/etc/updatable-bcp-packages.txt --resolve-startup-const-strings=true --max-image-block-size=524288 --compiler-filter=verify --classpath-dir=/apex/com.android.os.statsd/javalib --class-loader-context=PCL[];PCL[/system/framework/com.android.location.provider.jar:/system/framework/services.jar:/system/framework/ethernet-service.jar:/apex/com.android.permission/javalib/service-permission.jar:/apex/com.android.wifi/javalib/service-wifi.jar:/apex/com.android.ipsec/javalib/android.net.ipsec.ike.jar] --generate-mini-debug-info --compact-dex-level=none --compilation-reason=boot
+11-21 08:03:47.461  2715  2715 I dex2oat32: setting boot class path to /apex/com.android.art/javalib/core-oj.jar:/apex/com.android.art/javalib/core-libart.jar:/apex/com.android.art/javalib/core-icu4j.jar:/apex/com.android.art/javalib/okhttp.jar:/apex/com.android.art/javalib/bouncycastle.jar:/apex/com.android.art/javalib/apache-xml.jar:/system/framework/framework.jar:/system/framework/ext.jar:/system/framework/telephony-common.jar:/system/framework/voip-common.jar:/system/framework/ims-common.jar:/system/framework/framework-atb-backward-compatibility.jar
+11-21 08:03:47.533   504  2582 D HostConnection: HostConnection::get() New Host Connection established 0x706904334550, tid 2582
+11-21 08:03:47.536   504  2582 D HostConnection: HostComposition ext ANDROID_EMU_CHECKSUM_HELPER_v1 ANDROID_EMU_native_sync_v2 ANDROID_EMU_dma_v1 ANDROID_EMU_direct_mem ANDROID_EMU_host_composition_v1 ANDROID_EMU_host_composition_v2 ANDROID_EMU_vulkan ANDROID_EMU_deferred_vulkan_commands ANDROID_EMU_vulkan_null_optional_strings ANDROID_EMU_vulkan_create_resources_with_requirements ANDROID_EMU_YUV_Cache ANDROID_EMU_vulkan_ignored_handles ANDROID_EMU_has_shared_slots_host_memory_allocator ANDROID_EMU_vulkan_free_memory_sync ANDROID_EMU_vulkan_shader_float16_int8 ANDROID_EMU_vulkan_async_queue_submit ANDROID_EMU_sync_buffer_data ANDROID_EMU_vulkan_async_qsri ANDROID_EMU_read_color_buffer_dma ANDROID_EMU_hwc_color_transform ANDROID_EMU_hwc_display_power_mode GL_OES_EGL_image_external_essl3 GL_OES_vertex_array_object GL_KHR_texture_compression_astc_ldr ANDROID_EMU_host_side_tracing ANDROID_EMU_gles_max_version_3_0 
+11-21 08:03:47.538   504  2582 D EGL_emulation: eglCreateContext: 0x7068f4399300: maj 3 min 0 rcv 3
+11-21 08:03:47.539   504  2582 D EGL_emulation: eglMakeCurrent: 0x7068f4399300: ver 3 0 (tinfo 0x706894398cd0) (first time)
+11-21 08:03:47.546  2715  2715 I dex2oat32: dex2oat took 94.957ms (57.851ms cpu) (threads: 2) arena alloc=0B (0B) java alloc=33KB (34600B) native alloc=1005KB (1030128B) free=1504KB (1540864B)
+11-21 08:03:47.549   434   519 V installd: DexInv: --- END '/apex/com.android.os.statsd/javalib/service-statsd.jar' (success) ---
+11-21 08:03:47.550   504  2713 I system_server: The ClassLoaderContext is a special shared library.
+11-21 08:03:47.563   504  2713 I chatty  : uid=1000(system) Binder:504_3 identical 11 lines
+11-21 08:03:47.564   504  2713 I system_server: The ClassLoaderContext is a special shared library.
+11-21 08:03:47.565   504  2713 I PackageDexOptimizer: Running dexopt (dexoptNeeded=1) on: /data/app/~~8VMKKQCPAs-niwlbmUfeGw==/de.ostlertekker.ultraiptv.debug-D4n5hVlXopE1xBlX1ObrhA==/base.apk pkg=de.ostlertekker.ultraiptv.debug isa=x86_64 dexoptFlags=boot_complete,debuggable,public,enable_hidden_api_checks targetFilter=verify oatDir=/data/app/~~8VMKKQCPAs-niwlbmUfeGw==/de.ostlertekker.ultraiptv.debug-D4n5hVlXopE1xBlX1ObrhA==/oat classLoaderContext=PCL[]{}
+11-21 08:03:47.565   434   519 V installd: DexInv: --- BEGIN '/data/app/~~8VMKKQCPAs-niwlbmUfeGw==/de.ostlertekker.ultraiptv.debug-D4n5hVlXopE1xBlX1ObrhA==/base.apk' ---
+11-21 08:03:47.575  2726  2726 W dex2oat32: Unexpected CPU variant for X86 using defaults: x86_64
+11-21 08:03:47.575  2726  2726 I dex2oat32: /apex/com.android.art/bin/dex2oat32 --input-vdex-fd=-1 --output-vdex-fd=9 --updatable-bcp-packages-file=/system/etc/updatable-bcp-packages.txt --resolve-startup-const-strings=true --max-image-block-size=524288 --compiler-filter=verify --debuggable --classpath-dir=/data/app/~~8VMKKQCPAs-niwlbmUfeGw==/de.ostlertekker.ultraiptv.debug-D4n5hVlXopE1xBlX1ObrhA== --class-loader-context=PCL[]{} --generate-mini-debug-info --compact-dex-level=none --compilation-reason=boot
+11-21 08:03:47.577  2726  2726 I dex2oat32: setting boot class path to /apex/com.android.art/javalib/core-oj.jar:/apex/com.android.art/javalib/core-libart.jar:/apex/com.android.art/javalib/core-icu4j.jar:/apex/com.android.art/javalib/okhttp.jar:/apex/com.android.art/javalib/bouncycastle.jar:/apex/com.android.art/javalib/apache-xml.jar:/system/framework/framework.jar:/system/framework/ext.jar:/system/framework/telephony-common.jar:/system/framework/voip-common.jar:/system/framework/ims-common.jar:/system/framework/framework-atb-backward-compatibility.jar
+11-21 08:03:47.996  2743  2745 I cmd     : oneway function results will be dropped but finished with status OK and parcel size 4

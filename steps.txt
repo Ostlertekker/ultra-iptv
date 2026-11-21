@@ -1,0 +1,141 @@
+11-21 08:03:09.410  1319  1319 I MediaProvider: Invalidating LocalCallingIdentity cache for package de.ostlertekker.ultraiptv.debug. Reason: package android.intent.action.PACKAGE_ADDED
+11-21 08:03:09.415   504   543 W BroadcastQueue: Background execution not allowed: receiving Intent { act=android.intent.action.PACKAGE_ADDED dat=package:de.ostlertekker.ultraiptv.debug flg=0x4000010 (has extras) } to com.android.packageinstaller/.PackageInstalledReceiver
+11-21 08:03:09.415   504   543 W BroadcastQueue: Background execution not allowed: receiving Intent { act=android.intent.action.PACKAGE_ADDED dat=package:de.ostlertekker.ultraiptv.debug flg=0x4000010 (has extras) } to com.android.gallery3d/.app.PackagesMonitor
+11-21 08:03:09.426   699   699 D AvrcpMediaPlayerList: Name of package changed: de.ostlertekker.ultraiptv.debug
+11-21 08:03:09.486   504   560 V BackupManagerService: [UserID:0] restoreAtInstall pkg=de.ostlertekker.ultraiptv.debug.test token=2 restoreSet=0
+11-21 08:03:09.494  1319  1319 I MediaProvider: Invalidating LocalCallingIdentity cache for package de.ostlertekker.ultraiptv.debug.test. Reason: package android.intent.action.PACKAGE_ADDED
+11-21 08:03:09.495   699   699 D AvrcpMediaPlayerList: Name of package changed: de.ostlertekker.ultraiptv.debug.test
+11-21 08:03:09.495   504   543 W BroadcastQueue: Background execution not allowed: receiving Intent { act=android.intent.action.PACKAGE_ADDED dat=package:de.ostlertekker.ultraiptv.debug.test flg=0x4000010 (has extras) } to com.android.packageinstaller/.PackageInstalledReceiver
+11-21 08:03:09.495   504   543 W BroadcastQueue: Background execution not allowed: receiving Intent { act=android.intent.action.PACKAGE_ADDED dat=package:de.ostlertekker.ultraiptv.debug.test flg=0x4000010 (has extras) } to com.android.gallery3d/.app.PackagesMonitor
+11-21 08:03:09.882   504  1588 I ActivityManager: Force stopping de.ostlertekker.ultraiptv.debug appid=10130 user=0: start instr
+11-21 08:03:09.888   504   544 I ActivityManager: Start proc 2315:de.ostlertekker.ultraiptv.debug/u0a130 for added application de.ostlertekker.ultraiptv.debug
+11-21 08:03:09.891  2315  2315 I ultraiptv.debu: Late-enabling -Xcheck:jni
+11-21 08:03:09.900  2315  2315 I ultraiptv.debu: Unquickening 12 vdex files!
+11-21 08:03:09.902  2315  2315 W ultraiptv.debu: Unexpected CPU variant for X86 using defaults: x86_64
+11-21 08:03:09.915  2315  2315 W ActivityThread: Package uses different ABI(s) than its instrumentation: package[de.ostlertekker.ultraiptv.debug]: x86_64, null instrumentation[de.ostlertekker.ultraiptv.debug.test]: null, null
+11-21 08:03:09.916  2315  2315 I ultraiptv.debu: The ClassLoaderContext is a special shared library.
+11-21 08:03:09.917  2315  2315 I chatty  : uid=10130(u0_a130) de.ostlertekker.ultraiptv.debug identical 1 line
+11-21 08:03:09.918  2315  2315 I ultraiptv.debu: The ClassLoaderContext is a special shared library.
+11-21 08:03:10.350  2315  2315 I ultraiptv.debu: The ClassLoaderContext is a special shared library.
+11-21 08:03:10.352  2315  2315 I ultraiptv.debu: The ClassLoaderContext is a special shared library.
+11-21 08:03:10.353  2315  2315 I chatty  : uid=10130(u0_a130) de.ostlertekker.ultraiptv.debug identical 2 lines
+11-21 08:03:10.354  2315  2315 I ultraiptv.debu: The ClassLoaderContext is a special shared library.
+11-21 08:03:10.778  2315  2315 W ultraiptv.debu: Accessing hidden method Landroid/app/Instrumentation;->execStartActivity(Landroid/content/Context;Landroid/os/IBinder;Landroid/os/IBinder;Landroid/app/Activity;Landroid/content/Intent;ILandroid/os/Bundle;)Landroid/app/Instrumentation$ActivityResult; (greylist, linking, allowed)
+11-21 08:03:10.778  2315  2315 W ultraiptv.debu: Accessing hidden method Landroid/app/Instrumentation;->execStartActivity(Landroid/content/Context;Landroid/os/IBinder;Landroid/os/IBinder;Ljava/lang/String;Landroid/content/Intent;ILandroid/os/Bundle;)Landroid/app/Instrumentation$ActivityResult; (greylist, linking, allowed)
+11-21 08:03:10.781  2315  2315 I AndroidJUnitRunner: newApplication de.ostlertekker.ultraiptv.UltraApp
+11-21 08:03:10.802  2315  2315 I TetheringManager: registerTetheringEventCallback:de.ostlertekker.ultraiptv.debug
+11-21 08:03:10.932  2315  2336 I TestRunner: run started: 1 tests
+11-21 08:03:10.932  2315  2336 I TestRunner: started: f_settingsAndIntro(de.ostlertekker.ultraiptv.UiSmokeTest)
+11-21 08:03:14.005  2315  2326 I ultraiptv.debu: Compiler allocated 6982KB to compile de.ostlertekker.ultraiptv.core.data.AppSettings de.ostlertekker.ultraiptv.core.data.SettingsRepositoryKt.toSettings(androidx.datastore.preferences.core.Preferences)
+11-21 08:03:15.347  2315  2334 I ultraiptv.debu: Waiting for a blocking GC ProfileSaver
+11-21 08:03:15.658  2315  2345 I UiSmoke : Öffne Seite: settings
+11-21 08:03:15.664   504   629 I ActivityTaskManager: START u0 {flg=0x10008000 cmp=de.ostlertekker.ultraiptv.debug/de.ostlertekker.ultraiptv.MainActivity (has extras)} from uid 10130
+11-21 08:03:15.749  2315  2315 D LifecycleMonitor: Lifecycle status change: de.ostlertekker.ultraiptv.MainActivity@29d7362 in: PRE_ON_CREATE
+11-21 08:03:15.792  2315  2315 D LifecycleMonitor: Lifecycle status change: de.ostlertekker.ultraiptv.MainActivity@29d7362 in: CREATED
+11-21 08:03:15.792  2315  2315 V ActivityScenario: Update currentActivityStage to CREATED, currentActivity=de.ostlertekker.ultraiptv.MainActivity@29d7362
+11-21 08:03:15.798  2315  2315 D LifecycleMonitor: Lifecycle status change: de.ostlertekker.ultraiptv.MainActivity@29d7362 in: STARTED
+11-21 08:03:15.798  2315  2315 V ActivityScenario: Update currentActivityStage to STARTED, currentActivity=de.ostlertekker.ultraiptv.MainActivity@29d7362
+11-21 08:03:15.799  2315  2315 D LifecycleMonitor: Lifecycle status change: de.ostlertekker.ultraiptv.MainActivity@29d7362 in: RESUMED
+11-21 08:03:15.799  2315  2315 V ActivityScenario: Update currentActivityStage to RESUMED, currentActivity=de.ostlertekker.ultraiptv.MainActivity@29d7362
+11-21 08:03:16.121   504   542 D ArtManagerInternalImpl: /data/misc/iorapd/de.ostlertekker.ultraiptv.debug/191/de.ostlertekker.ultraiptv.MainActivity/compiled_traces/compiled_trace.pb doesn't exist
+11-21 08:03:16.121   504   542 I ActivityTaskManager: Displayed de.ostlertekker.ultraiptv.debug/de.ostlertekker.ultraiptv.MainActivity: +453ms
+11-21 08:03:16.235  2315  2315 W ultraiptv.debu: Class androidx.compose.runtime.snapshots.SnapshotStateList failed lock verification and will run slower.
+11-21 08:03:16.235  2315  2315 W ultraiptv.debu: Common causes for lock verification issues are non-optimized dex code
+11-21 08:03:16.235  2315  2315 W ultraiptv.debu: and incorrect proguard optimizations.
+11-21 08:03:16.516  2315  2327 I ultraiptv.debu: Background concurrent copying GC freed 453940(20MB) AllocSpace objects, 5(212KB) LOS objects, 49% free, 6409KB/12MB, paused 18us total 122.371ms
+11-21 08:03:17.093  2315  2398 D ProfileInstaller: Installing profile for de.ostlertekker.ultraiptv.debug
+11-21 08:03:19.639  2315  2345 I UiSmoke : Schritt: Einstellungen betreten
+11-21 08:03:20.859   699   699 D AvrcpMediaPlayerList: Name of package changed: de.ostlertekker.ultraiptv.debug
+11-21 08:03:20.993  2315  2345 I UiSmoke : Schritt: Kategorie 1
+11-21 08:03:21.977  2315  2345 I UiSmoke : Schritt: Kategorie 2
+11-21 08:03:22.891  2315  2345 I UiSmoke : Schritt: Kategorie 3
+11-21 08:03:23.830  2315  2345 I UiSmoke : Schritt: Kategorie 4
+11-21 08:03:24.742  2315  2345 I UiSmoke : Schritt: Kategorie 5
+11-21 08:03:25.677  2315  2345 I UiSmoke : Schritt: Kategorie 6
+11-21 08:03:26.597  2315  2345 I UiSmoke : Schritt: Kategorie 7
+11-21 08:03:27.534  2315  2345 I UiSmoke : Schritt: Kategorie 8
+11-21 08:03:28.483  2315  2345 I UiSmoke : Schritt: Kategorie 9
+11-21 08:03:29.393  2315  2345 I UiSmoke : Schritt: Kategorie 10
+11-21 08:03:30.329  2315  2345 I UiSmoke : Schritt: Kategorie 11
+11-21 08:03:31.262  2315  2345 I UiSmoke : Schritt: Kategorie 12
+11-21 08:03:32.190  2315  2345 I UiSmoke : Schritt: Kategorien zurück
+11-21 08:03:34.222   504  1005 I ActivityTaskManager: START u0 {act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10000000 cmp=de.ostlertekker.ultraiptv.debug.test/androidx.test.core.app.InstrumentationActivityInvoker$EmptyActivity} from uid 10130
+11-21 08:03:34.229  2315  2315 D LifecycleMonitor: Lifecycle status change: de.ostlertekker.ultraiptv.MainActivity@29d7362 in: PAUSED
+11-21 08:03:34.229  2315  2315 V ActivityScenario: Update currentActivityStage to PAUSED, currentActivity=de.ostlertekker.ultraiptv.MainActivity@29d7362
+11-21 08:03:34.268   504   544 I ActivityManager: Start proc 2558:de.ostlertekker.ultraiptv.debug.test/u0a131 for pre-top-activity {de.ostlertekker.ultraiptv.debug.test/androidx.test.core.app.InstrumentationActivityInvoker$EmptyActivity}
+11-21 08:03:34.399  2315  2315 D LifecycleMonitor: Lifecycle status change: de.ostlertekker.ultraiptv.MainActivity@29d7362 in: STOPPED
+11-21 08:03:34.399  2315  2315 V ActivityScenario: Update currentActivityStage to STOPPED, currentActivity=de.ostlertekker.ultraiptv.MainActivity@29d7362
+11-21 08:03:34.442  2315  2315 D LifecycleMonitor: Lifecycle status change: de.ostlertekker.ultraiptv.MainActivity@29d7362 in: DESTROYED
+11-21 08:03:34.593   504  1005 I ActivityTaskManager: START u0 {flg=0x10008000 cmp=de.ostlertekker.ultraiptv.debug/de.ostlertekker.ultraiptv.MainActivity} from uid 10130
+11-21 08:03:34.796   504  1005 W ActivityTaskManager: Duplicate finish request for r=ActivityRecord{6b0f020 u0 de.ostlertekker.ultraiptv.debug.test/androidx.test.core.app.InstrumentationActivityInvoker$EmptyActivity t10 f}}
+11-21 08:03:34.809  2315  2315 D LifecycleMonitor: Lifecycle status change: de.ostlertekker.ultraiptv.MainActivity@84c1967 in: PRE_ON_CREATE
+11-21 08:03:34.814  2315  2315 D LifecycleMonitor: Lifecycle status change: de.ostlertekker.ultraiptv.MainActivity@84c1967 in: CREATED
+11-21 08:03:34.814  2315  2315 V ActivityScenario: Update currentActivityStage to CREATED, currentActivity=de.ostlertekker.ultraiptv.MainActivity@84c1967
+11-21 08:03:34.815  2315  2315 D LifecycleMonitor: Lifecycle status change: de.ostlertekker.ultraiptv.MainActivity@84c1967 in: STARTED
+11-21 08:03:34.815  2315  2315 V ActivityScenario: Update currentActivityStage to STARTED, currentActivity=de.ostlertekker.ultraiptv.MainActivity@84c1967
+11-21 08:03:34.816  2315  2315 D LifecycleMonitor: Lifecycle status change: de.ostlertekker.ultraiptv.MainActivity@84c1967 in: RESUMED
+11-21 08:03:34.816  2315  2315 V ActivityScenario: Update currentActivityStage to RESUMED, currentActivity=de.ostlertekker.ultraiptv.MainActivity@84c1967
+11-21 08:03:34.977   504   542 D ArtManagerInternalImpl: /data/misc/iorapd/de.ostlertekker.ultraiptv.debug/191/de.ostlertekker.ultraiptv.MainActivity/compiled_traces/compiled_trace.pb doesn't exist
+11-21 08:03:34.978   504   542 I ActivityTaskManager: Displayed de.ostlertekker.ultraiptv.debug/de.ostlertekker.ultraiptv.MainActivity: +383ms
+11-21 08:03:35.081  2315  2327 I ultraiptv.debu: Background young concurrent copying GC freed 144966(6017KB) AllocSpace objects, 1(24KB) LOS objects, 39% free, 8851KB/14MB, paused 16us total 140.144ms
+11-21 08:03:39.670  2315  2327 I ultraiptv.debu: NativeAlloc concurrent copying GC freed 106466(5993KB) AllocSpace objects, 19(1168KB) LOS objects, 49% free, 7845KB/15MB, paused 17us total 220.822ms
+11-21 08:03:46.773   504  1091 I ActivityTaskManager: START u0 {act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10000000 cmp=de.ostlertekker.ultraiptv.debug.test/androidx.test.core.app.InstrumentationActivityInvoker$EmptyActivity} from uid 10130
+11-21 08:03:46.790  2315  2315 D LifecycleMonitor: Lifecycle status change: de.ostlertekker.ultraiptv.MainActivity@84c1967 in: PAUSED
+11-21 08:03:46.790  2315  2315 V ActivityScenario: Update currentActivityStage to PAUSED, currentActivity=de.ostlertekker.ultraiptv.MainActivity@84c1967
+11-21 08:03:47.050  2315  2315 D LifecycleMonitor: Lifecycle status change: de.ostlertekker.ultraiptv.MainActivity@84c1967 in: STOPPED
+11-21 08:03:47.050  2315  2315 V ActivityScenario: Update currentActivityStage to STOPPED, currentActivity=de.ostlertekker.ultraiptv.MainActivity@84c1967
+11-21 08:03:47.240  2315  2315 D LifecycleMonitor: Lifecycle status change: de.ostlertekker.ultraiptv.MainActivity@84c1967 in: DESTROYED
+11-21 08:03:47.262  2315  2336 I TestRunner: finished: f_settingsAndIntro(de.ostlertekker.ultraiptv.UiSmokeTest)
+11-21 08:03:47.268  2315  2336 I TestRunner: run finished: 1 tests, 0 failed, 0 ignored
+11-21 08:03:47.367   504  2683 I ActivityManager: Force stopping de.ostlertekker.ultraiptv.debug appid=10130 user=0: finished inst
+11-21 08:03:47.377   504  2683 I ActivityManager: Killing 2315:de.ostlertekker.ultraiptv.debug/u0a130 (adj 0): stop de.ostlertekker.ultraiptv.debug due to finished inst
+11-21 08:03:47.417   504   531 D ConnectivityService: ConnectivityService NetworkRequestInfo binderDied(NetworkRequest [ LISTEN id=20, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&FOREGROUND Uid: 10130 AdministratorUids: [] RequestorUid: 10130 RequestorPackageName: de.ostlertekker.ultraiptv.debug] ], android.os.BinderProxy@256fbda)
+11-21 08:03:47.565   504  2713 I PackageDexOptimizer: Running dexopt (dexoptNeeded=1) on: /data/app/~~8VMKKQCPAs-niwlbmUfeGw==/de.ostlertekker.ultraiptv.debug-D4n5hVlXopE1xBlX1ObrhA==/base.apk pkg=de.ostlertekker.ultraiptv.debug isa=x86_64 dexoptFlags=boot_complete,debuggable,public,enable_hidden_api_checks targetFilter=verify oatDir=/data/app/~~8VMKKQCPAs-niwlbmUfeGw==/de.ostlertekker.ultraiptv.debug-D4n5hVlXopE1xBlX1ObrhA==/oat classLoaderContext=PCL[]{}
+11-21 08:03:47.565   434   519 V installd: DexInv: --- BEGIN '/data/app/~~8VMKKQCPAs-niwlbmUfeGw==/de.ostlertekker.ultraiptv.debug-D4n5hVlXopE1xBlX1ObrhA==/base.apk' ---
+11-21 08:03:47.575  2726  2726 I dex2oat32: /apex/com.android.art/bin/dex2oat32 --input-vdex-fd=-1 --output-vdex-fd=9 --updatable-bcp-packages-file=/system/etc/updatable-bcp-packages.txt --resolve-startup-const-strings=true --max-image-block-size=524288 --compiler-filter=verify --debuggable --classpath-dir=/data/app/~~8VMKKQCPAs-niwlbmUfeGw==/de.ostlertekker.ultraiptv.debug-D4n5hVlXopE1xBlX1ObrhA== --class-loader-context=PCL[]{} --generate-mini-debug-info --compact-dex-level=none --compilation-reason=boot
+11-21 08:03:48.973   434   519 V installd: DexInv: --- END '/data/app/~~8VMKKQCPAs-niwlbmUfeGw==/de.ostlertekker.ultraiptv.debug-D4n5hVlXopE1xBlX1ObrhA==/base.apk' (success) ---
+11-21 08:03:48.975   504   543 I ActivityManager: Force stopping de.ostlertekker.ultraiptv.debug appid=10130 user=-1: deletePackageX
+11-21 08:03:48.980   504   560 I PackageManager: Removing permission de.ostlertekker.ultraiptv.debug.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION that used to be declared by de.ostlertekker.ultraiptv.debug
+11-21 08:03:48.980   504   560 W PackageManager: Removing dangling permission: de.ostlertekker.ultraiptv.debug.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION from package de.ostlertekker.ultraiptv.debug
+11-21 08:03:49.030   504   560 I ActivityManager: Force stopping de.ostlertekker.ultraiptv.debug appid=10130 user=0: pkg removed
+11-21 08:03:49.033   504   543 W BroadcastQueue: Background execution not allowed: receiving Intent { act=android.intent.action.PACKAGE_REMOVED dat=package:de.ostlertekker.ultraiptv.debug flg=0x4000010 (has extras) } to com.android.gallery3d/.app.PackagesMonitor
+11-21 08:03:49.033   504   543 W BroadcastQueue: Background execution not allowed: receiving Intent { act=android.intent.action.PACKAGE_REMOVED dat=package:de.ostlertekker.ultraiptv.debug flg=0x4000010 (has extras) } to com.android.musicfx/.Compatibility$Receiver
+11-21 08:03:49.034  1319  1319 I MediaProvider: Invalidating LocalCallingIdentity cache for package de.ostlertekker.ultraiptv.debug. Reason: package android.intent.action.PACKAGE_REMOVED
+11-21 08:03:49.036   504   605 V StorageManagerService: Package de.ostlertekker.ultraiptv.debug does not have legacy storage
+11-21 08:03:49.038   504   591 I RollbackManager: broadcast=ACTION_PACKAGE_FULLY_REMOVED pkg=de.ostlertekker.ultraiptv.debug
+11-21 08:03:49.044   923   923 D Launcher.Model: package removed received de.ostlertekker.ultraiptv.debug
+11-21 08:03:49.044   923   962 D PackageUpdatedTask: Removing app iconde.ostlertekker.ultraiptv.debug
+11-21 08:03:49.046   504   504 W WifiService: Couldn't get PackageInfo for package:de.ostlertekker.ultraiptv.debug
+11-21 08:03:49.046   504   504 D WifiService: Remove settings for package:de.ostlertekker.ultraiptv.debug
+11-21 08:03:49.046   504   504 W WifiService: Couldn't get PackageInfo for package:de.ostlertekker.ultraiptv.debug
+11-21 08:03:49.046   504   504 D WifiService: Remove settings for package:de.ostlertekker.ultraiptv.debug
+11-21 08:03:49.047   504   650 D WifiConfigManager: Remove all networks for app ApplicationInfo{31d5863 de.ostlertekker.ultraiptv.debug}
+11-21 08:03:49.048   504   504 I ConditionProviders: Disallowing condition provider de.ostlertekker.ultraiptv.debug
+11-21 08:03:49.054   504   650 I PasspointManager: No app ops listener found for de.ostlertekker.ultraiptv.debug
+11-21 08:03:49.054   504   650 D WifiConfigManager: Remove all networks for app ApplicationInfo{3ed1324 de.ostlertekker.ultraiptv.debug}
+11-21 08:03:49.057   504   650 I PasspointManager: No app ops listener found for de.ostlertekker.ultraiptv.debug
+11-21 08:03:49.141   504   543 I ActivityManager: Force stopping de.ostlertekker.ultraiptv.debug.test appid=10131 user=-1: deletePackageX
+11-21 08:03:49.141   504   543 I ActivityManager: Killing 2558:de.ostlertekker.ultraiptv.debug.test/u0a131 (adj 900): stop de.ostlertekker.ultraiptv.debug.test due to deletePackageX
+11-21 08:03:49.212  1319  1934 I MediaProvider: Begin Intent { act=android.intent.action.PACKAGE_FULLY_REMOVED dat=package:de.ostlertekker.ultraiptv.debug flg=0x5000010 cmp=com.android.providers.media.module/com.android.providers.media.MediaService (has extras) }
+11-21 08:03:49.213  1319  1934 I MediaProvider: End Intent { act=android.intent.action.PACKAGE_FULLY_REMOVED dat=package:de.ostlertekker.ultraiptv.debug flg=0x5000010 cmp=com.android.providers.media.module/com.android.providers.media.MediaService (has extras) }
+11-21 08:03:49.232   504  2713 I BackgroundDexOptService: Pinning optimized code {android, de.ostlertekker.ultraiptv.debug}
+11-21 08:03:49.232   504  2713 D IorapForwardingService: onPackagesUpdated: de.ostlertekker.ultraiptv.debug
+11-21 08:03:49.248   504   560 I ActivityManager: Force stopping de.ostlertekker.ultraiptv.debug.test appid=10131 user=0: pkg removed
+11-21 08:03:49.252   504   543 W BroadcastQueue: Background execution not allowed: receiving Intent { act=android.intent.action.PACKAGE_REMOVED dat=package:de.ostlertekker.ultraiptv.debug.test flg=0x4000010 (has extras) } to com.android.gallery3d/.app.PackagesMonitor
+11-21 08:03:49.252   504   543 W BroadcastQueue: Background execution not allowed: receiving Intent { act=android.intent.action.PACKAGE_REMOVED dat=package:de.ostlertekker.ultraiptv.debug.test flg=0x4000010 (has extras) } to com.android.musicfx/.Compatibility$Receiver
+11-21 08:03:49.252   504   605 V StorageManagerService: Package de.ostlertekker.ultraiptv.debug.test does not have legacy storage
+11-21 08:03:49.252   504   591 I RollbackManager: broadcast=ACTION_PACKAGE_FULLY_REMOVED pkg=de.ostlertekker.ultraiptv.debug.test
+11-21 08:03:49.253  1319  1319 I MediaProvider: Invalidating LocalCallingIdentity cache for package de.ostlertekker.ultraiptv.debug.test. Reason: package android.intent.action.PACKAGE_REMOVED
+11-21 08:03:49.261   504   504 W WifiService: Couldn't get PackageInfo for package:de.ostlertekker.ultraiptv.debug.test
+11-21 08:03:49.261   504   504 D WifiService: Remove settings for package:de.ostlertekker.ultraiptv.debug.test
+11-21 08:03:49.262   504   504 W WifiService: Couldn't get PackageInfo for package:de.ostlertekker.ultraiptv.debug.test
+11-21 08:03:49.262   504   504 D WifiService: Remove settings for package:de.ostlertekker.ultraiptv.debug.test
+11-21 08:03:49.262   504   504 I ConditionProviders: Disallowing condition provider de.ostlertekker.ultraiptv.debug.test
+11-21 08:03:49.262   504   650 D WifiConfigManager: Remove all networks for app ApplicationInfo{6407408 de.ostlertekker.ultraiptv.debug.test}
+11-21 08:03:49.269   504   650 I PasspointManager: No app ops listener found for de.ostlertekker.ultraiptv.debug.test
+11-21 08:03:49.269   504   650 D WifiConfigManager: Remove all networks for app ApplicationInfo{f5c7a4c de.ostlertekker.ultraiptv.debug.test}
+11-21 08:03:49.272  1319  1934 I MediaProvider: Begin Intent { act=android.intent.action.PACKAGE_FULLY_REMOVED dat=package:de.ostlertekker.ultraiptv.debug.test flg=0x5000010 cmp=com.android.providers.media.module/com.android.providers.media.MediaService (has extras) }
+11-21 08:03:49.273   504   650 I PasspointManager: No app ops listener found for de.ostlertekker.ultraiptv.debug.test
+11-21 08:03:49.273  1319  1934 I MediaProvider: End Intent { act=android.intent.action.PACKAGE_FULLY_REMOVED dat=package:de.ostlertekker.ultraiptv.debug.test flg=0x5000010 cmp=com.android.providers.media.module/com.android.providers.media.MediaService (has extras) }
+11-21 08:03:49.276   923   923 D Launcher.Model: package removed received de.ostlertekker.ultraiptv.debug.test
+11-21 08:03:49.276   923   962 D PackageUpdatedTask: Removing app iconde.ostlertekker.ultraiptv.debug.test
