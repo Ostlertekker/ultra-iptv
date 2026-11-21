@@ -2,6 +2,8 @@ package de.ostlertekker.ultraiptv.core.ui
 
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.foundation.focusable
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -746,9 +748,31 @@ fun TvTextField(
     focusRequester: FocusRequester? = null,
 ) {
     val p = LocalUltraTheme.current.palette
-    Column(modifier) {
+    // TV-Bedienung: Fokus auf dem Feld öffnet noch keine Tastatur – erst OK startet die Eingabe.
+    // „Fertig“ auf der Tastatur oder Zurück beendet sie wieder, der Fokus bleibt auf dem Feld.
+    val outer = focusRequester ?: remember { FocusRequester() }
+    val inner = remember { FocusRequester() }
+    var editing by remember { mutableStateOf(false) }
+    var hover by remember { mutableStateOf(false) }
+    val kb = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    LaunchedEffect(editing) { if (editing) { runCatching { inner.requestFocus() }; kb?.show() } }
+    fun stopEditing() { kb?.hide(); editing = false; runCatching { outer.requestFocus() } }
+    Column(modifier
+        .focusRequester(outer)
+        .onFocusChanged { hover = it.isFocused }
+        .focusProperties { canFocus = !editing }
+        .focusable()
+        .onKeyEvent { ev ->
+            val c = ev.nativeKeyEvent.keyCode
+            if (!editing && ev.nativeKeyEvent.action == android.view.KeyEvent.ACTION_UP &&
+                (c == android.view.KeyEvent.KEYCODE_DPAD_CENTER || c == android.view.KeyEvent.KEYCODE_ENTER || c == android.view.KeyEvent.KEYCODE_NUMPAD_ENTER)) {
+                editing = true; true
+            } else false
+        }) {
         OutlinedTextField(
             value = value, onValueChange = onValueChange, label = { Text(label) }, singleLine = true,
+            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { stopEditing() }, onGo = { stopEditing() },
+                onSearch = { stopEditing() }, onNext = { stopEditing() }),
             isError = error != null,
             visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
             keyboardOptions = KeyboardOptions(keyboardType = when {
@@ -756,13 +780,22 @@ fun TvTextField(
                 number -> KeyboardType.Number
                 password -> KeyboardType.Password
                 else -> KeyboardType.Uri
-            }),
+            }, imeAction = androidx.compose.ui.text.input.ImeAction.Done),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedTextColor = p.text, unfocusedTextColor = p.text, focusedBorderColor = p.primary,
-                unfocusedBorderColor = p.textDim.copy(alpha = 0.5f), focusedLabelColor = p.primary, unfocusedLabelColor = p.textDim,
+                // Feld ausgewählt (noch nicht in Eingabe): kräftiger Rahmen als Fokus-Anzeige
+                unfocusedBorderColor = if (hover) Color.White else p.textDim.copy(alpha = 0.5f),
+                focusedLabelColor = p.primary, unfocusedLabelColor = if (hover) Color.White else p.textDim,
                 cursorColor = p.primary,
             ),
-            modifier = Modifier.fillMaxWidth().then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
+            modifier = Modifier.fillMaxWidth().focusRequester(inner)
+                .focusProperties { canFocus = editing }
+                .onFocusChanged { if (!it.isFocused && editing) { editing = false; kb?.hide() } }
+                .onPreviewKeyEvent { ev ->
+                    if (editing && ev.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_BACK) {
+                        if (ev.nativeKeyEvent.action == android.view.KeyEvent.ACTION_UP) stopEditing(); true
+                    } else false
+                },
         )
         if (error != null) Text(error, color = Color(0xFFFF6B6B), fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp, top = 2.dp))
     }
