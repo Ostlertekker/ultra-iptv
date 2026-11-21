@@ -269,6 +269,66 @@ class NetworkToolsViewModel @Inject constructor(
         }.getOrElse { CheckRow(name, false, detail = "$host · " + (it.message ?: it.javaClass.simpleName)) }
     }
 
+    // ---------------------------------------------------------------- App-Diagnose
+
+    val diag = MutableStateFlow<List<Pair<String, String>>>(emptyList())
+    val lastErrors = MutableStateFlow<String?>(null)
+
+    private fun sizeOf(f: java.io.File?): Long = when {
+        f == null || !f.exists() -> 0L
+        f.isFile -> f.length()
+        else -> f.listFiles()?.sumOf { sizeOf(it) } ?: 0L
+    }
+
+    private fun mb(b: Long) = "%.1f MB".format(java.util.Locale.GERMANY, b / 1_048_576.0)
+
+    fun loadDiag() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val out = ArrayList<Pair<String, String>>()
+            out += "App-Version" to "${de.ostlertekker.ultraiptv.BuildConfig.VERSION_NAME} (${de.ostlertekker.ultraiptv.BuildConfig.VERSION_CODE})"
+            out += "Gerät" to "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}"
+            out += "Android" to "${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})"
+            val rt = Runtime.getRuntime()
+            out += "Arbeitsspeicher der App" to "${mb(rt.totalMemory() - rt.freeMemory())} von max. ${mb(rt.maxMemory())}"
+            ctx.getSystemService(android.app.ActivityManager::class.java)?.let { am ->
+                val mi = android.app.ActivityManager.MemoryInfo(); am.getMemoryInfo(mi)
+                out += "Arbeitsspeicher des Geräts" to "${mb(mi.availMem)} frei von ${mb(mi.totalMem)}" + if (mi.lowMemory) " · knapp!" else ""
+            }
+            out += "Cache (Bilder, Web …)" to mb(sizeOf(ctx.cacheDir))
+            val dbDir = ctx.getDatabasePath("x").parentFile
+            out += "Datenbank (Sender, Filme, EPG)" to mb(sizeOf(dbDir))
+            out += "App-Daten gesamt" to mb(sizeOf(ctx.filesDir) + sizeOf(dbDir) + sizeOf(ctx.cacheDir))
+            runCatching { android.os.StatFs(ctx.filesDir.path) }.getOrNull()?.let { st ->
+                out += "Freier Gerätespeicher" to "${mb(st.availableBytes)} von ${mb(st.totalBytes)}"
+            }
+            out += "Software-Tondecoder" to (if (runCatching { androidx.media3.decoder.ffmpeg.FfmpegLibrary.isAvailable() }.getOrDefault(false)) "aktiv" else "nicht verfügbar")
+            diag.value = out
+            lastErrors.value = listOfNotNull(
+                de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.lastCrash(ctx)?.let { "ABSTURZ\n$it" },
+                de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.lastFreeze(ctx)?.let { "HÄNGER\n$it" },
+            ).joinToString("\n\n").lines().filter { it.isNotBlank() }.take(14).joinToString("\n").ifBlank { null }
+        }
+    }
+
+    /** Cache leeren: Bild-Zwischenspeicher, Web-Cache und temporäre Dateien. Favoriten, Einstellungen, Profile bleiben. */
+    fun clearCache(onDone: (String) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val before = sizeOf(ctx.cacheDir)
+            ctx.cacheDir.listFiles()?.forEach { runCatching { it.deleteRecursively() } }
+            withContext(Dispatchers.Main) {
+                runCatching { coil.Coil.imageLoader(ctx).memoryCache?.clear() }
+                runCatching { android.webkit.WebView(ctx).apply { clearCache(true); destroy() } }
+            }
+            val freed = (before - sizeOf(ctx.cacheDir)).coerceAtLeast(0)
+            withContext(Dispatchers.Main) { onDone("${mb(freed)} freigegeben") }
+            loadDiag()
+        }
+    }
+
+    fun clearErrors() {
+        de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.clear(ctx); loadDiag()
+    }
+
     // ---------------------------------------------------------------- Netzwerk-Infos
 
     @SuppressLint("MissingPermission")
@@ -325,7 +385,7 @@ class NetworkToolsViewModel @Inject constructor(
 // Oberfläche
 // =====================================================================================================
 
-private enum class Tool(val label: String) { SPEED("Speedtest"), CHECK("Verbindungs-Check"), INFO("Netzwerk-Infos") }
+private enum class Tool(val label: String) { SPEED("Speedtest"), CHECK("Verbindungs-Check"), INFO("Netzwerk-Infos"), DIAG("App-Diagnose") }
 
 /** „Mehr“: Netzwerk-Werkzeuge. */
 @Composable
@@ -342,6 +402,7 @@ fun ToolsScreen(vm: NetworkToolsViewModel = hiltViewModel()) {
             Tool.SPEED -> SpeedPane(vm)
             Tool.CHECK -> CheckPane(vm)
             Tool.INFO -> InfoPane(vm)
+            Tool.DIAG -> DiagPane(vm)
         }
     }
 }
@@ -425,6 +486,39 @@ private fun InfoPane(vm: NetworkToolsViewModel) {
                     Text(v, color = p.text, fontSize = 15.sp)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun DiagPane(vm: NetworkToolsViewModel) {
+    val p = LocalUltraTheme.current.palette
+    val rows by vm.diag.collectAsStateWithLifecycle()
+    val errors by vm.lastErrors.collectAsStateWithLifecycle()
+    var msg by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) { vm.loadDiag() }
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                TvButton("Cache leeren", onClick = { vm.clearCache { msg = it } }, primary = true)
+                TvButton("Aktualisieren", onClick = { vm.loadDiag() })
+                if (errors != null) TvButton("Fehler löschen", onClick = { vm.clearErrors() })
+                msg?.let { Text(it, color = p.primary, fontSize = 15.sp) }
+            }
+            Spacer(Modifier.height(10.dp))
+        }
+        items(rows.size) { i ->
+            val (k, v) = rows[i]
+            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                Text(k, color = p.textDim, fontSize = 15.sp, modifier = Modifier.width(280.dp))
+                Text(v, color = p.text, fontSize = 15.sp)
+            }
+        }
+        item {
+            Text("Letzte Fehler", color = p.text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp))
+            Text(errors ?: "Keine Abstürze oder Hänger aufgezeichnet.", color = if (errors != null) Color(0xFFFFC857) else p.textDim, fontSize = 13.sp)
+            Text("Cache leeren löscht nur Zwischenspeicher (Bilder, Web). Favoriten, Einstellungen, Profile und Fortschritte bleiben erhalten.",
+                color = p.textDim.copy(alpha = 0.8f), fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp))
         }
     }
 }
