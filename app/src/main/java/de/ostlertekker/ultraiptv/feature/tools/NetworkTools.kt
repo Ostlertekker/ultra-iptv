@@ -43,6 +43,7 @@ import de.ostlertekker.ultraiptv.core.design.LocalUltraTheme
 import de.ostlertekker.ultraiptv.core.ui.ScreenTitle
 import de.ostlertekker.ultraiptv.core.ui.TvButton
 import de.ostlertekker.ultraiptv.core.ui.TvChip
+import de.ostlertekker.ultraiptv.core.ui.tvFocusable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -393,7 +394,7 @@ fun ToolsScreen(vm: NetworkToolsViewModel = hiltViewModel()) {
     val p = LocalUltraTheme.current.palette
     var tool by remember { mutableStateOf(Tool.SPEED) }
     Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 12.dp)) {
-        ScreenTitle("Werkzeuge", subtitle = "Netzwerk prüfen – Geschwindigkeit, Erreichbarkeit und Verbindungsdaten")
+        ScreenTitle("Tools", subtitle = "Netzwerk prüfen und App-Zustand – Geschwindigkeit, Erreichbarkeit, Verbindungsdaten, Diagnose")
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Tool.entries.forEach { t -> TvChip(t.label, tool == t, { tool = t }) }
         }
@@ -453,9 +454,11 @@ private fun CheckPane(vm: NetworkToolsViewModel) {
     Column {
         TvButton(if (busy) "Prüfe …" else "Erneut prüfen", onClick = { vm.runChecks() }, primary = true, enabled = !busy)
         Spacer(Modifier.height(12.dp))
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 60.dp)) {
             items(rows, key = { it.name }) { r ->
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(p.surface.copy(alpha = 0.5f)).padding(14.dp),
+                // Fokussierbar, damit die Liste per Fernbedienung bis zum Ende scrollt
+                Row(Modifier.fillMaxWidth().tvFocusable(RoundedCornerShape(12.dp), {}, scaleOnFocus = false)
+                    .clip(RoundedCornerShape(12.dp)).background(p.surface.copy(alpha = 0.5f)).padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     val (sym, col) = when (r.ok) { true -> "✓" to Color(0xFF4ADE80); false -> "✕" to Color(0xFFFF6B6B); null -> "–" to p.textDim }
                     Box(Modifier.width(36.dp)) { Text(sym, color = col, fontSize = 20.sp, fontWeight = FontWeight.Bold) }
@@ -478,10 +481,10 @@ private fun InfoPane(vm: NetworkToolsViewModel) {
     Column {
         TvButton("Aktualisieren", onClick = { vm.loadInfo() }, primary = true)
         Spacer(Modifier.height(12.dp))
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 60.dp)) {
             items(rows.size) { i ->
                 val (k, v) = rows[i]
-                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                Row(Modifier.fillMaxWidth().tvFocusable(RoundedCornerShape(8.dp), {}, scaleOnFocus = false).padding(vertical = 6.dp, horizontal = 6.dp)) {
                     Text(k, color = p.textDim, fontSize = 15.sp, modifier = Modifier.width(240.dp))
                     Text(v, color = p.text, fontSize = 15.sp)
                 }
@@ -497,7 +500,7 @@ private fun DiagPane(vm: NetworkToolsViewModel) {
     val errors by vm.lastErrors.collectAsStateWithLifecycle()
     var msg by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { vm.loadDiag() }
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 60.dp)) {
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 TvButton("Cache leeren", onClick = { vm.clearCache { msg = it } }, primary = true)
@@ -509,13 +512,14 @@ private fun DiagPane(vm: NetworkToolsViewModel) {
         }
         items(rows.size) { i ->
             val (k, v) = rows[i]
-            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+            Row(Modifier.fillMaxWidth().tvFocusable(RoundedCornerShape(8.dp), {}, scaleOnFocus = false).padding(vertical = 6.dp, horizontal = 6.dp)) {
                 Text(k, color = p.textDim, fontSize = 15.sp, modifier = Modifier.width(280.dp))
                 Text(v, color = p.text, fontSize = 15.sp)
             }
         }
         item {
-            Text("Letzte Fehler", color = p.text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp))
+            Text("Letzte Fehler", color = p.text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(top = 14.dp, bottom = 4.dp).tvFocusable(RoundedCornerShape(8.dp), {}, scaleOnFocus = false))
             Text(errors ?: "Keine Abstürze oder Hänger aufgezeichnet.", color = if (errors != null) Color(0xFFFFC857) else p.textDim, fontSize = 13.sp)
             Text("Cache leeren löscht nur Zwischenspeicher (Bilder, Web). Favoriten, Einstellungen, Profile und Fortschritte bleiben erhalten.",
                 color = p.textDim.copy(alpha = 0.8f), fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp))

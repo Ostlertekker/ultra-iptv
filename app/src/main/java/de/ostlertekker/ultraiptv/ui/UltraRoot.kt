@@ -181,7 +181,7 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
         listOf(
             NavItem(Routes.HOME, "Start"), NavItem(Routes.LIVE, "Live-TV"), NavItem(Routes.MOVIES, "Filme"),
             NavItem(Routes.SERIES, "Serien"), NavItem(Routes.RADIO, "Radio"), NavItem(Routes.JELLYFIN, "Jellyfin"), NavItem("app:YOUTUBE", "YouTube"), NavItem("app:BROWSER", "Browser"),
-            NavItem(Routes.EXPLORE, "Mehr"),
+            NavItem(Routes.EXPLORE, "Tools"),
         )
     }
     val utility = remember { listOf(NavItem(Routes.SEARCH, "Suche", Icons.Default.Search), NavItem(Routes.SETTINGS, "Einstellungen", Icons.Default.Settings)) }
