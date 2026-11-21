@@ -199,6 +199,7 @@ fun LazyListScope.updatesSection(x: SettingsExtrasViewModel, s: AppSettings, vm:
             }
             SSwitch("Automatisch nach Updates suchen", s.updateCheck, "Beim Start und alle 5 Minuten – neue Versionen erscheinen als Einblendung oben links") { vm.set(Keys.UPDATE_CHECK, it) }
             Text("Quelle: GitHub-Releases (${de.ostlertekker.ultraiptv.BuildConfig.UPDATE_REPO}). Updates sind mit demselben Schlüssel signiert.",
+                color = p.textDim, fontSize = 11.sp, modifier = Modifier.padding(8.dp))
         }
     }
 }
