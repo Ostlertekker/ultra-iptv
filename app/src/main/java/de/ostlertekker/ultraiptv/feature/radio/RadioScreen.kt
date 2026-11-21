@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.feature.radio
 
+import androidx.compose.ui.graphics.graphicsLayer
 import de.ostlertekker.ultraiptv.core.ui.outlineButton
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -250,7 +251,10 @@ private fun StationRow(s: RadioStation, modifier: Modifier = Modifier, showCount
             } else s.info
             if (info.isNotBlank()) Text(info, color = pal.textDim, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        if (isFav) Text("★", color = pal.primary, fontSize = 16.sp, modifier = Modifier.padding(start = 8.dp))
+        androidx.compose.animation.AnimatedVisibility(isFav, enter = androidx.compose.animation.scaleIn(androidx.compose.animation.core.spring(0.4f, 500f), initialScale = 0.2f) +
+                androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.scaleOut()) {
+            Text("★", color = pal.primary, fontSize = 16.sp, modifier = Modifier.padding(start = 8.dp))
+        }
         if (isCurrent) Text(if (playing) "● LÄUFT" else "❚❚", color = if (focused) Color.Black else pal.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(start = 10.dp).background(if (focused) pal.primary else pal.primary.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
                 .padding(horizontal = 8.dp, vertical = 3.dp))
@@ -316,7 +320,16 @@ internal fun RoundIcon(symbol: String, onClick: () -> Unit, primary: Boolean = f
     Box(Modifier.padding(start = 8.dp).size(46.dp).tvFocusable(shape, onClick, focusRequester = focus, onFocus = { focused = it })
         .then(Modifier.outlineButton(focused, primary, true, shape)),
         contentAlignment = Alignment.Center) {
-        Text(symbol, color = de.ostlertekker.ultraiptv.core.ui.outlineButtonText(focused, true), fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        // Stern wird gesetzt → kurzes Aufploppen
+        val pop = remember { androidx.compose.animation.core.Animatable(1f) }
+        var last by remember { mutableStateOf(symbol) }
+        val anim = de.ostlertekker.ultraiptv.core.ui.motionOk()
+        LaunchedEffect(symbol) {
+            if (anim && symbol == "★" && last == "☆") { pop.snapTo(1.4f); pop.animateTo(1f, androidx.compose.animation.core.spring(0.4f, 500f)) }
+            last = symbol
+        }
+        Text(symbol, color = de.ostlertekker.ultraiptv.core.ui.outlineButtonText(focused, true), fontSize = 17.sp, fontWeight = FontWeight.Bold,
+            modifier = Modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value })
     }
 }
 

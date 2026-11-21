@@ -406,9 +406,11 @@ private fun PreviewBox(vm: LiveTvViewModel, ch: ChannelEntity?) {
                 .padding(top = 8.dp).background(Color.Black.copy(alpha = 0.6f)).padding(horizontal = 10.dp, vertical = 4.dp))
         }
         if (live) {
-            Text("● LIVE", color = Color(0xFFFF4545), fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.align(Alignment.TopStart).padding(8.dp).background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
-                    .padding(horizontal = 6.dp, vertical = 2.dp))
+            Row(Modifier.align(Alignment.TopStart).padding(8.dp).background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                .padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                de.ostlertekker.ultraiptv.core.ui.PulsingDot(Color(0xFFFF4545))
+                Text(" LIVE", color = Color(0xFFFF4545), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
         }
         if (ch != null) {
             Row(

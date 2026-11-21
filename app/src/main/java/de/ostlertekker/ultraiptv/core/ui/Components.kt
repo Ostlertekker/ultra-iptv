@@ -48,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
@@ -377,9 +378,37 @@ fun TvButton(
             .padding(horizontal = 20.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
+        // Favorit/Merkliste gesetzt: kurzes Aufploppen
+        val pop = remember { androidx.compose.animation.core.Animatable(1f) }
+        val anim = motionOk()
+        var lastText by remember { mutableStateOf(text) }
+        LaunchedEffect(text) {
+            if (anim && text != lastText && (text.contains('★') || text.contains('♥') || text.startsWith("✓"))) {
+                pop.snapTo(1.25f); pop.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.45f, stiffness = 500f))
+            }
+            lastText = text
+        }
         Text(text, color = outlineButtonText(focused, enabled), fontWeight = FontWeight.SemiBold,
-            fontFamily = theme.spec.fontFamily, fontSize = 16.sp, maxLines = 1)
+            fontFamily = theme.spec.fontFamily, fontSize = 16.sp, maxLines = 1,
+            modifier = Modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value })
     }
+}
+
+/** Dezente Animationen nur, wenn „Bewegung reduzieren“ aus ist und das Gerät nicht im Sparprofil läuft. */
+@Composable
+fun motionOk(): Boolean {
+    val a = LocalUltraTheme.current.anim
+    return !a.reduceMotion && a.profile != AnimationProfile.ECONOMY
+}
+
+/** Kleiner pulsierender Punkt (z. B. „LIVE“). */
+@Composable
+fun PulsingDot(color: Color, size: Dp = 7.dp) {
+    val a = if (motionOk()) androidx.compose.animation.core.rememberInfiniteTransition(label = "dot").animateFloat(0.35f, 1f,
+        androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(700),
+            androidx.compose.animation.core.RepeatMode.Reverse), label = "dotA") else null
+    Box(Modifier.size(size).graphicsLayer { alpha = a?.value ?: 1f; scaleX = 0.85f + 0.15f * (a?.value ?: 1f); scaleY = scaleX }
+        .background(color, androidx.compose.foundation.shape.CircleShape))
 }
 
 @Composable
@@ -423,11 +452,17 @@ fun FocusCard(
     /** Kleines Statusabzeichen oben links (z. B. Seerr „Verfügbar“) mit Farbe. */
     badge: Pair<String, Color>? = null,
     progressColor: Color? = null,
+    /** Abzeichen pulsiert leicht (z. B. „Lädt · 42 %“). */
+    badgePulse: Boolean = false,
 ) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
     val shape = RoundedCornerShape(theme.spec.corner.coerceAtMost(20.dp))
     var focused by remember { mutableStateOf(false) }
+    val anim = motionOk()
+    // Lichtschimmer: zieht einmal schräg über das Cover, wenn der Fokus ankommt (nur Zeichenphase, kein Layout)
+    val sheen = remember { androidx.compose.animation.core.Animatable(1f) }
+    LaunchedEffect(focused) { if (focused && anim) { sheen.snapTo(0f); sheen.animateTo(1f, androidx.compose.animation.core.tween(750)) } }
     val motion = de.ostlertekker.ultraiptv.core.motion.LocalMotion.current
     val entrance = if (entranceIndex != null && motion.cardEntrance) Modifier.crazyEntrance(entranceIndex) else Modifier
     Column(modifier.then(entrance).width(width)) {
@@ -435,27 +470,52 @@ fun FocusCard(
             Modifier
                 .size(width, height)
                 .tvFocusable(shape, onClick, onLongClick, onFocus = { focused = it; onFocus?.invoke(it) })
-                .background(p.surface, shape),
+                .background(p.surface, shape)
+                .drawWithContent {
+                    drawContent()
+                    val t = sheen.value
+                    if (t < 1f) {
+                        val w = size.width; val x = -w * 0.6f + (w * 2.2f) * t
+                        drawRect(Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.22f), Color.Transparent),
+                            start = androidx.compose.ui.geometry.Offset(x, 0f), end = androidx.compose.ui.geometry.Offset(x + w * 0.5f, size.height)))
+                    }
+                },
         ) {
             // Platzhalter liegt immer darunter: lädt ein Bild nicht (404, Timeout), bleibt die Kachel trotzdem erkennbar
             var loaded by remember(image) { mutableStateOf(false) }
+            var failed by remember(image) { mutableStateOf(false) }
             if (!loaded) {
-                Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(p.primary.copy(alpha = 0.5f), p.secondary.copy(alpha = 0.25f)))),
+                // Solange das Bild lädt: sanftes Pulsieren statt starrer Fläche
+                val loading = anim && !image.isNullOrBlank() && !failed
+                val pulse = if (loading) androidx.compose.animation.core.rememberInfiniteTransition(label = "ph").animateFloat(0.55f, 1f,
+                    androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(900),
+                        androidx.compose.animation.core.RepeatMode.Reverse), label = "phA") else null
+                Box(Modifier.fillMaxSize().graphicsLayer { alpha = pulse?.value ?: 1f }
+                    .background(Brush.linearGradient(listOf(p.primary.copy(alpha = 0.5f), p.secondary.copy(alpha = 0.25f)))),
                     contentAlignment = Alignment.Center) {
                     Text(initialsOf(title), color = p.text, fontSize = 28.sp, fontWeight = FontWeight.Bold)
                 }
             }
             if (!image.isNullOrBlank()) {
-                AsyncImage(model = image, contentDescription = title, contentScale = contentScale, modifier = Modifier.fillMaxSize(),
-                    onSuccess = { loaded = true }, onError = { loaded = false })
+                // Cover blendet weich ein, sobald es geladen ist
+                val fade by androidx.compose.animation.core.animateFloatAsState(if (loaded || !anim) 1f else 0f,
+                    androidx.compose.animation.core.tween(320), label = "fade")
+                AsyncImage(model = image, contentDescription = title, contentScale = contentScale, modifier = Modifier.fillMaxSize().graphicsLayer { alpha = fade },
+                    onSuccess = { loaded = true; failed = false }, onError = { loaded = false; failed = true })
             }
             if (progress != null && progress > 0f) {
+                // Fortschritt füllt sich beim Erscheinen kurz auf seinen Stand
+                val fill = remember { androidx.compose.animation.core.Animatable(if (anim) 0f else progress) }
+                LaunchedEffect(progress) { fill.animateTo(progress.coerceIn(0f, 1f), androidx.compose.animation.core.tween(if (anim) 700 else 0)) }
                 Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(4.dp).background(Color.Black.copy(alpha = 0.5f)))
-                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth(progress.coerceIn(0f, 1f)).height(4.dp).background(progressColor ?: p.primary))
+                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth(fill.value.coerceIn(0.001f, 1f)).height(4.dp).background(progressColor ?: p.primary))
             }
             badge?.let { (label, color) ->
+                val pa = if (badgePulse && anim) androidx.compose.animation.core.rememberInfiniteTransition(label = "bp").animateFloat(0.6f, 1f,
+                    androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(800),
+                        androidx.compose.animation.core.RepeatMode.Reverse), label = "bpA") else null
                 Text(label, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
-                    modifier = Modifier.align(Alignment.TopStart).padding(6.dp)
+                    modifier = Modifier.align(Alignment.TopStart).padding(6.dp).graphicsLayer { alpha = pa?.value ?: 1f }
                         .background(color.copy(alpha = 0.85f), RoundedCornerShape(50)).padding(horizontal = 8.dp, vertical = 2.dp))
             }
         }
@@ -814,11 +874,31 @@ fun TopNavBar(items: List<NavItem>, utility: List<NavItem>, selectedRoute: Strin
             fontFamily = de.ostlertekker.ultraiptv.core.design.AppFonts.Inter, maxLines = 1)
         ProBadge(Modifier.padding(start = 3.dp))
         Spacer(Modifier.weight(1f))
-        Row(Modifier.padding(start = 8.dp).background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(50)).padding(3.dp),
-            horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            items.forEachIndexed { i, item ->
-                val focusHere = if (items.any { it.route == selectedRoute }) item.route == selectedRoute else i == 0
-                TopNavPill(item.label, item.route == selectedRoute, { onSelect(item.route) }, if (focusHere) firstFocus else null, nav(i))
+        // Fokus-Markierung gleitet weich von Menüpunkt zu Menüpunkt (statt zu springen)
+        val glide = motionOk()
+        val bounds = remember(items.size) { arrayOfNulls<androidx.compose.ui.geometry.Rect>(items.size) }
+        var focusedIdx by remember { mutableStateOf(-1) }
+        var lastIdx by remember { mutableStateOf(0) }
+        if (focusedIdx >= 0) lastIdx = focusedIdx
+        val target = bounds.getOrNull(lastIdx)
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val ix by androidx.compose.animation.core.animateFloatAsState(target?.left ?: 0f, androidx.compose.animation.core.spring(0.8f, 600f), label = "ix")
+        val iw by androidx.compose.animation.core.animateFloatAsState(target?.width ?: 0f, androidx.compose.animation.core.spring(0.8f, 600f), label = "iw")
+        val ia by androidx.compose.animation.core.animateFloatAsState(if (focusedIdx >= 0 && target != null) 1f else 0f,
+            androidx.compose.animation.core.tween(150), label = "ia")
+        Box(Modifier.padding(start = 8.dp).background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(50)).padding(3.dp)) {
+            if (glide) Box(Modifier.matchParentSize().drawBehind {
+                if (ia > 0f && iw > 0f) drawRoundRect(Color.White.copy(alpha = ia), topLeft = androidx.compose.ui.geometry.Offset(ix, 0f),
+                    size = androidx.compose.ui.geometry.Size(iw, size.height), cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2f))
+            })
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                items.forEachIndexed { i, item ->
+                    val focusHere = if (items.any { it.route == selectedRoute }) item.route == selectedRoute else i == 0
+                    TopNavPill(item.label, item.route == selectedRoute, { onSelect(item.route) }, if (focusHere) firstFocus else null, nav(i),
+                        glide = glide,
+                        onFocusIdx = { f -> if (f) focusedIdx = i else if (focusedIdx == i) focusedIdx = -1 },
+                        onBounds = { r -> bounds[i] = r })
+                }
             }
         }
         Spacer(Modifier.weight(1f))
@@ -835,7 +915,8 @@ fun TopNavBar(items: List<NavItem>, utility: List<NavItem>, selectedRoute: Strin
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun TopNavPill(label: String, selected: Boolean, onClick: () -> Unit, focusRequester: FocusRequester?, navModifier: Modifier = Modifier) {
+private fun TopNavPill(label: String, selected: Boolean, onClick: () -> Unit, focusRequester: FocusRequester?, navModifier: Modifier = Modifier,
+                       glide: Boolean = false, onFocusIdx: (Boolean) -> Unit = {}, onBounds: (androidx.compose.ui.geometry.Rect) -> Unit = {}) {
     val sounds = LocalUiSounds.current
     var focused by remember { mutableStateOf(false) }
     val scale by androidx.compose.animation.core.animateFloatAsState(if (focused) 1.06f else 1f, androidx.compose.animation.core.tween(140), label = "pill")
@@ -846,11 +927,12 @@ private fun TopNavPill(label: String, selected: Boolean, onClick: () -> Unit, fo
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .then(navModifier)
             .then(entryDown())
-            .onFocusChanged { if (it.isFocused && !focused) sounds?.focus(); focused = it.isFocused }
+            .onGloballyPositioned { c -> c.parentLayoutCoordinates?.let { p -> onBounds(p.localBoundingBoxOf(c, false)) } }
+            .onFocusChanged { if (it.isFocused && !focused) sounds?.focus(); focused = it.isFocused; onFocusIdx(it.isFocused) }
             .combinedClickable(interactionSource = remember { MutableInteractionSource() }, indication = null,
                 onClick = { sounds?.select(); onClick() })
             .background(
-                when { focused -> Color.White; selected -> Color.White.copy(alpha = 0.18f); else -> Color.Transparent }, shape)
+                when { focused && !glide -> Color.White; focused -> Color.Transparent; selected -> Color.White.copy(alpha = 0.18f); else -> Color.Transparent }, shape)
             .padding(horizontal = 6.dp, vertical = 6.dp),
     ) {
         Text(label, color = if (focused) Color(0xFF111111) else if (selected) Color.White else Color.White.copy(alpha = 0.72f),

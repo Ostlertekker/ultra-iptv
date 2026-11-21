@@ -211,12 +211,18 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
     val motion = LocalMotion.current
     val reduce = theme.anim.reduceMotion || !motion.enabled
     // Mit CRAZY-MOTION-Seitenübergang übernimmt das Vorhang-Overlay die Enthüllung → kurzer Fade genügt
-    val enter: EnterTransition = if (reduce) EnterTransition.None else if (motion.pageEnter != null) fadeIn(tween(90)) else when (theme.spec.transition) {
+    val enter0: EnterTransition = if (reduce) EnterTransition.None else if (motion.pageEnter != null) fadeIn(tween(90)) else when (theme.spec.transition) {
         TransitionStyle.FADE -> fadeIn(tween(260))
         TransitionStyle.SLIDE -> fadeIn(tween(260)) + slideInHorizontally(tween(300)) { it / 12 }
         TransitionStyle.ZOOM -> fadeIn(tween(260)) + scaleIn(tween(320), initialScale = 0.96f)
     }
-    val exit: ExitTransition = if (reduce) ExitTransition.None else exitTransitionFor(motion)
+    val exit0: ExitTransition = if (reduce) ExitTransition.None else exitTransitionFor(motion)
+    // Dezenter Seitenwechsel: neue Seite blendet kurz ein und rutscht dabei ein paar Pixel nach oben
+    val gentle = de.ostlertekker.ultraiptv.core.ui.motionOk()
+    val enter: EnterTransition = if (reduce && gentle)
+        fadeIn(tween(220)) + androidx.compose.animation.slideInVertically(tween(260, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it / 50 }
+        else enter0
+    val exit: ExitTransition = if (reduce && gentle) ExitTransition.None else exit0
 
     val contentEntry = remember { de.ostlertekker.ultraiptv.core.ui.ContentEntry() }
     androidx.compose.runtime.CompositionLocalProvider(de.ostlertekker.ultraiptv.core.ui.LocalContentEntry provides contentEntry) {

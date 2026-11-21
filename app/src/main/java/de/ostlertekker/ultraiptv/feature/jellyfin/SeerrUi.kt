@@ -180,7 +180,7 @@ fun seasonColor(status: Int): Color = when (status) {
 fun SeerrRequest.tile() = CinemaTile(
     id = "req:$id", title = item.title, image = item.poster, backdrop = item.backdrop, plot = item.overview, kind = "seerrReq",
     subtitle = listOfNotNull(if (item.isTv) "Serie" else "Film", item.year).joinToString(" · "),
-    progress = progress?.coerceAtLeast(0.02f), progressColor = SeerrColors.indigo, badge = badge(),
+    progress = progress?.coerceAtLeast(0.02f), progressColor = SeerrColors.indigo, badge = badge(), badgePulse = downloading,
 )
 
 @Composable

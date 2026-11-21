@@ -65,6 +65,7 @@ data class CinemaTile(
     /** Optionales Statusabzeichen (z. B. Seerr) mit Farbe und Farbe des Fortschrittsbalkens. */
     val badge: Pair<String, Color>? = null,
     val progressColor: Color? = null,
+    val badgePulse: Boolean = false,
 )
 
 data class CinemaRow(val title: String, val tiles: List<CinemaTile>, val landscape: Boolean = false)
@@ -118,9 +119,9 @@ fun CinemaOverview(
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 8.dp + FocusBleedV, bottom = 8.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
                         items(row.tiles, key = { it.kind + it.id }, contentType = { if (row.landscape) "wide" else "poster" }) { t ->
                             if (row.landscape) FocusCard(t.title, t.backdrop ?: t.image, 280.dp, 158.dp, onClick = { if (t.resume) onPlay(t) else onOpen(t) },
-                                subtitle = t.subtitle, progress = t.progress, badge = t.badge, progressColor = t.progressColor)
+                                subtitle = t.subtitle, progress = t.progress, badge = t.badge, progressColor = t.progressColor, badgePulse = t.badgePulse)
                             else FocusCard(t.title, t.image, 150.dp, 222.dp, onClick = { if (t.resume) onPlay(t) else onOpen(t) },
-                                subtitle = t.subtitle, progress = t.progress, badge = t.badge, progressColor = t.progressColor)
+                                subtitle = t.subtitle, progress = t.progress, badge = t.badge, progressColor = t.progressColor, badgePulse = t.badgePulse)
                         }
                     }
                 }

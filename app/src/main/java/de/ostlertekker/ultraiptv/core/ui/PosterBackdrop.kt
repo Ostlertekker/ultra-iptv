@@ -1,5 +1,7 @@
 package de.ostlertekker.ultraiptv.core.ui
 
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -38,8 +40,14 @@ fun PosterBackdrop(backdrop: String?, poster: String?, modifier: Modifier = Modi
             BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
                 Box(Modifier.align(Alignment.CenterEnd).padding(end = maxWidth * 0.07f, top = posterPadding, bottom = posterPadding).fillMaxHeight()) {
                     val shape = RoundedCornerShape(14.dp)
-                    AsyncImage(poster, null, contentScale = ContentScale.Crop, alpha = alpha,
-                        modifier = Modifier.fillMaxHeight().aspectRatio(2f / 3f).clip(shape))
+                    // Ken-Burns: das Cover zoomt ganz langsam heran und zurück (nur Zeichenphase)
+                    val kb = if (motionOk()) androidx.compose.animation.core.rememberInfiniteTransition(label = "kb").animateFloat(1f, 1.07f,
+                        androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(14_000,
+                            easing = androidx.compose.animation.core.FastOutSlowInEasing), androidx.compose.animation.core.RepeatMode.Reverse), label = "kbS") else null
+                    Box(Modifier.fillMaxHeight().aspectRatio(2f / 3f).clip(shape)) {
+                        AsyncImage(poster, null, contentScale = ContentScale.Crop, alpha = alpha,
+                            modifier = Modifier.fillMaxSize().graphicsLayer { val s = kb?.value ?: 1f; scaleX = s; scaleY = s })
+                    }
                 }
             }
             return@Box
