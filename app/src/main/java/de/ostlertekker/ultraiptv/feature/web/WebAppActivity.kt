@@ -36,6 +36,51 @@ enum class WebApp(val title: String, val url: String, val userAgent: String) {
         "Mozilla/5.0 (SMART-TV; Linux; Tizen 6.0) AppleWebKit/537.36 (KHTML, like Gecko) 76.0.3809.146/6.0 TV Safari/537.36"),
 }
 
+/**
+ * 60-Bilder-Wächter für YouTube: zählt verlorene Bilder (getVideoPlaybackQuality). Ruckelt ein 50/60-fps-Video deutlich,
+ * meldet er die Höhe an die App, die sich die Grenze merkt; darüber bietet die Seite YouTube nur noch 30 fps an
+ * (isTypeSupported/canPlayType/decodingInfo) und lädt das Video an derselben Stelle neu.
+ */
+private const val FPS_GUARD = """
+(function(){ if(window.__ultraG) return; window.__ultraG=true;
+  function L(){ try{ return window.UltraGuard?UltraGuard.limit():9999; }catch(e){ return 9999; } }
+  function g(s,k){ var m=new RegExp(k+'=([0-9.]+)').exec(s); return m?parseFloat(m[1]):0; }
+  function bad(s){ s=String(s); return g(s,'framerate')>31&&g(s,'height')>L(); }
+  function wrap(obj,name){ if(!obj||!obj[name]) return; var o=obj[name];
+    obj[name]=function(t){ try{ if(bad(t)) return name==='canPlayType'?'':false; }catch(e){} return o.apply(this,arguments); }; }
+  try{
+    if(window.MediaSource) wrap(window.MediaSource,'isTypeSupported');
+    if(window.ManagedMediaSource) wrap(window.ManagedMediaSource,'isTypeSupported');
+    if(window.HTMLMediaElement) wrap(HTMLMediaElement.prototype,'canPlayType');
+    if(navigator.mediaCapabilities&&navigator.mediaCapabilities.decodingInfo){
+      var di=navigator.mediaCapabilities.decodingInfo;
+      navigator.mediaCapabilities.decodingInfo=function(cfg){ try{ var v=cfg&&cfg.video;
+        if(v&&(v.framerate||0)>31&&(v.height||0)>L()) return Promise.resolve({supported:false,smooth:false,powerEfficient:false,configuration:cfg});
+      }catch(e){} return di.apply(this,arguments); };
+    }
+  }catch(e){}
+  function vid(){ var m=/[?&#/]v=([A-Za-z0-9_-]{11})/.exec(location.href); return m?m[1]:null; }
+  var base=null, strikes=0, seek=null;
+  try{ seek=JSON.parse(sessionStorage.getItem('__ultraSeek')||'null'); }catch(e){}
+  setInterval(function(){ try{
+    var v=document.querySelector('video');
+    if(!v||v.paused||v.seeking||v.readyState<3||!v.getVideoPlaybackQuality){ base=null; return; }
+    if(seek&&seek.id===vid()&&v.currentTime<seek.t-3){ v.currentTime=seek.t; seek=null; sessionStorage.removeItem('__ultraSeek'); base=null; return; }
+    var q=v.getVideoPlaybackQuality(), now=Date.now();
+    if(!base||base.src!==v.currentSrc){ base={t:now,d:q.droppedVideoFrames,f:q.totalVideoFrames,src:v.currentSrc,start:now}; return; }
+    if(now-base.start<6000){ base.t=now; base.d=q.droppedVideoFrames; base.f=q.totalVideoFrames; return; }
+    if(now-base.t<8000) return;
+    var tf=q.totalVideoFrames-base.f, df=q.droppedVideoFrames-base.d, rate=tf*1000/(now-base.t);
+    base.t=now; base.d=q.droppedVideoFrames; base.f=q.totalVideoFrames;
+    if(rate>40&&tf>200&&df/tf>0.08) strikes++; else strikes=0;
+    if(strikes>=2&&window.UltraGuard){ strikes=0;
+      UltraGuard.tooSlow(v.videoHeight||2160);
+      try{ sessionStorage.setItem('__ultraSeek',JSON.stringify({id:vid(),t:v.currentTime})); }catch(e){}
+      location.reload(); }
+  }catch(e){} },2000);
+})();
+"""
+
 @AndroidEntryPoint
 class WebAppActivity : ComponentActivity() {
     @Inject lateinit var engine: PlayerEngine
@@ -173,6 +218,27 @@ class WebAppActivity : ComponentActivity() {
                 }catch(e){}})();
             """.trimIndent()
             runCatching { androidx.webkit.WebViewCompat.addDocumentStartJavaScript(web, js, setOf("https://www.youtube.com")) }
+        }
+        // Nach dem 4K-Skript eingehängt, damit der Wächter als Erster gefragt wird (das 4K-Skript entfernt framerate=…).
+        // 60-Bilder-Wächter: läuft ein Video mit 50/60 Bildern spürbar unrund (verlorene Bilder), merkt sich die App die
+        // Auflösung, ab der dieses Gerät 60 Bilder nicht schafft, und lädt das Video dort mit 30 Bildern neu (an derselben Stelle).
+        // Alles andere bleibt unverändert – volle Auflösung, HDR, 60 Bilder überall dort, wo es flüssig läuft.
+        if (app == WebApp.YOUTUBE && androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            val perf = getSharedPreferences("yt_perf", MODE_PRIVATE)
+            web.addJavascriptInterface(object {
+                @android.webkit.JavascriptInterface fun limit(): Int = perf.getInt("lim60", 9999)
+                @android.webkit.JavascriptInterface fun tooSlow(height: Int): Int {
+                    val cur = perf.getInt("lim60", 9999)
+                    val next = listOf(1440, 1080, 720, 0).firstOrNull { it < height && it < cur } ?: 0
+                    perf.edit().putInt("lim60", next).apply()
+                    runOnUiThread {
+                        showHint(if (next > 0) "60 Bilder/s ruckeln bei ${height}p auf diesem Gerät – darüber jetzt 30 Bilder/s, bis ${next}p weiter 60"
+                            else "60 Bilder/s ruckeln auf diesem Gerät – YouTube nutzt jetzt 30 Bilder/s")
+                    }
+                    return next
+                }
+            }, "UltraGuard")
+            runCatching { androidx.webkit.WebViewCompat.addDocumentStartJavaScript(web, FPS_GUARD, setOf("https://www.youtube.com")) }
         }
         // Werbeblocker: Werbedaten aus den Antworten des YouTube-Players entfernen (Pre-/Mid-Rolls, Banner)
         if (app == WebApp.YOUTUBE && androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
