@@ -1,0 +1,35 @@
+> Task :app:compileDebugKotlin FAILED
+e: file:///home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/radio/RadioScreen.kt:289:10 Unresolved reference 'animateFloat'.
+e: file:///home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/radio/RadioScreen.kt:289:66 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/radio/RadioScreen.kt:290:45 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/radio/RadioScreen.kt:300:62 Overload resolution ambiguity between candidates:
+fun String?.plus(other: Any?): String
+fun <T> Array<T>.plus(element: T): Array<T>
+fun FloatArray.plus(element: Float): FloatArray
+fun <T> Collection<T>.plus(element: T): List<T>
+--
+e: file:///home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/radio/RadioScreen.kt:300:115 None of the following candidates is applicable:
+fun BigDecimal.times(other: BigDecimal): BigDecimal
+fun BigInteger.times(other: BigInteger): BigInteger
+e: file:///home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/radio/RadioScreen.kt:300:123 Overload resolution ambiguity between candidates:
+fun String?.plus(other: Any?): String
+fun <T> Array<T>.plus(element: T): Array<T>
+fun FloatArray.plus(element: Float): FloatArray
+fun <T> Collection<T>.plus(element: T): List<T>
+--
+e: file:///home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/radio/RadioScreen.kt:301:86 Argument type mismatch: actual type is 'kotlin.Float', but 'kotlin.Double' was expected.
+e: file:///home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/radio/RadioScreen.kt:302:46 Argument type mismatch: actual type is 'kotlin.Double', but 'kotlin.Float' was expected.
+e: file:///home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/radio/RadioScreen.kt:303:86 Argument type mismatch: actual type is 'kotlin.Double', but 'kotlin.Float' was expected.
+e: file:///home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/radio/RadioScreen.kt:304:62 Argument type mismatch: actual type is 'kotlin.Double', but 'kotlin.Float' was expected.
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_2-1795265590723.json
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+--
+BUILD FAILED in 48s
+30 actionable tasks: 19 executed, 11 from cache
