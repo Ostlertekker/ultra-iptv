@@ -250,8 +250,8 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
                     composable("seriesDetail/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) { SeriesDetailScreen(nav) }
                     composable(Routes.SEARCH) { SearchScreen(nav) }
                     composable(Routes.SETTINGS) { SettingsScreen(nav) }
-                    // „Mehr“: Menüpunkt bleibt, Inhalte vorerst entfernt
-                    composable(Routes.EXPLORE) { Box(Modifier.fillMaxSize()) }
+                    // „Mehr“: Werkzeuge (Netzwerk)
+                    composable(Routes.EXPLORE) { de.ostlertekker.ultraiptv.feature.tools.ToolsScreen() }
                     composable(Routes.SPORTS) { de.ostlertekker.ultraiptv.feature.discover.SportsScreen(nav) }
                     composable(Routes.RADIO) { de.ostlertekker.ultraiptv.feature.radio.RadioScreen() }
                     composable(Routes.JELLYFIN) { de.ostlertekker.ultraiptv.feature.jellyfin.JellyfinScreen(nav) }
