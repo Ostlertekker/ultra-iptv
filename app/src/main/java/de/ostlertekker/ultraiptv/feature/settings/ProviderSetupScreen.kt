@@ -81,7 +81,7 @@ fun ProviderSetupScreen(onDone: () -> Unit, firstRun: Boolean, newAccount: Boole
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(
             Modifier.width(720.dp).background(p.bgBottom.copy(alpha = 0.88f), RoundedCornerShape(theme.spec.corner.coerceAtMost(24.dp)))
-                .padding(32.dp).verticalScroll(rememberScrollState()),
+                .padding(24.dp).verticalScroll(rememberScrollState()),
         ) {
             if (firstRun) Text("OSTLERTEKKER PRESENTS", color = p.textDim, fontSize = 12.sp, letterSpacing = 4.sp)
             Text(if (newAccount) "Weiteres Konto hinzufügen" else "Quelle einrichten", color = p.text, fontSize = 28.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily)

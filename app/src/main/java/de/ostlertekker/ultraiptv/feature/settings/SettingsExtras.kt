@@ -40,7 +40,6 @@ import de.ostlertekker.ultraiptv.core.database.ExtrasDao
 import de.ostlertekker.ultraiptv.core.design.LocalUltraTheme
 import de.ostlertekker.ultraiptv.core.diagnostics.NetworkDiagnostics
 import de.ostlertekker.ultraiptv.core.diagnostics.SpeedTestState
-import de.ostlertekker.ultraiptv.core.lan.LanHub
 import de.ostlertekker.ultraiptv.core.model.InfoEntry
 import de.ostlertekker.ultraiptv.core.notify.NotificationCenter
 import de.ostlertekker.ultraiptv.core.security.CredentialStore
@@ -69,7 +68,6 @@ class SettingsExtrasViewModel @Inject constructor(
     val notifications: NotificationCenter,
     val net: NetworkDiagnostics,
     val backup: BackupManager,
-    val lan: LanHub,
     val creds: CredentialStore,
     val sync: SyncRepository,
     private val extras: ExtrasDao,
@@ -109,22 +107,6 @@ class SettingsExtrasViewModel @Inject constructor(
             val r = backup.restoreFile(file)
             "Wiederhergestellt: ${r.profiles} Profile, ${r.favorites} Favoriten, ${r.progress} Verlaufseinträge, ${r.accounts} Konten"
         }.getOrElse { "Fehler: ${it.message}" }
-    }
-
-    fun syncFrom(host: String, code: String, withAccounts: Boolean) = viewModelScope.launch {
-        val (h, port) = parseHost(host)
-        message.value = "Verbinde mit $h …"
-        message.value = runCatching {
-            val r = lan.syncFrom(LanHub.Remote(h, port, code.trim()), withAccounts)
-            "Übernommen: ${r.profiles} Profile, ${r.favorites} Favoriten, ${r.progress} Verlaufseinträge, ${r.accounts} Konten"
-        }.getOrElse { "Fehler: ${it.message}" }
-    }
-
-    private fun parseHost(input: String): Pair<String, Int> {
-        val t = input.trim().removePrefix("http://")
-        val h = t.substringBefore(':')
-        val port = t.substringAfter(':', "8765").toIntOrNull() ?: 8765
-        return h to port
     }
 
     fun switchAccount(id: String) = viewModelScope.launch {
@@ -217,7 +199,6 @@ fun LazyListScope.updatesSection(x: SettingsExtrasViewModel, s: AppSettings, vm:
             }
             SSwitch("Automatisch nach Updates suchen", s.updateCheck, "Beim Start und alle 5 Minuten – neue Versionen erscheinen als Einblendung oben links") { vm.set(Keys.UPDATE_CHECK, it) }
             Text("Quelle: GitHub-Releases (${de.ostlertekker.ultraiptv.BuildConfig.UPDATE_REPO}). Updates sind mit demselben Schlüssel signiert.",
-                color = p.textDim, fontSize = 11.sp, modifier = Modifier.padding(8.dp))
         }
     }
 }
@@ -263,9 +244,6 @@ fun LazyListScope.backupSection(x: SettingsExtrasViewModel) {
         val p = LocalUltraTheme.current.palette
         val msg by x.message.collectAsStateWithLifecycle()
         val files by x.backups.collectAsStateWithLifecycle()
-        val hub by x.lan.status.collectAsStateWithLifecycle()
-        var host by remember { mutableStateOf("") }
-        var code by remember { mutableStateOf("") }
         Column {
             msg?.let { Text(it, color = p.primary, fontSize = 13.sp, modifier = Modifier.padding(8.dp)) }
             SHeader("Backup")
@@ -273,26 +251,6 @@ fun LazyListScope.backupSection(x: SettingsExtrasViewModel) {
             SRow("Backup erstellen (mit Anbieter-Konten)", "Enthält Passwörter – nur sicher aufbewahren") { x.exportBackup(true) }
             files.take(5).forEach { f -> SRow("Wiederherstellen: ${f.name}", "Ersetzt Profile, Favoriten und Verlauf") { x.restoreBackup(f) } }
             Text("Speicherort: ${x.backup.backupDir.absolutePath}", color = p.textDim, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
-            SHeader("Gerätekopplung (Heimnetz)")
-            SSwitch("Dieses Gerät freigeben", hub.running, "Andere ULTRA-IPTV-Geräte oder der Browser am Handy können Daten übernehmen") {
-                if (it) x.lan.start(false) else x.lan.stop()
-            }
-            if (hub.running) {
-                Text("Adresse: http://${hub.address ?: "?"}:${hub.port}    Kopplungscode: ${hub.code}", color = p.text, fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp))
-                Text("Am Handy/PC im selben WLAN diese Adresse öffnen: Backup herunterladen oder hochladen.", color = p.textDim, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 8.dp))
-            }
-            SHeader("Von anderem Gerät übernehmen")
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                TvTextField(host, { host = it }, "IP des anderen Geräts (z. B. 192.168.1.20)", modifier = Modifier.width(320.dp))
-                TvTextField(code, { code = it.filter { c -> c.isDigit() }.take(6) }, "Code", number = true, modifier = Modifier.width(140.dp))
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp)) {
-                TvButton("Übernehmen", onClick = { x.syncFrom(host, code, false) }, primary = true)
-                TvButton("Mit Konten übernehmen", onClick = { x.syncFrom(host, code, true) })
-            }
-            Text("Geräteübergreifende Synchronisation läuft direkt zwischen deinen Geräten im Heimnetz – ohne Cloud-Konto.",
-                color = p.textDim, fontSize = 11.sp, modifier = Modifier.padding(8.dp))
         }
     }
 }

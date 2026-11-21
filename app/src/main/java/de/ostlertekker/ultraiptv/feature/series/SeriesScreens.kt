@@ -257,7 +257,7 @@ fun SeriesDetailScreen(nav: NavController, vm: SeriesDetailViewModel = hiltViewM
     Box(Modifier.fillMaxSize()) {
         de.ostlertekker.ultraiptv.core.ui.PosterBackdrop(series.backdrop, series.poster, Modifier.fillMaxSize(), showPoster = false, alpha = 0.7f)
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.95f), 0.55f to Color.Black.copy(alpha = 0.7f), 1f to Color.Black.copy(alpha = 0.25f))))
-        Column(Modifier.fillMaxSize().padding(32.dp)) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 24.dp)) {
             Text(series.name, color = p.text, fontSize = 34.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily)
             Text(listOfNotNull(series.year, series.genre, series.rating?.takeIf { it > 0 }?.let { de.ostlertekker.ultraiptv.core.ui.ratingLabel(it) },
                 seasons.size.takeIf { it > 0 }?.let { if (it == 1) "1 Staffel" else "$it Staffeln" }).joinToString("  ·  "),

@@ -400,7 +400,7 @@ class PlayerViewModel @Inject constructor(
             ContentKind.MOVIE -> if (state == Player.STATE_ENDED) { saveProgress(); _ui.update { it.copy(ended = true) } }
             else -> Unit
         }
-        if (kind != ContentKind.LIVE && dur > 0 && now - lastSave > 10_000) saveProgress()
+        if (kind != ContentKind.LIVE && now - lastSave > 10_000) saveProgress()
     }
 
     private suspend fun handleSkip(pos: Long, dur: Long, state: Int) {
@@ -743,9 +743,14 @@ class PlayerViewModel @Inject constructor(
     private suspend fun saveProgress() {
         lastSave = System.currentTimeMillis()
         val p = engine.player ?: return
-        val dur = p.duration.takeIf { it != C.TIME_UNSET && it > 0 } ?: return
+        // Manche Anbieter liefern Folgen als Stream ohne Längenangabe → Länge aus den Metadaten (sonst 0 = unbekannt),
+        // damit die Folge trotzdem unter „Weiterschauen“ landet
+        val dur = p.duration.takeIf { it != C.TIME_UNSET && it > 0 }
+            ?: (episode?.durationSec ?: movie?.durationSec)?.takeIf { it > 0 }?.times(1000) ?: 0L
         val pos = p.currentPosition
-        if (isJellyfin) { reportJfProgress(); return }
+        if (pos <= 0) return
+        // Jellyfin: Fortschritt an den Server melden UND lokal merken (für „Weiterschauen“ auf der Startseite)
+        if (isJellyfin) reportJfProgress()
         when (kind) {
             ContentKind.MOVIE -> movie?.let { user.saveProgress(ContentKind.MOVIE, it.id, pos, dur, it.name, image) }
             ContentKind.EPISODE -> episode?.let { user.saveProgress(ContentKind.EPISODE, it.id, pos, dur, _ui.value.title + " · S${it.season}E${it.episode}", image, it.seriesId) }

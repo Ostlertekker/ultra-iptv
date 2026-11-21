@@ -89,7 +89,7 @@ fun MatchCenterScreen(e: ScoreEvent, vm: DiscoverViewModel, onClose: () -> Unit)
     BackHandler { vm.closeCenter(); onClose() }
 
     Box(Modifier.fillMaxSize().background(Color(0xFF080B10))) {
-        Column(Modifier.fillMaxSize().padding(horizontal = 36.dp, vertical = 22.dp)) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 22.dp)) {
             Scoreboard(ev, c)
             val m = c
             if (m == null) {

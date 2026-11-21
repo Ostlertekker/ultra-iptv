@@ -129,6 +129,8 @@ class SettingsViewModel @Inject constructor(
     content: de.ostlertekker.ultraiptv.core.data.ContentRepository,
 ) : ViewModel() {
     val channelGroups = content.channelCategories().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val movieGroups = content.allMovieCategories().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val seriesGroups = content.allSeriesCategories().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val settings = repo.settings.stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings())
     val syncState = sync.state
@@ -313,15 +315,21 @@ private fun LazyListScope.playlistsPage(vm: SettingsViewModel, x: SettingsExtras
     }
     item { SHeader("Weitere Playlists") }
     accountsSection(x, nav)
-    item { SHeader("Gruppen") }
+    // Gruppen ein-/ausblenden – getrennt für Live-TV, Filme und Serien (Filme/Serien mit Präfix gespeichert)
     item {
-        val groups by vm.channelGroups.collectAsStateWithLifecycle()
+        val live by vm.channelGroups.collectAsStateWithLifecycle()
+        val movies by vm.movieGroups.collectAsStateWithLifecycle()
+        val series by vm.seriesGroups.collectAsStateWithLifecycle()
         val hidden = s.hiddenGroups.split('\n').filter { it.isNotBlank() }.toSet()
         Column {
-            if (groups.isEmpty()) Text("Noch keine Gruppen – zuerst die Playlist aktualisieren.", color = LocalUltraTheme.current.palette.textDim, fontSize = 13.sp,
-                modifier = Modifier.padding(horizontal = 14.dp))
-            groups.forEach { g ->
-                SSwitch(g, g !in hidden) { visible -> vm.set(Keys.HIDDEN_GROUPS, (if (visible) hidden - g else hidden + g).joinToString("\n")) }
+            for ((title, groups, prefix) in listOf(Triple("Live-TV-Gruppen", live, ""), Triple("Film-Gruppen", movies, "M:"), Triple("Serien-Gruppen", series, "S:"))) {
+                SHeader(title)
+                if (groups.isEmpty()) Text("Noch keine Gruppen – zuerst die Playlist aktualisieren.", color = LocalUltraTheme.current.palette.textDim, fontSize = 13.sp,
+                    modifier = Modifier.padding(horizontal = 14.dp))
+                groups.forEach { g ->
+                    val key = prefix + g
+                    SSwitch(g, key !in hidden) { visible -> vm.set(Keys.HIDDEN_GROUPS, (if (visible) hidden - key else hidden + key).joinToString("\n")) }
+                }
             }
         }
     }

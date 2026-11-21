@@ -287,7 +287,7 @@ fun JellyfinLibraryScreen(nav: NavController, vm: JellyfinLibraryViewModel = hil
             if (last >= grid.layoutInfo.totalItemsCount - 18) vm.loadMore()
         }
     }
-    Column(Modifier.fillMaxSize().padding(start = 40.dp, end = 40.dp, top = 8.dp)) {
+    Column(Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp, top = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(vm.title, color = p.text, fontSize = 28.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(end = 8.dp))
             if (total >= 0) Text("$total Titel", color = p.textDim, fontSize = 14.sp, modifier = Modifier.padding(end = 12.dp))
@@ -383,7 +383,7 @@ fun JellyfinMovieScreen(nav: NavController, vm: JellyfinItemViewModel = hiltView
     Box(Modifier.fillMaxSize()) {
         Backdrop(vm.repo.image(m, "Backdrop"))
         // Oben ausgerichtet und begrenzt: Knöpfe bleiben auch bei langen Beschreibungen sichtbar und erreichbar
-        Row(Modifier.fillMaxWidth().padding(start = 40.dp, end = 40.dp, top = 16.dp), verticalAlignment = Alignment.Top) {
+        Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 16.dp), verticalAlignment = Alignment.Top) {
             AsyncImage(vm.repo.image(m, width = 480), m.name, contentScale = ContentScale.Crop,
                 modifier = Modifier.size(190.dp, 282.dp).clip(RoundedCornerShape(14.dp)).background(p.surface))
             Spacer(Modifier.width(36.dp))
@@ -413,7 +413,7 @@ fun JellyfinMovieScreen(nav: NavController, vm: JellyfinItemViewModel = hiltView
                 error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)) }
             }
         }
-        if (similar.isNotEmpty()) Column(Modifier.align(Alignment.BottomStart).padding(start = 40.dp, bottom = 10.dp)) {
+        if (similar.isNotEmpty()) Column(Modifier.align(Alignment.BottomStart).padding(start = 24.dp, bottom = 10.dp)) {
             Text("Ähnliche Titel", color = p.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 4.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(similar, key = { it.id }) { s ->
@@ -448,7 +448,7 @@ fun JellyfinSeriesScreen(nav: NavController, vm: JellyfinItemViewModel = hiltVie
     val resume = eps.firstOrNull { it.positionMs > 0 && !it.played } ?: eps.firstOrNull { !it.played } ?: eps.firstOrNull()
     Box(Modifier.fillMaxSize()) {
         Backdrop(vm.repo.image(s, "Backdrop"))
-        Column(Modifier.fillMaxSize().padding(start = 36.dp, end = 36.dp, top = 16.dp)) {
+        Column(Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp, top = 16.dp)) {
             Text(s.name, color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Bold)
             Text(listOfNotNull(s.meta().ifBlank { null }, seasons.size.takeIf { it > 0 }?.let { if (it == 1) "1 Staffel" else "$it Staffeln" }).joinToString("  ·  "),
                 color = p.primary, fontSize = 14.sp, modifier = Modifier.padding(vertical = 6.dp))

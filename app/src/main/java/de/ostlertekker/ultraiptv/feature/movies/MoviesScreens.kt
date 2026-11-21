@@ -116,7 +116,6 @@ class MoviesViewModel @Inject constructor(content: ContentRepository, user: User
                 de.ostlertekker.ultraiptv.feature.common.CinemaRow("Neu hinzugefügt", newest.map { it.tile() }),
                 de.ostlertekker.ultraiptv.feature.common.CinemaRow("Beliebte Filme", if (popular.any { (it.rating ?: 0.0) > 0 }) popular.map { it.tile() } else emptyList()),
                 de.ostlertekker.ultraiptv.feature.common.CinemaRow("Empfehlungen für dich", rec.map { it.tile() }),
-                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Zuletzt angesehen", recent.map { it.tile(false) }),
             ) + genres.map { (g, l) -> de.ostlertekker.ultraiptv.feature.common.CinemaRow(g, l.map { it.tile() }) }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     }
@@ -256,7 +255,7 @@ fun MovieDetailScreen(nav: NavController, vm: MovieDetailViewModel = hiltViewMod
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.6f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.85f))))
         // Inhalt und „Ähnliche Titel“ untereinander statt übereinander gelegt: Die Beschreibung kürzt sich bei Platzmangel,
         // die Knöpfe bleiben immer sichtbar.
-        Column(Modifier.fillMaxSize().padding(start = 40.dp, end = 40.dp, top = 30.dp, bottom = 16.dp)) {
+        Column(Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp, top = 30.dp, bottom = 16.dp)) {
         Row(Modifier.weight(1f).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             AsyncImage(m.poster, m.name, contentScale = ContentScale.Crop,
                 modifier = Modifier.heightIn(max = 356.dp).fillMaxHeight().aspectRatio(240f / 356f, matchHeightConstraintsFirst = true)

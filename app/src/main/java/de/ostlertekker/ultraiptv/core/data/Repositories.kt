@@ -147,8 +147,13 @@ class UserRepository @Inject constructor(
 class ContentRepository @Inject constructor(
     private val dao: ContentDao,
     private val user: UserRepository,
+    private val settingsRepo: SettingsRepository,
 ) {
     private val adult: Flow<Boolean> = user.filter.map { it.showAdult }.distinctUntilChanged()
+
+    /** Ausgeblendete Gruppen (Einstellungen › Playlists › Gruppen). Live-TV ohne Präfix, Filme „M:“, Serien „S:“. */
+    private val hiddenGroups: Flow<Set<String>> =
+        settingsRepo.settings.map { s -> s.hiddenGroups.split('\n').filter { it.isNotBlank() }.toSet() }.distinctUntilChanged()
 
     val channelCount = dao.channelCount()
     val movieCount = dao.movieCount()
@@ -165,7 +170,9 @@ class ContentRepository @Inject constructor(
             val byId = list.associateBy { it.id }; ids.mapNotNull { byId[it] }
         }
 
-    fun movieCategories(): Flow<List<String>> = adult.flatMapLatest { dao.movieCategories(it) }
+    fun allMovieCategories(): Flow<List<String>> = adult.flatMapLatest { dao.movieCategories(it) }
+    fun movieCategories(): Flow<List<String>> =
+        kotlinx.coroutines.flow.combine(allMovieCategories(), hiddenGroups) { c, h -> c.filter { "M:$it" !in h } }
     fun movieGenres(): Flow<List<String>> = dao.movieGenres().map { raw ->
         raw.flatMap { it.split(',', '/', '|') }.map { it.trim() }.filter { it.length in 2..24 }.distinct().take(16)
     }
@@ -185,7 +192,9 @@ class ContentRepository @Inject constructor(
             val byId = list.associateBy { it.id }; ids.mapNotNull { byId[it] }
         }
 
-    fun seriesCategories(): Flow<List<String>> = adult.flatMapLatest { dao.seriesCategories(it) }
+    fun allSeriesCategories(): Flow<List<String>> = adult.flatMapLatest { dao.seriesCategories(it) }
+    fun seriesCategories(): Flow<List<String>> =
+        kotlinx.coroutines.flow.combine(allSeriesCategories(), hiddenGroups) { c, h -> c.filter { "S:$it" !in h } }
     fun series(category: String?, sort: SortOrder, limit: Int): Flow<List<SeriesEntity>> = adult.flatMapLatest { a ->
         when (sort) {
             SortOrder.NEWEST -> dao.seriesByNewest(category, a, limit)
@@ -213,15 +222,21 @@ class ContentRepository @Inject constructor(
         val isEmpty get() = channels.isEmpty() && movies.isEmpty() && series.isEmpty() && episodes.isEmpty()
     }
 
+    /**
+     * Reine Titelsuche: alle eingegebenen Wörter müssen im Namen vorkommen (Groß-/Kleinschreibung und Akzente egal,
+     * Anbieter-Präfixe wie „DE:“ oder „|EN|“ werden ignoriert). Treffer, deren Titel mit dem Suchbegriff beginnt, stehen vorne.
+     */
     suspend fun search(q: String): SearchResults {
-        val query = q.trim().replace("%", "").replace("_", " ")
-        if (query.length < 2) return SearchResults()
+        val words = TitleSearch.words(q)
+        if (words.isEmpty() || words.joinToString("").length < 2) return SearchResults()
         val a = adult.first()
+        // Datenbank-Vorauswahl über das aussagekräftigste Wort, Feinfilter + Sortierung danach in Kotlin
+        val key = TitleSearch.dbKey(q)
         return SearchResults(
-            channels = dao.searchChannels(query, a, 40),
-            movies = dao.searchMovies(query, a, 60),
-            series = dao.searchSeries(query, a, 40),
-            episodes = dao.searchEpisodes(query, 40),
+            channels = TitleSearch.rank(dao.searchChannels(key, a, 400), words) { it.name }.take(60),
+            movies = TitleSearch.rank(dao.searchMovies(key, a, 600), words) { it.name }.take(120),
+            series = TitleSearch.rank(dao.searchSeries(key, a, 400), words) { it.name }.take(80),
+            episodes = TitleSearch.rank(dao.searchEpisodes(key, 300), words) { it.title }.take(60),
         )
     }
 }
@@ -240,4 +255,45 @@ class EpgRepository @Inject constructor(private val dao: EpgDao) {
     }
 
     suspend fun count(): Int = dao.count()
+}
+
+/** Hilfsfunktionen der Titelsuche (ohne Android-Abhängigkeiten, damit testbar). */
+object TitleSearch {
+    private val diacritics = Regex("\\p{Mn}+")
+    /** Typische Anbieter-Präfixe: „DE:“, „DE -“, „|DE|“, „[DE]“, „4K:“ … */
+    private val prefix = Regex("^\\s*(?:[|\\[(]?\\s*[A-Za-z0-9]{1,4}\\s*[|\\])]\\s*[:\\-]?|[A-Za-z0-9]{1,4}\\s*[:\\-])\\s*")
+
+    fun fold(s: String): String =
+        java.text.Normalizer.normalize(s.lowercase(java.util.Locale.ROOT).replace("ß", "ss"), java.text.Normalizer.Form.NFD).replace(diacritics, "")
+
+    fun words(q: String): List<String> =
+        fold(q.replace('%', ' ').replace('_', ' ')).split(Regex("[^\\p{L}\\p{N}]+")).filter { it.isNotBlank() }
+
+    /** Titel ohne Anbieter-Präfix, normalisiert. */
+    fun clean(title: String): String = fold(prefix.replace(title, ""))
+
+    /**
+     * Wort für die Datenbank-Vorauswahl: das längste Wort ohne Umlaute/Akzente (SQLite-LIKE ignoriert die
+     * Groß-/Kleinschreibung nur bei ASCII-Buchstaben), sonst das längste Wort.
+     */
+    fun dbKey(q: String): String {
+        val raw = q.lowercase(java.util.Locale.ROOT).split(Regex("[^\\p{L}\\p{N}]+")).filter { it.isNotBlank() }
+        return raw.filter { w -> w.all { it.code < 128 } }.maxByOrNull { it.length } ?: raw.maxByOrNull { it.length } ?: q.trim()
+    }
+
+    fun <T> rank(items: List<T>, words: List<String>, title: (T) -> String): List<T> {
+        val phrase = words.joinToString(" ")
+        return items.mapNotNull { item ->
+            val t = clean(title(item))
+            val full = fold(title(item))
+            if (!words.all { w -> t.contains(w) || full.contains(w) }) return@mapNotNull null
+            val score = when {
+                t == phrase -> 0
+                t.startsWith(phrase) -> 1
+                t.startsWith(words.first()) -> 2
+                else -> 3
+            }
+            Triple(item, score, t)
+        }.sortedWith(compareBy({ it.second }, { it.third.length }, { it.third })).map { it.first }
+    }
 }

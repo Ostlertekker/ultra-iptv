@@ -77,13 +77,14 @@ fun CinemaOverview(
     val p = LocalUltraTheme.current.palette
     val heroHeight = (LocalConfiguration.current.screenHeightDp * 0.5f).dp
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 60.dp)) {
-        item(key = "header") { Box(Modifier.padding(horizontal = 48.dp, vertical = 6.dp)) { header() } }
+        item(key = "header") { Box(Modifier.padding(horizontal = 24.dp, vertical = 6.dp)) { header() } }
         if (hero != null) item(key = "hero") {
-            Box(Modifier.padding(horizontal = 36.dp).fillMaxWidth().height(heroHeight)
+            Box(Modifier.padding(horizontal = 24.dp).fillMaxWidth().height(heroHeight)
                 .background(Color.Black, RoundedCornerShape(18.dp))) {
                 Crossfade(hero, animationSpec = tween(500), label = "cinemaHero") { h ->
                     de.ostlertekker.ultraiptv.core.ui.PosterBackdrop(h.backdrop, h.image,
-                        Modifier.fillMaxSize().clip(RoundedCornerShape(18.dp)).background(Color.Black, RoundedCornerShape(18.dp)), posterPadding = 20.dp)
+                        Modifier.fillMaxSize().clip(RoundedCornerShape(18.dp)).background(Color.Black, RoundedCornerShape(18.dp)), posterPadding = 20.dp,
+                        posterOnly = true) // wie Startseite: schwarzer Hintergrund, nur das Cover rechts
                 }
                 Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.85f), 0.6f to Color.Black.copy(alpha = 0.2f), 1f to Color.Transparent)))
                 Column(Modifier.align(Alignment.BottomStart).padding(28.dp).width(520.dp)) {
@@ -101,7 +102,7 @@ fun CinemaOverview(
         }
         rows.filter { it.tiles.isNotEmpty() }.forEach { row ->
             item(key = "row_" + row.title) {
-                Column(Modifier.padding(horizontal = 48.dp)) {
+                Column(Modifier.padding(horizontal = 24.dp)) {
                     SectionHeader(row.title)
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
                         items(row.tiles, key = { it.kind + it.id }, contentType = { if (row.landscape) "wide" else "poster" }) { t ->
@@ -115,7 +116,7 @@ fun CinemaOverview(
             }
         }
         if (rows.all { it.tiles.isEmpty() } && hero == null) item(key = "empty") {
-            Text("Noch keine Inhalte – Quelle in den Einstellungen synchronisieren.", color = p.textDim, modifier = Modifier.padding(48.dp))
+            Text("Noch keine Inhalte – Quelle in den Einstellungen synchronisieren.", color = p.textDim, modifier = Modifier.padding(24.dp))
         }
     }
 }

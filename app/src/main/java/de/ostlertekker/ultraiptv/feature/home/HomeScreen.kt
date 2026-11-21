@@ -138,25 +138,6 @@ class HomeViewModel @Inject constructor(
 
     val weather = weatherRepo.weather
     val news = newsRepo.items
-    /** Live-Highlights (läuft jetzt, Lieblingssender zuerst) und Sport-Highlights – echte EPG-Daten, alle 5 Minuten neu. */
-    val liveHighlights = MutableStateFlow<List<de.ostlertekker.ultraiptv.core.database.AiringProgram>>(emptyList())
-    val sportHighlights = MutableStateFlow<List<de.ostlertekker.ultraiptv.core.database.AiringProgram>>(emptyList())
-    init {
-        viewModelScope.launch {
-            while (true) {
-                runCatching {
-                    val now = System.currentTimeMillis()
-                    val favs = user.favoriteIds(ContentKind.LIVE).first().toSet()
-                    val airing = discover.airingAt(now, 400).filter { it.endMs > now }
-                    liveHighlights.value = (airing.filter { it.channelId in favs } + airing.filter { it.channelId !in favs }.sortedBy { it.number })
-                        .distinctBy { it.channelId }.take(20)
-                    sportHighlights.value = discover.sportEvents(now - 2 * 3_600_000L, now + 12 * 3_600_000L).map { it.program }
-                        .filter { it.endMs > now }.sortedBy { it.startMs }.distinctBy { it.channelId + it.startMs }.take(20)
-                }
-                kotlinx.coroutines.delay(5 * 60_000L)
-            }
-        }
-    }
     val popularSeries: StateFlow<List<SeriesEntity>> by lazy { StateFlowOf(content.series(null, SortOrder.RATING, 30)) }
     val favMovies: StateFlow<List<MovieEntity>> by lazy { StateFlowOf(user.favoriteIds(ContentKind.MOVIE).flatMapLatest { content.moviesByIds(it) }) }
     val favSeries: StateFlow<List<SeriesEntity>> by lazy { StateFlowOf(user.favoriteIds(ContentKind.SERIES).flatMapLatest { content.seriesByIds(it) }) }
@@ -248,8 +229,6 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
     val popularSeries by vm.popularSeries.collectAsStateWithLifecycle()
     val favMovies by vm.favMovies.collectAsStateWithLifecycle()
     val favSeries by vm.favSeries.collectAsStateWithLifecycle()
-    val liveHi by vm.liveHighlights.collectAsStateWithLifecycle()
-    val sportHi by vm.sportHighlights.collectAsStateWithLifecycle()
     val unread by vm.unread.collectAsStateWithLifecycle()
     val weather by vm.weather.collectAsStateWithLifecycle()
     val news by vm.news.collectAsStateWithLifecycle()
@@ -300,7 +279,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
                 }
                 Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.82f), 0.55f to Color.Black.copy(alpha = 0.25f), 1f to Color.Transparent)))
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.55f to Color.Transparent, 1f to p.bgBottom)))
-                Column(Modifier.align(Alignment.BottomStart).padding(start = 48.dp, bottom = 34.dp).width(560.dp)) {
+                Column(Modifier.align(Alignment.BottomStart).padding(start = 24.dp, bottom = 34.dp).width(560.dp)) {
                     Text("NEU", color = Color.White.copy(alpha = 0.75f), fontSize = 13.sp, letterSpacing = 3.sp, fontWeight = FontWeight.SemiBold)
                     Text(hero.name, color = Color.White, fontSize = 42.sp, lineHeight = 46.sp, fontWeight = FontWeight.Bold,
                         maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -334,7 +313,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
         if (news.isNotEmpty()) item(key = "news") { NewsTicker(news) }
         // Schmaler Sport-Ticker mit Live-Ergebnissen (ersetzt den früheren Menüpunkt „Sport“)
         if (sportEnabled) item(key = "sportticker") { SportTicker(sportTicker) }
-        val pad = Modifier.padding(horizontal = 48.dp)
+        val pad = Modifier.padding(horizontal = 24.dp)
         val note = latestNotification
         if (note != null) item(key = "note") {
             Row(pad.fillMaxWidth().padding(vertical = 10.dp).background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(14.dp)).padding(14.dp),
@@ -377,8 +356,6 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
             }
         }
         if (recommended.isNotEmpty()) item(key = "rec") { Column(pad) { MovieRow("Empfehlungen für dich", recommended) { nav.navigate(Routes.movie(it.id)) } } }
-        if (liveHi.isNotEmpty()) item(key = "liveHi") { Column(pad) { ProgramRow("Live-TV-Highlights", liveHi) { context.openPlayer(ContentKind.LIVE, it.channelId, category = it.category) } } }
-        if (sportHi.isNotEmpty()) item(key = "sportHi") { Column(pad) { ProgramRow("Sport-Highlights", sportHi) { context.openPlayer(ContentKind.LIVE, it.channelId, category = it.category) } } }
         dynamicRows.filter { it.title != "Sport live" }.take(3).forEach { row ->
             item(key = "dyn_" + row.title) {
                 Column(pad) {

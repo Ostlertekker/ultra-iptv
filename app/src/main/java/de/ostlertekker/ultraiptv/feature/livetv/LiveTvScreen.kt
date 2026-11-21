@@ -295,8 +295,20 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
             if (editMode) Text(if (moving != null) "↕ ▲ ▼ verschieben · OK: ablegen · Zurück: fertig"
                 else "✎ Bearbeiten · OK: Sender aufnehmen · Zurück: fertig", color = p.primary, fontSize = 13.sp,
                 fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
+            // Beim Verschieben folgt die Liste dem Sender (sonst verschwindet er oben/unten aus dem Bild)
+            val chList = androidx.compose.foundation.lazy.rememberLazyListState()
+            LaunchedEffect(moving, channels) {
+                val id = moving ?: return@LaunchedEffect
+                val idx = channels.indexOfFirst { it.id == id }
+                if (idx < 0) return@LaunchedEffect
+                val vis = chList.layoutInfo.visibleItemsInfo
+                val first = vis.firstOrNull()?.index ?: 0
+                val last = vis.lastOrNull()?.index ?: 0
+                if (idx <= first) chList.animateScrollToItem(maxOf(0, idx - 1))
+                else if (idx >= last) chList.animateScrollToItem(maxOf(0, idx - (last - first) + 2))
+            }
             LazyColumn(Modifier.then(if (editMode) Modifier.border(2.dp, p.primary.copy(alpha = 0.5f), RoundedCornerShape(14.dp)).padding(6.dp) else Modifier),
-                verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 40.dp)) {
+                state = chList, verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 40.dp)) {
                 itemsIndexed(channels, key = { _, c -> c.id }, contentType = { _, _ -> "channel" }) { index, ch ->
                     val nowProg = ch.epgId?.let { id -> programs[id]?.firstOrNull { it.startMs <= now && it.endMs > now } }
                     val isMoving = moving == ch.id
