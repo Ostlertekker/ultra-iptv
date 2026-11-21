@@ -1,0 +1,2 @@
+API 34 · sdk_gphone64_x86_64 · emulator
+Overlay-Berechtigung: SYSTEM_ALERT_WINDOW: allow
