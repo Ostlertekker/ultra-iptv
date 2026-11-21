@@ -405,7 +405,7 @@ class UiSmokeTest {
         ActivityScenario.launch<MainActivity>(intent).use {
             Thread.sleep(700)
             var prev = 0L
-            for (ms in listOf(0L, 600L, 1100L, 1500L, 1900L, 2400L, 4200L)) { Thread.sleep(ms - prev); prev = ms; shot("intro_$ms") }
+            for (ms in listOf(300L, 900L, 1500L, 2000L, 2600L, 3400L, 4400L)) { Thread.sleep(ms - prev); prev = ms; shot("intro_$ms") }
             Thread.sleep(4000); shot("hauptmenue_nach_intro")
             assertResponsive("Intro")
         }

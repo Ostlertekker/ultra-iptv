@@ -11,7 +11,9 @@ echo "API $api · $(adb shell getprop ro.product.model | tr -d '\r') · $(adb sh
 
 top() { adb shell dumpsys activity activities 2>/dev/null | grep -E "topResumedActivity|mResumedActivity|ResumedActivity:" | head -1 | tr -d '\r'; }
 isTop() { top | grep -q "$PKG/"; }
-count() { adb shell dumpsys activity activities 2>/dev/null | grep -cE "ActivityRecord\{[^}]*$PKG/de.ostlertekker.ultraiptv.MainActivity"; }
+# Anzahl verschiedener MainActivity-Instanzen (eindeutige ActivityRecord-Kennungen)
+count() { adb shell dumpsys activity activities 2>/dev/null | grep -oE "ActivityRecord\{[0-9a-f]+ u0 $PKG/de.ostlertekker.ultraiptv.MainActivity" | sort -u | wc -l | tr -d ' '; }
+logcount() { adb shell "run-as $PKG cat shared_prefs/autostart.xml" 2>/dev/null | grep -o "$1" | wc -l | tr -d ' '; }
 waitBoot() { adb wait-for-device; for i in $(seq 1 120); do [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = "1" ] && return 0; sleep 2; done; return 1; }
 prefs() {
   adb shell "run-as $PKG sh -c 'mkdir -p shared_prefs; cat > shared_prefs/autostart.xml'" <<XML
@@ -60,15 +62,19 @@ if [ "$after" = "$before" ]; then result "Test 3 Standby ohne Doppelstart" "OK (
 # --- Test 4: Absturz im Vordergrund → App öffnet sich wieder; zweiter/dritter Absturz → Sperre greift
 adb shell am force-stop $PKG; prefs true
 adb shell am start -W -n $ACT >/dev/null; sleep 8
-adb shell am crash $PKG >/dev/null 2>&1; sleep 15
+adb shell am crash $PKG >/dev/null 2>&1; sleep 25
 if isTop; then result "Test 4 Absturz → neu geöffnet" "OK"; else result "Test 4 Absturz → neu geöffnet" "FEHLER ($(top))"; fi
-adb shell am crash $PKG >/dev/null 2>&1; sleep 15
-adb shell am crash $PKG >/dev/null 2>&1; sleep 15
-if isTop; then result "Test 5 Neustart-Sperre nach 2 Abstürzen" "FEHLER (öffnet sich weiter)"; else result "Test 5 Neustart-Sperre nach 2 Abstürzen" "OK"; fi
+adb shell am crash $PKG >/dev/null 2>&1; sleep 25
+adb shell am crash $PKG >/dev/null 2>&1; sleep 25
+re=$(logcount "App wird neu geöffnet"); blk=$(logcount "kein Neustart")
+if [ "$re" = "2" ] && [ "$blk" -ge 1 ] && ! isTop; then result "Test 5 Neustart-Sperre nach 2 Abstürzen" "OK (2 Neustarts, 3. gesperrt)"
+else result "Test 5 Neustart-Sperre nach 2 Abstürzen" "FEHLER (Neustarts $re, Sperre $blk, vorne: $(isTop && echo ja || echo nein))"; fi
 
 # --- Test 6: nach „Beenden erzwingen“ → Android stellt keine Bootmeldung zu (Plattformgrenze, nur dokumentiert)
 prefs false
 adb shell am force-stop $PKG
+sleep 20 # Android speichert den „gestoppt“-Zustand verzögert
+echo "Stopped-Flag: $(adb shell dumpsys package $PKG | grep -o 'stopped=[a-z]*' | head -1 | tr -d '\r')" >> $S
 adb reboot; waitBoot; sleep 40
 if isTop; then result "Test 6 nach Beenden erzwingen + Neustart" "App öffnete sich"; else result "Test 6 nach Beenden erzwingen + Neustart" "App öffnete sich nicht (erwartet: Android sperrt gestoppte Apps)"; fi
 
