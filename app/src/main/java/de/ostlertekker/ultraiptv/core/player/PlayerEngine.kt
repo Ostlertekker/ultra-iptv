@@ -442,10 +442,21 @@ class PlayerEngine @Inject constructor(
             BufferProfile.LARGE -> listOf(30_000, 120_000, 2_500, 6_000)
             BufferProfile.LOW_LATENCY -> listOf(4_000, 20_000, 1_000, 2_000)
         }
-        val loadControl = DefaultLoadControl.Builder()
+        val loadControl = VodStartLoadControl(DefaultLoadControl.Builder()
             .setBufferDurationsMs(minB, maxB, play, rebuffer)
-            .build()
-        val renderers = DefaultRenderersFactory(context)
+            .build()) { if (live) 0L else VOD_START_BUFFER_US }
+        // Größerer Tonpuffer: Decoder-Spitzen beim Anlaufen (z. B. DTS-HD MA in Software) führen nicht zu Knistern
+        val renderers = object : DefaultRenderersFactory(context) {
+            override fun buildAudioSink(ctx: android.content.Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean):
+                androidx.media3.exoplayer.audio.AudioSink =
+                androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(ctx)
+                    .setEnableFloatOutput(enableFloatOutput)
+                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                    .setAudioTrackBufferSizeProvider(androidx.media3.exoplayer.audio.DefaultAudioTrackBufferSizeProvider.Builder()
+                        .setMinPcmBufferDurationUs(500_000).setMaxPcmBufferDurationUs(1_000_000)
+                        .setPassthroughBufferDurationUs(500_000).build())
+                    .build()
+        }
             .setEnableDecoderFallback(true)
             // Eigener FFmpeg-Tondecoder als Rückfallebene: zuerst Gerätedecoder bzw. Durchreichen an den Receiver,
             // nur wenn das Gerät ein Tonformat (z. B. DTS-HD MA, TrueHD) nicht kann, dekodiert die App selbst
@@ -767,3 +778,59 @@ class PlayerEngine @Inject constructor(
 
 /** Externe Untertiteldatei (SRT/VTT), die zusammen mit dem Video geladen wird. */
 data class ExternalSubtitle(val url: String, val language: String?, val label: String, val format: String)
+
+/** Filme/Serien: erst nach 4 s Vorrat loslegen (Live-TV unverändert schnell). */
+private const val VOD_START_BUFFER_US = 4_000_000L
+
+/**
+ * Startet die Wiedergabe von Filmen und Folgen erst mit etwas mehr Vorrat, damit Bild und Ton nicht beim Anlaufen stocken.
+ * Nur der erste Start (und nach dem Spulen) – beim Nachladen gelten die normalen Werte. Live-TV: unverändert.
+ */
+@Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
+private class VodStartLoadControl(
+    private val d: DefaultLoadControl,
+    private val minStartUs: () -> Long,
+) : androidx.media3.exoplayer.LoadControl {
+    // Alle Varianten ausdrücklich an DefaultLoadControl weiterreichen (die Schnittstelle besteht fast nur aus Default-Methoden)
+    override fun shouldStartPlayback(parameters: androidx.media3.exoplayer.LoadControl.Parameters): Boolean {
+        val need = minStartUs()
+        if (need > 0 && !parameters.rebuffering && parameters.bufferedDurationUs < need) return false
+        return d.shouldStartPlayback(parameters)
+    }
+    override fun onPrepared(playerId: androidx.media3.exoplayer.analytics.PlayerId) = d.onPrepared(playerId)
+    override fun onPrepared() = d.onPrepared()
+    override fun onTracksSelected(parameters: androidx.media3.exoplayer.LoadControl.Parameters, trackGroups: androidx.media3.exoplayer.source.TrackGroupArray,
+                                  trackSelections: Array<out androidx.media3.exoplayer.trackselection.ExoTrackSelection?>) =
+        d.onTracksSelected(parameters, trackGroups, trackSelections)
+    override fun onTracksSelected(playerId: androidx.media3.exoplayer.analytics.PlayerId, timeline: androidx.media3.common.Timeline,
+                                  mediaPeriodId: androidx.media3.exoplayer.source.MediaSource.MediaPeriodId, renderers: Array<out androidx.media3.exoplayer.Renderer>,
+                                  trackGroups: androidx.media3.exoplayer.source.TrackGroupArray,
+                                  trackSelections: Array<out androidx.media3.exoplayer.trackselection.ExoTrackSelection?>) =
+        d.onTracksSelected(playerId, timeline, mediaPeriodId, renderers, trackGroups, trackSelections)
+    override fun onTracksSelected(timeline: androidx.media3.common.Timeline, mediaPeriodId: androidx.media3.exoplayer.source.MediaSource.MediaPeriodId,
+                                  renderers: Array<out androidx.media3.exoplayer.Renderer>, trackGroups: androidx.media3.exoplayer.source.TrackGroupArray,
+                                  trackSelections: Array<out androidx.media3.exoplayer.trackselection.ExoTrackSelection?>) =
+        d.onTracksSelected(timeline, mediaPeriodId, renderers, trackGroups, trackSelections)
+    override fun onTracksSelected(renderers: Array<out androidx.media3.exoplayer.Renderer>, trackGroups: androidx.media3.exoplayer.source.TrackGroupArray,
+                                  trackSelections: Array<out androidx.media3.exoplayer.trackselection.ExoTrackSelection?>) =
+        d.onTracksSelected(renderers, trackGroups, trackSelections)
+    override fun onStopped(playerId: androidx.media3.exoplayer.analytics.PlayerId) = d.onStopped(playerId)
+    override fun onStopped() = d.onStopped()
+    override fun onReleased(playerId: androidx.media3.exoplayer.analytics.PlayerId) = d.onReleased(playerId)
+    override fun onReleased() = d.onReleased()
+    override fun getAllocator(): androidx.media3.exoplayer.upstream.Allocator = d.allocator
+    override fun getBackBufferDurationUs(playerId: androidx.media3.exoplayer.analytics.PlayerId) = d.getBackBufferDurationUs(playerId)
+    override fun getBackBufferDurationUs() = d.backBufferDurationUs
+    override fun retainBackBufferFromKeyframe(playerId: androidx.media3.exoplayer.analytics.PlayerId) = d.retainBackBufferFromKeyframe(playerId)
+    override fun retainBackBufferFromKeyframe() = d.retainBackBufferFromKeyframe()
+    override fun shouldContinueLoading(parameters: androidx.media3.exoplayer.LoadControl.Parameters) = d.shouldContinueLoading(parameters)
+    override fun shouldContinueLoading(playbackPositionUs: Long, bufferedDurationUs: Long, playbackSpeed: Float) =
+        d.shouldContinueLoading(playbackPositionUs, bufferedDurationUs, playbackSpeed)
+    override fun shouldContinuePreloading(timeline: androidx.media3.common.Timeline, mediaPeriodId: androidx.media3.exoplayer.source.MediaSource.MediaPeriodId,
+                                          bufferedDurationUs: Long) = d.shouldContinuePreloading(timeline, mediaPeriodId, bufferedDurationUs)
+    override fun shouldStartPlayback(timeline: androidx.media3.common.Timeline, mediaPeriodId: androidx.media3.exoplayer.source.MediaSource.MediaPeriodId,
+                                     bufferedDurationUs: Long, playbackSpeed: Float, rebuffering: Boolean, targetLiveOffsetUs: Long) =
+        d.shouldStartPlayback(timeline, mediaPeriodId, bufferedDurationUs, playbackSpeed, rebuffering, targetLiveOffsetUs)
+    override fun shouldStartPlayback(bufferedDurationUs: Long, playbackSpeed: Float, rebuffering: Boolean, targetLiveOffsetUs: Long) =
+        d.shouldStartPlayback(bufferedDurationUs, playbackSpeed, rebuffering, targetLiveOffsetUs)
+}
