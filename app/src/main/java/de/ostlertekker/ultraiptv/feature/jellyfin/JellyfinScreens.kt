@@ -112,6 +112,25 @@ class JellyfinViewModel @Inject constructor(
     /** Seerr-Kacheln der Übersicht (id → Eintrag), für den Anfrage-Dialog. */
     var seerrItems: Map<String, de.ostlertekker.ultraiptv.core.seerr.SeerrItem> = emptyMap()
         private set
+    /** Eigene Seerr-Anfragen der Reihe „Meine Anfragen“ (Kachel-id → Anfrage). */
+    var seerrRequests: Map<String, de.ostlertekker.ultraiptv.core.seerr.SeerrRequest> = emptyMap()
+        private set
+    private var seerrTicker: kotlinx.coroutines.Job? = null
+
+    /** Solange etwas lädt oder bearbeitet wird: „Meine Anfragen“ regelmäßig auffrischen (Fortschrittsbalken). */
+    private fun watchRequests() {
+        seerrTicker?.cancel()
+        seerrTicker = viewModelScope.launch {
+            while (true) {
+                val active = seerrRequests.values.any { it.downloading || it.item.status == de.ostlertekker.ultraiptv.core.seerr.SeerrStatus.PROCESSING }
+                if (!active) return@launch
+                kotlinx.coroutines.delay(if (seerrRequests.values.any { it.downloading }) 15_000 else 60_000)
+                val fresh = runCatching { seerr.myRequests() }.getOrNull() ?: continue
+                seerrRequests = fresh.associateBy { "req:${it.id}" }
+                rows.value = rows.value.map { if (it.title == "Meine Anfragen") it.copy(tiles = fresh.map { r -> r.tile() }) else it }
+            }
+        }
+    }
     /** In Einstellungen › Jellyfin ausgeblendete Reihen. */
     val hiddenRows = settings.settings.map { s -> s.jfHiddenRows.split('\n').filter { it.isNotBlank() }.toSet() }
         .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), emptySet())
@@ -167,14 +186,12 @@ class JellyfinViewModel @Inject constructor(
             awaitAll(resume, nextUp, latest, recent, favs, movies, series)
             val reqs = sReq.await(); val disc = sDisc.await()
             seerrItems = (reqs.map { it.item } + disc).associateBy { it.key }
+            seerrRequests = reqs.associateBy { "req:${it.id}" }
             libraries.value = libs.await()
             rows.value = listOf(
                 CinemaRow("Weiterschauen", resume.await().map { repo.tile(it, resume = true) }, landscape = true),
                 CinemaRow("Nächste Folgen", nextUp.await().map { repo.tile(it, resume = true) }, landscape = true),
-                CinemaRow("Meine Anfragen", reqs.map {
-                    it.item.tile(listOfNotNull(if (it.item.isTv) "Serie" else "Film",
-                        de.ostlertekker.ultraiptv.core.seerr.SeerrStatus.request(it.status, it.item.status)).joinToString(" · "))
-                }),
+                CinemaRow("Meine Anfragen", reqs.map { it.tile() }),
                 CinemaRow("Zuletzt hinzugefügt", latest.await().map { repo.tile(it) }),
                 CinemaRow("Zuletzt angesehen", recent.await().map { repo.tile(it) }),
                 CinemaRow("Meine Favoriten", favs.await().map { repo.tile(it) }),
@@ -183,6 +200,7 @@ class JellyfinViewModel @Inject constructor(
                 CinemaRow("Entdecken (Seerr)", disc.map { it.tile() }),
                 CinemaRow("Meine Bibliotheken", libraries.value.map { repo.tile(it) }, landscape = true),
             )
+            watchRequests()
         } catch (e: Exception) {
             error.value = e.message ?: "Jellyfin nicht erreichbar"
         }
@@ -212,6 +230,7 @@ fun JellyfinScreen(nav: NavController, vm: JellyfinViewModel = hiltViewModel()) 
     val rows = remember(allRows, hiddenRows) { allRows.filter { it.title !in hiddenRows } }
     val libs by vm.libraries.collectAsStateWithLifecycle()
     var seerrDialog by remember { mutableStateOf<de.ostlertekker.ultraiptv.core.seerr.SeerrItem?>(null) }
+    var requestDetail by remember { mutableStateOf<de.ostlertekker.ultraiptv.core.seerr.SeerrRequest?>(null) }
     val loading by vm.loading.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { if (allRows.isEmpty() && !loading) vm.load() }
@@ -232,8 +251,21 @@ fun JellyfinScreen(nav: NavController, vm: JellyfinViewModel = hiltViewModel()) 
                 error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp)) }
             }
         },
-        onOpen = { t -> if (t.kind == "seerr") seerrDialog = vm.seerrItems[t.id] else openJellyfin(nav, context, t, play = false) },
-        onPlay = { t -> if (t.kind == "seerr") seerrDialog = vm.seerrItems[t.id] else openJellyfin(nav, context, t, play = true) })
+        onOpen = { t -> when (t.kind) {
+            "seerr" -> seerrDialog = vm.seerrItems[t.id]
+            "seerrReq" -> requestDetail = vm.seerrRequests[t.id]
+            else -> openJellyfin(nav, context, t, play = false)
+        } },
+        onPlay = { t -> when (t.kind) {
+            "seerr" -> seerrDialog = vm.seerrItems[t.id]
+            "seerrReq" -> requestDetail = vm.seerrRequests[t.id]
+            else -> openJellyfin(nav, context, t, play = true)
+        } })
+    requestDetail?.let { r ->
+        SeerrRequestDetail(r, vm.seerr, onDismiss = { requestDetail = null },
+            onOpenJellyfin = { title -> requestDetail = null; nav.navigate(Routes.JF_SEARCH + "?q=" + android.net.Uri.encode(title)) },
+            onRequestMore = { item -> requestDetail = null; seerrDialog = item })
+    }
     seerrDialog?.let { SeerrRequestDialog(it, vm.seerr) { seerrDialog = null; vm.refresh() } }
 }
 

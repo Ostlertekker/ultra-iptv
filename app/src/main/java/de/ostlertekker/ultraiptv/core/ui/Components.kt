@@ -397,6 +397,9 @@ fun FocusCard(
     contentScale: ContentScale = ContentScale.Crop,
     /** Position in einer Reihe → gestaffelte Eingangsanimation (CRAZY MOTION ENGINE). */
     entranceIndex: Int? = null,
+    /** Kleines Statusabzeichen oben links (z. B. Seerr „Verfügbar“) mit Farbe. */
+    badge: Pair<String, Color>? = null,
+    progressColor: Color? = null,
 ) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
@@ -425,7 +428,12 @@ fun FocusCard(
             }
             if (progress != null && progress > 0f) {
                 Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(4.dp).background(Color.Black.copy(alpha = 0.5f)))
-                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth(progress.coerceIn(0f, 1f)).height(4.dp).background(p.primary))
+                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth(progress.coerceIn(0f, 1f)).height(4.dp).background(progressColor ?: p.primary))
+            }
+            badge?.let { (label, color) ->
+                Text(label, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                    modifier = Modifier.align(Alignment.TopStart).padding(6.dp)
+                        .background(color.copy(alpha = 0.85f), RoundedCornerShape(50)).padding(horizontal = 8.dp, vertical = 2.dp))
             }
         }
         Text(title, color = if (focused) p.text else p.textDim, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,

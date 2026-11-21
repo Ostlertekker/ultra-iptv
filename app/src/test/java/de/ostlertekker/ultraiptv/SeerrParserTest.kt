@@ -36,4 +36,21 @@ class SeerrParserTest {
         assertEquals("Wartet auf Freigabe", SeerrStatus.request(1, 2))
         assertEquals("http://s:5055/api/v1/search?query=herr%20der%20ringe&page=1&language=de", SeerrParser.searchUrl("http://s:5055", " herr der ringe ", "de"))
     }
+
+    @Test fun requestWithDownloads() {
+        val r = SeerrParser.requests(j("""{"results":[{"id":9,"status":2,"type":"tv","is4k":false,"createdAt":"2026-11-21T08:30:00.000Z",
+            "requestedBy":{"id":4,"displayName":"Max"},"seasons":[{"seasonNumber":2,"status":2}],
+            "media":{"tmdbId":1399,"mediaType":"tv","status":3,"downloadStatus":[
+              {"title":"GoT.S02E01","size":1000,"sizeLeft":250,"status":"downloading","estimatedCompletionTime":"2026-11-21T09:00:00Z","episode":{"seasonNumber":2,"episodeNumber":1}},
+              {"title":"GoT.S01E01","size":1000,"sizeLeft":0,"status":"completed","episode":{"seasonNumber":1,"episodeNumber":1}}]}}]}""")).single()
+        assertEquals("Max", r.byName); assertEquals(listOf(2), r.seasons)
+        assertEquals(1, r.downloads.size) // nur angefragte Staffel
+        val d = r.downloads.single()
+        assertEquals(75, d.percent); assertEquals(2, d.season); assertEquals(1, d.episode)
+        assertEquals(1795251600000L, d.eta)
+        assertEquals(1795249800000L, r.createdAt)
+        assertEquals("ca. 30 Min", SeerrStatus.remaining(d.eta, now = d.eta!! - 30 * 60_000L))
+        assertEquals("ca. 2 Std 5 Min", SeerrStatus.remaining(d.eta, now = d.eta!! - 125 * 60_000L))
+        assertEquals("Lädt", SeerrStatus.download("downloading"))
+    }
 }

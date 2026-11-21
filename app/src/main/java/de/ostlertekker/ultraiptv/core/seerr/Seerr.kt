@@ -56,13 +56,67 @@ data class SeerrItem(
     val key get() = "$mediaType:$tmdbId"
 }
 
-data class SeerrRequest(val id: Int, val status: Int, val item: SeerrItem)
+/** Laufender Download aus Radarr/Sonarr (von Seerr weitergereicht). */
+data class SeerrDownload(
+    val title: String,
+    val size: Long,
+    val sizeLeft: Long,
+    /** Radarr/Sonarr-Status, z. B. „downloading“, „queued“, „paused“, „completed“. */
+    val status: String,
+    /** Voraussichtliche Fertigstellung (Epoch-ms) oder null. */
+    val eta: Long?,
+    val season: Int? = null,
+    val episode: Int? = null,
+) {
+    val progress: Float get() = if (size > 0) ((size - sizeLeft).toFloat() / size).coerceIn(0f, 1f) else 0f
+    val percent: Int get() = Math.round(progress * 100)
+}
+
+data class SeerrRequest(
+    val id: Int,
+    val status: Int,
+    val item: SeerrItem,
+    val requestedBy: String? = null,
+    /** Zeitpunkt der Anfrage (Epoch-ms). */
+    val createdAt: Long? = null,
+    val is4k: Boolean = false,
+    /** Angefragte Staffeln (nur Serien). */
+    val seasons: List<Int> = emptyList(),
+    val downloads: List<SeerrDownload> = emptyList(),
+) {
+    val downloading get() = downloads.isNotEmpty()
+    /** Gesamtfortschritt aller laufenden Downloads (größengewichtet). */
+    val progress: Float? get() {
+        if (downloads.isEmpty()) return null
+        val size = downloads.sumOf { it.size }
+        return if (size > 0) ((size - downloads.sumOf { it.sizeLeft }).toFloat() / size).coerceIn(0f, 1f) else 0f
+    }
+}
 data class SeerrSeason(val number: Int, val name: String, val status: Int)
 
 /** Status-Codes von Seerr (Overseerr/Jellyseerr): Medien-Status und Anfrage-Status. */
 object SeerrStatus {
     const val UNKNOWN = 1; const val PENDING = 2; const val PROCESSING = 3; const val PARTIAL = 4; const val AVAILABLE = 5
     const val REQ_PENDING = 1; const val REQ_APPROVED = 2; const val REQ_DECLINED = 3; const val REQ_FAILED = 4; const val REQ_COMPLETED = 5
+
+    /** Radarr/Sonarr-Download-Status auf Deutsch. */
+    fun download(s: String): String = when (s.lowercase()) {
+        "downloading" -> "Lädt"; "queued" -> "In Warteschlange"; "paused" -> "Pausiert"
+        "completed" -> "Fertig – wird importiert"; "delay" -> "Verzögert"; "warning" -> "Warnung"; "failed" -> "Fehler"
+        else -> s.replaceFirstChar { it.uppercase() }
+    }
+
+    /** Restzeit bis [eta] als „ca. 12 Min“ / „ca. 2 Std 5 Min“, null wenn unbekannt oder vorbei. */
+    fun remaining(eta: Long?, now: Long = System.currentTimeMillis()): String? {
+        val min = ((eta ?: return null) - now) / 60_000L
+        if (min < 0) return null
+        return when {
+            min < 1 -> "unter 1 Min"
+            min < 60 -> "ca. $min Min"
+            min < 48 * 60 -> "ca. ${min / 60} Std" + (if (min % 60 > 0) " ${min % 60} Min" else "")
+            else -> "ca. ${min / (24 * 60)} Tage"
+        }
+    }
 
     fun media(s: Int): String? = when (s) {
         PENDING -> "Angefragt"; PROCESSING -> "Wird bearbeitet"; PARTIAL -> "Teilweise verfügbar"; AVAILABLE -> "Verfügbar"
@@ -114,14 +168,50 @@ object SeerrParser {
         }
     }
 
-    /** /request-Liste → (Anfrage-ID, Anfrage-Status, TMDB-ID, Typ, Medien-Status, angefragt von). */
-    data class RawRequest(val id: Int, val status: Int, val tmdbId: Int, val type: String, val mediaStatus: Int, val by: Int?)
+    private fun JsonElement?.long(): Long? = (this as? JsonPrimitive)?.contentOrNull?.toDoubleOrNull()?.toLong()
+
+    /** ISO-Zeit von Seerr („2026-11-21T09:30:00.000Z“, UTC) → Epoch-ms. */
+    fun isoMillis(s: String?): Long? {
+        if (s.isNullOrBlank() || s.length < 19) return null
+        return runCatching {
+            java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+                .parse(s.take(19))?.time
+        }.getOrNull()
+    }
+
+    fun downloads(el: JsonElement?): List<SeerrDownload> = (el as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }.map { d ->
+        val ep = d["episode"] as? JsonObject
+        SeerrDownload(d["title"].str() ?: "", d["size"].long() ?: 0L, d["sizeLeft"].long() ?: 0L, d["status"].str() ?: "",
+            isoMillis(d["estimatedCompletionTime"].str()), ep?.get("seasonNumber").int(), ep?.get("episodeNumber").int())
+    }
+
+    /** /request-Eintrag (Liste oder /request/{id}). */
+    data class RawRequest(
+        val id: Int, val status: Int, val tmdbId: Int, val type: String, val mediaStatus: Int, val by: Int?,
+        val byName: String? = null, val createdAt: Long? = null, val is4k: Boolean = false,
+        val seasons: List<Int> = emptyList(), val downloads: List<SeerrDownload> = emptyList(),
+    )
+
+    fun request(r: JsonObject): RawRequest? {
+        val media = r["media"] as? JsonObject ?: return null
+        val is4k = (r["is4k"] as? JsonPrimitive)?.contentOrNull == "true"
+        val by = r["requestedBy"] as? JsonObject
+        val type = media["mediaType"].str() ?: r["type"].str() ?: "movie"
+        val seasons = (r["seasons"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.get("seasonNumber").int() }.sorted()
+        // Wie Seerr: bei Serien nur Downloads der angefragten Staffeln
+        val dl = downloads(media[if (is4k) "downloadStatus4k" else "downloadStatus"])
+            .filter { type != "tv" || seasons.isEmpty() || it.season == null || it.season in seasons }
+        return RawRequest(r["id"].int() ?: return null, r["status"].int() ?: 1, media["tmdbId"].int() ?: return null, type,
+            media[if (is4k) "status4k" else "status"].int() ?: 1, by?.get("id").int(),
+            by?.get("displayName").str() ?: by?.get("jellyfinUsername").str() ?: by?.get("username").str(),
+            isoMillis(r["createdAt"].str()), is4k, seasons, dl)
+    }
+
     fun requests(el: JsonElement?): List<RawRequest> =
-        ((el as? JsonObject)?.get("results") as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }.mapNotNull { r ->
-            val media = r["media"] as? JsonObject ?: return@mapNotNull null
-            RawRequest(r["id"].int() ?: return@mapNotNull null, r["status"].int() ?: 1, media["tmdbId"].int() ?: return@mapNotNull null,
-                media["mediaType"].str() ?: r["type"].str() ?: "movie", media["status"].int() ?: 1, (r["requestedBy"] as? JsonObject)?.get("id").int())
-        }
+        ((el as? JsonObject)?.get("results") as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.let(::request) }
+
+    fun toRequest(r: RawRequest, item: SeerrItem) =
+        SeerrRequest(r.id, r.status, item.copy(status = r.mediaStatus), r.byName, r.createdAt, r.is4k, r.seasons, r.downloads)
 
     fun searchUrl(server: String, q: String, lang: String) =
         "$server/api/v1/search?query=" + URLEncoder.encode(q.trim(), "UTF-8").replace("+", "%20") + "&page=1&language=$lang"
@@ -285,10 +375,18 @@ class SeerrRepository @Inject constructor(
             .filter { uid <= 0 || it.by == null || it.by == uid }
             .distinctBy { it.type + it.tmdbId }
         raw.map { r ->
-            async {
-                runCatching { details(r.type, r.tmdbId) }.getOrNull()?.let { SeerrRequest(r.id, r.status, it.copy(status = r.mediaStatus)) }
-            }
+            async { (detailCache[r.type + r.tmdbId] ?: runCatching { details(r.type, r.tmdbId) }.getOrNull()
+                ?.also { detailCache[r.type + r.tmdbId] = it })?.let { SeerrParser.toRequest(r, it) } }
         }.awaitAll().filterNotNull()
+    }
+
+    /** Titel/Poster ändern sich nicht – nicht bei jeder Aktualisierung neu laden. */
+    private val detailCache = java.util.concurrent.ConcurrentHashMap<String, SeerrItem>()
+
+    /** Eine Anfrage neu laden (Status + Download-Fortschritt). */
+    suspend fun refresh(r: SeerrRequest): SeerrRequest {
+        val raw = (get("/api/v1/request/${r.id}") as? JsonObject)?.let { SeerrParser.request(it) } ?: return r
+        return SeerrParser.toRequest(raw, r.item)
     }
 
     private fun notified(): MutableSet<String> = (prefs.getStringSet("notified", emptySet()) ?: emptySet()).toMutableSet()
