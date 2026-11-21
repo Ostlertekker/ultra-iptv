@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.feature.jellyfin
 
+import androidx.compose.foundation.horizontalScroll
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedH
 import de.ostlertekker.ultraiptv.core.ui.focusBleed
@@ -463,18 +464,19 @@ fun JellyfinMovieScreen(nav: NavController, vm: JellyfinItemViewModel = hiltView
                     m.directors.takeIf { it.isNotEmpty() }?.let { "Regie: " + it.joinToString(", ") }).joinToString("   ·   ")
                 if (credits.isNotBlank()) Text(credits, color = p.textDim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
                 Spacer(Modifier.height(16.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Scrollbar: passt die Reihe nicht auf den Bildschirm, rückt der fokussierte Button ins Bild
+                Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(vertical = 4.dp, horizontal = 2.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (m.positionMs > 30_000 && !m.played) {
-                        TvButton("▶ Fortsetzen (${m.positionMs / 60_000} Min.)", onClick = { context.openPlayer(ContentKind.MOVIE, JF_PREFIX + m.id, m.positionMs) },
+                        TvButton("▶ Fortsetzen · ${m.positionMs / 60_000} Min.", onClick = { context.openPlayer(ContentKind.MOVIE, JF_PREFIX + m.id, m.positionMs) },
                             primary = true, focusRequester = playFocus)
                         TvButton("Von vorne", onClick = { context.openPlayer(ContentKind.MOVIE, JF_PREFIX + m.id, 0) })
                     } else {
                         TvButton("▶ Abspielen", onClick = { context.openPlayer(ContentKind.MOVIE, JF_PREFIX + m.id, 0) }, primary = true, focusRequester = playFocus)
                     }
-                    TvButton(if (m.favorite) "♥ Favorit" else "♡ Favorit", onClick = { vm.toggleFavorite() })
-                    TvButton(if (m.played) "Als ungesehen markieren" else "✓ Gesehen", onClick = { vm.togglePlayed(m) })
                     val scope = androidx.compose.runtime.rememberCoroutineScope()
                     TvButton("Trailer", onClick = { scope.launch { openJfTrailer(context, vm.repo, m) } })
+                    TvButton(if (m.favorite) "♥ Favorit" else "♡ Favorit", onClick = { vm.toggleFavorite() })
+                    TvButton(if (m.played) "Ungesehen" else "✓ Gesehen", onClick = { vm.togglePlayed(m) })
                 }
                 error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)) }
             }
@@ -522,7 +524,7 @@ fun JellyfinSeriesScreen(nav: NavController, vm: JellyfinItemViewModel = hiltVie
             if (s.people.isNotEmpty()) Text("Mit: ${s.people.joinToString(", ")}", color = p.text, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.width(780.dp).padding(top = 4.dp))
             Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(vertical = 4.dp, horizontal = 2.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (resume != null) TvButton(
                     (if (resume.positionMs > 0) "▶ Weiter: " else "▶ ") + "S${resume.parentIndex ?: 0} E${resume.index ?: 0}",
                     onClick = { context.openPlayer(ContentKind.EPISODE, JF_PREFIX + resume.id, if (resume.played) 0 else resume.positionMs) }, primary = true)
