@@ -51,9 +51,19 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private var lastRepeat = 0L
+    private val arrowKeys = setOf(android.view.KeyEvent.KEYCODE_DPAD_UP, android.view.KeyEvent.KEYCODE_DPAD_DOWN,
+        android.view.KeyEvent.KEYCODE_DPAD_LEFT, android.view.KeyEvent.KEYCODE_DPAD_RIGHT)
+
     // Lint-Fehlalarm: Überschreiben von ComponentActivity.dispatchKeyEvent ist erlaubt (bekanntes androidx-Problem)
     @android.annotation.SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        // Gedrückt gehaltene Pfeiltaste: höchstens ~14 Schritte pro Sekunde – gleichmäßig, kein Überschießen
+        if (event.action == android.view.KeyEvent.ACTION_DOWN && event.repeatCount > 0 && event.keyCode in arrowKeys) {
+            val now = android.os.SystemClock.uptimeMillis()
+            if (now - lastRepeat < 70) return true
+            lastRepeat = now
+        }
         if (event.action == android.view.KeyEvent.ACTION_DOWN) de.ostlertekker.ultraiptv.core.motion.InputActivity.mark(event.keyCode)
         else de.ostlertekker.ultraiptv.core.motion.InputActivity.mark()
         return super.dispatchKeyEvent(event)

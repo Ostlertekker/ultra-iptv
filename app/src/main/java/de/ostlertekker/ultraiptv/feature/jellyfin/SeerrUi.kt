@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.feature.jellyfin
 
+import de.ostlertekker.ultraiptv.core.ui.rememberFocus
 import androidx.compose.foundation.layout.PaddingValues
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedH
@@ -66,7 +67,7 @@ fun SeerrRow(title: String, items: List<SeerrItem>, onClick: (SeerrItem) -> Unit
     val p = LocalUltraTheme.current.palette
     Column(Modifier.padding(top = 10.dp)) {
         Text(title, color = p.text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 8.dp).focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 8.dp).focusBleed().rememberFocus(lockHorizontal = true), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
             items(items, key = { it.key }) { i ->
                 FocusCard(i.title, i.poster, 120.dp, 178.dp, onClick = { onClick(i) },
                     subtitle = listOfNotNull(i.year, SeerrStatus.media(i.status)).joinToString(" · ").ifBlank { null })
@@ -111,7 +112,7 @@ fun SeerrRequestDialog(item: SeerrItem, repo: SeerrRepository, onDismiss: () -> 
                     if (list == null) Text("Staffeln werden geladen …", color = p.textDim, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
                     else if (list.isNotEmpty()) {
                         Text("Staffeln", color = p.textDim, fontSize = 13.sp, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp))
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.focusBleed().rememberFocus(lockHorizontal = true), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
                             item { TvChip("Alle fehlenden", chosen.isEmpty(), { chosen = emptySet() }) }
                             items(list, key = { it.number }) { s ->
                                 val label = "S${s.number}" + (if (s.episodes > 0) " · ${s.episodes} Folge" + (if (s.episodes == 1) "" else "n") else "") +
@@ -279,7 +280,7 @@ fun SeerrRequestDetail(
 
                     if (seasons.isNotEmpty()) {
                         Text("Staffeln", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.focusBleed().rememberFocus(lockHorizontal = true), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
                             items(seasons, key = { it.number }) { s ->
                                 val c = seasonColor(s.status)
                                 Text("S${s.number}" + (if (s.episodes > 0) " (${s.episodes})" else "") + " · " + (SeerrStatus.media(s.status) ?: "Nicht angefragt"), color = Color.White, fontSize = 12.sp,

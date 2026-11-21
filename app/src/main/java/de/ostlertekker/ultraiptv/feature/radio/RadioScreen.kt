@@ -1,5 +1,7 @@
 package de.ostlertekker.ultraiptv.feature.radio
 
+import de.ostlertekker.ultraiptv.core.ui.contentEntry
+import de.ostlertekker.ultraiptv.core.ui.rememberFocus
 import androidx.compose.ui.graphics.graphicsLayer
 import de.ostlertekker.ultraiptv.core.ui.outlineButton
 import android.widget.Toast
@@ -155,7 +157,7 @@ fun RadioScreen(vm: RadioViewModel = hiltViewModel()) {
             // Länder (wie die Kategorien bei Live TV)
             val list = countries
             val listState = rememberLazyListState()
-            LazyColumn(Modifier.width(260.dp).fillMaxHeight(), state = listState, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            LazyColumn(Modifier.width(260.dp).fillMaxHeight().rememberFocus(), state = listState, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 item(key = "search") { CategoryItem("Sender suchen", selected == RADIO_SEARCH) { vm.select(RADIO_SEARCH) } }
                 item(key = "fav") { CategoryItem("★ Favoriten (${favs.size})", selected == RADIO_FAVS) { vm.select(RADIO_FAVS) } }
                 if (list == null) item { if (failed == null) UltraLoader() }
@@ -186,7 +188,7 @@ fun RadioScreen(vm: RadioViewModel = hiltViewModel()) {
                     st == null -> UltraLoader()
                     st.isEmpty() -> Text(if (selected == RADIO_FAVS) "Noch keine Favoriten – bei einem Sender lange OK drücken." else "Für dieses Land sind keine funktionierenden Sender eingetragen.",
                         color = pal.textDim, fontSize = 14.sp)
-                    else -> LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    else -> LazyColumn(Modifier.weight(1f).contentEntry().rememberFocus(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         items(st, key = { it.id }) { s ->
                             val last = s.id == st.last().id
                             StationRow(s, showCountry = selected == RADIO_SEARCH || selected == RADIO_FAVS, modifier = Modifier

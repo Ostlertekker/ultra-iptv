@@ -1,5 +1,7 @@
 package de.ostlertekker.ultraiptv.feature.jellyfin
 
+import de.ostlertekker.ultraiptv.core.ui.contentEntry
+import de.ostlertekker.ultraiptv.core.ui.rememberFocus
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedH
 import de.ostlertekker.ultraiptv.core.ui.focusBleed
@@ -147,6 +149,8 @@ fun JellyfinSearchScreen(nav: NavController, vm: JellyfinSearchViewModel = hiltV
     val context = LocalContext.current
     val f by vm.filter.collectAsStateWithLifecycle()
     val list by vm.results.collectAsStateWithLifecycle()
+    val searchFocus = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
+    de.ostlertekker.ultraiptv.core.ui.InitialFocus(searchFocus)
     val total by vm.total.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
     val seerrHits by vm.seerrResults.collectAsStateWithLifecycle()
@@ -167,7 +171,7 @@ fun JellyfinSearchScreen(nav: NavController, vm: JellyfinSearchViewModel = hiltV
         val voice = de.ostlertekker.ultraiptv.core.ui.rememberVoiceSearch { spoken -> vm.update { it.copy(query = spoken) } }
         Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             TvTextField(f.query, { q -> vm.update { it.copy(query = q) } }, "Titel, Schauspieler oder Stichwort …",
-                modifier = Modifier.weight(1f))
+                modifier = Modifier.weight(1f).contentEntry(), focusRequester = searchFocus)
             de.ostlertekker.ultraiptv.core.ui.VoiceSearchButton(voice)
         }
 
@@ -180,7 +184,7 @@ fun JellyfinSearchScreen(nav: NavController, vm: JellyfinSearchViewModel = hiltV
             color = p.textDim, fontSize = 15.sp, modifier = Modifier.padding(top = 20.dp))
 
         LazyVerticalGrid(GridCells.Adaptive(160.dp), state = grid, horizontalArrangement = Arrangement.spacedBy(20.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 12.dp + FocusBleedV, bottom = 60.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
+            verticalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 12.dp + FocusBleedV, bottom = 60.dp + FocusBleedV), modifier = Modifier.focusBleed().rememberFocus()) {
             items(list.size, key = { list[it].id }, contentType = { "poster" }) { i ->
                 val item = list[i]
                 val t = vm.repo.tile(item)

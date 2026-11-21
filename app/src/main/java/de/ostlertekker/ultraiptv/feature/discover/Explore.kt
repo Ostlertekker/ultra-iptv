@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.feature.discover
 
+import de.ostlertekker.ultraiptv.core.ui.rememberFocus
 import android.app.Activity
 import android.content.Intent
 import android.speech.RecognizerIntent
@@ -182,7 +183,7 @@ fun SportsScreen(nav: NavController, vm: DiscoverViewModel = hiltViewModel()) {
                 " · nächste in $secs s · Quelle: ESPN"
         } ?: "Lade Live-Daten …")
         Row(Modifier.fillMaxSize().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            LazyColumn(Modifier.weight(0.5f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            LazyColumn(Modifier.weight(0.5f).rememberFocus(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 // Nur Spiele, die gerade laufen
                 val evs = board?.events.orEmpty().filter { it.live }
                 if (board != null && evs.isEmpty()) item {
@@ -260,7 +261,7 @@ internal fun SetCells(mine: List<de.ostlertekker.ultraiptv.core.discover.SetScor
 private fun MatchPanel(e: ScoreEvent, d: de.ostlertekker.ultraiptv.core.discover.MatchDetail?, vm: DiscoverViewModel) {
     val pal = LocalUltraTheme.current.palette
     val failed by vm.detailFailed.collectAsStateWithLifecycle()
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.rememberFocus()) {
         item {
             Text(e.scoreLine, color = pal.text, fontSize = 20.sp, fontWeight = FontWeight.Black)
             Text(listOfNotNull(e.detail.takeIf { it.isNotBlank() }, e.clock?.takeIf { e.live }, e.venue).joinToString(" · "), color = pal.textDim, fontSize = 12.sp)

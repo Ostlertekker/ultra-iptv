@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.settings
 
+import de.ostlertekker.ultraiptv.core.ui.contentEntry
+import androidx.compose.ui.focus.onFocusChanged
+import de.ostlertekker.ultraiptv.core.ui.rememberFocus
 import de.ostlertekker.ultraiptv.core.jellyfin.JfOptions
 import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
@@ -175,9 +178,11 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
     androidx.activity.compose.BackHandler(enabled = errorsOpen) { errorsOpen = false }
     val s by vm.settings.collectAsStateWithLifecycle()
 
+    val contentLeftAt = remember { longArrayOf(0L) }
+    val contentHad = remember { booleanArrayOf(false) }
     Row(Modifier.fillMaxSize()) {
         // Linke Spalte wie bei TiviMate: Symbol + Bezeichnung, dunkler Hintergrund
-        LazyColumn(Modifier.width(270.dp).fillMaxHeight().background(Color.Black.copy(alpha = 0.35f)),
+        LazyColumn(Modifier.width(270.dp).fillMaxHeight().background(Color.Black.copy(alpha = 0.35f)).rememberFocus(),
             contentPadding = PaddingValues(vertical = 14.dp, horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             item {
                 Text("Einstellungen", color = p.text, fontSize = 21.sp, maxLines = 1, softWrap = false, fontWeight = theme.spec.titleWeight,
@@ -187,9 +192,12 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
                 var focused by remember { mutableStateOf(false) }
                 val shape = RoundedCornerShape(10.dp)
                 val sel = category == sec
-                Row(Modifier.fillMaxWidth().tvFocusable(shape, { category = sec; errorsOpen = false }, focusRequester = railFocus.getValue(sec), scaleOnFocus = false, onFocus = {
+                Row(Modifier.fillMaxWidth().then(if (sel) Modifier.contentEntry() else Modifier).tvFocusable(shape, { category = sec; errorsOpen = false }, focusRequester = railFocus.getValue(sec), scaleOnFocus = false, onFocus = {
                     focused = it
-                    if (it && category != sec) {
+                    // Pfeil links aus dem Inhalt: immer zur aktuell gewählten Kategorie (nicht zur nächstliegenden)
+                    if (it && category != sec && android.os.SystemClock.uptimeMillis() - contentLeftAt[0] < 250) {
+                        railScope.launch { runCatching { railFocus.getValue(category).requestFocus() } }
+                    } else if (it && category != sec) {
                         // Nur bei Pfeiltasten-Navigation umschalten. Verschwindet ein gedrückter Knopf (z. B. „Nach Updates suchen“),
                         // springt Android den Fokus auf den ersten Eintrag („Playlists“) – dann zurück zum aktuellen Reiter statt zu wechseln.
                         if (de.ostlertekker.ultraiptv.core.motion.InputActivity.navigatedByArrow()) { category = sec; errorsOpen = false }
@@ -206,7 +214,9 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
             }
         }
         if (errorsOpen) ErrorLogView(vm) { errorsOpen = false }
-        else LazyColumn(Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(start = 28.dp, end = 32.dp, top = 18.dp, bottom = 60.dp),
+        else LazyColumn(Modifier.weight(1f).fillMaxHeight()
+            .onFocusChanged { f -> if (contentHad[0] && !f.hasFocus) contentLeftAt[0] = android.os.SystemClock.uptimeMillis(); contentHad[0] = f.hasFocus }
+            .rememberFocus(), contentPadding = PaddingValues(start = 28.dp, end = 32.dp, top = 18.dp, bottom = 60.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp)) {
             item(key = "title_" + category.name) {
                 Text(category.label, color = p.text, fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
@@ -663,7 +673,7 @@ private fun androidx.compose.foundation.layout.RowScope.ErrorLogView(vm: Setting
     val entries = remember(version) { errorEntries(context, vm) }
     val first = remember { androidx.compose.ui.focus.FocusRequester() }
     androidx.compose.runtime.LaunchedEffect(Unit) { kotlinx.coroutines.delay(150); runCatching { first.requestFocus() } }
-    LazyColumn(Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(start = 28.dp, end = 32.dp, top = 18.dp, bottom = 60.dp),
+    LazyColumn(Modifier.weight(1f).fillMaxHeight().rememberFocus(), contentPadding = PaddingValues(start = 28.dp, end = 32.dp, top = 18.dp, bottom = 60.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp)) {
         item {
             Text("Fehlermeldungen", color = p.text, fontSize = 26.sp, fontWeight = FontWeight.Bold)

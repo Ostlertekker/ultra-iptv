@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.focusGroup
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -103,15 +105,82 @@ val LocalUiSounds = staticCompositionLocalOf<AudioExperienceEngine?> { null }
  */
 class ContentEntry {
     val requester = FocusRequester()
-    var attached by mutableStateOf(false)
+    // Zähler statt Ja/Nein: beim Seitenwechsel meldet sich die neue Seite an, bevor die alte sich abmeldet
+    private var count by mutableStateOf(0)
+    val attached: Boolean get() = count > 0
+    internal fun add() { count++ }
+    internal fun remove() { count = (count - 1).coerceAtLeast(0) }
 }
+
+/**
+ * Fokus-Gedächtnis je Seite (Rücksprung): merkt sich die zuletzt fokussierte Kachel jeder Seite. Kommt man per „Zurück“
+ * auf eine Seite zurück, setzt die passende Kachel den Fokus wieder auf sich.
+ */
+object FocusMemory {
+    val last = HashMap<String, String>()
+    val restore = HashSet<String>()
+}
+val LocalRouteKey = staticCompositionLocalOf { "" }
+
+/** Hauptseiten melden hier „nach oben scrollen“ an (für die Zurück-Taste: erst nach oben + Menüzeile). */
+class ScrollTopHolder { var fn: (suspend () -> Unit)? = null }
+val LocalScrollTop = staticCompositionLocalOf { ScrollTopHolder() }
+
+/** Liste als „nach oben scrollen“-Ziel der aktuellen Seite anmelden. */
+@Composable
+fun RegisterScrollTop(state: androidx.compose.foundation.lazy.LazyListState) {
+    val holder = LocalScrollTop.current
+    androidx.compose.runtime.DisposableEffect(state) {
+        val f: suspend () -> Unit = { state.animateScrollToItem(0) }
+        holder.fn = f
+        onDispose { if (holder.fn === f) holder.fn = null }
+    }
+}
+
+/** Fokus-Rücksprung für ein Element mit stabilem Schlüssel (Kachel, Sender …). */
+@Composable
+fun rememberFocusMemory(key: String): Pair<FocusRequester, (Boolean) -> Unit> {
+    val route = LocalRouteKey.current
+    val req = remember { FocusRequester() }
+    LaunchedEffect(route, key) {
+        if (route.isNotEmpty() && route in FocusMemory.restore && FocusMemory.last[route] == key) {
+            kotlinx.coroutines.delay(60)
+            if (runCatching { req.requestFocus() }.isSuccess) FocusMemory.restore.remove(route)
+        }
+    }
+    return req to { f: Boolean -> if (f && route.isNotEmpty()) FocusMemory.last[route] = key }
+}
+
+/**
+ * Listen/Reihen merken sich die zuletzt gewählte Position: kommt der Fokus zurück in die Reihe, landet er dort.
+ * [lockHorizontal] (Kachelreihen): am Anfang/Ende bleibt der Fokus stehen, statt quer in einen anderen Bereich zu springen.
+ */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+fun Modifier.rememberFocus(lockHorizontal: Boolean = false): Modifier =
+    (if (lockHorizontal) this.focusProperties {
+        exit = { d -> if (d == androidx.compose.ui.focus.FocusDirection.Left || d == androidx.compose.ui.focus.FocusDirection.Right)
+            FocusRequester.Cancel else FocusRequester.Default }
+    }.focusGroup() else this).focusRestorer().focusGroup()
+
+/** Startfokus beim ersten Öffnen einer Seite (nicht beim Zurückkehren – dann gilt der Fokus-Rücksprung). */
+@Composable
+fun InitialFocus(requester: FocusRequester, ready: Boolean = true, delayMs: Long = 180) {
+    var done by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(ready) {
+        if (!done && ready) { kotlinx.coroutines.delay(delayMs); if (runCatching { requester.requestFocus() }.isSuccess) done = true }
+    }
+}
+
+/** Fenster/Overlay: Fokus kann nicht hinter das Fenster auf die Seite darunter rutschen. */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+fun Modifier.trapFocus(): Modifier = this.focusProperties { exit = { FocusRequester.Cancel } }.focusGroup()
 val LocalContentEntry = staticCompositionLocalOf { ContentEntry() }
 
 /** Als Einstieg der Seite anmelden (für Pfeil runter aus der Menüleiste). */
 @Composable
 fun Modifier.contentEntry(): Modifier {
     val e = LocalContentEntry.current
-    androidx.compose.runtime.DisposableEffect(e) { e.attached = true; onDispose { e.attached = false } }
+    androidx.compose.runtime.DisposableEffect(e) { e.add(); onDispose { e.remove() } }
     return this.focusRequester(e.requester)
 }
 
@@ -461,6 +530,7 @@ fun FocusCard(
     val p = theme.palette
     val shape = RoundedCornerShape(theme.spec.corner.coerceAtMost(20.dp))
     var focused by remember { mutableStateOf(false) }
+    val (memReq, memFocus) = rememberFocusMemory(title + "|" + (image ?: ""))
     val anim = motionOk()
     // Lichtschimmer: zieht einmal schräg über das Cover, wenn der Fokus ankommt (nur Zeichenphase, kein Layout)
     val sheen = remember { androidx.compose.animation.core.Animatable(1f) }
@@ -471,7 +541,7 @@ fun FocusCard(
         Box(
             Modifier
                 .size(width, height)
-                .tvFocusable(shape, onClick, onLongClick, onFocus = { focused = it; onFocus?.invoke(it) })
+                .tvFocusable(shape, onClick, onLongClick, focusRequester = memReq, onFocus = { focused = it; memFocus(it); onFocus?.invoke(it) })
                 .background(p.surface, shape)
                 .drawWithContent {
                     drawContent()
@@ -808,7 +878,7 @@ fun ActionDialog(title: String, actions: List<Pair<String, () -> Unit>>, onDismi
     val focus = remember { FocusRequester() }
     androidx.activity.compose.BackHandler { onDismiss() }
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.75f)), contentAlignment = Alignment.Center) {
-        Column(Modifier.width(420.dp).background(p.bgBottom, RoundedCornerShape(20.dp)).padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.width(420.dp).trapFocus().background(p.bgBottom, RoundedCornerShape(20.dp)).padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, color = p.text, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 2, modifier = Modifier.padding(bottom = 6.dp))
             actions.forEachIndexed { i, (label, act) ->
                 TvButton(label, onClick = { act(); onDismiss() }, modifier = Modifier.fillMaxWidth(), focusRequester = if (i == 0) focus else null)
@@ -827,7 +897,7 @@ fun PinDialog(title: String, onSubmit: (String) -> Boolean, onDismiss: () -> Uni
     var error by remember { mutableStateOf<String?>(null) }
     val focus = remember { FocusRequester() }
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.75f)), contentAlignment = Alignment.Center) {
-        Column(Modifier.width(420.dp).background(p.bgBottom, RoundedCornerShape(20.dp)).padding(28.dp)) {
+        Column(Modifier.width(420.dp).trapFocus().background(p.bgBottom, RoundedCornerShape(20.dp)).padding(28.dp)) {
             Text(title, color = p.text, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(16.dp))
             TvTextField(pin, { v -> pin = v.filter { it.isDigit() }.take(4); error = null }, "PIN (4 Ziffern)", password = true, number = true,
@@ -876,7 +946,7 @@ fun initialsOf(name: String): String {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TopNavBar(items: List<NavItem>, utility: List<NavItem>, selectedRoute: String, onSelect: (String) -> Unit, firstFocus: FocusRequester,
-              modifier: Modifier = Modifier, weatherCode: Int? = null, weatherTemp: Int? = null) {
+              modifier: Modifier = Modifier, onMenuFocus: (Boolean) -> Unit = {}, weatherCode: Int? = null, weatherTemp: Int? = null) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
     // Links/Rechts in der Menüzeile fest verdrahtet (nicht über die automatische Fokussuche): so bleibt die Zeile
@@ -892,7 +962,7 @@ fun TopNavBar(items: List<NavItem>, utility: List<NavItem>, selectedRoute: Strin
         }
     }
     Row(
-        modifier.fillMaxWidth()
+        modifier.fillMaxWidth().onFocusChanged { onMenuFocus(it.hasFocus) }
             .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.78f), Color.Black.copy(alpha = 0.35f), Color.Transparent)))
             .padding(start = 22.dp, end = 18.dp, top = 14.dp, bottom = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
