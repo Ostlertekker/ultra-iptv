@@ -92,7 +92,7 @@ data class SeerrRequest(
         return if (size > 0) ((size - downloads.sumOf { it.sizeLeft }).toFloat() / size).coerceIn(0f, 1f) else 0f
     }
 }
-data class SeerrSeason(val number: Int, val name: String, val status: Int)
+data class SeerrSeason(val number: Int, val name: String, val status: Int, val episodes: Int = 0)
 
 /** Status-Codes von Seerr (Overseerr/Jellyseerr): Medien-Status und Anfrage-Status. */
 object SeerrStatus {
@@ -164,7 +164,7 @@ object SeerrParser {
         return (o["seasons"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }.mapNotNull { s ->
             val n = s["seasonNumber"].int() ?: return@mapNotNull null
             if (n == 0) return@mapNotNull null // „Specials“ nicht anbieten
-            SeerrSeason(n, s["name"].str() ?: "Staffel $n", infoSeasons[n] ?: SeerrStatus.UNKNOWN)
+            SeerrSeason(n, s["name"].str() ?: "Staffel $n", infoSeasons[n] ?: SeerrStatus.UNKNOWN, s["episodeCount"].int() ?: 0)
         }
     }
 

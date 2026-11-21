@@ -114,7 +114,8 @@ fun SeerrRequestDialog(item: SeerrItem, repo: SeerrRepository, onDismiss: () -> 
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
                             item { TvChip("Alle fehlenden", chosen.isEmpty(), { chosen = emptySet() }) }
                             items(list, key = { it.number }) { s ->
-                                val label = "S${s.number}" + (SeerrStatus.media(s.status)?.let { " · $it" } ?: "")
+                                val label = "S${s.number}" + (if (s.episodes > 0) " · ${s.episodes} Folge" + (if (s.episodes == 1) "" else "n") else "") +
+                                    (SeerrStatus.media(s.status)?.let { " · $it" } ?: "")
                                 TvChip(label, s.number in chosen, {
                                     if (s.status == SeerrStatus.UNKNOWN) chosen = if (s.number in chosen) chosen - s.number else chosen + s.number
                                 })
@@ -281,7 +282,7 @@ fun SeerrRequestDetail(
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
                             items(seasons, key = { it.number }) { s ->
                                 val c = seasonColor(s.status)
-                                Text("S${s.number} · " + (SeerrStatus.media(s.status) ?: "Nicht angefragt"), color = Color.White, fontSize = 12.sp,
+                                Text("S${s.number}" + (if (s.episodes > 0) " (${s.episodes})" else "") + " · " + (SeerrStatus.media(s.status) ?: "Nicht angefragt"), color = Color.White, fontSize = 12.sp,
                                     modifier = Modifier.background(c.copy(alpha = 0.7f), RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 3.dp))
                             }
                         }

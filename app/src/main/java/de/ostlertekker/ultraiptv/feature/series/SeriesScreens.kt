@@ -88,7 +88,7 @@ class SeriesViewModel @Inject constructor(content: ContentRepository, user: de.o
             listOfNotNull(year, genre?.split(',')?.firstOrNull()?.trim(), rating?.takeIf { it > 0 }?.let { de.ostlertekker.ultraiptv.core.ui.ratingLabel(it) }).joinToString(" · ").ifBlank { null },
             backdrop = backdrop, plot = plot, kind = "SERIES")
         fun de.ostlertekker.ultraiptv.core.database.ProgressEntity.tile(resume: Boolean) = de.ostlertekker.ultraiptv.feature.common.CinemaTile(itemId, title, image,
-            if (durationMs > 0) "Noch ${((durationMs - positionMs) / 60000).coerceAtLeast(1)} Min." else null,
+            if (positionMs == 0L) "Nächste Folge" else if (durationMs > 0) "Noch ${((durationMs - positionMs) / 60000).coerceAtLeast(1)} Min." else null,
             progress = if (durationMs > 0) positionMs.toFloat() / durationMs else null, positionMs = positionMs, resume = resume, kind = "EPISODE")
         val ep = de.ostlertekker.ultraiptv.core.model.ContentKind.EPISODE.name
         val catRows = content.seriesCategories().flatMapLatest { cs ->
@@ -97,11 +97,11 @@ class SeriesViewModel @Inject constructor(content: ContentRepository, user: de.o
             else combine(top.map { c -> content.series(c, SortOrder.RATING, 24).map { l -> c to l } }) { it.toList() }
         }
         combine(
-            user.continueWatching.map { l -> l.filter { it.kind == ep } },
+            user.continueWatching.map { l -> l.filter { it.kind == ep && !it.itemId.startsWith("jf:") } },
             user.favoriteIds(de.ostlertekker.ultraiptv.core.model.ContentKind.SERIES).flatMapLatest { content.seriesByIds(it) },
             content.series(null, SortOrder.NEWEST, 30),
             content.series(null, SortOrder.RATING, 30),
-            combine(user.recentlyWatched.map { l -> l.filter { it.kind == ep } }, catRows) { a, b -> a to b },
+            combine(user.recentlyWatched.map { l -> l.filter { it.kind == ep && !it.itemId.startsWith("jf:") } }, catRows) { a, b -> a to b },
         ) { cw, watch, newest, popular, (recent, cats) ->
             listOf(
                 de.ostlertekker.ultraiptv.feature.common.CinemaRow("Fortsetzen", cw.map { it.tile(true) }, landscape = true),

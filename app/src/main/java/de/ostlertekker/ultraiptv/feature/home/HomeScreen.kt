@@ -337,7 +337,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
                                 context.openPlayer(kind, pr.itemId, pr.positionMs)
                             },
                             progress = if (pr.durationMs > 0) pr.positionMs.toFloat() / pr.durationMs else null,
-                            subtitle = if (pr.durationMs > 0) "Noch ${((pr.durationMs - pr.positionMs) / 60000).coerceAtLeast(1)} Min." else null)
+                            subtitle = if (pr.positionMs == 0L) "Nächste Folge" else if (pr.durationMs > 0) "Noch ${((pr.durationMs - pr.positionMs) / 60000).coerceAtLeast(1)} Min." else null)
                     }
                 }
             }

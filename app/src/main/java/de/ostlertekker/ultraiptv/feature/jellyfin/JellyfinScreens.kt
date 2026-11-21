@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.feature.jellyfin
 
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.foundation.horizontalScroll
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedH
@@ -243,11 +244,15 @@ fun JellyfinScreen(nav: NavController, vm: JellyfinViewModel = hiltViewModel()) 
     CinemaOverview(hero, rows,
         header = {
             Column {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Jellyfin", color = p.text, fontSize = 26.sp, fontWeight = FontWeight.Bold)
                     Text("${session?.serverName ?: ""} · ${session?.userName ?: ""} · ${session?.server?.substringAfter("://") ?: ""}", color = p.textDim, fontSize = 13.sp,
-                        maxLines = 1, modifier = Modifier.padding(end = 10.dp))
-                    TvChip("🔎 Suchen", false, { nav.navigate(Routes.JF_SEARCH) })
+                        maxLines = 1)
+                }
+                // Eigene Zeile, linksbündig direkt über „Abspielen“ – so führt Pfeil hoch zuverlässig hierher
+                Row(Modifier.padding(top = 6.dp).horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(vertical = 4.dp, horizontal = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TvChip("Suchen", false, { nav.navigate(Routes.JF_SEARCH) }, icon = androidx.compose.material.icons.Icons.Default.Search)
                     libs.forEach { l -> TvChip(l.name, false, { nav.navigate(Routes.jfLibrary(l.id, l.name)) }) }
                     TvChip("↻ Aktualisieren", false, { vm.refresh() })
                     TvChip("Abmelden", false, { vm.logout() })
@@ -290,7 +295,7 @@ private fun JellyfinLogin(vm: JellyfinViewModel) {
             Text("Deine eigene Mediathek direkt in ULTRA IPTV – Filme und Serien laufen im eingebauten Player.", color = p.textDim, fontSize = 14.sp)
             TvTextField(server, { server = it }, "Serveradresse – wie in der Jellyfin-App (z. B. meinserver.de oder 192.168.1.10:8096)", modifier = Modifier.fillMaxWidth())
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                TvChip(if (searching) "Suche …" else "🔎 Im Heimnetz suchen", false, { if (!searching) vm.searchLan() })
+                TvChip(if (searching) "Suche …" else "Im Heimnetz suchen", false, { if (!searching) vm.searchLan() }, icon = androidx.compose.material.icons.Icons.Default.Search)
                 found?.let { list ->
                     if (list.isEmpty()) Text("Kein Server im Heimnetz gefunden", color = p.textDim, fontSize = 13.sp)
                     list.forEach { (addr, name) -> TvChip("$name · ${addr.substringAfter("://")}", server == addr, { server = addr }) }

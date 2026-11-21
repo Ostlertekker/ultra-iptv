@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -33,6 +34,7 @@ enum class SortOrder(val label: String) { NEWEST("Neu"), NAME("A–Z"), RATING("
 class UserRepository @Inject constructor(
     private val dao: UserDao,
     private val settings: SettingsRepository,
+    private val contentDao: de.ostlertekker.ultraiptv.core.database.ContentDao,
 ) {
     val profiles: Flow<List<ProfileEntity>> = dao.profiles()
 
@@ -130,8 +132,15 @@ class UserRepository @Inject constructor(
 
     suspend fun progress(kind: ContentKind, id: String): ProgressEntity? = dao.progress(filter.first().profileId, kind.name, id)
 
+    /**
+     * Weiterschauen: Filme (und Jellyfin) wie bisher; IPTV-Serien je Serie nur ein Eintrag – die zuletzt gesehene Folge,
+     * oder, wenn sie fertig geschaut ist, die nächste Folge. So bleibt eine angefangene Serie immer unter „Fortsetzen“.
+     */
     val continueWatching: Flow<List<ProgressEntity>> =
-        filter.map { it.profileId }.distinctUntilChanged().flatMapLatest { dao.continueWatching(it) }
+        filter.map { it.profileId }.distinctUntilChanged().flatMapLatest { pid ->
+            combine(dao.continueWatching(pid), dao.recentlyWatched(pid)) { cw, recent -> cw to recent }
+                .mapLatest { (cw, recent) -> ContinueWatching.build(cw, recent) { contentDao.episodesOfOnce(it) } }
+        }
     val recentChannels: Flow<List<ProgressEntity>> =
         filter.map { it.profileId }.distinctUntilChanged().flatMapLatest { dao.recentChannels(it) }
     val recentlyWatched: Flow<List<ProgressEntity>> =
@@ -295,5 +304,33 @@ object TitleSearch {
             }
             Triple(item, score, t)
         }.sortedWith(compareBy({ it.second }, { it.third.length }, { it.third })).map { it.first }
+    }
+}
+
+/** Aufbau der „Weiterschauen“-Liste (ohne Android, testbar). */
+object ContinueWatching {
+    private const val EP = "EPISODE"
+    private fun ProgressEntity.isIptvEpisode() = kind == EP && !itemId.startsWith("jf:") && !seriesId.isNullOrBlank()
+    private fun ProgressEntity.finished() = durationMs > 0 && positionMs >= durationMs * 0.95
+
+    suspend fun build(
+        cw: List<ProgressEntity>,
+        recent: List<ProgressEntity>,
+        episodes: suspend (seriesId: String) -> List<de.ostlertekker.ultraiptv.core.database.EpisodeEntity>,
+    ): List<ProgressEntity> {
+        val others = cw.filter { !it.isIptvEpisode() }
+        // Neueste Folge je Serie (aus beiden Listen)
+        val latest = (cw + recent).filter { it.isIptvEpisode() }.sortedByDescending { it.updatedAt }
+            .distinctBy { it.seriesId }
+        val series = latest.mapNotNull { last ->
+            if (!last.finished()) return@mapNotNull last.takeIf { it.positionMs > 0 }
+            val list = runCatching { episodes(last.seriesId!!) }.getOrDefault(emptyList())
+            val next = list.getOrNull(list.indexOfFirst { it.id == last.itemId }.takeIf { it >= 0 }?.plus(1) ?: return@mapNotNull null)
+                ?: return@mapNotNull null
+            val name = last.title.substringBeforeLast(" · S")
+            ProgressEntity(last.profileId, EP, next.id, 0L, 0L, last.updatedAt, "$name · S${next.season}E${next.episode}",
+                next.image ?: last.image, last.seriesId)
+        }
+        return (others + series).sortedByDescending { it.updatedAt }.take(30)
     }
 }

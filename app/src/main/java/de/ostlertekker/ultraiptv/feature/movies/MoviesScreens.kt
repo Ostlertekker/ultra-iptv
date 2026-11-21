@@ -100,7 +100,7 @@ class MoviesViewModel @Inject constructor(content: ContentRepository, user: User
             else combine(top.map { g -> content.movies(null, g, SortOrder.RATING, 24).map { l -> g to l } }) { it.toList() }
         }
         val recommended = user.recentlyWatched.flatMapLatest { recent ->
-            val last = recent.firstOrNull { it.kind == ContentKind.MOVIE.name }
+            val last = recent.firstOrNull { it.kind == ContentKind.MOVIE.name && !it.itemId.startsWith("jf:") }
             if (last == null) kotlinx.coroutines.flow.flowOf(emptyList())
             else content.movie(last.itemId).flatMapLatest { m ->
                 val g = m?.genre?.split(',', '/')?.firstOrNull()?.trim()
@@ -108,11 +108,11 @@ class MoviesViewModel @Inject constructor(content: ContentRepository, user: User
             }
         }
         combine(
-            user.continueWatching.map { l -> l.filter { it.kind == ContentKind.MOVIE.name } },
+            user.continueWatching.map { l -> l.filter { it.kind == ContentKind.MOVIE.name && !it.itemId.startsWith("jf:") } },
             user.favoriteIds(ContentKind.MOVIE).flatMapLatest { content.moviesByIds(it) },
             content.movies(null, null, SortOrder.NEWEST, 30),
             content.movies(null, null, SortOrder.RATING, 30),
-            combine(recommended, user.recentlyWatched.map { l -> l.filter { it.kind == ContentKind.MOVIE.name } }, genreRows) { a, b, c -> Triple(a, b, c) },
+            combine(recommended, user.recentlyWatched.map { l -> l.filter { it.kind == ContentKind.MOVIE.name && !it.itemId.startsWith("jf:") } }, genreRows) { a, b, c -> Triple(a, b, c) },
         ) { cw, watch, newest, popular, (rec, recent, genres) ->
             listOf(
                 de.ostlertekker.ultraiptv.feature.common.CinemaRow("Weiterschauen", cw.map { it.tile(true) }, landscape = true),

@@ -383,7 +383,8 @@ fun TvButton(
 }
 
 @Composable
-fun TvChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun TvChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier,
+           icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
     var focused by remember { mutableStateOf(false) }
@@ -394,8 +395,12 @@ fun TvChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modif
             .outlineButton(focused, primary = selected, enabled = true, shape = shape)
             .padding(horizontal = 16.dp, vertical = 7.dp),
     ) {
-        Text(text, color = outlineButtonText(focused, true), fontSize = 14.sp, maxLines = 1,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (icon != null) androidx.compose.material3.Icon(icon, contentDescription = null, tint = outlineButtonText(focused, true),
+                modifier = Modifier.padding(end = 6.dp).size(16.dp))
+            Text(text, color = outlineButtonText(focused, true), fontSize = 14.sp, maxLines = 1,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+        }
     }
 }
 
@@ -781,6 +786,18 @@ fun TopNavBar(items: List<NavItem>, utility: List<NavItem>, selectedRoute: Strin
               modifier: Modifier = Modifier, weatherCode: Int? = null, weatherTemp: Int? = null) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
+    // Links/Rechts in der Menüzeile fest verdrahtet (nicht über die automatische Fokussuche): so bleibt die Zeile
+    // immer bedienbar, egal aus welcher Seite (z. B. Jellyfin) man nach oben gekommen ist
+    val all = items.size + utility.size
+    val reqs = remember(all) { List(all) { FocusRequester() } }
+    fun nav(i: Int): Modifier = Modifier.focusRequester(reqs[i]).onPreviewKeyEvent { ev ->
+        if (ev.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) return@onPreviewKeyEvent false
+        when (ev.nativeKeyEvent.keyCode) {
+            android.view.KeyEvent.KEYCODE_DPAD_LEFT -> { if (i > 0) runCatching { reqs[i - 1].requestFocus() }; true }
+            android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> { if (i < all - 1) runCatching { reqs[i + 1].requestFocus() }; true }
+            else -> false
+        }
+    }
     Row(
         modifier.fillMaxWidth()
             .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.78f), Color.Black.copy(alpha = 0.35f), Color.Transparent)))
@@ -801,14 +818,15 @@ fun TopNavBar(items: List<NavItem>, utility: List<NavItem>, selectedRoute: Strin
             horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             items.forEachIndexed { i, item ->
                 val focusHere = if (items.any { it.route == selectedRoute }) item.route == selectedRoute else i == 0
-                TopNavPill(item.label, item.route == selectedRoute, { onSelect(item.route) }, if (focusHere) firstFocus else null)
+                TopNavPill(item.label, item.route == selectedRoute, { onSelect(item.route) }, if (focusHere) firstFocus else null, nav(i))
             }
         }
         Spacer(Modifier.weight(1f))
         Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
-            utility.forEach { item ->
-                if (item.icon != null) TopNavIconPill(item.icon, item.label, item.route == selectedRoute) { onSelect(item.route) }
-                else TopNavPill(item.label, item.route == selectedRoute, { onSelect(item.route) }, null)
+            utility.forEachIndexed { j, item ->
+                val m = nav(items.size + j)
+                if (item.icon != null) TopNavIconPill(item.icon, item.label, item.route == selectedRoute, m) { onSelect(item.route) }
+                else TopNavPill(item.label, item.route == selectedRoute, { onSelect(item.route) }, null, m)
             }
             if (de.ostlertekker.ultraiptv.core.design.LocalUiPrefs.current.menuClock) RailClock(Modifier.padding(start = 8.dp), small = true)
         }
@@ -817,7 +835,7 @@ fun TopNavBar(items: List<NavItem>, utility: List<NavItem>, selectedRoute: Strin
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun TopNavPill(label: String, selected: Boolean, onClick: () -> Unit, focusRequester: FocusRequester?) {
+private fun TopNavPill(label: String, selected: Boolean, onClick: () -> Unit, focusRequester: FocusRequester?, navModifier: Modifier = Modifier) {
     val sounds = LocalUiSounds.current
     var focused by remember { mutableStateOf(false) }
     val scale by androidx.compose.animation.core.animateFloatAsState(if (focused) 1.06f else 1f, androidx.compose.animation.core.tween(140), label = "pill")
@@ -826,6 +844,7 @@ private fun TopNavPill(label: String, selected: Boolean, onClick: () -> Unit, fo
         Modifier
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .then(navModifier)
             .then(entryDown())
             .onFocusChanged { if (it.isFocused && !focused) sounds?.focus(); focused = it.isFocused }
             .combinedClickable(interactionSource = remember { MutableInteractionSource() }, indication = null,
@@ -843,7 +862,7 @@ private fun TopNavPill(label: String, selected: Boolean, onClick: () -> Unit, fo
 /** Rundes Symbol-Element der Navigationsleiste (Suche, Einstellungen) – alle exakt gleich groß und gleich gestaltet. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun TopNavIconPill(icon: androidx.compose.ui.graphics.vector.ImageVector, description: String, selected: Boolean, onClick: () -> Unit) {
+private fun TopNavIconPill(icon: androidx.compose.ui.graphics.vector.ImageVector, description: String, selected: Boolean, navModifier: Modifier = Modifier, onClick: () -> Unit) {
     val sounds = LocalUiSounds.current
     var focused by remember { mutableStateOf(false) }
     val scale by androidx.compose.animation.core.animateFloatAsState(if (focused) 1.06f else 1f, androidx.compose.animation.core.tween(140), label = "iconpill")
@@ -852,6 +871,8 @@ private fun TopNavIconPill(icon: androidx.compose.ui.graphics.vector.ImageVector
         Modifier
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .size(30.dp)
+            .then(navModifier)
+            .then(entryDown())
             .onFocusChanged { if (it.isFocused && !focused) sounds?.focus(); focused = it.isFocused }
             .combinedClickable(interactionSource = remember { MutableInteractionSource() }, indication = null,
                 onClick = { sounds?.select(); onClick() })

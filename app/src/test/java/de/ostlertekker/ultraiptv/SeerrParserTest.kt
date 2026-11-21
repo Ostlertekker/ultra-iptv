@@ -23,9 +23,9 @@ class SeerrParserTest {
     }
 
     @Test fun seasonsSkipSpecials() {
-        val s = SeerrParser.seasons(j("""{"id":1,"seasons":[{"seasonNumber":0,"name":"Specials"},{"seasonNumber":1,"name":"Staffel 1"},{"seasonNumber":2,"name":"Staffel 2"}],
+        val s = SeerrParser.seasons(j("""{"id":1,"seasons":[{"seasonNumber":0,"name":"Specials"},{"seasonNumber":1,"name":"Staffel 1","episodeCount":10},{"seasonNumber":2,"name":"Staffel 2"}],
             "mediaInfo":{"status":4,"seasons":[{"seasonNumber":1,"status":5}]}}"""))
-        assertEquals(listOf(1, 2), s.map { it.number })
+        assertEquals(listOf(1, 2), s.map { it.number }); assertEquals(10, s[0].episodes); assertEquals(0, s[1].episodes)
         assertEquals(SeerrStatus.AVAILABLE, s[0].status); assertEquals(SeerrStatus.UNKNOWN, s[1].status)
     }
 

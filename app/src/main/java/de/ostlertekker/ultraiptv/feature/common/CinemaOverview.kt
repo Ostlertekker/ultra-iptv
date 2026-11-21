@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.feature.common
 
+import kotlinx.coroutines.launch
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedH
 import de.ostlertekker.ultraiptv.core.ui.focusBleed
@@ -82,7 +83,9 @@ fun CinemaOverview(
 ) {
     val p = LocalUltraTheme.current.palette
     val heroHeight = (LocalConfiguration.current.screenHeightDp * 0.5f).dp
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 60.dp)) {
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 60.dp)) {
         item(key = "header") { Box(Modifier.padding(horizontal = 24.dp, vertical = 6.dp)) { header() } }
         if (hero != null) item(key = "hero") {
             Box(Modifier.padding(horizontal = 24.dp).fillMaxWidth().height(heroHeight)
@@ -99,7 +102,9 @@ fun CinemaOverview(
                     hero.plot?.takeIf { it.isNotBlank() }?.let {
                         Text(it, color = Color.White.copy(alpha = 0.72f), fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
                     }
-                    Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Fokus im Titelbild → ganz nach oben scrollen, damit die Kopfzeile (Suchen …) sichtbar und per Pfeil hoch erreichbar ist
+                    Row(Modifier.padding(top = 14.dp).onFocusChanged { if (it.hasFocus) scope.launch { listState.animateScrollToItem(0) } },
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         PillButton("▶  Abspielen", primary = true) { onPlay(hero) }
                         PillButton("Weitere Informationen") { onOpen(hero) }
                     }
