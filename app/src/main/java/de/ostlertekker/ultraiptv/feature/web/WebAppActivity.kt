@@ -1,7 +1,5 @@
 package de.ostlertekker.ultraiptv.feature.web
 
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.launch
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
@@ -38,33 +36,10 @@ enum class WebApp(val title: String, val url: String, val userAgent: String) {
         "Mozilla/5.0 (SMART-TV; Linux; Tizen 6.0) AppleWebKit/537.36 (KHTML, like Gecko) 76.0.3809.146/6.0 TV Safari/537.36"),
 }
 
-/** Misst die Bildrate des laufenden YouTube-Videos (Abstand der Videobilder) und meldet sie an die App. */
-private const val FPS_SCRIPT = """
-(function(){ if(window.__ultraFps) return; window.__ultraFps=true;
-  var last=0;
-  function watch(v){ if(!v||v.__uf||!v.requestVideoFrameCallback) return; v.__uf=true;
-    var d=[], pm=-1, pf=-1;
-    v.addEventListener('emptied',function(){ d=[]; pm=-1; pf=-1; last=0; });
-    v.addEventListener('seeking',function(){ pm=-1; });
-    function cb(now,md){ try{
-      if(pm>=0&&md.presentedFrames>pf&&!v.paused){ var x=(md.mediaTime-pm)/(md.presentedFrames-pf); if(x>0.008&&x<0.06) d.push(x); }
-      pm=md.mediaTime; pf=md.presentedFrames;
-      if(d.length>=90){ d.sort(function(a,b){return a-b;}); var f=1/d[d.length>>1]; d=[];
-        if(Math.abs(f-last)>0.4){ last=f; try{ UltraFps.report(f); }catch(e){} } }
-    }catch(e){} v.requestVideoFrameCallback(cb); }
-    v.requestVideoFrameCallback(cb);
-  }
-  setInterval(function(){ try{ watch(document.querySelector('video')); }catch(e){} },1500);
-})();
-"""
-
 @AndroidEntryPoint
 class WebAppActivity : ComponentActivity() {
     @Inject lateinit var engine: PlayerEngine
     @Inject lateinit var http: okhttp3.OkHttpClient
-    @Inject lateinit var settingsRepo: de.ostlertekker.ultraiptv.core.data.SettingsRepository
-    private var originalModeId = 0
-    @Volatile private var matchFps = false
 
     private lateinit var web: WebView
     private lateinit var app: WebApp
@@ -97,13 +72,6 @@ class WebAppActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         app = runCatching { WebApp.valueOf(intent.getStringExtra(EXTRA_APP) ?: "") }.getOrDefault(WebApp.YOUTUBE)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        originalModeId = window.attributes.preferredDisplayModeId
-        // Gleichmäßige Leistung (kein Hoch-/Runtakten mitten im Video), sofern das Gerät es anbietet
-        runCatching {
-            val pm = getSystemService(android.os.PowerManager::class.java)
-            if (pm?.isSustainedPerformanceModeSupported == true) window.setSustainedPerformanceMode(true)
-        }
-        lifecycleScope.launch { matchFps = runCatching { settingsRepo.current().matchFrameRate }.getOrDefault(false) }
         // Laufendes IPTV (Mini-Player/Vorschau) anhalten – sonst spielen zwei Quellen gleichzeitig
         runCatching { engine.setMini(null); engine.stop() }
 
@@ -119,8 +87,6 @@ class WebAppActivity : ComponentActivity() {
             settings.useWideViewPort = true
             settings.cacheMode = WebSettings.LOAD_DEFAULT
             settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-            // Video-Renderer der WebView mit hoher Priorität (auch wenn kurz ein Hinweis darüber liegt)
-            if (android.os.Build.VERSION.SDK_INT >= 26) setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
             CookieManager.getInstance().setAcceptCookie(true)
             CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
             webViewClient = object : WebViewClient() {
@@ -179,12 +145,6 @@ class WebAppActivity : ComponentActivity() {
             val js = """
                 (function(){try{
                   var w=3840,h=2160, MW=${dec.first}, MH=${dec.second}, MF=${dec.third};
-                  // Bildrate bei 4K je Codec getrennt (VP9 und AV1 laufen oft über unterschiedliche Decoder)
-                  var F4={vp9:${fps4k("video/x-vnd.on2.vp9")},av1:${fps4k("video/av01")}};
-                  function codecOf(s){ s=s.toLowerCase(); return (s.indexOf('av01')>=0)?'av1':((s.indexOf('vp09')>=0||s.indexOf('vp9')>=0)?'vp9':null); }
-                  // HDR: Die WebView gibt kein echtes HDR aus, muss es aufwendig umrechnen → Ruckeln. Deshalb SDR anfordern.
-                  function isHdr(s){ s=s.toLowerCase(); return /eotf=(smpte2084|arib-std-b67)/.test(s)||/vp09\.0[23]\./.test(s)||/av01\.\d\.\d+[mh]\.10/.test(s); }
-                  function tooMuch(s,W,H,F){ var c=codecOf(s); if(H>1440&&c&&F4[c]!==undefined&&F>F4[c]) return true; return false; }
                   ['width','availWidth'].forEach(function(k){Object.defineProperty(screen,k,{get:function(){return w}})});
                   ['height','availHeight'].forEach(function(k){Object.defineProperty(screen,k,{get:function(){return h}})});
                   Object.defineProperty(window,'devicePixelRatio',{get:function(){return w/Math.max(1,window.innerWidth)}});
@@ -193,7 +153,7 @@ class WebAppActivity : ComponentActivity() {
                   function wrap(obj,name){ if(!obj||!obj[name]) return; var orig0=obj[name];
                     obj[name]=function(t){ var self=this; var orig=function(x){ return orig0.call(self,x); }; try{
                       var s=String(t), g=function(k){var m=new RegExp(k+'=([0-9.]+)').exec(s); return m?parseFloat(m[1]):0;};
-                      if(g('width')>MW||g('height')>MH||g('framerate')>MF||isHdr(s)||tooMuch(s,g('width'),g('height'),g('framerate'))) return name==='canPlayType'?'':false;
+                      if(g('width')>MW||g('height')>MH||g('framerate')>MF) return name==='canPlayType'?'':false;
                       var base=s.replace(/;\s*(width|height|framerate|bitrate|eotf|channels|decode-to-texture|cryptoblockformat|features)=[^;]*/gi,'');
                       return orig(base);
                     }catch(e){ return orig(t); } }; }
@@ -202,10 +162,6 @@ class WebAppActivity : ComponentActivity() {
                   try{ if(navigator.mediaCapabilities&&navigator.mediaCapabilities.decodingInfo){
                     var di=navigator.mediaCapabilities.decodingInfo.bind(navigator.mediaCapabilities);
                     navigator.mediaCapabilities.decodingInfo=function(cfg){
-                      var v0=cfg&&cfg.video;
-                      if(v0&&(String(v0.transferFunction||'').match(/pq|hlg/)||isHdr(String(v0.contentType||''))||
-                         tooMuch(String(v0.contentType||''),v0.width,v0.height,v0.framerate||0)))
-                        return Promise.resolve({supported:false,smooth:false,powerEfficient:false,configuration:cfg});
                       return di(cfg).then(function(r){ try{ var v=cfg&&cfg.video;
                         if(r&&r.supported&&v&&v.width<=MW&&v.height<=MH&&(!v.framerate||v.framerate<=MF))
                           return {supported:true,smooth:true,powerEfficient:true,configuration:r.configuration||cfg};
@@ -224,14 +180,6 @@ class WebAppActivity : ComponentActivity() {
             // SponsorBlock: Sponsoren-/Eigenwerbe-Abschnitte automatisch überspringen (Daten von sponsor.ajay.app)
             web.addJavascriptInterface(SponsorBlock(http, web) { msg -> runOnUiThread { showHint(msg) } }, "UltraSB")
             runCatching { androidx.webkit.WebViewCompat.addDocumentStartJavaScript(web, SponsorBlock.SCRIPT, setOf("https://www.youtube.com")) }
-        }
-        // Bildwiederholrate an das Video anpassen (wie im IPTV-Player, Einstellung „Bildrate anpassen“):
-        // 25/50-fps-Videos auf 50 Hz, Kinofilme auf 24 Hz → kein Ruckeln durch ungleichmäßige Bildabstände
-        if (app == WebApp.YOUTUBE && androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
-            web.addJavascriptInterface(object {
-                @android.webkit.JavascriptInterface fun report(fps: Float) { runOnUiThread { applyVideoFps(fps) } }
-            }, "UltraFps")
-            runCatching { androidx.webkit.WebViewCompat.addDocumentStartJavaScript(web, FPS_SCRIPT, setOf("https://www.youtube.com")) }
         }
         if (savedInstanceState != null) web.restoreState(savedInstanceState) else web.loadUrl(intent.getStringExtra(EXTRA_URL) ?: app.url)
         web.requestFocus()
@@ -282,30 +230,14 @@ class WebAppActivity : ComponentActivity() {
                 // Manche TV-Chips melden 4K nur über die Grenzwerte (supportedWidths/Heights), nicht über isSizeSupported
                 val can4k = v.isSizeSupported(3840, 2160) || (v.supportedWidths.upper >= 3840 && v.supportedHeights.upper >= 2160)
                 if (can4k) {
-                    val fps = if (runCatching { v.areSizeAndRateSupported(3840, 2160, 60.0) }.getOrDefault(false)) 60 else 30
+                    val fps = if (runCatching { v.areSizeAndRateSupported(3840, 2160, 60.0) }.getOrDefault(false) ||
+                        (v.supportedFrameRates.upper >= 60)) 60 else 30
                     if (fps >= best.third || best.first < 3840) best = Triple(3840, 2160, fps)
                 }
             }
         }
         best
     }.getOrDefault(Triple(1920, 1080, 30))
-
-    /** Höchste flüssige Bildrate bei 4K für einen Codec (Hardware-Decoder; 0 = kein 4K). */
-    private fun fps4k(mime: String): Int = runCatching {
-        var best = 0
-        for (info in android.media.MediaCodecList(android.media.MediaCodecList.REGULAR_CODECS).codecInfos) {
-            if (info.isEncoder || info.supportedTypes.none { it.equals(mime, true) }) continue
-            if (android.os.Build.VERSION.SDK_INT >= 29 && !info.isHardwareAccelerated) continue
-            val v = runCatching { info.getCapabilitiesForType(mime).videoCapabilities }.getOrNull() ?: continue
-            val f = when {
-                runCatching { v.areSizeAndRateSupported(3840, 2160, 60.0) }.getOrDefault(false) -> 60
-                runCatching { v.areSizeAndRateSupported(3840, 2160, 30.0) }.getOrDefault(false) || v.isSizeSupported(3840, 2160) -> 30
-                else -> 0
-            }
-            best = maxOf(best, f)
-        }
-        best
-    }.getOrDefault(0)
 
     private fun maxDisplayHeight(): Int = runCatching {
         @Suppress("DEPRECATION") val d = windowManager.defaultDisplay
@@ -328,24 +260,6 @@ class WebAppActivity : ComponentActivity() {
     }
 
     override fun onResume() { super.onResume(); web.onResume() }
-
-    /** Gemessene Video-Bildrate auf die Standardwerte runden und passenden Anzeigemodus wählen (nur exakte Treffer). */
-    private fun applyVideoFps(measured: Float) {
-        if (!matchFps || isFinishing) return
-        val std = floatArrayOf(23.976f, 24f, 25f, 29.97f, 30f, 48f, 50f, 59.94f, 60f)
-        val fps = std.minByOrNull { kotlin.math.abs(it - measured) }?.takeIf { kotlin.math.abs(it - measured) < 0.35f } ?: return
-        val display = window.decorView.display ?: return
-        val cur = display.mode
-        val modes = display.supportedModes.map { de.ostlertekker.ultraiptv.core.player.DisplayModeInfo(it.modeId, it.physicalWidth, it.physicalHeight, it.refreshRate) }
-        val pick = de.ostlertekker.ultraiptv.core.player.UltraQualityEngine.pickDisplayMode(modes,
-            de.ostlertekker.ultraiptv.core.player.DisplayModeInfo(cur.modeId, cur.physicalWidth, cur.physicalHeight, cur.refreshRate), fps) ?: return
-        if (pick.id != cur.modeId) window.attributes = window.attributes.also { it.preferredDisplayModeId = pick.id }
-    }
-
-    override fun finish() {
-        window.attributes = window.attributes.also { it.preferredDisplayModeId = originalModeId }
-        super.finish()
-    }
 
     override fun onDestroy() {
         runCatching { (web.parent as? ViewGroup)?.removeView(web); web.stopLoading(); web.destroy() }
