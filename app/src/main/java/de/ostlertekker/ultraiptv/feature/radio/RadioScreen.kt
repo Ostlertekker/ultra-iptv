@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -265,12 +266,44 @@ private fun RadioBar(s: RadioStation, playing: Boolean, buffering: Boolean, titl
         StationLogo(s, 56)
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Text(s.name, color = pal.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(s.name, color = pal.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false))
+                SoundWaves(active = playing && !buffering && error == null, color = pal.primary, modifier = Modifier.padding(start = 12.dp))
+            }
             Text(error ?: title ?: if (buffering) "Verbinde …" else if (playing) "Live" else "Pausiert",
                 color = if (error != null) Color(0xFFFF6B6B) else pal.textDim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         RoundIcon("⏮", onPrev); RoundIcon(if (playing) "❚❚" else "▶", onToggle, primary = true, focus = focus); RoundIcon("⏭", onNext)
         RoundIcon(if (isFav) "★" else "☆", onFav); RoundIcon("■", onStop)
+    }
+}
+
+/**
+ * Animierte Klangwellen (Equalizer-Balken) neben dem Sendernamen, solange Musik läuft; bei Pause sinken sie ab.
+ * Rein optische Animation (keine Auswertung des Tons – dafür wäre eine Mikrofon-Berechtigung nötig).
+ */
+@Composable
+private fun SoundWaves(active: Boolean, color: Color, modifier: Modifier = Modifier, bars: Int = 18) {
+    val clock = androidx.compose.animation.core.rememberInfiniteTransition(label = "waves")
+        .animateFloat(0f, 1000f, androidx.compose.animation.core.infiniteRepeatable(
+            androidx.compose.animation.core.tween(1_000_000, easing = androidx.compose.animation.core.LinearEasing)), label = "t")
+    val amp by androidx.compose.animation.core.animateFloatAsState(if (active) 1f else 0.08f,
+        androidx.compose.animation.core.tween(500), label = "amp")
+    // Feste Zufallswerte je Balken: Geschwindigkeit und Phase → wirkt wie echte Musik, ohne gleichförmiges Wippen
+    val seeds = remember { List(bars) { i -> Triple(1.6f + (i * 37 % 11) / 4f, (i * 53 % 17) / 3f, 0.55f + (i * 29 % 7) / 14f) } }
+    androidx.compose.foundation.Canvas(modifier.width((bars * 6).dp).height(26.dp)) {
+        val t = clock.value
+        val w = size.width / bars
+        val bw = w * 0.55f
+        seeds.forEachIndexed { i, (speed, phase, weight) ->
+            val v = (0.5f + 0.5f * kotlin.math.sin(t * speed + phase)) * (0.6f + 0.4f * kotlin.math.sin(t * speed * 0.37f + phase * 2f).let { it * it })
+            val h = (size.height * (0.12f + 0.88f * v * weight * amp)).coerceAtLeast(2f)
+            drawRoundRect(color.copy(alpha = 0.55f + 0.45f * v * amp),
+                topLeft = androidx.compose.ui.geometry.Offset(i * w + (w - bw) / 2f, (size.height - h) / 2f),
+                size = androidx.compose.ui.geometry.Size(bw, h),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(bw / 2f, bw / 2f))
+        }
     }
 }
 
