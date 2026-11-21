@@ -1,0 +1,96 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.11.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :ffmpeg:preBuild UP-TO-DATE
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :ffmpeg:preDebugBuild UP-TO-DATE
+> Task :app:generateDebugBuildConfig FROM-CACHE
+> Task :app:generateDebugResValues FROM-CACHE
+> Task :app:generateDebugResources FROM-CACHE
+> Task :ffmpeg:mergeDebugJniLibFolders
+> Task :app:packageDebugResources FROM-CACHE
+> Task :ffmpeg:mergeDebugNativeLibs NO-SOURCE
+> Task :ffmpeg:stripDebugDebugSymbols NO-SOURCE
+> Task :app:parseDebugLocalResources FROM-CACHE
+> Task :ffmpeg:copyDebugJniLibsProjectAndLocalJars
+> Task :app:createDebugCompatibleScreenManifests
+> Task :ffmpeg:generateDebugResValues FROM-CACHE
+> Task :ffmpeg:generateDebugResources FROM-CACHE
+> Task :app:extractDeepLinksDebug FROM-CACHE
+> Task :ffmpeg:packageDebugResources FROM-CACHE
+> Task :ffmpeg:parseDebugLocalResources FROM-CACHE
+> Task :ffmpeg:generateDebugRFile FROM-CACHE
+> Task :app:javaPreCompileDebug FROM-CACHE
+> Task :app:mapDebugSourceSetPaths
+> Task :app:mergeDebugResources FROM-CACHE
+> Task :app:preDebugAndroidTestBuild SKIPPED
+> Task :app:generateDebugAndroidTestResValues FROM-CACHE
+> Task :app:extractProguardFiles
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :ffmpeg:extractDebugAnnotations FROM-CACHE
+> Task :ffmpeg:extractDeepLinksForAarDebug FROM-CACHE
+> Task :ffmpeg:javaPreCompileDebug FROM-CACHE
+> Task :ffmpeg:compileDebugJavaWithJavac FROM-CACHE
+> Task :ffmpeg:mergeDebugGeneratedProguardFiles
+> Task :ffmpeg:mergeDebugConsumerProguardFiles
+> Task :ffmpeg:mergeDebugShaders
+> Task :ffmpeg:compileDebugShaders NO-SOURCE
+> Task :ffmpeg:generateDebugAssets UP-TO-DATE
+> Task :ffmpeg:packageDebugAssets
+> Task :ffmpeg:prepareDebugArtProfile
+> Task :ffmpeg:prepareLintJarForPublish
+> Task :ffmpeg:processDebugManifest FROM-CACHE
+> Task :ffmpeg:processDebugJavaRes NO-SOURCE
+> Task :ffmpeg:extractDeepLinksDebug FROM-CACHE
+> Task :ffmpeg:compileDebugLibraryResources FROM-CACHE
+> Task :ffmpeg:writeDebugAarMetadata
+> Task :ffmpeg:bundleLibCompileToJarDebug
+> Task :ffmpeg:writeDebugLintModelMetadata
+> Task :ffmpeg:extractProguardFiles
+> Task :ffmpeg:bundleLibRuntimeToJarDebug
+> Task :ffmpeg:mergeDebugJavaResource
+> Task :app:processDebugMainManifest FROM-CACHE
+> Task :app:processDebugManifest FROM-CACHE
+> Task :app:processDebugManifestForPackage FROM-CACHE
+> Task :app:checkDebugAarMetadata
+> Task :app:processDebugResources FROM-CACHE
+> Task :ffmpeg:generateDebugLintModel
+> Task :ffmpeg:syncDebugLibJars FROM-CACHE
+> Task :ffmpeg:bundleDebugLocalLintAar
+> Task :ffmpeg:createFullJarDebug
+> Task :ffmpeg:lintAnalyzeDebug FROM-CACHE
+> Task :ffmpeg:preDebugAndroidTestBuild UP-TO-DATE
+> Task :ffmpeg:generateDebugAndroidTestResValues FROM-CACHE
+> Task :ffmpeg:generateDebugAndroidTestLintModel
+> Task :ffmpeg:preDebugUnitTestBuild UP-TO-DATE
+> Task :ffmpeg:generateDebugUnitTestLintModel
+> Task :ffmpeg:lintAnalyzeDebugAndroidTest FROM-CACHE
+> Task :ffmpeg:lintAnalyzeDebugUnitTest FROM-CACHE
+> Task :ffmpeg:generateDebugLintReportModel
+
+> Task :ffmpeg:lintReportDebug
+Wrote HTML report to file:///home/runner/work/ultra-iptv/ultra-iptv/ffmpeg/build/reports/lint-results-debug.html
+
+> Task :ffmpeg:lintDebug
+> Task :app:kspDebugKotlin
+> Task :app:compileDebugKotlin
+> Task :app:compileDebugJavaWithJavac
+> Task :app:hiltAggregateDepsDebug FROM-CACHE
+> Task :app:hiltJavaCompileDebug
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:generateDebugLintReportModel
+> Task :app:generateDebugAndroidTestLintModel
+> Task :app:generateDebugUnitTestLintModel
+> Task :app:lintAnalyzeDebug
+> Task :app:lintAnalyzeDebugAndroidTest
+> Task :app:lintAnalyzeDebugUnitTest
+
+> Task :app:lintReportDebug
+Wrote HTML report to file:///home/runner/work/ultra-iptv/ultra-iptv/app/build/reports/lint-results-debug.html
+
+> Task :app:lintDebug
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run-1795271405473.json
+
+BUILD SUCCESSFUL in 3m 20s
+70 actionable tasks: 39 executed, 31 from cache

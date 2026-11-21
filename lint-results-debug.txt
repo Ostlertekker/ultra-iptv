@@ -1,0 +1,669 @@
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/core/notify/NotificationCenter.kt:145: Warning: Setting Exact alarms with setExactAndAllowWhileIdle requires the SCHEDULE_EXACT_ALARM permission or power exemption from user; it is intended for applications where the user knowingly schedules actions to happen at a precise time such as alarms, clocks, calendars, etc. Check out the javadoc on this permission to make sure your use case is valid. [MissingPermission]
+        else try { am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, alarmIntent(id)) }
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "MissingPermission":
+   This check scans through your code and libraries and looks at the APIs
+   being used, and checks this against the set of permissions required to
+   access those APIs. If the code using those APIs is called at runtime, then
+   the program will crash.
+
+   Furthermore, for permissions that are revocable (with targetSdkVersion 23),
+   client code must also be prepared to handle the calls throwing an exception
+   if the user rejects the request for permission at runtime.
+
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/web/BrowserActivity.kt:368: Error: Call requires API level 26 (current min is 25): android.webkit.WebView#getWebChromeClient [NewApi]
+                    fullView != null -> web.webChromeClient?.onHideCustomView()
+                                            ~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "NewApi":
+   This check scans through all the Android API calls in the application and
+   warns about any calls that are not available on all versions targeted by
+   this application (according to its minimum SDK attribute in the manifest).
+
+   If you really want to use this API and don't need to support older devices
+   just set the minSdkVersion in your build.gradle or AndroidManifest.xml
+   files.
+
+   If your code is deliberately accessing newer APIs, and you have ensured
+   (e.g. with conditional execution) that this code will only ever be called
+   on a supported platform, then you can annotate your class or method with
+   the @TargetApi annotation specifying the local minimum SDK to apply, such
+   as @TargetApi(11), such that this check considers 11 rather than your
+   manifest file's minimum SDK as the required API level.
+
+   If you are deliberately setting android: attributes in style definitions,
+   make sure you place this in a values-vNN folder in order to avoid running
+   into runtime conflicts on certain devices where manufacturers have added
+   custom attributes whose ids conflict with the new ones on later platforms.
+
+   Similarly, you can use tools:targetApi="11" in an XML file to indicate that
+   the element will only be inflated in an adequate context.
+
+/home/runner/work/ultra-iptv/ultra-iptv/app/build.gradle.kts:17: Warning: Not targeting the latest versions of Android; compatibility modes apply. Consider testing and updating this version. Consult the android.os.Build.VERSION_CODES javadoc for details. [OldTargetApi]
+        targetSdk = 34
+        ~~~~~~~~~~~~~~
+
+   Explanation for issues of type "OldTargetApi":
+   When your application runs on a version of Android that is more recent than
+   your targetSdkVersion specifies that it has been tested with, various
+   compatibility modes kick in. This ensures that your application continues
+   to work, but it may look out of place. For example, if the targetSdkVersion
+   is less than 14, your app may get an option button in the UI.
+
+   To fix this issue, set the targetSdkVersion to the highest available value.
+   Then test your app to make sure everything works correctly. You may want to
+   consult the compatibility notes to see what changes apply to each version
+   you are adding support for:
+   https://developer.android.com/reference/android/os/Build.VERSION_CODES.html
+   as well as follow this guide:
+   https://developer.android.com/distribute/best-practices/develop/target-sdk.
+   html
+
+   https://developer.android.com/distribute/best-practices/develop/target-sdk.html
+
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/player/PlayerScreen.kt:246: Warning: Avoid passing null as the view root (needed to resolve layout parameters on the inflated layout's root element) [InflateParams]
+                (if (picAdjust) android.view.LayoutInflater.from(ctx).inflate(de.ostlertekker.ultraiptv.R.layout.ultra_player_texture, null) as PlayerView
+                                                                                                                                       ~~~~
+
+   Explanation for issues of type "InflateParams":
+   When inflating a layout, avoid passing in null as the parent view, since
+   otherwise any layout parameters on the root of the inflated layout will be
+   ignored.
+
+   https://www.bignerdranch.com/blog/understanding-androids-layoutinflater-inflate/
+
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/AndroidManifest.xml:7: Warning: Requiring Wifi permissions limits app availability on TVs that support only Ethernet [LeanbackUsesWifi]
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "LeanbackUsesWifi":
+   WiFi is not required for Android TV and many devices connect to the
+   internet via alternative methods e.g. Ethernet.
+
+   If your app is not focused specifically on WiFi functionality and only
+   wishes to connect to the internet, please modify your Manifest to contain:
+   <uses-feature android:name="android.hardware.wifi" android:required="false"
+   />
+
+   Un-metered or non-roaming connections can be detected in software using
+   NetworkCapabilities#NET_CAPABILITY_NOT_METERED and
+   NetworkCapabilities#NET_CAPABILITY_NOT_ROAMING.
+
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/AndroidManifest.xml:32: Warning: An activity in this app supports picture-in-picture and the targetSdkVersion is 31 or above; it is therefore strongly recommended to call both setAutoEnterEnabled(true) and setSourceRectHint(...) [PictureInPictureIssue]
+    <application
+     ~~~~~~~~~~~
+
+   Explanation for issues of type "PictureInPictureIssue":
+   Starting in Android 12, the recommended approach for enabling
+   picture-in-picture (PiP) has changed. If your app does not use the new
+   approach, your app's transition animations will be of poor quality compared
+   to other apps. The new approach requires calling setAutoEnterEnabled(true)
+   and setSourceRectHint(...).
+
+   https://developer.android.com/develop/ui/views/picture-in-picture#smoother-transition
+
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:2: Warning: A newer version of com.android.application than 8.7.3 is available: 9.5.2 [AndroidGradlePluginVersion]
+agp = "8.7.3"
+      ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:2: Warning: A newer version of com.android.application than 8.7.3 is available: 9.5.2 [AndroidGradlePluginVersion]
+agp = "8.7.3"
+      ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:2: Warning: A newer version of com.android.application than 8.7.3 is available: 9.5.2 [AndroidGradlePluginVersion]
+agp = "8.7.3"
+      ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:2: Warning: A newer version of com.android.library than 8.7.3 is available: 9.5.2 [AndroidGradlePluginVersion]
+agp = "8.7.3"
+      ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:2: Warning: A newer version of com.android.library than 8.7.3 is available: 9.5.2 [AndroidGradlePluginVersion]
+agp = "8.7.3"
+      ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:2: Warning: A newer version of com.android.library than 8.7.3 is available: 9.5.2 [AndroidGradlePluginVersion]
+agp = "8.7.3"
+      ~~~~~~~
+
+   Explanation for issues of type "AndroidGradlePluginVersion":
+   This detector looks for usage of the Android Gradle Plugin where the
+   version you are using is not the current stable release. Using older
+   versions is fine, and there are cases where you deliberately want to stick
+   with an older version. However, you may simply not be aware that a more
+   recent version is available, and that is what this lint check helps find.
+
+/home/runner/work/ultra-iptv/ultra-iptv/app/build.gradle.kts:83: Warning: A newer version of androidx.webkit:webkit than 1.12.1 is available: 1.18.0 [GradleDependency]
+    implementation("androidx.webkit:webkit:1.12.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/build.gradle.kts:128: Warning: A newer version of androidx.test:core than 1.6.1 is available: 1.7.0 [GradleDependency]
+    androidTestImplementation("androidx.test:core:1.6.1")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/build.gradle.kts:129: Warning: A newer version of androidx.test.uiautomator:uiautomator than 2.3.0 is available: 2.4.1 [GradleDependency]
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:6: Warning: A newer version of androidx.hilt:hilt-navigation-compose than 1.2.0 is available: 1.4.0 [GradleDependency]
+hiltNavigationCompose = "1.2.0"
+                        ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:6: Warning: A newer version of androidx.hilt:hilt-navigation-compose than 1.2.0 is available: 1.4.0 [GradleDependency]
+hiltNavigationCompose = "1.2.0"
+                        ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:6: Warning: A newer version of androidx.hilt:hilt-navigation-compose than 1.2.0 is available: 1.4.0 [GradleDependency]
+hiltNavigationCompose = "1.2.0"
+                        ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:7: Warning: A newer version of androidx.compose:compose-bom than 2024.12.01 is available: 2026.11.01 [GradleDependency]
+composeBom = "2024.12.01"
+             ~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:7: Warning: A newer version of androidx.compose:compose-bom than 2024.12.01 is available: 2026.11.01 [GradleDependency]
+composeBom = "2024.12.01"
+             ~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:7: Warning: A newer version of androidx.compose:compose-bom than 2024.12.01 is available: 2026.11.01 [GradleDependency]
+composeBom = "2024.12.01"
+             ~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:8: Warning: A newer version of androidx.activity:activity-compose than 1.9.3 is available: 1.13.0 [GradleDependency]
+activityCompose = "1.9.3"
+                  ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:8: Warning: A newer version of androidx.activity:activity-compose than 1.9.3 is available: 1.13.0 [GradleDependency]
+activityCompose = "1.9.3"
+                  ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:8: Warning: A newer version of androidx.activity:activity-compose than 1.9.3 is available: 1.13.0 [GradleDependency]
+activityCompose = "1.9.3"
+                  ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:9: Warning: A newer version of androidx.lifecycle:lifecycle-process than 2.8.7 is available: 2.11.1 [GradleDependency]
+lifecycle = "2.8.7"
+            ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:9: Warning: A newer version of androidx.lifecycle:lifecycle-process than 2.8.7 is available: 2.11.1 [GradleDependency]
+lifecycle = "2.8.7"
+            ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:9: Warning: A newer version of androidx.lifecycle:lifecycle-process than 2.8.7 is available: 2.11.1 [GradleDependency]
+lifecycle = "2.8.7"
+            ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:9: Warning: A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.8.7 is available: 2.11.1 [GradleDependency]
+lifecycle = "2.8.7"
+            ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:9: Warning: A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.8.7 is available: 2.11.1 [GradleDependency]
+lifecycle = "2.8.7"
+            ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:9: Warning: A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.8.7 is available: 2.11.1 [GradleDependency]
+lifecycle = "2.8.7"
+            ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:9: Warning: A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.8.7 is available: 2.11.1 [GradleDependency]
+lifecycle = "2.8.7"
+            ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:9: Warning: A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.8.7 is available: 2.11.1 [GradleDependency]
+lifecycle = "2.8.7"
+            ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:9: Warning: A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.8.7 is available: 2.11.1 [GradleDependency]
+lifecycle = "2.8.7"
+            ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:10: Warning: A newer version of androidx.navigation:navigation-compose than 2.8.5 is available: 2.10.2 [GradleDependency]
+navigation = "2.8.5"
+             ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:10: Warning: A newer version of androidx.navigation:navigation-compose than 2.8.5 is available: 2.10.2 [GradleDependency]
+navigation = "2.8.5"
+             ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:10: Warning: A newer version of androidx.navigation:navigation-compose than 2.8.5 is available: 2.10.2 [GradleDependency]
+navigation = "2.8.5"
+             ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:11: Warning: A newer version of androidx.core:core-ktx than 1.15.0 is available: 1.19.1 [GradleDependency]
+coreKtx = "1.15.0"
+          ~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:11: Warning: A newer version of androidx.core:core-ktx than 1.15.0 is available: 1.19.1 [GradleDependency]
+coreKtx = "1.15.0"
+          ~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:11: Warning: A newer version of androidx.core:core-ktx than 1.15.0 is available: 1.19.1 [GradleDependency]
+coreKtx = "1.15.0"
+          ~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:12: Warning: A newer version of androidx.media3:media3-decoder than 1.5.1 is available: 1.11.1 [GradleDependency]
+media3 = "1.5.1"
+         ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:12: Warning: A newer version of androidx.media3:media3-decoder than 1.5.1 is available: 1.11.1 [GradleDependency]
+media3 = "1.5.1"
+         ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:12: Warning: A newer version of androidx.media3:media3-decoder than 1.5.1 is available: 1.11.1 [GradleDependency]
+media3 = "1.5.1"
+         ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:12: Warning: A newer version of androidx.media3:media3-exoplayer than 1.5.1 is available: 1.11.1 [GradleDependency]
+media3 = "1.5.1"
+         ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:12: Warning: A newer version of androidx.media3:media3-exoplayer than 1.5.1 is available: 1.11.1 [GradleDependency]
+media3 = "1.5.1"
+         ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:12: Warning: A newer version of androidx.media3:media3-exoplayer than 1.5.1 is available: 1.11.1 [GradleDependency]
+media3 = "1.5.1"
+         ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:12: Warning: A newer version of androidx.media3:media3-exoplayer-dash than 1.5.1 is available: 1.11.1 [GradleDependency]
+media3 = "1.5.1"
+         ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:12: Warning: A newer version of androidx.media3:media3-exoplayer-dash than 1.5.1 is available: 1.11.1 [GradleDependency]
+media3 = "1.5.1"
+         ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:12: Warning: A newer version of androidx.media3:media3-exoplayer-dash than 1.5.1 is available: 1.11.1 [GradleDependency]
+media3 = "1.5.1"
+         ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:12: Warning: A newer version of androidx.media3:media3-exoplayer-hls than 1.5.1 is available: 1.11.1 [GradleDependency]
+media3 = "1.5.1"
+         ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:12: Warning: A newer version of androidx.media3:media3-exoplayer-hls than 1.5.1 is available: 1.11.1 [GradleDependency]
+media3 = "1.5.1"
+         ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:12: Warning: A newer version of androidx.media3:media3-exoplayer-hls than 1.5.1 is available: 1.11.1 [GradleDependency]
+media3 = "1.5.1"
+         ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:12: Warning: A newer version of androidx.media3:media3-session than 1.5.1 is available: 1.11.1 [GradleDependency]
+media3 = "1.5.1"
+         ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:12: Warning: A newer version of androidx.media3:media3-session than 1.5.1 is available: 1.11.1 [GradleDependency]
+media3 = "1.5.1"
+         ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:12: Warning: A newer version of androidx.media3:media3-session than 1.5.1 is available: 1.11.1 [GradleDependency]
+media3 = "1.5.1"
+         ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:12: Warning: A newer version of androidx.media3:media3-ui than 1.5.1 is available: 1.11.1 [GradleDependency]
+media3 = "1.5.1"
+         ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:12: Warning: A newer version of androidx.media3:media3-ui than 1.5.1 is available: 1.11.1 [GradleDependency]
+media3 = "1.5.1"
+         ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:12: Warning: A newer version of androidx.media3:media3-ui than 1.5.1 is available: 1.11.1 [GradleDependency]
+media3 = "1.5.1"
+         ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:13: Warning: A newer version of androidx.room:room-compiler than 2.6.1 is available: 2.8.5 [GradleDependency]
+room = "2.6.1"
+       ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:13: Warning: A newer version of androidx.room:room-compiler than 2.6.1 is available: 2.8.5 [GradleDependency]
+room = "2.6.1"
+       ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:13: Warning: A newer version of androidx.room:room-compiler than 2.6.1 is available: 2.8.5 [GradleDependency]
+room = "2.6.1"
+       ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:13: Warning: A newer version of androidx.room:room-ktx than 2.6.1 is available: 2.8.5 [GradleDependency]
+room = "2.6.1"
+       ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:13: Warning: A newer version of androidx.room:room-ktx than 2.6.1 is available: 2.8.5 [GradleDependency]
+room = "2.6.1"
+       ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:13: Warning: A newer version of androidx.room:room-ktx than 2.6.1 is available: 2.8.5 [GradleDependency]
+room = "2.6.1"
+       ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:13: Warning: A newer version of androidx.room:room-runtime than 2.6.1 is available: 2.8.5 [GradleDependency]
+room = "2.6.1"
+       ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:13: Warning: A newer version of androidx.room:room-runtime than 2.6.1 is available: 2.8.5 [GradleDependency]
+room = "2.6.1"
+       ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:13: Warning: A newer version of androidx.room:room-runtime than 2.6.1 is available: 2.8.5 [GradleDependency]
+room = "2.6.1"
+       ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:14: Warning: A newer version of androidx.datastore:datastore-preferences than 1.1.1 is available: 1.3.0 [GradleDependency]
+datastore = "1.1.1"
+            ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:14: Warning: A newer version of androidx.datastore:datastore-preferences than 1.1.1 is available: 1.3.0 [GradleDependency]
+datastore = "1.1.1"
+            ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:14: Warning: A newer version of androidx.datastore:datastore-preferences than 1.1.1 is available: 1.3.0 [GradleDependency]
+datastore = "1.1.1"
+            ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:20: Warning: A newer version of androidx.security:security-crypto than 1.1.0-alpha06 is available: 1.1.0 [GradleDependency]
+securityCrypto = "1.1.0-alpha06"
+                 ~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:20: Warning: A newer version of androidx.security:security-crypto than 1.1.0-alpha06 is available: 1.1.0 [GradleDependency]
+securityCrypto = "1.1.0-alpha06"
+                 ~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:20: Warning: A newer version of androidx.security:security-crypto than 1.1.0-alpha06 is available: 1.1.0 [GradleDependency]
+securityCrypto = "1.1.0-alpha06"
+                 ~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:23: Warning: A newer version of androidx.test.ext:junit than 1.2.1 is available: 1.3.0 [GradleDependency]
+androidxJunit = "1.2.1"
+                ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:23: Warning: A newer version of androidx.test.ext:junit than 1.2.1 is available: 1.3.0 [GradleDependency]
+androidxJunit = "1.2.1"
+                ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:23: Warning: A newer version of androidx.test.ext:junit than 1.2.1 is available: 1.3.0 [GradleDependency]
+androidxJunit = "1.2.1"
+                ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:24: Warning: A newer version of androidx.test:runner than 1.6.2 is available: 1.7.0 [GradleDependency]
+androidxTestRunner = "1.6.2"
+                     ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:24: Warning: A newer version of androidx.test:runner than 1.6.2 is available: 1.7.0 [GradleDependency]
+androidxTestRunner = "1.6.2"
+                     ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:24: Warning: A newer version of androidx.test:runner than 1.6.2 is available: 1.7.0 [GradleDependency]
+androidxTestRunner = "1.6.2"
+                     ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:25: Warning: A newer version of androidx.work:work-runtime-ktx than 2.9.1 is available: 2.12.0 [GradleDependency]
+work = "2.9.1"
+       ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:25: Warning: A newer version of androidx.work:work-runtime-ktx than 2.9.1 is available: 2.12.0 [GradleDependency]
+work = "2.9.1"
+       ~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/gradle/libs.versions.toml:25: Warning: A newer version of androidx.work:work-runtime-ktx than 2.9.1 is available: 2.12.0 [GradleDependency]
+work = "2.9.1"
+       ~~~~~~~
+
+   Explanation for issues of type "GradleDependency":
+   This detector looks for usages of libraries where the version you are using
+   is not the current stable release. Using older versions is fine, and there
+   are cases where you deliberately want to stick with an older version.
+   However, you may simply not be aware that a more recent version is
+   available, and that is what this lint check helps find.
+
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/web/BrowserActivity.kt:358: Error: ComponentActivity.dispatchKeyEvent can only be called from within the same library group prefix (referenced groupId=androidx.core with prefix androidx from groupId=UltraIPTV) [RestrictedApi]
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+                 ~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/web/BrowserActivity.kt:376: Error: ComponentActivity.dispatchKeyEvent can only be called from within the same library group prefix (referenced groupId=androidx.core with prefix androidx from groupId=UltraIPTV) [RestrictedApi]
+        if (url.hasFocus()) return super.dispatchKeyEvent(event)
+                                         ~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/web/BrowserActivity.kt:376: Error: ComponentActivity.dispatchKeyEvent can only be called from within the same library group prefix (referenced groupId=androidx.core with prefix androidx from groupId=UltraIPTV) [RestrictedApi]
+        if (url.hasFocus()) return super.dispatchKeyEvent(event)
+                                                          ~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/web/BrowserActivity.kt:397: Error: ComponentActivity.dispatchKeyEvent can only be called from within the same library group prefix (referenced groupId=androidx.core with prefix androidx from groupId=UltraIPTV) [RestrictedApi]
+        return super.dispatchKeyEvent(event)
+                     ~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/web/BrowserActivity.kt:397: Error: ComponentActivity.dispatchKeyEvent can only be called from within the same library group prefix (referenced groupId=androidx.core with prefix androidx from groupId=UltraIPTV) [RestrictedApi]
+        return super.dispatchKeyEvent(event)
+                                      ~~~~~
+
+   Explanation for issues of type "RestrictedApi":
+   This API has been flagged with a restriction that has not been met.
+
+   Examples of API restrictions:
+   * Method can only be invoked by a subclass
+   * Method can only be accessed from within the same library (defined by the
+   Gradle library group id)
+   * Method can only be accessed from tests.
+
+   You can add your own API restrictions with the @RestrictTo annotation.
+
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/core/jellyfin/Jellyfin.kt:475: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+        runCatching { androidx.media3.decoder.ffmpeg.FfmpegLibrary.isAvailable() &&
+                                                                   ~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/core/jellyfin/Jellyfin.kt:476: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+            androidx.media3.decoder.ffmpeg.FfmpegLibrary.supportsFormat(androidx.media3.common.MimeTypes.AUDIO_DTS) }.getOrDefault(false)
+                                                         ~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/core/jellyfin/Jellyfin.kt:480: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+        val caps = runCatching { @Suppress("DEPRECATION") androidx.media3.exoplayer.audio.AudioCapabilities.getCapabilities(context) }.getOrNull()
+            ~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/core/jellyfin/Jellyfin.kt:480: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+        val caps = runCatching { @Suppress("DEPRECATION") androidx.media3.exoplayer.audio.AudioCapabilities.getCapabilities(context) }.getOrNull()
+                                                                                                            ~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/core/jellyfin/Jellyfin.kt:481: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+        fun pass(enc: Int) = runCatching { caps?.supportsEncoding(enc) == true }.getOrDefault(false)
+                                                 ~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/core/jellyfin/Jellyfin.kt:484: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+            if (hasDecoder("audio/ac3") || pass(androidx.media3.common.C.ENCODING_AC3)) add("ac3")
+                                                                         ~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/core/jellyfin/Jellyfin.kt:485: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+            if (hasDecoder("audio/eac3") || pass(androidx.media3.common.C.ENCODING_E_AC3)) add("eac3")
+                                                                          ~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/core/jellyfin/Jellyfin.kt:486: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+            if (hasDecoder("audio/vnd.dts") || pass(androidx.media3.common.C.ENCODING_DTS)) add("dts")
+                                                                             ~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/core/jellyfin/Jellyfin.kt:487: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+            if (hasDecoder("audio/vnd.dts.hd") || pass(androidx.media3.common.C.ENCODING_DTS_HD)) add("dca")
+                                                                                ~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/core/jellyfin/Jellyfin.kt:488: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+            if (hasDecoder("audio/true-hd") || pass(androidx.media3.common.C.ENCODING_DOLBY_TRUEHD)) add("truehd")
+                                                                             ~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/settings/SettingsScreen.kt:235: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+                        val ok = remember { runCatching { androidx.media3.decoder.ffmpeg.FfmpegLibrary.isAvailable() }.getOrDefault(false) }
+                                                                                                       ~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/settings/SettingsScreen.kt:236: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+                        SInfo("Software-Tondecoder", if (ok) "aktiv – FFmpeg ${runCatching { androidx.media3.decoder.ffmpeg.FfmpegLibrary.getVersion() }.getOrNull() ?: ""}".trim()
+                                                                                                                                          ~~~~~~~~~~
+
+   Explanation for issues of type "UnsafeOptInUsageError":
+   This API has been flagged as opt-in with error-level severity.
+
+   Any declaration annotated with this marker is considered part of an
+   unstable or
+   otherwise non-standard API surface and its call sites should accept the
+   opt-in
+   aspect of it by using the @OptIn annotation, using the marker annotation
+   --
+   effectively causing further propagation of the opt-in aspect -- or
+   configuring
+   the UnsafeOptInUsageError check's options for project-wide opt-in.
+
+   To configure project-wide opt-in, specify the opt-in option value in
+   lint.xml
+   as a comma-delimited list of opted-in annotations:
+
+   <lint>
+       <issue id="UnsafeOptInUsageError">
+           <option name="opt-in" value="com.foo.ExperimentalBarAnnotation" />
+       </issue>
+   </lint>
+
+   Vendor: Android Open Source Project
+   Identifier: androidx.annotation.experimental
+   Feedback: https://issuetracker.google.com/issues/new?component=459778
+
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/core/ui/Components.kt:1048: Warning: Modifier factory functions should be extensions on Modifier [ModifierFactoryExtensionFunction from androidx.compose.ui]
+private fun entryDown(): Modifier {
+            ~~~~~~~~~
+
+   Explanation for issues of type "ModifierFactoryExtensionFunction":
+   Modifier factory functions should be defined as extension functions on
+   Modifier to allow modifiers to be fluently chained.
+
+   Vendor: Jetpack Compose
+   Identifier: androidx.compose.ui
+   Feedback: https://issuetracker.google.com/issues/new?component=612128
+
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/core/ui/Components.kt:951: Warning: Modifier parameter should be named modifier [ModifierParameter from androidx.compose.ui]
+private fun TopNavPill(label: String, selected: Boolean, onClick: () -> Unit, focusRequester: FocusRequester?, navModifier: Modifier = Modifier,
+                                                                                                               ~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/core/ui/Components.kt:980: Warning: Modifier parameter should be named modifier [ModifierParameter from androidx.compose.ui]
+private fun TopNavIconPill(icon: androidx.compose.ui.graphics.vector.ImageVector, description: String, selected: Boolean, navModifier: Modifier = Modifier, onClick: () -> Unit) {
+                                                                                                                          ~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/home/HomeScreen.kt:402: Warning: Modifier parameter should be the first optional parameter [ModifierParameter from androidx.compose.ui]
+private fun HeroButton(label: String, primary: Boolean = false, modifier: Modifier = Modifier, onClick: () -> Unit) {
+                                                                ~~~~~~~~
+
+   Explanation for issues of type "ModifierParameter":
+   The first (or only) Modifier parameter in a Composable function should
+   follow the following rules:
+   - Be named modifier
+   - Have a type of Modifier
+   - Either have no default value, or have a default value of Modifier
+   - If optional, be the first optional parameter in the parameter list
+
+   Vendor: Jetpack Compose
+   Identifier: androidx.compose.ui
+   Feedback: https://issuetracker.google.com/issues/new?component=612128
+
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/AndroidManifest.xml:47: Warning: Should not restrict activity to fixed orientation. This may not be suitable for different form factors, causing the app to be letterboxed. [DiscouragedApi]
+            android:screenOrientation="landscape"
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/AndroidManifest.xml:62: Warning: Should not restrict activity to fixed orientation. This may not be suitable for different form factors, causing the app to be letterboxed. [DiscouragedApi]
+            android:screenOrientation="landscape" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/AndroidManifest.xml:69: Warning: Should not restrict activity to fixed orientation. This may not be suitable for different form factors, causing the app to be letterboxed. [DiscouragedApi]
+            android:screenOrientation="landscape"
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/AndroidManifest.xml:76: Warning: Should not restrict activity to fixed orientation. This may not be suitable for different form factors, causing the app to be letterboxed. [DiscouragedApi]
+            android:screenOrientation="landscape" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "DiscouragedApi":
+   Discouraged APIs are allowed and are not deprecated, but they may be unfit
+   for common use (e.g. due to slow performance or subtle behavior).
+
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/AndroidManifest.xml:78: Warning: Exported service does not require permission [ExportedService]
+        <service
+         ~~~~~~~
+
+   Explanation for issues of type "ExportedService":
+   Exported services (services which either set exported=true or contain an
+   intent-filter and do not specify exported=false) should define a permission
+   that an entity must have in order to launch the service or bind to it.
+   Without this, any application can use this service.
+
+   https://goo.gle/ExportedService
+
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/AndroidManifest.xml:35: Warning: The attribute android:allowBackup is deprecated from Android 12 and higher and may be removed in future versions. Consider adding the attribute android:dataExtractionRules specifying an @xml resource which configures cloud backups and device transfers on Android 12 and higher. [DataExtractionRules]
+        android:allowBackup="false"
+                             ~~~~~
+
+   Explanation for issues of type "DataExtractionRules":
+   Before Android 12, the attributes android:allowBackup and
+   android:fullBackupContent were used to configure all forms of backup,
+   including cloud backups, device-to-device transfers and adb backup.
+
+   In Android 12 and higher, these attributes have been deprecated and will
+   only apply to cloud backups. You should instead use the attribute
+   android:dataExtractionRules, specifying an @xml resource that configures
+   which files to back up, for cloud backups and for device-to-device
+   transfers, separately. If your minSdkVersion supports older versions,
+   you'll still want to specify an android:fullBackupContent resource if the
+   default behavior is not right for your app.
+
+   https://developer.android.com/about/versions/12/backup-restore#xml-changes
+   https://goo.gle/DataExtractionRules
+
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/core/ui/Components.kt:913: Information: Prefer mutableIntStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
+        var focusedIdx by remember { mutableStateOf(-1) }
+                                     ~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/core/ui/Components.kt:914: Information: Prefer mutableIntStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
+        var lastIdx by remember { mutableStateOf(0) }
+                                  ~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/core/ui/VoiceInput.kt:78: Information: Prefer mutableFloatStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
+    var level by remember { mutableStateOf(0f) }
+                            ~~~~~~~~~~~~~~
+
+   Explanation for issues of type "AutoboxingStateCreation":
+   Calling mutableStateOf<T>() when T is either backed by a primitive type on
+   the JVM or is a value class results in a state implementation that requires
+   all state values to be boxed. This usually causes an additional allocation
+   for each state write, and adds some additional work to auto-unbox values
+   when reading the value of the state. Instead, prefer to use a specialized
+   primitive state implementation for Int, Long, Float, and Double when the
+   state does not need to track null values and does not override the default
+   SnapshotMutationPolicy. See mutableIntStateOf(), mutableLongStateOf(),
+   mutableFloatStateOf(), and mutableDoubleStateOf() for more information.
+
+   Vendor: Jetpack Compose
+   Identifier: androidx.compose.runtime
+   Feedback: https://issuetracker.google.com/issues/new?component=612128
+
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/core/player/PlayerEngine.kt:322: Warning: Consider also using StorageManager#getAllocatableBytes and allocateBytes which will consider clearable cached data [UsableSpace]
+        val free = context.cacheDir.usableSpace
+                                    ~~~~~~~~~~~
+
+   Explanation for issues of type "UsableSpace":
+   When you need to allocate disk space for large files, consider using the
+   new allocateBytes(FileDescriptor, long) API, which will automatically clear
+   cached files belonging to other apps (as needed) to meet your request.
+
+   When deciding if the device has enough disk space to hold your new data,
+   call getAllocatableBytes(UUID) instead of using getUsableSpace(), since the
+   former will consider any cached data that the system is willing to clear on
+   your behalf.
+
+   Note that these methods require API level 26. If your app is running on
+   older devices, you will probably need to use both APIs, conditionally
+   switching on Build.VERSION.SDK_INT. Lint only looks in the same compilation
+   unit to see if you are already using both APIs, so if it warns even though
+   you are already using the new API, consider moving the calls to the same
+   file or suppressing the warning.
+
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/res: Warning: Missing density variation folders in src/main/res: drawable-hdpi, drawable-mdpi, drawable-xxhdpi [IconMissingDensityFolder]
+
+   Explanation for issues of type "IconMissingDensityFolder":
+   Icons will look best if a custom version is provided for each of the major
+   screen density classes (low, medium, high, extra-high, extra-extra-high).
+   This lint check identifies folders which are missing, such as
+   drawable-hdpi.
+
+   Low density is not really used much anymore, so this check ignores the ldpi
+   density. To force lint to include it, set the environment variable
+   ANDROID_LINT_INCLUDE_LDPI=true. For more information on current density
+   usage, see https://developer.android.com/about/dashboards
+
+   https://developer.android.com/guide/practices/screens_support.html
+
+/home/runner/work/ultra-iptv/ultra-iptv/app/build.gradle.kts:81: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/build.gradle.kts:83: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("androidx.webkit:webkit:1.12.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/build.gradle.kts:128: Warning: Use version catalog instead [UseTomlInstead]
+    androidTestImplementation("androidx.test:core:1.6.1")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/build.gradle.kts:129: Warning: Use version catalog instead [UseTomlInstead]
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/build.gradle.kts:130: Warning: Use version catalog instead [UseTomlInstead]
+    androidTestImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "UseTomlInstead":
+   If your project is using a libs.versions.toml file, you should place all
+   Gradle dependencies in the TOML file. This lint check looks for version
+   declarations outside of the TOML file and suggests moving them (and in the
+   IDE, provides a quickfix to performing the operation automatically).
+
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/web/WebAppActivity.kt:123: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+            text = "${app.title} · Zurück lang drücken: zurück zu ULTRA IPTV"
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/web/WebAppActivity.kt:123: Warning: String literal in setText can not be translated. Use Android resources instead. [SetTextI18n]
+            text = "${app.title} · Zurück lang drücken: zurück zu ULTRA IPTV"
+                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/web/WebAppActivity.kt:141: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+        if (app == WebApp.YOUTUBE) hint.text = hint.text.toString() + "\n" + (if (dec.first >= 3840) "4K aktiv" else "4K aus") +
+                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/web/WebAppActivity.kt:141: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+        if (app == WebApp.YOUTUBE) hint.text = hint.text.toString() + "\n" + (if (dec.first >= 3840) "4K aktiv" else "4K aus") +
+                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/web/WebAppActivity.kt:141: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+        if (app == WebApp.YOUTUBE) hint.text = hint.text.toString() + "\n" + (if (dec.first >= 3840) "4K aktiv" else "4K aus") +
+                                               ^
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/web/WebAppActivity.kt:141: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+        if (app == WebApp.YOUTUBE) hint.text = hint.text.toString() + "\n" + (if (dec.first >= 3840) "4K aktiv" else "4K aus") +
+                                               ^
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/web/WebAppActivity.kt:141: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+        if (app == WebApp.YOUTUBE) hint.text = hint.text.toString() + "\n" + (if (dec.first >= 3840) "4K aktiv" else "4K aus") +
+                                               ^
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/web/WebAppActivity.kt:142: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+            " · Decoder: " + (decoderInfo.joinToString(", ").ifBlank { "kein VP9/AV1" }) + " · Bildmodus max. ${dispH}p"
+                                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/web/WebAppActivity.kt:142: Warning: String literal in setText can not be translated. Use Android resources instead. [SetTextI18n]
+            " · Decoder: " + (decoderInfo.joinToString(", ").ifBlank { "kein VP9/AV1" }) + " · Bildmodus max. ${dispH}p"
+             ~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/web/WebAppActivity.kt:142: Warning: String literal in setText can not be translated. Use Android resources instead. [SetTextI18n]
+            " · Decoder: " + (decoderInfo.joinToString(", ").ifBlank { "kein VP9/AV1" }) + " · Bildmodus max. ${dispH}p"
+                                                                                            ~~~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/web/WebAppActivity.kt:195: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+                "Google erlaubt die Anmeldung nicht in eingebetteten Apps.\n\nSo geht es: In YouTube „Anmelden“ → „Mit dem Telefon anmelden“ wählen.\n" +
+                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/web/WebAppActivity.kt:195: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+                "Google erlaubt die Anmeldung nicht in eingebetteten Apps.\n\nSo geht es: In YouTube „Anmelden“ → „Mit dem Telefon anmelden“ wählen.\n" +
+                ^
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/web/WebAppActivity.kt:195: Warning: String literal in setText can not be translated. Use Android resources instead. [SetTextI18n]
+                "Google erlaubt die Anmeldung nicht in eingebetteten Apps.\n\nSo geht es: In YouTube „Anmelden“ → „Mit dem Telefon anmelden“ wählen.\n" +
+                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/web/WebAppActivity.kt:195: Warning: String literal in setText can not be translated. Use Android resources instead. [SetTextI18n]
+                "Google erlaubt die Anmeldung nicht in eingebetteten Apps.\n\nSo geht es: In YouTube „Anmelden“ → „Mit dem Telefon anmelden“ wählen.\n" +
+                                                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/web/WebAppActivity.kt:196: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+                    "Dann am Handy yt.be/activate öffnen und den Code vom Fernseher eingeben.\n\n(OK oder Zurück schließt diesen Hinweis)"
+                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/web/WebAppActivity.kt:196: Warning: String literal in setText can not be translated. Use Android resources instead. [SetTextI18n]
+                    "Dann am Handy yt.be/activate öffnen und den Code vom Fernseher eingeben.\n\n(OK oder Zurück schließt diesen Hinweis)"
+                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/ultra-iptv/ultra-iptv/app/src/main/java/de/ostlertekker/ultraiptv/feature/web/WebAppActivity.kt:196: Warning: String literal in setText can not be translated. Use Android resources instead. [SetTextI18n]
+                    "Dann am Handy yt.be/activate öffnen und den Code vom Fernseher eingeben.\n\n(OK oder Zurück schließt diesen Hinweis)"
+                                                                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "SetTextI18n":
+   When calling TextView#setText
+   * Never call Number#toString() to format numbers; it will not handle
+   fraction separators and locale-specific digits properly. Consider using
+   String#format with proper format specifications (%d or %f) instead.
+   * Do not pass a string literal (e.g. "Hello") to display text. Hardcoded
+   text can not be properly translated to other languages. Consider using
+   Android resource strings instead.
+   * Do not build messages by concatenating text chunks. Such messages can not
+   be properly translated.
+
+   https://developer.android.com/guide/topics/resources/localization.html
+
+18 errors, 114 warnings
