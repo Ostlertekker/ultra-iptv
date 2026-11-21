@@ -35,7 +35,6 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     @Inject lateinit var playerEngine: PlayerEngine
-    @Inject lateinit var autoStartFlow: de.ostlertekker.ultraiptv.core.notify.AutoStartFlow
 
     companion object { const val EXTRA_ROUTE = "ultra_route" }
 
@@ -43,7 +42,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val startRoute = intent?.getStringExtra(EXTRA_ROUTE)
         setContent { UltraRoot(startRoute) }
-        handleAutostart(intent, savedInstanceState == null)
         // Läuft eine Vorschau oder der Mini-Player, darf der Bildschirmschoner die Wiedergabe nicht unterbrechen
         lifecycleScope.launch {
             playerEngine.playing.collect { on ->
@@ -51,18 +49,6 @@ class MainActivity : ComponentActivity() {
                 else window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
         }
-    }
-
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        handleAutostart(intent, true)
-    }
-
-    /** Autostart: Playlist und letzter Sender – genau einmal pro App-Prozess. */
-    private fun handleAutostart(i: Intent?, fresh: Boolean) {
-        if (!fresh || i?.getBooleanExtra(de.ostlertekker.ultraiptv.core.notify.AutoStart.EXTRA_AUTOSTART, false) != true) return
-        i.removeExtra(de.ostlertekker.ultraiptv.core.notify.AutoStart.EXTRA_AUTOSTART)
-        autoStartFlow.run(this)
     }
 
     // Lint-Fehlalarm: Überschreiben von ComponentActivity.dispatchKeyEvent ist erlaubt (bekanntes androidx-Problem)

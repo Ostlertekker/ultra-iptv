@@ -559,82 +559,8 @@ private fun LazyListScope.generalPage(vm: SettingsViewModel, s: AppSettings) {
                 vm.set(Keys.START_ACTION, (s.startAction + 1) % 4)
             }
             SSwitch("Startintro anzeigen", s.introEnabled) { vm.set(Keys.INTRO, it) }
-            AutoStartSetting()
             SSwitch("Menü-Töne", s.uiSounds) { vm.set(Keys.UI_SOUNDS, it) }
         }
-    }
-}
-
-/** Autostart-Menü: Gerätestart, letzter Sender, Playlist, Standby, Absturz, Diagnose. */
-@Composable
-private fun AutoStartSetting() {
-    val ctx = androidx.compose.ui.platform.LocalContext.current
-    val p = LocalUltraTheme.current.palette
-    val A = de.ostlertekker.ultraiptv.core.notify.AutoStart
-    var master by remember { mutableStateOf(A.stored(ctx, A.K_MASTER)) }
-    var boot by remember { mutableStateOf(A.stored(ctx, A.K_BOOT)) }
-    var channel by remember { mutableStateOf(A.stored(ctx, A.K_LAST_CHANNEL)) }
-    var playlist by remember { mutableStateOf(A.stored(ctx, A.K_PLAYLIST)) }
-    var standby by remember { mutableStateOf(A.stored(ctx, A.K_STANDBY)) }
-    var crash by remember { mutableStateOf(A.stored(ctx, A.K_CRASH)) }
-    var allowed by remember { mutableStateOf(A.canLaunch(ctx)) }
-    var hint by remember { mutableStateOf<String?>(null) }
-    var showDiag by remember { mutableStateOf(false) }
-    // Nach Rückkehr aus den Systemeinstellungen den Status aktualisieren
-    androidx.compose.runtime.LaunchedEffect(master, boot, crash) {
-        while (master && (boot || crash) && !allowed) { kotlinx.coroutines.delay(1500); allowed = A.canLaunch(ctx) }
-    }
-    SHeader("Autostart")
-    SSwitch("Autostart aktivieren", master, subtitle = if (master) "Autostart-Funktionen sind eingeschaltet" else "Alle Autostart-Funktionen sind aus") {
-        master = it; A.set(ctx, A.K_MASTER, it)
-    }
-    if (!master) return
-    SSwitch("IPTV-App nach Gerätestart öffnen", boot,
-        subtitle = if (!boot) "ULTRA IPTV öffnet sich nach dem Einschalten bzw. Neustart des Geräts"
-            else if (allowed) "Aktiv – Erfolg siehst du im Protokoll unter „Autostart-Status und Diagnose“"
-            else "Noch eine Berechtigung nötig (siehe unten)") {
-        boot = it; A.set(ctx, A.K_BOOT, it); allowed = A.canLaunch(ctx)
-    }
-    SSwitch("Letzten Sender automatisch wiedergeben", channel,
-        subtitle = "Nach dem Autostart den zuletzt gesehenen Live-Sender starten (wartet bis zu 45 s auf das Netzwerk)") {
-        channel = it; A.set(ctx, A.K_LAST_CHANNEL, it)
-    }
-    SSwitch("Letzte Playlist automatisch laden", playlist,
-        subtitle = "Nach dem Autostart die gespeicherte Playlist vom Anbieter aktualisieren – ohne Netz bleibt die vorhandene Liste") {
-        playlist = it; A.set(ctx, A.K_PLAYLIST, it)
-    }
-    SSwitch("Wiedergabe nach Standby wiederherstellen", standby,
-        subtitle = if (standby) "Nach dem Aufwachen läuft der Player weiter, Live-TV springt zur aktuellen Stelle" else "Nach dem Aufwachen bleibt der Player pausiert") {
-        standby = it; A.set(ctx, A.K_STANDBY, it)
-    }
-    SSwitch("Automatische Wiederherstellung nach Absturz", crash,
-        subtitle = "Öffnet die App nach einem Absturz neu – höchstens 2-mal in 10 Minuten, nur wenn sie gerade sichtbar war") {
-        crash = it; A.set(ctx, A.K_CRASH, it); allowed = A.canLaunch(ctx)
-    }
-    if ((boot || crash) && !allowed) {
-        SRow("Berechtigung erteilen: „Über anderen Apps einblenden“", hint ?: "Android verlangt sie ab Version 10 für den Start ohne Tastendruck") {
-            hint = if (A.openPermission(ctx)) "In der Liste „ULTRA IPTV“ erlauben, dann zurück"
-            else "Dieses Gerät hat dafür keine Einstellungsseite – einmalig per ADB: adb shell appops set ${ctx.packageName} SYSTEM_ALERT_WINDOW allow"
-        }
-    }
-    SRow("Autostart-Status und Diagnose", if (showDiag) "Ausblenden" else "Gerät, Berechtigung, Hinweise und Protokoll anzeigen") { showDiag = !showDiag }
-    if (showDiag) {
-        var testMsg by remember { mutableStateOf<String?>(null) }
-        var log by remember { mutableStateOf(A.readLog(ctx)) }
-        androidx.compose.runtime.LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(2000); log = A.readLog(ctx); allowed = A.canLaunch(ctx) } }
-        SInfo("Gerät", "${A.platform(ctx).label} · ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
-        SInfo("Android", "${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})")
-        SInfo("Start ohne Tastendruck erlaubt", if (allowed) "ja" else "nein – Berechtigung fehlt")
-        A.deviceHints(ctx).forEach { h ->
-            androidx.compose.material3.Text("• $h", color = p.textDim, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp))
-        }
-        SRow("Autostart jetzt testen (ohne Neustart)", testMsg ?: "Drücken, dann sofort die Home-Taste – die App sollte sich nach ca. 10 Sekunden von selbst öffnen") {
-            testMsg = "Jetzt Home-Taste drücken …"
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ A.launchFromBackground(ctx.applicationContext, "Test") }, 10_000)
-        }
-        SRow("Protokoll", if (log.isBlank()) "Noch keine Einträge" else "OK = Protokoll löschen") { A.clearLog(ctx); log = "" }
-        if (log.isNotBlank()) androidx.compose.material3.Text(log.lines().reversed().take(10).joinToString("\n"),
-            color = p.textDim, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
     }
 }
 

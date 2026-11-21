@@ -258,35 +258,10 @@ class ReminderReceiver : BroadcastReceiver() {
 /** Plant Erinnerungen nach einem Geräteneustart neu. */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action !in BOOT_ACTIONS) return
-        val app = context.applicationContext
+        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+        val center = EntryPointAccessors.fromApplication(context.applicationContext, NotifyEntryPoint::class.java).notificationCenter()
         val pending = goAsync()
-        Thread {
-            try {
-                // Zuerst öffnen (Einstellungen › Allgemein), danach Erinnerungen neu planen
-                val first = AutoStart.claimBoot(app)
-                if (AutoStart.isEnabled(app) && !first) AutoStart.log(app, "Weitere Startmeldung (${intent.action?.substringAfterLast('.')}) – ignoriert")
-                if (AutoStart.isEnabled(app) && first) {
-                    AutoStart.log(app, "Gerätestart gemeldet (${intent.action?.substringAfterLast('.')})")
-                    if (AutoStart.canLaunch(app)) {
-                        Thread.sleep(2_500) // kurz warten, bis der Startbildschirm des Geräts fertig ist
-                        AutoStart.launchFromBackground(app, "Autostart")
-                    } else AutoStart.log(app, "✕ Berechtigung „Über anderen Apps einblenden“ fehlt")
-                }
-                runCatching {
-                    val center = EntryPointAccessors.fromApplication(app, NotifyEntryPoint::class.java).notificationCenter()
-                    runBlocking { center.rescheduleAll() }
-                }
-                if (AutoStart.isEnabled(app) && first) Thread.sleep(10_500) // Empfänger offen halten, bis alle Startversuche erfolgt sind
-            } catch (e: Throwable) { runCatching { AutoStart.log(app, "Fehler: ${e.javaClass.simpleName}") }
-            } finally { pending.finish() }
-        }.start()
-    }
-
-    companion object {
-        /** Gerätestart – je nach Hersteller unter verschiedenen Namen gemeldet. */
-        val BOOT_ACTIONS = setOf(Intent.ACTION_BOOT_COMPLETED, "android.intent.action.QUICKBOOT_POWERON",
-            "com.htc.intent.action.QUICKBOOT_POWERON", "android.intent.action.REBOOT")
+        Thread { try { runBlocking { center.rescheduleAll() } } finally { pending.finish() } }.start()
     }
 }
 

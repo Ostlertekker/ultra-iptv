@@ -726,10 +726,7 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    private var stoppedAtMs = 0L
-
     fun onStopped(keepPlaying: Boolean) {
-        stoppedAtMs = System.currentTimeMillis()
         viewModelScope.launch { saveProgress() }
         // Übergabe an den Mini-Player: Stream läuft weiter
         if (keepPlaying || keepEngine) return
@@ -749,15 +746,6 @@ class PlayerViewModel @Inject constructor(
 
     fun onStarted() {
         if (!started) return
-        // Rückkehr aus dem Standby (Bildschirm war aus): je nach Einstellung fortsetzen oder pausiert lassen
-        val ctx = engine.appContext
-        if (ctx != null && de.ostlertekker.ultraiptv.core.notify.AutoStart.wasStandbySince(stoppedAtMs)) {
-            stoppedAtMs = 0L
-            if (!de.ostlertekker.ultraiptv.core.notify.AutoStart.get(ctx, de.ostlertekker.ultraiptv.core.notify.AutoStart.K_STANDBY)) { startTicker(); return }
-            // Live: nicht den veralteten Puffer weiterspielen, sondern zur aktuellen Sendestelle springen
-            if (isLive) engine.player?.let { p -> runCatching { p.seekToDefaultPosition(); p.prepare() } }
-        }
-        stoppedAtMs = 0L
         engine.player?.play()
         startTicker()
     }
