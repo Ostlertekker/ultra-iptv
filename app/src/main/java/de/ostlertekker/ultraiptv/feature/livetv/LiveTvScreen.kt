@@ -1,8 +1,9 @@
 @file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 
+package de.ostlertekker.ultraiptv.feature.livetv
+
 import de.ostlertekker.ultraiptv.core.ui.contentEntry
 import de.ostlertekker.ultraiptv.core.ui.rememberFocus
-package de.ostlertekker.ultraiptv.feature.livetv
 
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
 
