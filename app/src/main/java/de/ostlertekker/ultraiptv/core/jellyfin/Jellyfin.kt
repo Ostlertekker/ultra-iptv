@@ -82,6 +82,18 @@ data class JfItem(
 
 data class JfSession(val server: String, val userId: String, val userName: String, val token: String, val serverName: String)
 
+/** Auswahllisten der Jellyfin-Einstellungen (Werte, die an den Server gehen). */
+object JfOptions {
+    val bitrateNames = listOf("Automatisch (max. 120 Mbit/s)", "60 Mbit/s", "40 Mbit/s", "20 Mbit/s", "10 Mbit/s", "8 Mbit/s", "4 Mbit/s", "2 Mbit/s")
+    private val bitrates = listOf(120_000_000, 60_000_000, 40_000_000, 20_000_000, 10_000_000, 8_000_000, 4_000_000, 2_000_000)
+    fun bitrate(i: Int) = bitrates.getOrElse(i) { bitrates[0] }
+    val channelNames = listOf("Stereo (2.0)", "Surround (5.1)", "Surround (7.1)")
+    fun channels(i: Int) = listOf(2, 6, 8).getOrElse(i) { 6 }
+    val subtitleNames = listOf("Wie Wiedergabe-Einstellungen", "Aus", "Immer einblenden")
+    /** Reihen der Jellyfin-Übersicht, die man ausblenden kann. */
+    val rows = listOf("Weiterschauen", "Nächste Folgen", "Zuletzt hinzugefügt", "Zuletzt angesehen", "Meine Favoriten", "Filme", "Serien", "Meine Bibliotheken")
+}
+
 data class JfSubtitle(val url: String, val language: String?, val label: String, val format: String)
 
 /** Wie ein Titel abgespielt wird: Direct Play (Originaldatei), Direct Stream oder Transkodierung (HLS). */
@@ -104,6 +116,7 @@ class JellyfinException(message: String, val code: Int = 0) : IOException(messag
 class JellyfinRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     baseClient: OkHttpClient,
+    private val settingsRepo: de.ostlertekker.ultraiptv.core.data.SettingsRepository,
 ) {
     private val http = baseClient.newBuilder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).build()
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
@@ -399,6 +412,7 @@ class JellyfinRepository @Inject constructor(
     suspend fun items(
         types: String? = null, parentId: String? = null, sortBy: String = "SortName", descending: Boolean = false,
         filters: String? = null, limit: Int = 40, start: Int = 0, recursive: Boolean = true, genre: String? = null,
+        searchTerm: String? = null, years: List<Int>? = null,
     ): Pair<List<JfItem>, Int> {
         val q = StringBuilder("/Users/${uid()}/Items?Fields=$fields&EnableImageTypes=Primary,Backdrop&ImageTypeLimit=1&Limit=$limit&StartIndex=$start")
         q.append("&SortBy=").append(sortBy).append("&SortOrder=").append(if (descending) "Descending" else "Ascending")
@@ -407,10 +421,16 @@ class JellyfinRepository @Inject constructor(
         parentId?.let { q.append("&ParentId=").append(it) }
         filters?.let { q.append("&Filters=").append(it) }
         genre?.let { q.append("&Genres=").append(enc(it)) }
+        searchTerm?.takeIf { it.isNotBlank() }?.let { q.append("&SearchTerm=").append(enc(it.trim())) }
+        years?.takeIf { it.isNotEmpty() }?.let { y -> q.append("&Years=").append(y.joinToString(",")) }
         val el = cachedGet(q.toString())
         val total = (el as? JsonObject)?.get("TotalRecordCount")?.int() ?: 0
         return itemsOf(el) to total
     }
+
+    /** Alle Genres der Film- und Serien-Bibliotheken (für den Genre-Filter der Suche). */
+    suspend fun genres(): List<String> =
+        itemsOf(cachedGet("/Genres?userId=${uid()}&IncludeItemTypes=Movie,Series&Recursive=true&SortBy=SortName")).map { it.name }.distinct()
 
     suspend fun latest(parentId: String? = null): List<JfItem> =
         itemsOf(cachedGet("/Users/${uid()}/Items/Latest?Limit=30&Fields=$fields&GroupItems=true" + (parentId?.let { "&ParentId=$it" } ?: "")))
@@ -437,16 +457,21 @@ class JellyfinRepository @Inject constructor(
         MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.any { !it.isEncoder && it.supportedTypes.any { t -> t.equals(mime, true) } }
     }.getOrDefault(false)
 
-    private val deviceProfile: JsonObject by lazy {
-        val video = buildList {
+    private val videoCodecs: String by lazy {
+        buildList {
             add("h264"); add("mpeg2video"); add("mpeg4")
             if (hasDecoder("video/hevc")) add("hevc")
             if (hasDecoder("video/x-vnd.on2.vp9")) add("vp9")
             if (hasDecoder("video/av01")) add("av1")
         }.joinToString(",")
-        buildJsonObject {
+    }
+
+    /** Geräteprofil für den Server – mit den Werten aus Einstellungen › Jellyfin (Bitrate, Audiokanäle). */
+    private fun deviceProfile(maxBitrate: Int, audioChannels: Int): JsonObject {
+        val video = videoCodecs
+        return buildJsonObject {
             put("Name", "ULTRA IPTV")
-            put("MaxStreamingBitrate", 120_000_000)
+            put("MaxStreamingBitrate", maxBitrate)
             put("MaxStaticBitrate", 200_000_000)
             put("DirectPlayProfiles", buildJsonArray {
                 add(buildJsonObject {
@@ -457,7 +482,7 @@ class JellyfinRepository @Inject constructor(
             put("TranscodingProfiles", buildJsonArray {
                 add(buildJsonObject {
                     put("Container", "ts"); put("Type", "Video"); put("VideoCodec", "h264"); put("AudioCodec", "aac,ac3,eac3,mp3")
-                    put("Protocol", "hls"); put("Context", "Streaming"); put("MaxAudioChannels", "6"); put("MinSegments", 1); put("BreakOnNonKeyFrames", true)
+                    put("Protocol", "hls"); put("Context", "Streaming"); put("MaxAudioChannels", audioChannels.toString()); put("MinSegments", 1); put("BreakOnNonKeyFrames", true)
                 })
             })
             put("SubtitleProfiles", buildJsonArray {
@@ -471,8 +496,13 @@ class JellyfinRepository @Inject constructor(
     /** Fragt den Server, wie der Titel auf diesem Gerät abgespielt werden kann (Direct Play, sonst Transkodierung). */
     suspend fun playback(id: String, startMs: Long, forceTranscode: Boolean = false): JfPlayback {
         val s = restore() ?: throw JellyfinException("Nicht mit Jellyfin verbunden", 401)
+        val cfg = settingsRepo.current()
+        val forceTranscode = forceTranscode || cfg.jfForceTranscode
+        val maxBitrate = JfOptions.bitrate(cfg.jfMaxBitrate)
         val body = buildJsonObject {
-            put("DeviceProfile", deviceProfile)
+            put("DeviceProfile", deviceProfile(maxBitrate, JfOptions.channels(cfg.jfAudioChannels)))
+            put("MaxStreamingBitrate", maxBitrate)
+            put("MaxAudioChannels", JfOptions.channels(cfg.jfAudioChannels))
             put("StartTimeTicks", startMs * 10_000)
             put("AutoOpenLiveStream", true)
             if (forceTranscode) { put("EnableDirectPlay", false); put("EnableDirectStream", false) }
@@ -507,11 +537,14 @@ class JellyfinRepository @Inject constructor(
         event?.let { put("EventName", it) }
     }
 
-    suspend fun reportStart(id: String, pb: JfPlayback, posMs: Long) = runCatching { authed("POST", "/Sessions/Playing", progressBody(id, pb, posMs, false)) }
+    // Fortschritt an den Server melden (abschaltbar in Einstellungen › Jellyfin)
+    private suspend fun reporting() = runCatching { settingsRepo.current().jfReportProgress }.getOrDefault(true)
+    suspend fun reportStart(id: String, pb: JfPlayback, posMs: Long) =
+        runCatching { if (reporting()) authed("POST", "/Sessions/Playing", progressBody(id, pb, posMs, false)) }
     suspend fun reportProgress(id: String, pb: JfPlayback, posMs: Long, paused: Boolean) =
-        runCatching { authed("POST", "/Sessions/Playing/Progress", progressBody(id, pb, posMs, paused, if (paused) "pause" else "timeupdate")) }
+        runCatching { if (reporting()) authed("POST", "/Sessions/Playing/Progress", progressBody(id, pb, posMs, paused, if (paused) "pause" else "timeupdate")) }
     suspend fun reportStopped(id: String, pb: JfPlayback, posMs: Long) {
-        runCatching { authed("POST", "/Sessions/Playing/Stopped", progressBody(id, pb, posMs, false)) }
+        runCatching { if (reporting()) authed("POST", "/Sessions/Playing/Stopped", progressBody(id, pb, posMs, false)) }
         invalidate()
     }
 

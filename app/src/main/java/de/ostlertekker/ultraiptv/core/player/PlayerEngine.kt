@@ -505,9 +505,12 @@ class PlayerEngine @Inject constructor(
         p.playWhenReady = true
     }
 
-    fun applyConstraints(c: QualityConstraints, audioLang: String, subtitleLang: String) {
+    /** textMode: 0 = normal, 1 = Untertitel aus, 2 = immer einblenden (auch ohne Sprach-Treffer). */
+    fun applyConstraints(c: QualityConstraints, audioLang: String, subtitleLang: String, textMode: Int = 0) {
         val p = exo ?: return
         p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, textMode == 1)
+            .setSelectUndeterminedTextLanguage(textMode == 2)
             .setMaxVideoSize(c.maxWidth, c.maxHeight)
             .setMaxVideoBitrate(c.maxBitrate)
             .setForceHighestSupportedBitrate(c.forceHighest)

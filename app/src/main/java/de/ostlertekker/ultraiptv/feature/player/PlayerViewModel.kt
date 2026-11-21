@@ -315,7 +315,10 @@ class PlayerViewModel @Inject constructor(
         if (cap != null && cap < c.maxHeight) c = c.copy(maxHeight = cap, maxWidth = UltraQualityEngine.widthFor(cap))
         // Automatische Spracherkennung: ohne Profilvorgabe die Gerätesprache bevorzugen
         val audio = profile?.audioLanguage?.ifBlank { null } ?: java.util.Locale.getDefault().language
-        engine.applyConstraints(c, audio, profile?.subtitleLanguage ?: "")
+        // Jellyfin: Untertitel-Modus aus Einstellungen › Jellyfin
+        val textMode = if (isJellyfin) settingsRepo.current().jfSubtitles else 0
+        val subLang = profile?.subtitleLanguage?.ifBlank { null } ?: if (textMode == 2) java.util.Locale.getDefault().language else ""
+        engine.applyConstraints(c, audio, subLang, textMode)
     }
 
     private fun playChannel(ch: ChannelEntity) {

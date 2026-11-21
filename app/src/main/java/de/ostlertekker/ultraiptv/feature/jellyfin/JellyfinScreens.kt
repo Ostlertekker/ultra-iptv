@@ -68,6 +68,8 @@ import de.ostlertekker.ultraiptv.ui.Routes
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -102,7 +104,10 @@ fun JellyfinRepository.tile(i: JfItem, resume: Boolean = false): CinemaTile = Ci
 // =====================================================================================================
 
 @HiltViewModel
-class JellyfinViewModel @Inject constructor(val repo: JellyfinRepository) : ViewModel() {
+class JellyfinViewModel @Inject constructor(val repo: JellyfinRepository, settings: de.ostlertekker.ultraiptv.core.data.SettingsRepository) : ViewModel() {
+    /** In Einstellungen › Jellyfin ausgeblendete Reihen. */
+    val hiddenRows = settings.settings.map { s -> s.jfHiddenRows.split('\n').filter { it.isNotBlank() }.toSet() }
+        .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), emptySet())
     val session = repo.session
     val rows = MutableStateFlow<List<CinemaRow>>(emptyList())
     val libraries = MutableStateFlow<List<JfItem>>(emptyList())
@@ -181,12 +186,14 @@ fun JellyfinScreen(nav: NavController, vm: JellyfinViewModel = hiltViewModel()) 
     val context = LocalContext.current
     val p = LocalUltraTheme.current.palette
     if (session == null) { JellyfinLogin(vm); return }
-    val rows by vm.rows.collectAsStateWithLifecycle()
+    val allRows by vm.rows.collectAsStateWithLifecycle()
+    val hiddenRows by vm.hiddenRows.collectAsStateWithLifecycle()
+    val rows = remember(allRows, hiddenRows) { allRows.filter { it.title !in hiddenRows } }
     val libs by vm.libraries.collectAsStateWithLifecycle()
     val loading by vm.loading.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
-    LaunchedEffect(Unit) { if (rows.isEmpty() && !loading) vm.load() }
-    val hero = rows.firstOrNull { it.title == "Zuletzt hinzugefügt" }?.tiles?.firstOrNull { !it.backdrop.isNullOrBlank() && it.kind != "Episode" }
+    LaunchedEffect(Unit) { if (allRows.isEmpty() && !loading) vm.load() }
+    val hero = allRows.firstOrNull { it.title == "Zuletzt hinzugefügt" }?.tiles?.firstOrNull { !it.backdrop.isNullOrBlank() && it.kind != "Episode" }
     CinemaOverview(hero, rows,
         header = {
             Column {
@@ -194,6 +201,7 @@ fun JellyfinScreen(nav: NavController, vm: JellyfinViewModel = hiltViewModel()) 
                     Text("Jellyfin", color = p.text, fontSize = 26.sp, fontWeight = FontWeight.Bold)
                     Text("${session?.serverName ?: ""} · ${session?.userName ?: ""} · ${session?.server?.substringAfter("://") ?: ""}", color = p.textDim, fontSize = 13.sp,
                         maxLines = 1, modifier = Modifier.padding(end = 10.dp))
+                    TvChip("🔎 Suchen", false, { nav.navigate(Routes.JF_SEARCH) })
                     libs.forEach { l -> TvChip(l.name, false, { nav.navigate(Routes.jfLibrary(l.id, l.name)) }) }
                     TvChip("↻ Aktualisieren", false, { vm.refresh() })
                     TvChip("Abmelden", false, { vm.logout() })

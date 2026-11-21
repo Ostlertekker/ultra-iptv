@@ -74,6 +74,13 @@ data class AppSettings(
     val proSize: Int = 0,
     val proPosition: Int = 0,
     val proAnim: Int = 0,
+    /** Jellyfin (Einstellungen › Jellyfin): Bitrate-Stufe, Transkodierung erzwingen, Audiokanäle, Untertitel, Fortschritt melden, ausgeblendete Reihen. */
+    val jfMaxBitrate: Int = 0,
+    val jfForceTranscode: Boolean = false,
+    val jfAudioChannels: Int = 1,
+    val jfSubtitles: Int = 0,
+    val jfReportProgress: Boolean = true,
+    val jfHiddenRows: String = "",
     val epgRefreshHours: Int = 12,
     val epgOffsetHours: Int = 0,
     val epgDays: Int = 2,
@@ -192,6 +199,12 @@ object Keys {
     val PRO_SIZE = intPreferencesKey("pro_size")
     val PRO_POSITION = intPreferencesKey("pro_position")
     val PRO_ANIM = intPreferencesKey("pro_anim")
+    val JF_MAX_BITRATE = intPreferencesKey("jf_max_bitrate")
+    val JF_FORCE_TRANSCODE = booleanPreferencesKey("jf_force_transcode")
+    val JF_AUDIO_CHANNELS = intPreferencesKey("jf_audio_channels")
+    val JF_SUBTITLES = intPreferencesKey("jf_subtitles")
+    val JF_REPORT_PROGRESS = booleanPreferencesKey("jf_report_progress")
+    val JF_HIDDEN_ROWS = stringPreferencesKey("jf_hidden_rows")
     val EPG_REFRESH = intPreferencesKey("epg_refresh")
     val EPG_OFFSET = intPreferencesKey("epg_offset")
     val EPG_DAYS = intPreferencesKey("epg_days")
@@ -304,6 +317,12 @@ fun Preferences.toSettings(): AppSettings {
         proSize = this[Keys.PRO_SIZE] ?: d.proSize,
         proPosition = this[Keys.PRO_POSITION] ?: d.proPosition,
         proAnim = this[Keys.PRO_ANIM] ?: d.proAnim,
+        jfMaxBitrate = this[Keys.JF_MAX_BITRATE] ?: d.jfMaxBitrate,
+        jfForceTranscode = this[Keys.JF_FORCE_TRANSCODE] ?: d.jfForceTranscode,
+        jfAudioChannels = this[Keys.JF_AUDIO_CHANNELS] ?: d.jfAudioChannels,
+        jfSubtitles = this[Keys.JF_SUBTITLES] ?: d.jfSubtitles,
+        jfReportProgress = this[Keys.JF_REPORT_PROGRESS] ?: d.jfReportProgress,
+        jfHiddenRows = this[Keys.JF_HIDDEN_ROWS] ?: d.jfHiddenRows,
         epgRefreshHours = this[Keys.EPG_REFRESH] ?: d.epgRefreshHours,
         epgOffsetHours = this[Keys.EPG_OFFSET] ?: d.epgOffsetHours,
         epgDays = this[Keys.EPG_DAYS] ?: d.epgDays,

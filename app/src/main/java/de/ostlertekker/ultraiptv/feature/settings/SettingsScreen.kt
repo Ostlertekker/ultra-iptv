@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.feature.settings
 
+import de.ostlertekker.ultraiptv.core.jellyfin.JfOptions
 import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
@@ -104,6 +105,7 @@ enum class SettingsCategory(val label: String, val icon: androidx.compose.ui.gra
     EPG("TV-Programm (EPG)", Icons.Default.DateRange),
     HOME("Startseite", Icons.Default.Home),
     LIVETV("Live-TV", Icons.Default.Star),
+    JELLYFIN("Jellyfin", Icons.Default.PlayArrow),
     PLAYBACK("Wiedergabe", Icons.Default.PlayArrow),
     REMOTE("Fernbedienung", Icons.Default.Menu),
     APPEARANCE("Erscheinungsbild", Icons.Default.Edit),
@@ -120,6 +122,7 @@ class SettingsViewModel @Inject constructor(
     val repo: SettingsRepository,
     val weather: de.ostlertekker.ultraiptv.core.weather.WeatherRepository,
     val news: de.ostlertekker.ultraiptv.core.news.NewsRepository,
+    val jellyfin: de.ostlertekker.ultraiptv.core.jellyfin.JellyfinRepository,
     val device: DeviceCapabilityManager,
     private val sync: SyncRepository,
     private val creds: CredentialStore,
@@ -211,6 +214,7 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
                 SettingsCategory.PLAYLISTS -> playlistsPage(vm, x, s, nav)
                 SettingsCategory.EPG -> epgPage(vm, s)
                 SettingsCategory.HOME -> homePage(vm, s)
+                SettingsCategory.JELLYFIN -> jellyfinPage(vm, s, nav)
                 SettingsCategory.LIVETV -> liveTvPage(vm, s)
                 SettingsCategory.APPEARANCE -> appearancePage(vm, s)
                 SettingsCategory.PLAYBACK -> playbackPage(vm, s)
@@ -387,6 +391,45 @@ private fun LazyListScope.appearancePage(vm: SettingsViewModel, s: AppSettings) 
             SSwitch("24-Stunden-Format", s.clock24h) { vm.set(Keys.CLOCK_24H, it) }
             SHeader("Zurücksetzen")
             SRow("Erscheinungsbild zurücksetzen", "Akzentfarbe, Schriftart und Uhr auf Standard") { vm.resetAppearance() }
+        }
+    }
+}
+
+private fun LazyListScope.jellyfinPage(vm: SettingsViewModel, s: AppSettings, nav: NavController) {
+    item {
+        val session by vm.jellyfin.session.collectAsStateWithLifecycle()
+        val scope = androidx.compose.runtime.rememberCoroutineScope()
+        val hidden = s.jfHiddenRows.split('\n').filter { it.isNotBlank() }.toSet()
+        Column {
+            SHeader("Server & Konto")
+            val js = session
+            if (js == null) {
+                SRow("Nicht angemeldet", "Zur Jellyfin-Anmeldung") { nav.navigate(de.ostlertekker.ultraiptv.ui.Routes.JELLYFIN) }
+            } else {
+                SInfo("Server", "${js.serverName} · ${js.server.substringAfter("://")}")
+                SInfo("Benutzer", js.userName)
+                SRow("Bibliothek neu laden", "Zwischenspeicher leeren – neue Titel sofort sehen") { vm.jellyfin.invalidate() }
+                SRow("Abmelden", "Danach mit einem anderen Server oder Benutzer anmelden") { scope.launch { vm.jellyfin.logout() } }
+            }
+            SHeader("Wiedergabe")
+            SRow("Max. Streaming-Bitrate", JfOptions.bitrateNames.getOrElse(s.jfMaxBitrate) { JfOptions.bitrateNames[0] }) {
+                vm.set(Keys.JF_MAX_BITRATE, (s.jfMaxBitrate + 1) % JfOptions.bitrateNames.size)
+            }
+            SSwitch("Immer transkodieren", s.jfForceTranscode, "Nur bei Problemen einschalten – sonst spielt die App die Originaldatei direkt ab") {
+                vm.set(Keys.JF_FORCE_TRANSCODE, it)
+            }
+            SRow("Max. Audiokanäle", JfOptions.channelNames.getOrElse(s.jfAudioChannels) { JfOptions.channelNames[1] }) {
+                vm.set(Keys.JF_AUDIO_CHANNELS, (s.jfAudioChannels + 1) % JfOptions.channelNames.size)
+            }
+            SRow("Untertitel", JfOptions.subtitleNames.getOrElse(s.jfSubtitles) { JfOptions.subtitleNames[0] }) {
+                vm.set(Keys.JF_SUBTITLES, (s.jfSubtitles + 1) % JfOptions.subtitleNames.size)
+            }
+            SSwitch("Fortschritt mit dem Server abgleichen", s.jfReportProgress,
+                "Gesehen-Status und „Weiterschauen“ auch in anderen Jellyfin-Apps") { vm.set(Keys.JF_REPORT_PROGRESS, it) }
+            SHeader("Jellyfin-Übersicht")
+            JfOptions.rows.forEach { r ->
+                SSwitch(r, r !in hidden) { visible -> vm.set(Keys.JF_HIDDEN_ROWS, (if (visible) hidden - r else hidden + r).joinToString("\n")) }
+            }
         }
     }
 }
