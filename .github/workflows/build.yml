@@ -167,6 +167,16 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      - name: Teststreams für die Zapping-Messung erzeugen (ffmpeg)
+        run: |
+          command -v ffmpeg >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg; }
+          d=app/src/androidTest/assets/zap; mkdir -p $d
+          for g in 1 4; do
+            ffmpeg -loglevel error -y -f lavfi -i testsrc2=size=1280x720:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 40 \
+              -c:v libx264 -preset veryfast -profile:v main -pix_fmt yuv420p -b:v 3000k -maxrate 3000k -bufsize 3000k \
+              -g $((25*g)) -keyint_min $((25*g)) -sc_threshold 0 -c:a aac -b:a 128k -f mpegts $d/gop$g.ts
+          done
+          ls -la $d
       - name: Test-APKs vorbereiten
         run: |
           chmod +x gradlew
@@ -196,7 +206,7 @@ jobs:
           cp -r shots /tmp/rep/ 2>/dev/null || true
           cp uitest.log /tmp/rep/ 2>/dev/null || true
           grep -E "FATAL|AndroidRuntime|ANR in" -A25 logcat.txt > /tmp/rep/crashes.txt 2>/dev/null || true
-          grep -E "UiSmoke|TestRunner|ultraiptv|UltraPluto" logcat.txt | tail -400 > /tmp/rep/steps.txt 2>/dev/null || true
+          grep -E "UiSmoke|TestRunner|ultraiptv|UltraPluto|UltraZap" logcat.txt | tail -400 > /tmp/rep/steps.txt 2>/dev/null || true
           grep "UiPerf" logcat.txt | sed 's/.*UiPerf *: //' > /tmp/rep/perf.txt 2>/dev/null || true
           grep -E "Jellyfin|jellyfin" logcat.txt | tail -300 > /tmp/rep/jellyfin.txt 2>/dev/null || true
           find app/build/outputs/androidTest-results -name '*.xml' -exec cp {} /tmp/rep/ \; 2>/dev/null || true

@@ -24,6 +24,8 @@ import de.ostlertekker.ultraiptv.core.player.MiniInfo
 import de.ostlertekker.ultraiptv.core.search.SmartSearch
 import de.ostlertekker.ultraiptv.core.model.ContentKind
 import de.ostlertekker.ultraiptv.core.player.PlayerEngine
+import de.ostlertekker.ultraiptv.core.player.ZapMonitor
+import de.ostlertekker.ultraiptv.core.player.ZapTuner
 import de.ostlertekker.ultraiptv.core.player.UltraQualityEngine
 import de.ostlertekker.ultraiptv.core.security.StreamResolver
 import de.ostlertekker.ultraiptv.feature.smartskip.SegmentType
@@ -100,6 +102,11 @@ private const val LIVE_TOLERANCE_MS = 9_000L
 private const val JF = "jf:"
 
 @HiltViewModel
+/** Zwei Sendertasten innerhalb dieser Zeit = schnelles Weiterzappen. */
+private const val RAPID_MS = 450L
+/** Wartezeit nach der letzten Taste beim schnellen Weiterzappen, bevor der Stream startet. */
+private const val COALESCE_MS = 220L
+
 class PlayerViewModel @Inject constructor(
     savedState: SavedStateHandle,
     val engine: PlayerEngine,
@@ -331,7 +338,16 @@ class PlayerViewModel @Inject constructor(
         engine.applyConstraints(c, audio, subLang, textMode)
     }
 
-    private fun playChannel(ch: ChannelEntity) {
+    /** Senderinfo sofort zeigen (auch während schnellen Weiterzappens, bevor der Stream startet). */
+    private fun showChannelInfo(ch: ChannelEntity) {
+        _ui.update { it.copy(zapAt = System.currentTimeMillis(), qualityNote = null) }
+        _ui.update { it.copy(title = ch.name, artwork = ch.logo, subtitle = (if (ch.number > 0) "${ch.number} · " else "") + ch.category, nowTitle = null, nextTitle = null, programProgress = null) }
+    }
+
+    private fun playChannel(ch: ChannelEntity, measured: Boolean = false) {
+        if (!measured) ZapMonitor.begin(ch.name, settings.zapTurbo, ch.id in prepared)
+        pendingZap?.cancel(); pendingZap = null
+        ZapTuner.countZap(ch.id)
         saveChannelQuality()
         logWatch()
         watchStart = System.currentTimeMillis()
@@ -339,9 +355,9 @@ class PlayerViewModel @Inject constructor(
         logName = ch.name; logCategory = ch.category
         _ui.update { it.copy(shiftBehindMs = 0, livePaused = false, canTimeshift = ch.archiveDays > 0, score = null, scoreFlash = null) }
         itemId = ch.id; image = ch.logo
-        _ui.update { it.copy(zapAt = System.currentTimeMillis(), qualityNote = null) }
-        _ui.update { it.copy(title = ch.name, artwork = ch.logo, subtitle = (if (ch.number > 0) "${ch.number} · " else "") + ch.category, nowTitle = null, nextTitle = null, programProgress = null) }
+        showChannelInfo(ch)
         play(ch.streamUrl, 0)
+        if (settings.zapTurbo) prepareLikelyNext()
         viewModelScope.launch {
             user.saveProgress(ContentKind.LIVE, ch.id, 0, 0, ch.name, ch.logo)
             refreshEpg(ch)
@@ -626,11 +642,62 @@ class PlayerViewModel @Inject constructor(
         p.seekTo(if (p.duration > 0) target.coerceAtMost(p.duration - 1000) else target)
     }
 
+    // ------------------------------------------------------------------ Senderwechsel (Zapping)
+
+    private var lastSwitchAt = 0L
+    private var lastDelta = 1
+    private var pendingZap: kotlinx.coroutines.Job? = null
+    private var prepJob: kotlinx.coroutines.Job? = null
+    /** Sender, die gerade vorbereitet sind (für die Auswertung „vorhergesagt“). */
+    private val prepared = HashSet<String>()
+
     fun switchChannel(delta: Int) {
         if (kind != ContentKind.LIVE || channels.size < 2) return
         previousIndex = channelIndex
         channelIndex = (channelIndex + delta).mod(channels.size)
-        playChannel(channels[channelIndex])
+        lastDelta = if (delta >= 0) 1 else -1
+        val ch = channels[channelIndex]
+        ZapMonitor.begin(ch.name, settings.zapTurbo, ch.id in prepared) // Messung ab Tastendruck
+        val now = android.os.SystemClock.elapsedRealtime()
+        val rapid = settings.zapTurbo && now - lastSwitchAt < RAPID_MS
+        lastSwitchAt = now
+        if (rapid) {
+            // Schnelles Weiterzappen: Senderinfo sofort, Stream erst für den Sender, bei dem der Nutzer stehen bleibt –
+            // spart pro übersprungenem Sender einen kompletten Verbindungsauf- und -abbau beim Anbieter
+            pendingZap?.cancel()
+            showChannelInfo(ch)
+            pendingZap = viewModelScope.launch { delay(COALESCE_MS); pendingZap = null; playChannel(ch, measured = true) }
+        } else playChannel(ch, measured = true)
+    }
+
+    /**
+     * Wahrscheinlich nächste Sender vorbereiten: Nachbar in Zapp-Richtung, Gegenrichtung, zuletzt gesehener Sender und die
+     * am häufigsten gewählten. Vorbereitet werden nur leichte Dinge – Stream-Adresse, Namensauflösung (DNS) und Programmdaten.
+     * Bewusst KEIN zweiter Stream im Hintergrund: viele Anbieter erlauben nur eine Verbindung gleichzeitig.
+     */
+    private fun prepareLikelyNext() {
+        prepJob?.cancel()
+        prepJob = viewModelScope.launch {
+            delay(1_500) // erst wenn der aktuelle Sender läuft – der Start hat Vorrang
+            if (channels.size < 2) return@launch
+            val ids = LinkedHashSet<String>()
+            channels.getOrNull((channelIndex + lastDelta).mod(channels.size))?.let { ids += it.id }
+            channels.getOrNull((channelIndex - lastDelta).mod(channels.size))?.let { ids += it.id }
+            channels.getOrNull(previousIndex)?.let { ids += it.id }
+            ZapTuner.topZapped(3).forEach { id -> if (channels.any { it.id == id }) ids += id }
+            ids.remove(channels.getOrNull(channelIndex)?.id)
+            val list = ids.mapNotNull { id -> channels.firstOrNull { it.id == id } }
+            prepared.clear(); prepared.addAll(list.map { it.id })
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val hosts = HashSet<String>()
+                for (c in list) {
+                    runCatching { resolver.resolve(c.streamUrl, settings.liveFormat) }.getOrNull()
+                        ?.let { android.net.Uri.parse(it).host }?.let { hosts += it }
+                    runCatching { epg.nowNext(c.epgId) }
+                }
+                hosts.forEach { h -> runCatching { java.net.InetAddress.getAllByName(h) } }
+            }
+        }
     }
 
     fun channelList(): List<ChannelEntity> = channels
@@ -695,7 +762,7 @@ class PlayerViewModel @Inject constructor(
         if (i >= 0) { playChannelAt(i); return }
         viewModelScope.launch { content.channel(id)?.let { playChannel(it) } }
     }
-    fun playChannelAt(index: Int) { if (index in channels.indices) { previousIndex = channelIndex; channelIndex = index; playChannel(channels[index]) } }
+    fun playChannelAt(index: Int) { if (index in channels.indices) { previousIndex = channelIndex; channelIndex = index; lastDelta = 1; playChannel(channels[index]) } }
 
     fun setResize(mode: Int) = _ui.update { it.copy(resizeMode = mode) }
     fun setSpeed(speed: Float) { engine.player?.setPlaybackSpeed(speed.coerceIn(0.25f, 4f)); _ui.update { it.copy(speed = speed.coerceIn(0.25f, 4f)) } }

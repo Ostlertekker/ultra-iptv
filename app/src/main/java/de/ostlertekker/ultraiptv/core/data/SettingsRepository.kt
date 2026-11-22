@@ -109,6 +109,8 @@ data class AppSettings(
     val serverTz: String = "",
     /** Lokaler Live-Zeitversatz in Minuten (0 = aus). */
     val timeshiftMin: Int = 30,
+    /** Schnellstart beim Senderwechsel (lernender Start-Puffer, Zusammenfassen schneller Tastendrücke, Vorbereiten wahrscheinlicher Sender). */
+    val zapTurbo: Boolean = true,
     /** Performance-Modus: statischer Hintergrund, schlanke Animationen (Standard an). */
     val perfMode: Boolean = true,
     /** Untertitel-Verzögerung in ms (0…10000, nur „später“ technisch möglich). */
@@ -235,6 +237,7 @@ object Keys {
     val MOTION_PROFILES = stringPreferencesKey("motion_profiles")
     val SERVER_TZ = stringPreferencesKey("server_tz")
     val TIMESHIFT_MIN = intPreferencesKey("timeshift_min")
+    val ZAP_TURBO = booleanPreferencesKey("zap_turbo")
     val PERF_MODE = booleanPreferencesKey("perf_mode")
     val SUB_DELAY = intPreferencesKey("sub_delay_ms")
     val CINEMA_MODE = booleanPreferencesKey("cinema_mode")
@@ -357,6 +360,7 @@ fun Preferences.toSettings(): AppSettings {
         motionProfilesJson = this[Keys.MOTION_PROFILES] ?: d.motionProfilesJson,
         serverTz = this[Keys.SERVER_TZ] ?: d.serverTz,
         timeshiftMin = this[Keys.TIMESHIFT_MIN] ?: d.timeshiftMin,
+        zapTurbo = this[Keys.ZAP_TURBO] ?: d.zapTurbo,
         perfMode = this[Keys.PERF_MODE] ?: d.perfMode,
         subDelayMs = this[Keys.SUB_DELAY] ?: d.subDelayMs,
         cinemaMode = false, // Kinomodus entfernt

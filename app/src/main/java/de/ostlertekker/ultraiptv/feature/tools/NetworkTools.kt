@@ -807,12 +807,56 @@ private fun DiagPane(vm: NetworkToolsViewModel) {
                 Text(v, color = p.text, fontSize = 15.sp)
             }
         }
+        item { ZapStats() }
         item {
             Text("Letzte Fehler", color = p.text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(top = 14.dp, bottom = 4.dp).tvFocusable(RoundedCornerShape(8.dp), {}, scaleOnFocus = false))
             Text(errors ?: "Keine Abstürze oder Hänger aufgezeichnet.", color = if (errors != null) Warn else p.textDim, fontSize = 13.sp)
             Text("Cache leeren löscht nur Zwischenspeicher (Bilder, Web). Favoriten, Einstellungen, Profile und Fortschritte bleiben erhalten.",
                 color = p.textDim.copy(alpha = 0.8f), fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp))
+        }
+    }
+}
+
+
+/** Auswertung der gemessenen Senderwechsel: Median, P95, P99 – getrennt nach Schnellstart an/aus. */
+@Composable
+private fun ZapStats() {
+    val p = LocalUltraTheme.current.palette
+    var recs by remember { mutableStateOf(de.ostlertekker.ultraiptv.core.player.ZapMonitor.all()) }
+    val M = de.ostlertekker.ultraiptv.core.player.ZapMonitor
+    Column(Modifier.padding(top = 14.dp)) {
+        Text("Senderwechsel-Messung", color = p.text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.tvFocusable(RoundedCornerShape(8.dp), { recs = M.all() }, scaleOnFocus = false).padding(vertical = 4.dp))
+        if (recs.isEmpty()) {
+            Text("Noch keine Messwerte – einfach im Live-TV ein paar Mal umschalten.", color = p.textDim, fontSize = 13.sp)
+            return@Column
+        }
+        val groups = listOf("Schnellstart an" to recs.filter { it.turbo }, "Schnellstart aus" to recs.filter { !it.turbo }).filter { it.second.isNotEmpty() }
+        Row(Modifier.padding(top = 6.dp)) {
+            Text("Wert (ms)", color = p.textDim, fontSize = 13.sp, modifier = Modifier.width(220.dp))
+            groups.forEach { (g, l) -> Text("$g (${l.size}×)  Median · P95 · P99", color = p.textDim, fontSize = 13.sp, modifier = Modifier.width(300.dp)) }
+        }
+        M.METRICS.forEach { (name, sel) ->
+            Row(Modifier.fillMaxWidth().tvFocusable(RoundedCornerShape(8.dp), {}, scaleOnFocus = false).padding(vertical = 3.dp)) {
+                Text(name, color = p.textDim, fontSize = 14.sp, modifier = Modifier.width(220.dp))
+                groups.forEach { (_, l) ->
+                    val q = M.pct(l.map(sel))
+                    Text(q?.let { "${it.median} · ${it.p95} · ${it.p99}" } ?: "–", color = p.text, fontSize = 14.sp, modifier = Modifier.width(300.dp))
+                }
+            }
+        }
+        groups.forEach { (g, l) ->
+            val pred = l.filter { it.predicted }.map { it.total }
+            val err = l.count { it.errors > 0 }
+            Text("$g: Ø CPU ${l.map { it.cpuPct }.average().toInt()} % · RAM ~${l.last().ramMb} MB · Ø Daten ${l.map { it.netKb }.average().toLong()} KB pro Wechsel · " +
+                "Fehler ${err} · Wiederholungen ${l.sumOf { it.retries }} · Start-Puffer Median ${M.pct(l.map { it.startBufferMs })?.median ?: "–"} ms" +
+                (M.pct(pred)?.let { " · vorbereitete Sender: Median ${it.median} ms (${it.n}×)" } ?: ""),
+                color = p.textDim, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
+            TvButton("Aktualisieren", onClick = { recs = M.all() })
+            TvButton("Messwerte löschen", onClick = { M.clear(); recs = emptyList() })
         }
     }
 }

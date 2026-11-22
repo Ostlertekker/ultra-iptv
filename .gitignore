@@ -12,3 +12,4 @@ captures/
 ffmpeg/src/main/jni/ffmpeg/
 ffmpeg/.cxx/
 app/src/main/assets/adblock/
+app/src/androidTest/assets/zap/

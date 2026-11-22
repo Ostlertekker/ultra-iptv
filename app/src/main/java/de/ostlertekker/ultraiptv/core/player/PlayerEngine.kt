@@ -152,7 +152,13 @@ class PlayerEngine @Inject constructor(
     /** true, solange Video läuft – hält den Bildschirm wach (auch für Vorschau/Mini-Player). */
     val playing: StateFlow<Boolean> = _playing.asStateFlow()
 
+    /** Start-Puffer für den laufenden Live-Start (µs, 0 = Standardwerte); gesetzt vom Schnellstart. */
+    @Volatile private var liveStartUs = 0L
+    private var readyAt = 0L
+    private var earlyStallSeen = false
+
     init {
+        ZapMonitor.init(context); ZapTuner.init(context)
         scope.launch {
             settingsRepo.settings.collect { s ->
                 cfg = s
@@ -274,6 +280,7 @@ class PlayerEngine @Inject constructor(
     }
 
     private fun reconnect(reason: String) {
+        ZapMonitor.retry()
         val p = exo ?: return
         val url = currentUrl ?: return
         if (tsBuffer != null) {
@@ -318,11 +325,14 @@ class PlayerEngine @Inject constructor(
         isLive && who == "player" && cfg.timeshiftMin > 0 && mimeFor(url) == null
 
     private fun startTimeshift(url: String): MediaItem {
+        val previousGone = tsBuffer?.disconnected
         stopTimeshift()
         val free = context.cacheDir.usableSpace
         val maxBytes = (free * 0.35).toLong().coerceIn(64L * 1024 * 1024, 4L * 1024 * 1024 * 1024)
         val b = TimeshiftBuffer(java.io.File(context.cacheDir, "timeshift"), url, USER_AGENT, cfg.timeshiftMin * 60_000L, maxBytes)
-        b.start()
+        b.onConnected = { ZapMonitor.connected() }
+        b.onFirstData = { ZapMonitor.firstData() }
+        b.start(after = previousGone)
         tsBuffer = b
         tsStartWall = System.currentTimeMillis()
         return tsItem(0L)
@@ -444,7 +454,7 @@ class PlayerEngine @Inject constructor(
         }
         val loadControl = VodStartLoadControl(DefaultLoadControl.Builder()
             .setBufferDurationsMs(minB, maxB, play, rebuffer)
-            .build()) { if (live) 0L else VOD_START_BUFFER_US }
+            .build(), { if (live) 0L else VOD_START_BUFFER_US }, { if (live) liveStartUs else 0L })
         // Größerer Tonpuffer: Decoder-Spitzen beim Anlaufen (z. B. DTS-HD MA in Software) führen nicht zu Knistern
         val renderers = object : DefaultRenderersFactory(context) {
             override fun buildAudioSink(ctx: android.content.Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean):
@@ -466,6 +476,13 @@ class PlayerEngine @Inject constructor(
             .setAllowCrossProtocolRedirects(true)
             .setConnectTimeoutMs(10_000)
             .setReadTimeoutMs(12_000)
+            // Messpunkte Senderwechsel: Server antwortet / erste Daten (HLS, direkte Streams)
+            .setTransferListener(object : androidx.media3.datasource.TransferListener {
+                override fun onTransferInitializing(source: androidx.media3.datasource.DataSource, dataSpec: androidx.media3.datasource.DataSpec, isNetwork: Boolean) {}
+                override fun onTransferStart(source: androidx.media3.datasource.DataSource, dataSpec: androidx.media3.datasource.DataSpec, isNetwork: Boolean) { if (isNetwork) ZapMonitor.connected() }
+                override fun onBytesTransferred(source: androidx.media3.datasource.DataSource, dataSpec: androidx.media3.datasource.DataSpec, isNetwork: Boolean, bytesTransferred: Int) { if (isNetwork && bytesTransferred > 0) ZapMonitor.firstData() }
+                override fun onTransferEnd(source: androidx.media3.datasource.DataSource, dataSpec: androidx.media3.datasource.DataSpec, isNetwork: Boolean) {}
+            })
         val sourceFactory = DefaultMediaSourceFactory(RoutingDataSourceFactory(DefaultDataSource.Factory(context, http)) { tsBuffer })
             .setLoadErrorHandlingPolicy(DefaultLoadErrorHandlingPolicy(6))
         val p = ExoPlayer.Builder(context, renderers)
@@ -509,6 +526,10 @@ class PlayerEngine @Inject constructor(
         _error.value = null
         _notice.value = null
         _stats.value = PlaybackStats()
+        // Schnellstart (Live, Vollbild-Player): Wiedergabe beginnt mit dem für diesen Sender gelernten Vorrat statt pauschal 2 s
+        liveStartUs = if (isLive && who == "player" && cfg.zapTurbo) ZapTuner.startMs(url) * 1000 else 0L
+        ZapMonitor.startBuffer(if (liveStartUs > 0) liveStartUs / 1000 else profileStartMs(profile))
+        readyAt = 0L; earlyStallSeen = false
         val now = SystemClock.elapsedRealtime()
         graceUntil = now + 12_000 // erster Verbindungsaufbau darf länger dauern
         lastProgressAt = now; lastPos = Long.MIN_VALUE
@@ -516,7 +537,10 @@ class PlayerEngine @Inject constructor(
         else { stopTimeshift(); p.setMediaItem(mediaItem(url, subtitles), startMs.coerceAtLeast(0)) }
         p.prepare()
         p.playWhenReady = true
+        ZapMonitor.request()
     }
+
+    private fun profileStartMs(p: BufferProfile) = when (p) { BufferProfile.STANDARD -> 2_000L; BufferProfile.LARGE -> 2_500L; BufferProfile.LOW_LATENCY -> 1_000L }
 
     /** textMode: 0 = normal, 1 = Untertitel aus, 2 = immer einblenden (auch ohne Sprach-Treffer). */
     fun applyConstraints(c: QualityConstraints, audioLang: String, subtitleLang: String, textMode: Int = 0) {
@@ -632,10 +656,22 @@ class PlayerEngine @Inject constructor(
             _state.value = playbackState
             val now = System.currentTimeMillis()
             if (playbackState == Player.STATE_BUFFERING && wasReady) {
+                // Schnellstart-Lernen: Stocken in den ersten 15 s → dieser Sender braucht mehr Start-Vorrat
+                if (liveStartUs > 0 && !earlyStallSeen && readyAt > 0 && SystemClock.elapsedRealtime() - readyAt < 15_000) {
+                    earlyStallSeen = true; currentUrl?.let { ZapTuner.onEarlyStall(it) }
+                }
                 stallStart = now
                 _stats.update { it.copy(rebuffers = it.rebuffers + 1) }
             }
             if (playbackState == Player.STATE_READY) {
+                if (readyAt == 0L) {
+                    readyAt = SystemClock.elapsedRealtime()
+                    val u = currentUrl
+                    if (liveStartUs > 0 && u != null) scope.launch {
+                        delay(20_000)
+                        if (currentUrl == u && !earlyStallSeen && exo?.isPlaying == true) ZapTuner.onCleanStart(u)
+                    }
+                }
                 if (stallStart > 0) { val d = now - stallStart; _stats.update { it.copy(stallMs = it.stallMs + d) }; stallStart = 0 }
                 wasReady = true
                 retries = 0
@@ -661,6 +697,7 @@ class PlayerEngine @Inject constructor(
         }
 
         override fun onPlayerError(error: PlaybackException) {
+            ZapMonitor.error()
             val p = exo ?: return
             val http = (error.cause as? HttpDataSource.InvalidResponseCodeException)?.responseCode ?: 0
             _stats.update { it.copy(errors = it.errors + 1, lastError = error.errorCodeName, httpCode = http) }
@@ -737,6 +774,7 @@ class PlayerEngine @Inject constructor(
         }
 
         override fun onVideoInputFormatChanged(eventTime: AnalyticsListener.EventTime, format: Format, decoderReuseEvaluation: DecoderReuseEvaluation?) {
+            ZapMonitor.format()
             val hdr = when {
                 format.sampleMimeType == MimeTypes.VIDEO_DOLBY_VISION -> "Dolby Vision (Quelle)"
                 format.colorInfo?.colorTransfer == C.COLOR_TRANSFER_ST2084 -> "HDR10 / PQ (Quelle)"
@@ -754,6 +792,7 @@ class PlayerEngine @Inject constructor(
         }
 
         override fun onVideoDecoderInitialized(eventTime: AnalyticsListener.EventTime, decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long) {
+            ZapMonitor.decoderInit(initializationDurationMs)
             _stats.update { it.copy(videoDecoder = decoderName) }
         }
 
@@ -768,6 +807,9 @@ class PlayerEngine @Inject constructor(
         override fun onAudioDecoderInitialized(eventTime: AnalyticsListener.EventTime, decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long) {
             _stats.update { it.copy(audioDecoder = decoderName) }
         }
+
+        override fun onRenderedFirstFrame(eventTime: AnalyticsListener.EventTime, output: Any, renderTimeMs: Long) { ZapMonitor.firstFrame() }
+        override fun onAudioPositionAdvancing(eventTime: AnalyticsListener.EventTime, playoutStartSystemTimeMs: Long) { ZapMonitor.audioStarted() }
 
         override fun onBandwidthEstimate(eventTime: AnalyticsListener.EventTime, totalLoadTimeMs: Int, totalBytesLoaded: Long, bitrateEstimate: Long) {
             _stats.update { it.copy(bandwidthBps = bitrateEstimate) }
@@ -790,11 +832,15 @@ private const val VOD_START_BUFFER_US = 4_000_000L
 private class VodStartLoadControl(
     private val d: DefaultLoadControl,
     private val minStartUs: () -> Long,
+    /** Live-Schnellstart: Wiedergabe beginnt, sobald so viel Vorrat da ist (0 = Standardwerte). Nachladen nach Stocken bleibt unverändert. */
+    private val liveStartUs: () -> Long = { 0L },
 ) : androidx.media3.exoplayer.LoadControl {
     // Alle Varianten ausdrücklich an DefaultLoadControl weiterreichen (die Schnittstelle besteht fast nur aus Default-Methoden)
     override fun shouldStartPlayback(parameters: androidx.media3.exoplayer.LoadControl.Parameters): Boolean {
         val need = minStartUs()
         if (need > 0 && !parameters.rebuffering && parameters.bufferedDurationUs < need) return false
+        val fast = liveStartUs()
+        if (fast > 0 && !parameters.rebuffering && parameters.bufferedDurationUs >= fast) return true
         return d.shouldStartPlayback(parameters)
     }
     override fun onPrepared(playerId: androidx.media3.exoplayer.analytics.PlayerId) = d.onPrepared(playerId)

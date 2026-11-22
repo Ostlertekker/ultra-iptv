@@ -21,7 +21,7 @@ import java.net.URL
  * springen; „Live“ = ans Pufferende. Ältestes wird automatisch gelöscht (Zeit- und Speichergrenze).
  */
 class TimeshiftBuffer(
-    private val dir: File,
+    private val root: File,
     private val url: String,
     private val userAgent: String,
     private val maxMs: Long,
@@ -31,6 +31,15 @@ class TimeshiftBuffer(
         var length = 0L
         var raf: RandomAccessFile? = null
     }
+
+    /** Eigener Unterordner pro Puffer: das Aufräumen eines alten Puffers (im Hintergrund) kann den neuen nie treffen. */
+    private val dir = File(root, "s" + System.nanoTime())
+    /** Messpunkte für den Senderwechsel (Server antwortet / erste Daten). */
+    @Volatile var onConnected: (() -> Unit)? = null
+    @Volatile var onFirstData: (() -> Unit)? = null
+    private var firstDataSent = false
+    /** Wird ausgelöst, sobald die Anbieter-Verbindung dieses Puffers wirklich getrennt ist. */
+    val disconnected = java.util.concurrent.CountDownLatch(1)
 
     private val lock = Object()
     private val chunks = ArrayDeque<Chunk>()
@@ -49,10 +58,16 @@ class TimeshiftBuffer(
     private var thread: Thread? = null
     @Volatile private var conn: HttpURLConnection? = null
 
-    fun start() {
+    /**
+     * Startet den Download. [after] = Trennung des vorherigen Puffers: erst danach verbinden (viele Anbieter erlauben nur
+     * eine Verbindung gleichzeitig), aber höchstens 500 ms warten.
+     */
+    fun start(after: java.util.concurrent.CountDownLatch? = null) {
         dir.mkdirs()
-        dir.listFiles()?.forEach { it.delete() }
-        thread = Thread({ downloadLoop() }, "ultra-timeshift").apply { priority = Thread.NORM_PRIORITY; isDaemon = true; start() }
+        ACTIVE.add(dir.name)
+        // Reste früherer Puffer (z. B. nach Absturz) im Hintergrund löschen – nicht im Bedien-Thread
+        CLEANUP.execute { root.listFiles()?.forEach { f -> if (f.name !in ACTIVE) f.deleteRecursively() } }
+        thread = Thread({ runCatching { after?.await(500, java.util.concurrent.TimeUnit.MILLISECONDS) }; downloadLoop() }, "ultra-timeshift").apply { priority = Thread.NORM_PRIORITY; isDaemon = true; start() }
     }
 
     private fun downloadLoop() {
@@ -68,6 +83,7 @@ class TimeshiftBuffer(
                 conn = c
                 val code = c.responseCode
                 if (code !in 200..299) { lastError = "HTTP $code"; c.disconnect(); sleepQuiet(backoff); backoff = (backoff * 2).coerceAtMost(8_000); continue }
+                onConnected?.invoke()
                 c.inputStream.use { input ->
                     backoff = 500L; lastError = null
                     while (!closed) {
@@ -106,6 +122,7 @@ class TimeshiftBuffer(
             trim(now)
             lock.notifyAll()
         }
+        if (!firstDataSent) { firstDataSent = true; onFirstData?.invoke() }
     }
 
     /** Älteste Blöcke löschen (Zeit- und Speichergrenze). Ein Block bleibt immer. */
@@ -167,20 +184,33 @@ class TimeshiftBuffer(
     /** Verbindung neu aufbauen (vom Wächter, wenn nichts mehr ankommt). */
     fun kick() { runCatching { conn?.disconnect() } }
 
+    /**
+     * Beendet den Puffer sofort für den Player; Verbindung trennen und Dateien löschen laufen im Hintergrund
+     * (vorher im Bedien-Thread – das Löschen eines großen Zeitversatz-Puffers verzögerte den Senderwechsel).
+     */
     fun close() {
         closed = true
-        runCatching { conn?.disconnect() }
         thread?.interrupt()
-        synchronized(lock) {
-            lock.notifyAll()
-            runCatching { writer?.close() }
-            chunks.forEach { runCatching { it.raf?.close() }; it.file.delete() }
-            chunks.clear()
+        onConnected = null; onFirstData = null
+        synchronized(lock) { lock.notifyAll() }
+        CLEANUP.execute {
+            runCatching { conn?.disconnect() }
+            disconnected.countDown()
+            synchronized(lock) {
+                lock.notifyAll()
+                runCatching { writer?.close() }
+                chunks.forEach { runCatching { it.raf?.close() }; it.file.delete() }
+                chunks.clear()
+            }
+            dir.deleteRecursively()
+            ACTIVE.remove(dir.name)
         }
     }
 
     companion object {
         const val CHUNK = 8L * 1024 * 1024
+        private val CLEANUP = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "ultra-timeshift-cleanup").apply { isDaemon = true } }
+        private val ACTIVE: MutableSet<String> = java.util.Collections.synchronizedSet(HashSet())
     }
 }
 
