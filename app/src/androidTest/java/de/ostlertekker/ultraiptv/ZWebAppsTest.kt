@@ -59,4 +59,24 @@ class ZWebAppsTest {
         }
 
     }
+
+    /** Pluto TV: offizielle Weboberfläche im App-Rahmen – laden, Bereiche wechseln, Zeiger bedienen, Zurück, kein Absturz. */
+    @Test fun plutoEmbedded() {
+        StabilityGuard.clear(context)
+        ActivityScenario.launch<de.ostlertekker.ultraiptv.feature.web.BrowserActivity>(
+            Intent(context, de.ostlertekker.ultraiptv.feature.web.BrowserActivity::class.java).putExtra("mode", "pluto")
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)).use { sc ->
+            Thread.sleep(20_000); shot("pluto_live")
+            var host: String? = null
+            sc.onActivity { a -> host = runCatching { android.net.Uri.parse(a.window.decorView.findViewWithTag<android.webkit.WebView>("ultra_web")?.url).host }.getOrNull() }
+            android.util.Log.i("UiSmoke", "Pluto: Host $host")
+            key("Pluto Zeiger bewegen", KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_RIGHT, pauseMs = 300)
+            key("Pluto Klick", KeyEvent.KEYCODE_DPAD_CENTER)
+            Thread.sleep(8000); shot("pluto_klick")
+            key("Pluto Leiste aus (Menü)", KeyEvent.KEYCODE_MENU)
+            Thread.sleep(1500); shot("pluto_vollbild")
+            key("Pluto Leiste ein (Zurück)", KeyEvent.KEYCODE_BACK)
+            Thread.sleep(1500); shot("pluto_leiste")
+        }
+    }
 }

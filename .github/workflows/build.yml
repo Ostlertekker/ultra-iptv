@@ -147,7 +147,7 @@ jobs:
   # Fernbedienungstasten bedienen, Sender/Filme abspielen – Abstürze und Hänger lassen den Test scheitern.
   ui-test:
     # Standardmäßig übersprungen (schnellere Releases). Nur mit „[ui]“ in der Commit-Nachricht läuft der Oberflächentest.
-    # [ui] = alle Oberflächentests; [ui:testName] = nur dieser eine Test (schneller)
+    # [ui] = alle Oberflächentests; [ui:testName] = nur dieser eine Test (schneller); [ui:Klasse#test] = Test einer anderen Klasse
     if: ${{ contains(github.event.head_commit.message, '[ui]') || contains(github.event.head_commit.message, '[ui:') }}
     runs-on: ubuntu-latest
     timeout-minutes: 75
@@ -179,7 +179,7 @@ jobs:
           profile: tv_1080p
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: f=$(printf '%s' "$COMMIT_MSG" | grep -o '\[ui:[A-Za-z0-9_]*\]' | head -1 | sed 's/\[ui:\(.*\)\]/\1/'); arg=""; [ -n "$f" ] && arg="-Pandroid.testInstrumentationRunnerArguments.class=de.ostlertekker.ultraiptv.UiSmokeTest#$f"; timeout 3000 ./gradlew --no-daemon connectedDebugAndroidTest $arg > uitest.log 2>&1; r=$?; mkdir -p shots; adb pull /data/local/tmp/shots shots || true; adb logcat -d > logcat.txt; grep -E 'Tests? |tests completed|FAILED|BUILD' uitest.log | tail -15; exit $r
+          script: f=$(printf '%s' "$COMMIT_MSG" | grep -o '\[ui:[A-Za-z0-9_#]*\]' | head -1 | sed 's/\[ui:\(.*\)\]/\1/'); arg=""; c="UiSmokeTest#$f"; case "$f" in *#*) c="$f";; esac; [ -n "$f" ] && arg="-Pandroid.testInstrumentationRunnerArguments.class=de.ostlertekker.ultraiptv.$c"; timeout 3000 ./gradlew --no-daemon connectedDebugAndroidTest $arg > uitest.log 2>&1; r=$?; mkdir -p shots; adb pull /data/local/tmp/shots shots || true; adb logcat -d > logcat.txt; grep -E 'Tests? |tests completed|FAILED|BUILD' uitest.log | tail -15; exit $r
       - uses: actions/upload-artifact@v4
         if: always()
         with:
