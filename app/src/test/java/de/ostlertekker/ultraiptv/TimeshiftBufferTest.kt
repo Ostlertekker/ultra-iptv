@@ -64,6 +64,9 @@ class TimeshiftBufferTest {
             assertTrue(late >= early)
             assertEquals(0L, late % 188)
         } finally { b.close() }
+        // Aufräumen läuft im Hintergrund (nicht mehr im Bedien-Thread) – auf das Ende warten
+        assertTrue("Aufräumen beendet", b.cleaned.await(5, java.util.concurrent.TimeUnit.SECONDS))
+        assertTrue("Verbindung getrennt", b.disconnected.count == 0L)
         assertTrue("Dateien gelöscht", dir.listFiles().isNullOrEmpty())
     }
 

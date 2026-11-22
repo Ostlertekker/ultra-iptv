@@ -40,6 +40,8 @@ class TimeshiftBuffer(
     private var firstDataSent = false
     /** Wird ausgelöst, sobald die Anbieter-Verbindung dieses Puffers wirklich getrennt ist. */
     val disconnected = java.util.concurrent.CountDownLatch(1)
+    /** Wird ausgelöst, wenn nach close() alle Dateien dieses Puffers gelöscht sind. */
+    val cleaned = java.util.concurrent.CountDownLatch(1)
 
     private val lock = Object()
     private val chunks = ArrayDeque<Chunk>()
@@ -204,6 +206,7 @@ class TimeshiftBuffer(
             }
             dir.deleteRecursively()
             ACTIVE.remove(dir.name)
+            cleaned.countDown()
         }
     }
 
