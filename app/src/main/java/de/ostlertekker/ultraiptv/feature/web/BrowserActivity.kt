@@ -59,17 +59,6 @@ class BrowserActivity : ComponentActivity() {
 
     companion object {
         fun open(context: Context) = context.startActivity(Intent(context, BrowserActivity::class.java))
-
-        /** Pluto TV: offizielle Weboberfläche (pluto.tv) im App-eigenen Rahmen – ohne Adressleiste, nur Pluto-Seiten. */
-        fun openPluto(context: Context) =
-            context.startActivity(Intent(context, BrowserActivity::class.java).putExtra(EXTRA_MODE, MODE_PLUTO))
-        private const val EXTRA_MODE = "mode"
-        private const val MODE_PLUTO = "pluto"
-        private const val PLUTO_LIVE = "https://pluto.tv/de/live-tv"
-        private const val PLUTO_VOD = "https://pluto.tv/de/on-demand"
-        private const val PLUTO_SEARCH = "https://pluto.tv/de/search"
-        /** Pluto TV lädt Seiten nur von seinen eigenen Adressen; alles andere bleibt gesperrt (keine fremden Seiten, keine App-Links). */
-        private fun isPlutoHost(h: String?) = h != null && (h == "pluto.tv" || h.endsWith(".pluto.tv"))
         private const val START = "https://ultra.start/"
         private const val SEARCH = "https://duckduckgo.com/?q="
         private val DEFAULTS = listOf(
@@ -94,8 +83,6 @@ class BrowserActivity : ComponentActivity() {
     private var fullCallback: WebChromeClient.CustomViewCallback? = null
     private var backDownAt = 0L
     private val prefs by lazy { getSharedPreferences("browser", MODE_PRIVATE) }
-    private val pluto by lazy { intent.getStringExtra(EXTRA_MODE) == MODE_PLUTO }
-    private var plutoLastUrl: String? = null
     private val dp get() = resources.displayMetrics.density
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -107,7 +94,7 @@ class BrowserActivity : ComponentActivity() {
 
         root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         val column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        bar = if (pluto) buildPlutoBar() else buildBar()
+        bar = buildBar()
         web = buildWeb()
         column.addView(bar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (52 * dp).toInt()))
         column.addView(web, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
@@ -118,19 +105,15 @@ class BrowserActivity : ComponentActivity() {
         root.post { cursor.x0 = root.width / 2f; cursor.y0 = root.height / 2f; cursor.invalidate() }
 
         // Werbeblocker: Filterlisten laden/aktualisieren (einmal pro App-Lauf) und die Seitenskripte aktuell halten
-        // Pluto TV ist werbefinanziert und kostenlos – dort kein Werbeblocker (Werbung gehört zum Angebot, Blocken stört die Wiedergabe)
-        adOn = !pluto && adblock()
-        if (!pluto) adblocker.start()
-        if (!pluto) runCatching {
+        adOn = adblock()
+        adblocker.start()
+        runCatching {
             if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT))
                 androidx.webkit.WebViewCompat.addDocumentStartJavaScript(web, de.ostlertekker.ultraiptv.feature.web.adblock.AdblockScripts.ANTI_ADBLOCK, setOf("*"))
         }
-        if (!pluto) lifecycleScope.launch { adblocker.engine.collect { e -> registerGenericCss(e) } }
-        if (savedInstanceState != null) web.restoreState(savedInstanceState)
-        else if (pluto) { if (webViewMajor() in 1 until 94) showPlutoWebViewHint() else web.loadUrl(PLUTO_LIVE) }
-        else showStart()
-        Toast.makeText(this, if (pluto) "Pluto TV · Pfeiltasten: Zeiger · OK: Klick · Zurück lang: ULTRA IPTV"
-            else "Pfeiltasten: Zeiger · OK: Klick · Zurück lang: ULTRA IPTV", Toast.LENGTH_LONG).show()
+        lifecycleScope.launch { adblocker.engine.collect { e -> registerGenericCss(e) } }
+        if (savedInstanceState != null) web.restoreState(savedInstanceState) else showStart()
+        Toast.makeText(this, "Pfeiltasten: Zeiger · OK: Klick · Zurück lang: ULTRA IPTV", Toast.LENGTH_LONG).show()
     }
 
     // ------------------------------------------------------------------ Aufbau
@@ -177,65 +160,8 @@ class BrowserActivity : ComponentActivity() {
         updateAdBtn()
     }
 
-    /** Leiste für Pluto TV im Stil von ULTRA IPTV: Bereiche direkt anwählbar, keine Adressleiste. */
-    private fun buildPlutoBar(): LinearLayout = LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-        setBackgroundColor(Color.rgb(14, 16, 19))
-        setPadding((16 * dp).toInt(), (8 * dp).toInt(), (16 * dp).toInt(), (8 * dp).toInt())
-        fun add(v: View, weight: Float = 0f) = addView(v, LinearLayout.LayoutParams(if (weight > 0) 0 else ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.MATCH_PARENT, weight).apply { marginEnd = (8 * dp).toInt() })
-        add(TextView(this@BrowserActivity).apply {
-            text = "Pluto TV"; setTextColor(Color.WHITE); textSize = 18f; gravity = Gravity.CENTER_VERTICAL
-            setTypeface(typeface, android.graphics.Typeface.BOLD); setPadding((4 * dp).toInt(), 0, (12 * dp).toInt(), 0)
-        })
-        add(pill("Live-TV") { web.loadUrl(PLUTO_LIVE) })
-        add(pill("Filme & Serien") { web.loadUrl(PLUTO_VOD) })
-        add(pill("Suche") { web.loadUrl(PLUTO_SEARCH) })
-        add(View(this@BrowserActivity), 1f)
-        add(pill("←") { if (web.canGoBack()) web.goBack() })
-        add(pill("⟳") { web.reload() })
-        add(pill("Vollbild") { bar.visibility = View.GONE; Toast.makeText(this@BrowserActivity, "Zurück: Leiste wieder einblenden", Toast.LENGTH_SHORT).show() })
-        add(pill("Zurück zu ULTRA IPTV") { finish() })
-        // Unsichtbare Platzhalter (werden in Pluto TV nicht angezeigt)
-        url = EditText(this@BrowserActivity); star = TextView(this@BrowserActivity); adBtn = TextView(this@BrowserActivity)
-    }
-
-    /** Hauptversion der System-WebView (0 = unbekannt). */
-    private fun webViewMajor(): Int = runCatching {
-        androidx.webkit.WebViewCompat.getCurrentWebViewPackage(this)?.versionName?.substringBefore('.')?.toInt()
-    }.getOrNull() ?: 0
-
-    /** Pluto TV braucht eine aktuelle WebView – ältere zeigen sonst nur eine leere Seite. */
-    private fun showPlutoWebViewHint() {
-        val v = esc(androidx.webkit.WebViewCompat.getCurrentWebViewPackage(this)?.versionName ?: "?")
-        val html = """<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>
-            body{background:#0e1013;color:#fff;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0}
-            h1{font-size:28px;margin:0 0 12px} p{color:#aaa;font-size:18px;margin:0 0 28px;text-align:center;max-width:700px;line-height:1.5}
-            a{font-size:20px;padding:14px 34px;border-radius:40px;border:1px solid #fff;color:#fff;text-decoration:none}
-            </style></head><body><h1>Pluto TV braucht eine neuere WebView</h1>
-            <p>Auf diesem Gerät ist „Android System WebView“ Version $v installiert – zu alt für die aktuelle Pluto-TV-Seite (sie bleibt sonst leer).<br>
-            Bitte im Play Store „Android System WebView“ aktualisieren (Fire TV: Systemupdate) und Pluto TV erneut öffnen.</p>
-            <a href="$PLUTO_LIVE">Trotzdem laden</a></body></html>"""
-        web.loadDataWithBaseURL("https://pluto.tv/", html, "text/html", "utf-8", null)
-    }
-
-    /** Verständliche Fehlerseite (statt weißer/schwarzer Seite) mit „Erneut versuchen“. */
-    private fun showPlutoError(failed: String?) {
-        val retry = esc(failed?.takeIf { isPlutoHost(android.net.Uri.parse(it).host) } ?: PLUTO_LIVE)
-        val html = """<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>
-            body{background:#0e1013;color:#fff;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0}
-            h1{font-size:28px;margin:0 0 12px} p{color:#aaa;font-size:18px;margin:0 0 28px;text-align:center;max-width:640px}
-            a{font-size:20px;padding:14px 34px;border-radius:40px;border:1px solid #fff;color:#fff;text-decoration:none}
-            </style></head><body><h1>Pluto TV ist gerade nicht erreichbar</h1>
-            <p>Bitte Internetverbindung prüfen. Pluto TV ist nur in unterstützten Ländern verfügbar (u. a. Deutschland, Österreich, Schweiz).</p>
-            <a href="$retry">Erneut versuchen</a></body></html>"""
-        web.loadDataWithBaseURL("https://pluto.tv/", html, "text/html", "utf-8", null)
-    }
-
     @SuppressLint("SetJavaScriptEnabled")
     private fun buildWeb(): WebView = WebView(this).apply {
-        tag = "ultra_web"
         setBackgroundColor(Color.BLACK)
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
@@ -252,12 +178,6 @@ class BrowserActivity : ComponentActivity() {
         if (android.os.Build.VERSION.SDK_INT >= 26) setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true)
         // Desktop-ähnliche Ansicht wie auf großen Bildschirmen (viele Seiten zeigen sonst die Handy-Version)
         settings.userAgentString = settings.userAgentString.replace("; wv", "").replace("Mobile ", "")
-        // Pluto TV: Desktop-Kennung, sonst zeigt pluto.tv auf Android nur „App herunterladen“ statt des Web-Players
-        if (pluto) {
-            val chrome = Regex("Chrome/([0-9.]+)").find(settings.userAgentString)?.groupValues?.get(1) ?: "131.0.0.0"
-            settings.userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/$chrome Safari/537.36"
-            settings.builtInZoomControls = false
-        }
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
         setDownloadListener { _, _, _, _, _ -> Toast.makeText(this@BrowserActivity, "Downloads sind im Browser deaktiviert", Toast.LENGTH_SHORT).show() }
@@ -269,8 +189,6 @@ class BrowserActivity : ComponentActivity() {
                     Toast.makeText(this@BrowserActivity, "Google erlaubt die Anmeldung nicht in eingebetteten Browsern", Toast.LENGTH_LONG).show(); return true
                 }
                 if (u.scheme != "http" && u.scheme != "https") return true   // keine App-Links (intent:// usw.)
-                // Pluto TV: nur Pluto-Seiten; Links nach außen bleiben gesperrt (kein externer Browser, keine fremden Seiten)
-                if (pluto && request.isForMainFrame && !isPlutoHost(u.host)) { toastOnce("Externe Seiten sind in Pluto TV gesperrt"); return true }
                 // Werbe-Weiterleitungen und Schadseiten gar nicht erst laden
                 if (request.isForMainFrame && blockNavigation(u.toString(), request.isRedirect, request.hasGesture())) return true
                 return false
@@ -285,15 +203,7 @@ class BrowserActivity : ComponentActivity() {
             override fun onPageFinished(view: WebView, u: String?) {
                 injectCosmetics(view)
                 showUrl(u); CookieManager.getInstance().flush()
-                if (pluto) {
-                    if (u != null && u.startsWith("http")) plutoLastUrl = u
-                    android.util.Log.i("UltraPluto", "Seite: $u · WebView ${androidx.webkit.WebViewCompat.getCurrentWebViewPackage(this@BrowserActivity)?.versionName}")
-                    return
-                }
                 if (u != null && !u.startsWith(START) && u.startsWith("http")) addHistory(view.title ?: u, u)
-            }
-            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: android.webkit.WebResourceError) {
-                if (pluto && request.isForMainFrame) showPlutoError(request.url.toString())
             }
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
                 runCatching { interceptAd(request) }.getOrNull()   // ein Fehler im Filter darf nie die Seite blockieren
@@ -302,13 +212,7 @@ class BrowserActivity : ComponentActivity() {
         settings.setSupportMultipleWindows(true)
         settings.javaScriptCanOpenWindowsAutomatically = false
         webChromeClient = object : WebChromeClient() {
-            // Kopiergeschützte Wiedergabe (Widevine) für Pluto TV erlauben – nur Medienschutz, keine Kamera/Mikrofon
-            override fun onPermissionRequest(request: android.webkit.PermissionRequest) {
-                val ok = if (pluto) request.resources.filter { it == android.webkit.PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID }.toTypedArray() else emptyArray()
-                if (ok.isNotEmpty()) request.grant(ok) else request.deny()
-            }
             override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: android.os.Message): Boolean {
-                if (pluto && !isUserGesture) return false
                 if (!isUserGesture && adOn) { toastOnce("Pop-up blockiert"); return false }
                 val catcher = WebView(this@BrowserActivity)
                 catcher.webViewClient = object : WebViewClient() {
@@ -316,8 +220,7 @@ class BrowserActivity : ComponentActivity() {
                     private fun take(v: WebView, target: String?) {
                         if (done || target == null || target == "about:blank") return
                         done = true; v.stopLoading(); v.post { runCatching { v.destroy() } }
-                        if (pluto) { if (isPlutoHost(android.net.Uri.parse(target).host)) web.loadUrl(target) else toastOnce("Externe Seiten sind in Pluto TV gesperrt") }
-                        else if (adOn && runCatching { adblocker.engine.value?.let { e ->
+                        if (adOn && runCatching { adblocker.engine.value?.let { e ->
                                 val h = android.net.Uri.parse(target).host?.lowercase() ?: ""
                                 e.shouldBlock(target, h, de.ostlertekker.ultraiptv.feature.web.adblock.FilterEngine.Type.POPUP, pageHost) ||
                                     e.shouldBlock(target, h, de.ostlertekker.ultraiptv.feature.web.adblock.FilterEngine.Type.OTHER, pageHost)
@@ -343,12 +246,6 @@ class BrowserActivity : ComponentActivity() {
                 bar.visibility = View.VISIBLE
             }
             override fun onReceivedTitle(view: WebView, title: String?) {}
-            // Pluto TV: Skriptfehler der Seite ins Protokoll (Fehlersuche bei leerer Seite), keine Nutzerdaten
-            override fun onConsoleMessage(m: android.webkit.ConsoleMessage): Boolean {
-                if (pluto && m.messageLevel() == android.webkit.ConsoleMessage.MessageLevel.ERROR)
-                    android.util.Log.w("UltraPluto", "JS: ${m.message().take(200)} @${m.sourceId().substringAfterLast('/').take(60)}:${m.lineNumber()}")
-                return false
-            }
         }
     }
 
@@ -628,7 +525,6 @@ class BrowserActivity : ComponentActivity() {
                     SystemClock.uptimeMillis() - backDownAt > 700 -> finish()
                     url.hasFocus() -> { hideKeyboard(); url.clearFocus(); web.requestFocus(); showUrl(web.url) }
                     fullView != null -> web.webChromeClient?.onHideCustomView()
-                    pluto && bar.visibility != View.VISIBLE -> bar.visibility = View.VISIBLE
                     web.canGoBack() -> web.goBack()
                     else -> finish()
                 }
@@ -653,7 +549,7 @@ class BrowserActivity : ComponentActivity() {
                 if (event.action == KeyEvent.ACTION_DOWN) scroll(-(web.height * 0.8f).toInt()); return true
             }
             KeyEvent.KEYCODE_MENU -> {
-                if (event.action == KeyEvent.ACTION_UP) { if (pluto) bar.visibility = if (bar.visibility == View.VISIBLE) View.GONE else View.VISIBLE else url.requestFocus() }
+                if (event.action == KeyEvent.ACTION_UP) url.requestFocus()
                 return true
             }
         }
