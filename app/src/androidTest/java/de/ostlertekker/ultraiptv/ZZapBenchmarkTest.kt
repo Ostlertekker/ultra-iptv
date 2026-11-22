@@ -130,6 +130,7 @@ class ZZapBenchmarkTest {
         for (c in listOf("rt", "burst", "slow")) for (g in listOf("gop1", "gop4"))
             line("Einzelwechsel $c-$g", single.filter { it.label.startsWith("$c-$g") })
         line("Schnelle Tastenfolge (Zielsender ab letzter Taste)", rapid)
+        log("  Zielsender der Tastenfolgen: " + rapid.joinToString { it.label })
     }
 
     private fun playlist(base: String) = buildString {

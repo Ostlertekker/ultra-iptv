@@ -68,15 +68,17 @@ object ZapMonitor {
     }
 
     fun request() = mark { if (request < 0) request = it }
-    fun connected() = mark { if (connect < 0) connect = it }
-    fun firstData() = mark { if (data < 0) data = it; if (connect < 0) connect = it }
-    fun format() = mark { if (format < 0) format = it }
-    fun decoderInit(ms: Long) = mark { if (decoderInit < 0) decoderInit = ms }
     fun startBuffer(ms: Long) = mark { if (startBufferMs < 0) startBufferMs = ms }
-    fun error() = mark { errors++ }
-    fun retry() = mark { retries++ }
-    fun firstFrame() { mark { if (frame < 0) frame = it }; maybeFinish() }
-    fun audioStarted() { mark { if (audio < 0) audio = it }; maybeFinish() }
+    // Ereignisse zählen erst nach der Stream-Anfrage dieses Wechsels – vorher stammen sie noch vom alten Sender
+    // (z. B. beim schnellen Weiterzappen, wenn der Zielsender erst kurz nach dem Tastendruck startet)
+    fun connected() = mark { if (request >= 0 && connect < 0) connect = it }
+    fun firstData() = mark { if (request >= 0) { if (data < 0) data = it; if (connect < 0) connect = it } }
+    fun format() = mark { if (request >= 0 && format < 0) format = it }
+    fun decoderInit(ms: Long) = mark { if (request >= 0 && decoderInit < 0) decoderInit = ms }
+    fun error() = mark { if (request >= 0) errors++ }
+    fun retry() = mark { if (request >= 0) retries++ }
+    fun firstFrame() { var ok = false; mark { if (request >= 0) { ok = true; if (frame < 0) frame = it } }; if (ok) maybeFinish() }
+    fun audioStarted() { var ok = false; mark { if (request >= 0) { ok = true; if (audio < 0) audio = it } }; if (ok) maybeFinish() }
 
     /** Stream ohne Tonspur bzw. ohne Bild: nach dem einen Ereignis noch kurz warten, dann abschließen. */
     private fun maybeFinish() {

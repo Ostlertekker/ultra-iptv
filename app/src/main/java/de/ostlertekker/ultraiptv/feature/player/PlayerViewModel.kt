@@ -104,7 +104,7 @@ private const val JF = "jf:"
 /** Zwei Sendertasten innerhalb dieser Zeit = schnelles Weiterzappen. */
 private const val RAPID_MS = 450L
 /** Wartezeit nach der letzten Taste beim schnellen Weiterzappen, bevor der Stream startet. */
-private const val COALESCE_MS = 220L
+private const val COALESCE_MS = 150L
 
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
