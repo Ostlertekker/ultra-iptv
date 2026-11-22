@@ -63,7 +63,10 @@ class NewsFeedLiveTest {
             val r = runCatching { RssParser.parse(fetch(f), f.label, false) }
             val line = r.fold({ "OK ${it.size.toString().padStart(3)}  ${f.url}  » ${it.firstOrNull()?.title?.take(60)}" }, { "FEHLER ${f.url}  $it" })
             // Reine Verbindungsprobleme (Zeitüberschreitung o. ä.) zählen nicht als tote Adresse
-            val netGlitch = r.exceptionOrNull() is java.io.IOException && r.exceptionOrNull() !is java.net.ProtocolException
+            val err = r.exceptionOrNull()
+            // HTTP 403/429: Anbieter sperrt Rechenzentrums-Adressen des Testservers – keine tote Adresse
+            val netGlitch = (err is java.io.IOException && err !is java.net.ProtocolException) ||
+                (err is IllegalStateException && (err.message?.contains("HTTP 403") == true || err.message?.contains("HTTP 429") == true))
             if (!netGlitch && (r.isFailure || r.getOrNull().isNullOrEmpty())) bad++
             report.appendLine(line)
         }

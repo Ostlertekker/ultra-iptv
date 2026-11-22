@@ -196,7 +196,7 @@ jobs:
           cp -r shots /tmp/rep/ 2>/dev/null || true
           cp uitest.log /tmp/rep/ 2>/dev/null || true
           grep -E "FATAL|AndroidRuntime|ANR in" -A25 logcat.txt > /tmp/rep/crashes.txt 2>/dev/null || true
-          grep -E "UiSmoke|TestRunner|ultraiptv" logcat.txt | tail -400 > /tmp/rep/steps.txt 2>/dev/null || true
+          grep -E "UiSmoke|TestRunner|ultraiptv|UltraPluto" logcat.txt | tail -400 > /tmp/rep/steps.txt 2>/dev/null || true
           grep "UiPerf" logcat.txt | sed 's/.*UiPerf *: //' > /tmp/rep/perf.txt 2>/dev/null || true
           grep -E "Jellyfin|jellyfin" logcat.txt | tail -300 > /tmp/rep/jellyfin.txt 2>/dev/null || true
           find app/build/outputs/androidTest-results -name '*.xml' -exec cp {} /tmp/rep/ \; 2>/dev/null || true

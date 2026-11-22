@@ -66,7 +66,7 @@ class ZWebAppsTest {
         ActivityScenario.launch<de.ostlertekker.ultraiptv.feature.web.BrowserActivity>(
             Intent(context, de.ostlertekker.ultraiptv.feature.web.BrowserActivity::class.java).putExtra("mode", "pluto")
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)).use { sc ->
-            Thread.sleep(20_000); shot("pluto_live")
+            Thread.sleep(30_000); shot("pluto_live")
             var host: String? = null
             sc.onActivity { a -> host = runCatching { android.net.Uri.parse(a.window.decorView.findViewWithTag<android.webkit.WebView>("ultra_web")?.url).host }.getOrNull() }
             android.util.Log.i("UiSmoke", "Pluto: Host $host")

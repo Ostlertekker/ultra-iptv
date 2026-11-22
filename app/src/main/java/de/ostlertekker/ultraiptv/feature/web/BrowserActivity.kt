@@ -264,7 +264,11 @@ class BrowserActivity : ComponentActivity() {
             override fun onPageFinished(view: WebView, u: String?) {
                 injectCosmetics(view)
                 showUrl(u); CookieManager.getInstance().flush()
-                if (pluto) { if (u != null && u.startsWith("http")) plutoLastUrl = u; return }
+                if (pluto) {
+                    if (u != null && u.startsWith("http")) plutoLastUrl = u
+                    android.util.Log.i("UltraPluto", "Seite: $u · WebView ${androidx.webkit.WebViewCompat.getCurrentWebViewPackage(this@BrowserActivity)?.versionName}")
+                    return
+                }
                 if (u != null && !u.startsWith(START) && u.startsWith("http")) addHistory(view.title ?: u, u)
             }
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: android.webkit.WebResourceError) {
@@ -318,6 +322,12 @@ class BrowserActivity : ComponentActivity() {
                 bar.visibility = View.VISIBLE
             }
             override fun onReceivedTitle(view: WebView, title: String?) {}
+            // Pluto TV: Skriptfehler der Seite ins Protokoll (Fehlersuche bei leerer Seite), keine Nutzerdaten
+            override fun onConsoleMessage(m: android.webkit.ConsoleMessage): Boolean {
+                if (pluto && m.messageLevel() == android.webkit.ConsoleMessage.MessageLevel.ERROR)
+                    android.util.Log.w("UltraPluto", "JS: ${m.message().take(200)} @${m.sourceId().substringAfterLast('/').take(60)}:${m.lineNumber()}")
+                return false
+            }
         }
     }
 
