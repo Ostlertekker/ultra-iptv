@@ -126,7 +126,9 @@ class BrowserActivity : ComponentActivity() {
                 androidx.webkit.WebViewCompat.addDocumentStartJavaScript(web, de.ostlertekker.ultraiptv.feature.web.adblock.AdblockScripts.ANTI_ADBLOCK, setOf("*"))
         }
         if (!pluto) lifecycleScope.launch { adblocker.engine.collect { e -> registerGenericCss(e) } }
-        if (savedInstanceState != null) web.restoreState(savedInstanceState) else if (pluto) web.loadUrl(PLUTO_LIVE) else showStart()
+        if (savedInstanceState != null) web.restoreState(savedInstanceState)
+        else if (pluto) { if (webViewMajor() in 1 until 94) showPlutoWebViewHint() else web.loadUrl(PLUTO_LIVE) }
+        else showStart()
         Toast.makeText(this, if (pluto) "Pluto TV · Pfeiltasten: Zeiger · OK: Klick · Zurück lang: ULTRA IPTV"
             else "Pfeiltasten: Zeiger · OK: Klick · Zurück lang: ULTRA IPTV", Toast.LENGTH_LONG).show()
     }
@@ -197,6 +199,25 @@ class BrowserActivity : ComponentActivity() {
         add(pill("Zurück zu ULTRA IPTV") { finish() })
         // Unsichtbare Platzhalter (werden in Pluto TV nicht angezeigt)
         url = EditText(this@BrowserActivity); star = TextView(this@BrowserActivity); adBtn = TextView(this@BrowserActivity)
+    }
+
+    /** Hauptversion der System-WebView (0 = unbekannt). */
+    private fun webViewMajor(): Int = runCatching {
+        androidx.webkit.WebViewCompat.getCurrentWebViewPackage(this)?.versionName?.substringBefore('.')?.toInt()
+    }.getOrNull() ?: 0
+
+    /** Pluto TV braucht eine aktuelle WebView – ältere zeigen sonst nur eine leere Seite. */
+    private fun showPlutoWebViewHint() {
+        val v = esc(androidx.webkit.WebViewCompat.getCurrentWebViewPackage(this)?.versionName ?: "?")
+        val html = """<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+            body{background:#0e1013;color:#fff;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0}
+            h1{font-size:28px;margin:0 0 12px} p{color:#aaa;font-size:18px;margin:0 0 28px;text-align:center;max-width:700px;line-height:1.5}
+            a{font-size:20px;padding:14px 34px;border-radius:40px;border:1px solid #fff;color:#fff;text-decoration:none}
+            </style></head><body><h1>Pluto TV braucht eine neuere WebView</h1>
+            <p>Auf diesem Gerät ist „Android System WebView“ Version $v installiert – zu alt für die aktuelle Pluto-TV-Seite (sie bleibt sonst leer).<br>
+            Bitte im Play Store „Android System WebView“ aktualisieren (Fire TV: Systemupdate) und Pluto TV erneut öffnen.</p>
+            <a href="$PLUTO_LIVE">Trotzdem laden</a></body></html>"""
+        web.loadDataWithBaseURL("https://pluto.tv/", html, "text/html", "utf-8", null)
     }
 
     /** Verständliche Fehlerseite (statt weißer/schwarzer Seite) mit „Erneut versuchen“. */
