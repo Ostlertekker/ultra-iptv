@@ -517,7 +517,7 @@ private fun LazyListScope.playbackPage(vm: SettingsViewModel, s: AppSettings) {
         Column {
             SRow("Puffergröße", s.bufferProfile.label) { vm.set(Keys.BUFFER, cycle(BufferProfile.entries, s.bufferProfile).name) }
             SSwitch("Schnellstart beim Senderwechsel", s.zapTurbo,
-                "Live-TV startet mit dem pro Sender gelernten Mindestvorrat statt pauschal 2 s, schnelles Weiterzappen wird zusammengefasst, wahrscheinliche nächste Sender werden vorbereitet. Messwerte: Tools › App-Diagnose") { vm.set(Keys.ZAP_TURBO, it) }
+                "Live-TV startet mit dem pro Sender gelernten Mindestvorrat statt pauschal 2 s, wahrscheinliche nächste Sender werden vorbereitet. Messwerte: Tools › App-Diagnose") { vm.set(Keys.ZAP_TURBO, it) }
             SSwitch("Bildwiederholrate anpassen (AFR)", s.matchFrameRate, "Schaltet das Display auf die Bildrate des Inhalts, wenn möglich") { vm.set(Keys.MATCH_FPS, it) }
             SRow("Seitenverhältnis", de.ostlertekker.ultraiptv.feature.player.aspectNames[s.defaultAspect.coerceIn(0, 3)]) { vm.set(Keys.DEFAULT_ASPECT, (s.defaultAspect + 1) % 4) }
             SRow("Sleep-Timer", if (s.sleepTimerMin == 0) "Aus" else "${s.sleepTimerMin} Minuten") {

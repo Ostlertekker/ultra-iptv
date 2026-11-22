@@ -101,11 +101,6 @@ private const val LIVE_TOLERANCE_MS = 9_000L
 
 private const val JF = "jf:"
 
-/** Zwei Sendertasten innerhalb dieser Zeit = schnelles Weiterzappen. */
-private const val RAPID_MS = 450L
-/** Wartezeit nach der letzten Taste beim schnellen Weiterzappen, bevor der Stream startet. */
-private const val COALESCE_MS = 150L
-
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
     savedState: SavedStateHandle,
@@ -346,7 +341,6 @@ class PlayerViewModel @Inject constructor(
 
     private fun playChannel(ch: ChannelEntity, measured: Boolean = false) {
         if (!measured) ZapMonitor.begin(ch.name, settings.zapTurbo, ch.id in prepared)
-        pendingZap?.cancel(); pendingZap = null
         ZapTuner.countZap(ch.id)
         saveChannelQuality()
         logWatch()
@@ -644,9 +638,7 @@ class PlayerViewModel @Inject constructor(
 
     // ------------------------------------------------------------------ Senderwechsel (Zapping)
 
-    private var lastSwitchAt = 0L
     private var lastDelta = 1
-    private var pendingZap: kotlinx.coroutines.Job? = null
     private var prepJob: kotlinx.coroutines.Job? = null
     /** Sender, die gerade vorbereitet sind (für die Auswertung „vorhergesagt“). */
     private val prepared = HashSet<String>()
@@ -658,16 +650,8 @@ class PlayerViewModel @Inject constructor(
         lastDelta = if (delta >= 0) 1 else -1
         val ch = channels[channelIndex]
         ZapMonitor.begin(ch.name, settings.zapTurbo, ch.id in prepared) // Messung ab Tastendruck
-        val now = android.os.SystemClock.elapsedRealtime()
-        val rapid = settings.zapTurbo && now - lastSwitchAt < RAPID_MS
-        lastSwitchAt = now
-        if (rapid) {
-            // Schnelles Weiterzappen: Senderinfo sofort, Stream erst für den Sender, bei dem der Nutzer stehen bleibt –
-            // spart pro übersprungenem Sender einen kompletten Verbindungsauf- und -abbau beim Anbieter
-            pendingZap?.cancel()
-            showChannelInfo(ch)
-            pendingZap = viewModelScope.launch { delay(COALESCE_MS); pendingZap = null; playChannel(ch, measured = true) }
-        } else playChannel(ch, measured = true)
+        // Jeder Tastendruck startet sofort. (Gemessen: Zusammenfassen schneller Tastendrücke machte den Zielsender langsamer.)
+        playChannel(ch, measured = true)
     }
 
     /**
