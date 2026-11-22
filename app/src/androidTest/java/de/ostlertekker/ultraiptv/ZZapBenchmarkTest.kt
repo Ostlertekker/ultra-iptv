@@ -60,8 +60,10 @@ class ZZapBenchmarkTest {
                 val parts = path.trim('/').split('/')
                 if (parts.size < 4 || parts[0] != "s") return MockResponse().setResponseCode(404)
                 val cond = parts[1]; val data = media[parts[2]] ?: return MockResponse().setResponseCode(404)
-                // Einstieg mitten in den Stream: deterministische, aber wechselnde Startposition (an 188-Byte-TS-Paketen ausgerichtet)
-                val frac = ((seq.incrementAndGet() * 0.381966) % 0.6)
+                // Einstieg mitten in den Stream (wie in eine laufende Sendung): feste Startposition je Sender, an 188-Byte-TS-Paketen
+                // ausgerichtet – so ist die Wartezeit auf das nächste Schlüsselbild in beiden Messreihen identisch
+                seq.incrementAndGet()
+                val frac = ((path.hashCode().toLong() and 0xffff) / 65535.0) * 0.6
                 val off = ((data.size * frac).toLong() / 188 * 188).toInt()
                 val body = Buffer().write(data, off, data.size - off)
                 val perSec = data.size / 40L // Echtzeit-Datenrate (Dateien sind 40 s lang)

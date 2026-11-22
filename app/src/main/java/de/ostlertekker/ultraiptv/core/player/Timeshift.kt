@@ -195,9 +195,10 @@ class TimeshiftBuffer(
         thread?.interrupt()
         onConnected = null; onFirstData = null
         synchronized(lock) { lock.notifyAll() }
+        // Trennen sofort auf eigenem Thread (der nächste Sender wartet darauf), Löschen danach in der Aufräum-Warteschlange
+        DISCONNECT.execute { runCatching { conn?.disconnect() }; disconnected.countDown() }
         CLEANUP.execute {
-            runCatching { conn?.disconnect() }
-            disconnected.countDown()
+            runCatching { disconnected.await(2, java.util.concurrent.TimeUnit.SECONDS) }
             synchronized(lock) {
                 lock.notifyAll()
                 runCatching { writer?.close() }
@@ -213,6 +214,7 @@ class TimeshiftBuffer(
     companion object {
         const val CHUNK = 8L * 1024 * 1024
         private val CLEANUP = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "ultra-timeshift-cleanup").apply { isDaemon = true } }
+        private val DISCONNECT = java.util.concurrent.Executors.newCachedThreadPool { r -> Thread(r, "ultra-timeshift-disconnect").apply { isDaemon = true } }
         private val ACTIVE: MutableSet<String> = java.util.Collections.synchronizedSet(HashSet())
     }
 }
