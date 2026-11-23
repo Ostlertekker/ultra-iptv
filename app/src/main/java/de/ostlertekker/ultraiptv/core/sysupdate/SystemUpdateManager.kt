@@ -370,7 +370,7 @@ class AutoUpdateManager @Inject constructor(
                             else if (settings.autoQueue || manual) UpdateStatus.WAITING else UpdateStatus.AVAILABLE
                         queue.put(base(c, prev).copy(installed = r.installed, available = r.available, sizeBytes = r.sizeBytes, changes = r.changes,
                             priority = r.priority, status = st, progress = 0f, checkedAt = now, stagedHash = r.hash, attempts = 0))
-                        note("${c.name}: Update gefunden (${r.changes})")
+                        if (prev?.stagedHash != r.hash) note("${c.name}: Update gefunden (${r.changes})")
                         return true
                     }
                 }
