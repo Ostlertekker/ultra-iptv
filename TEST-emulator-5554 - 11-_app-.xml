@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="de.ostlertekker.ultraiptv.ZI18nTest" tests="1" failures="0" errors="0" skipped="0" time="16.28" timestamp="2026-11-23T23:38:10" hostname="localhost">
+  <properties>
+    <property name="device" value="emulator-5554 - 11" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="restartAfterSwitch" classname="de.ostlertekker.ultraiptv.ZI18nTest" time="14.184" />
+</testsuite>

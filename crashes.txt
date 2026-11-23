@@ -1,0 +1,305 @@
+11-23 23:37:09.914   280   280 D AndroidRuntime: >>>>>> START com.android.internal.os.ZygoteInit uid 0 <<<<<<
+11-23 23:37:10.134     0     0 I init    : processing action (sys.init.perf_lsm_hooks=1) from (/system/etc/init/hw/init.rc:1017)
+11-23 23:37:09.927   279   279 I netd    : Setting up StrictController hooks: 75906us
+11-23 23:37:09.927   279   279 I ClatdController: 4.9+ kernel and device shipped with Q+ - clat ebpf should work.
+11-23 23:37:09.927   279   279 I netd    : Initializing ClatdController: 112us
+11-23 23:37:09.927   279   279 I netd    : Initializing traffic control: 424us
+11-23 23:37:10.145     0     0 I init    : processing action (security.perf_harden=1) from (/system/etc/init/hw/init.rc:1031)
+11-23 23:37:09.949   280   280 I AndroidRuntime: Using default boot image
+11-23 23:37:09.949   280   280 I AndroidRuntime: Leaving lock profiling enabled
+11-23 23:37:10.156     0     0 I init    : processing action (ro.debuggable=1) from (/system/etc/init/hw/init.rc:1058)
+11-23 23:37:09.958   280   280 I zygote64: option[0]=-Xzygote
+11-23 23:37:09.958   280   280 I zygote64: option[1]=exit
+11-23 23:37:09.958   280   280 I zygote64: option[2]=vfprintf
+11-23 23:37:09.958   280   280 I zygote64: option[3]=sensitiveThread
+11-23 23:37:09.958   280   280 I zygote64: option[4]=-verbose:gc
+11-23 23:37:09.958   280   280 I zygote64: option[5]=-XX:PerfettoHprof=true
+11-23 23:37:09.958   280   280 I zygote64: option[6]=-Xprimaryzygote
+11-23 23:37:09.958   280   280 I zygote64: option[7]=-Xms8m
+11-23 23:37:09.958   280   280 I zygote64: option[8]=-Xmx512m
+11-23 23:37:09.958   280   280 I zygote64: option[9]=-XX:HeapGrowthLimit=192m
+11-23 23:37:09.958   280   280 I zygote64: option[10]=-XX:HeapMinFree=512k
+11-23 23:37:09.958   280   280 I zygote64: option[11]=-XX:HeapMaxFree=8m
+11-23 23:37:09.958   280   280 I zygote64: option[12]=-XX:HeapTargetUtilization=0.75
+11-23 23:37:09.958   280   280 I zygote64: option[13]=-Xusejit:true
+11-23 23:37:09.958   280   280 I zygote64: option[14]=-Xjitsaveprofilinginfo
+11-23 23:37:09.958   280   280 I zygote64: option[15]=-XjdwpOptions:suspend=n,server=y
+11-23 23:37:09.958   280   280 I zygote64: option[16]=-XjdwpProvider:default
+11-23 23:37:09.958   280   280 I zygote64: option[17]=-Xopaque-jni-ids:swapable
+11-23 23:37:09.958   280   280 I zygote64: option[18]=-Xlockprofthreshold:500
+11-23 23:37:09.958   280   280 I zygote64: option[19]=-Xcompiler-option
+11-23 23:37:09.958   280   280 I zygote64: option[20]=--instruction-set-variant=x86_64
+11-23 23:37:09.958   280   280 I zygote64: option[21]=-Xcompiler-option
+11-23 23:37:09.958   280   280 I zygote64: option[22]=--instruction-set-features=default
+11-23 23:37:09.958   280   280 I zygote64: option[23]=-Xcompiler-option
+--
+11-23 23:37:10.213   281   281 D AndroidRuntime: >>>>>> START com.android.internal.os.ZygoteInit uid 0 <<<<<<
+11-23 23:37:10.428     0     0 I         : ip (411) used greatest stack depth: 11248 bytes left
+11-23 23:37:10.431     0     0 I init    : starting service 'drm'...
+11-23 23:37:10.435     0     0 I init    : starting service 'idmap2d'...
+11-23 23:37:10.440     0     0 W libprocessgroup: Failed to open /dev/cpuset/camera-daemon/tasks: No such file or directory: No such file or directory
+11-23 23:37:10.445     0     0 I init    : starting service 'incidentd'...
+11-23 23:37:10.448     0     0 I init    : starting service 'installd'...
+11-23 23:37:10.450     0     0 I init    : starting service 'iorapd'...
+11-23 23:37:10.457     0     0 W libprocessgroup: Failed to apply CameraServiceCapacity task profile: No such file or directory
+11-23 23:37:10.270   281   281 I AndroidRuntime: Using default boot image
+11-23 23:37:10.270   281   281 I AndroidRuntime: Leaving lock profiling enabled
+11-23 23:37:10.476     0     0 I init    : starting service 'keystore'...
+11-23 23:37:10.273   417   417 I installd: installd firing up
+11-23 23:37:10.273   417   417 E cutils  : Failed to read /data/misc/installd/layout_version: No such file or directory
+11-23 23:37:10.273   417   417 D installd: Assuming that device has multi-user storage layout; upgrade no longer supported
+11-23 23:37:10.273   281   281 I zygote  : option[0]=-Xzygote
+11-23 23:37:10.273   417   417 D installd: Upgrading to /data/misc/user directories
+11-23 23:37:10.273   281   281 I zygote  : option[1]=exit
+11-23 23:37:10.273   281   281 I zygote  : option[2]=vfprintf
+11-23 23:37:10.273   281   281 I zygote  : option[3]=sensitiveThread
+11-23 23:37:10.273   281   281 I zygote  : option[4]=-verbose:gc
+11-23 23:37:10.273   281   281 I zygote  : option[5]=-XX:PerfettoHprof=true
+11-23 23:37:10.273   281   281 I zygote  : option[6]=-Xms8m
+11-23 23:37:10.273   281   281 I zygote  : option[7]=-Xmx512m
+11-23 23:37:10.273   281   281 I zygote  : option[8]=-XX:HeapGrowthLimit=192m
+11-23 23:37:10.273   281   281 I zygote  : option[9]=-XX:HeapMinFree=512k
+11-23 23:37:10.273   281   281 I zygote  : option[10]=-XX:HeapMaxFree=8m
+11-23 23:37:10.273   281   281 I zygote  : option[11]=-XX:HeapTargetUtilization=0.75
+11-23 23:37:10.273   281   281 I zygote  : option[12]=-Xusejit:true
+11-23 23:37:10.273   281   281 I zygote  : option[13]=-Xjitsaveprofilinginfo
+11-23 23:37:10.273   281   281 I zygote  : option[14]=-XjdwpOptions:suspend=n,server=y
+11-23 23:37:10.273   281   281 I zygote  : option[15]=-XjdwpProvider:default
+11-23 23:37:10.273   281   281 I zygote  : option[16]=-Xopaque-jni-ids:swapable
+11-23 23:37:10.273   281   281 I zygote  : option[17]=-Xlockprofthreshold:500
+11-23 23:37:10.273   281   281 I zygote  : option[18]=-Xcompiler-option
+11-23 23:37:10.273   281   281 I zygote  : option[19]=--instruction-set-variant=x86_64
+--
+11-23 23:37:17.300   839   839 I AndroidRuntime: VM exiting with result code 0, cleanup skipped.
+11-23 23:37:17.302   326   326 I android.hardware.vibrator-service.example: Vibrator reporting capabilities
+11-23 23:37:17.302   847   847 V WebViewLibraryLoader: RelroFileCreator (64bit = true), package: com.android.webview library: libwebviewchromium.so
+11-23 23:37:17.303   430   471 I OMXClient: IOmx service obtained
+11-23 23:37:17.303   433   760 I OMXMaster: makeComponentInstance(OMX.google.mpeg4.decoder) in android.hardwar process
+11-23 23:37:17.303   433   760 E OMXNodeInstance: getExtensionIndex(0xf2300550:google.mpeg4.decoder, OMX.google.android.index.configureVideoTunnelMode) ERROR: UnsupportedIndex(0x8000101a)
+11-23 23:37:17.303   430   471 D MediaCodecInfo: detail feature-tunneled-playback wasn't present to remove
+11-23 23:37:17.303   433   760 E OMXNodeInstance: getExtensionIndex(0xf2300550:google.mpeg4.decoder, OMX.google.android.index.enableAndroidNativeBuffers) ERROR: UnsupportedIndex(0x8000101a)
+11-23 23:37:17.304   887   887 I droid.launcher: The ClassLoaderContext is a special shared library.
+11-23 23:37:17.304   847   847 I WebViewLoader-: The ClassLoaderContext is a special shared library.
+11-23 23:37:17.305   847   847 D nativeloader: classloader namespace configured for unbundled product apk. library_path=/product/app/webview/lib/x86_64:/product/app/webview/webview.apk!/lib/x86_64:/product/lib64:/system/product/lib64
+11-23 23:37:17.309   430   471 I OMXClient: IOmx service obtained
+11-23 23:37:17.309   433   760 I OMXMaster: makeComponentInstance(OMX.android.goldfish.vp8.decoder) in android.hardwar process
+11-23 23:37:17.309   433   760 I GoldfishOMXPlugin: makeComponentInstance 'OMX.android.goldfish.vp8.decoder'
+11-23 23:37:17.309   433   760 I GoldfishOMXPlugin: Using goldfish codec for 'vpxdec'
+11-23 23:37:17.309   433   760 I goldfish_vpxdec: calling constructor of GoldfishVPX
+11-23 23:37:17.310   433   760 E OMXNodeInstance: getExtensionIndex(0xf2300550:android.goldfish.vp8.decoder, OMX.google.android.index.configureVideoTunnelMode) ERROR: UnsupportedIndex(0x8000101a)
+11-23 23:37:17.310   430   471 D MediaCodecInfo: detail feature-tunneled-playback wasn't present to remove
+11-23 23:37:17.310   433   760 W OMXNodeInstance: [0xf2300550:android.goldfish.vp8.decoder] component does not support metadata mode; using fallback
+11-23 23:37:17.311   433   760 I goldfish_vpxdec: calling destructor of GoldfishVPX
+11-23 23:37:17.312   281   281 I Zygote  : Process 839 exited cleanly (0)
+11-23 23:37:17.312   504   788 I ActivityManager: Process WebViewLoader-x86 (pid 839) has died: psvc PER 
+11-23 23:37:17.313   430   471 I OMXClient: IOmx service obtained
+11-23 23:37:17.313   433   760 I OMXMaster: makeComponentInstance(OMX.google.vp8.decoder) in android.hardwar process
+11-23 23:37:17.313   504   547 I libprocessgroup: Successfully killed process cgroup uid 1037 pid 839 in 0ms
+11-23 23:37:17.317   433   760 E OMXNodeInstance: getExtensionIndex(0xf2300550:google.vp8.decoder, OMX.google.android.index.configureVideoTunnelMode) ERROR: UnsupportedIndex(0x8000101a)
+--
+11-23 23:37:17.365   847   847 I AndroidRuntime: VM exiting with result code 0, cleanup skipped.
+11-23 23:37:17.365   430   471 I OMXClient: IOmx service obtained
+11-23 23:37:17.365   433   433 I OMXMaster: makeComponentInstance(OMX.google.mpeg4.encoder) in android.hardwar process
+11-23 23:37:17.366   433   433 I SoftMPEG4Encoder: Construct SoftMPEG4Encoder
+11-23 23:37:17.366   430   471 W OMXUtils: do not know color format 0x7f000789 = 2130708361
+11-23 23:37:17.366   433   433 E OMXNodeInstance: getConfig(0xf2300550:google.mpeg4.encoder, ConfigAndroidIntraRefresh(0x6f60000a)) ERROR: Undefined(0x80001001)
+11-23 23:37:17.366   433   433 E OMXNodeInstance: getParameter(0xf2300550:google.mpeg4.encoder, ParamVideoIntraRefresh(0x6000006)) ERROR: UnsupportedIndex(0x8000101a)
+11-23 23:37:17.366   430   471 D MediaCodecInfo: detail feature-frame-parsing wasn't present to remove
+11-23 23:37:17.368   280   280 I Zygote  : Process 847 exited cleanly (0)
+11-23 23:37:17.358   504   538 I chatty  : uid=1000(system) android.io identical 1 line
+11-23 23:37:17.364   504   538 I DropBoxManagerService: add tag=system_app_strictmode isTagEnabled=true flags=0x2
+11-23 23:37:17.368   504   788 I ActivityManager: Process WebViewLoader-x86_64 (pid 847) has died: psvc PER 
+11-23 23:37:17.368   504   547 I libprocessgroup: Successfully killed process cgroup uid 1037 pid 847 in 0ms
+11-23 23:37:17.369   716   939 W TelecomManager: Telecom Service not found.
+11-23 23:37:17.370   504   654 D ConnectivityService: NetReassign [no changes]
+11-23 23:37:17.370   504   788 D ConnectivityService: requestNetwork for uid/pid:10121/716 NetworkRequest [ TRACK_DEFAULT id=9, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED Uid: 10121 AdministratorUids: [] RequestorUid: 10121 RequestorPackageName: com.android.systemui] ]
+11-23 23:37:17.370   504   654 D ConnectivityService: NetReassign [no changes]
+11-23 23:37:17.370   716   716 V WifiManager: registerTrafficStateCallback: callback=com.android.systemui.statusbar.policy.WifiSignalController$WifiTrafficStateCallback@f8e2f26, executor=android.os.HandlerExecutor@6811c5a
+11-23 23:37:17.371   504   788 D ConnectivityService: requestNetwork for uid/pid:10121/716 NetworkRequest [ TRACK_DEFAULT id=10, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED Uid: 10121 AdministratorUids: [] RequestorUid: 10121 RequestorPackageName: com.android.systemui] ]
+11-23 23:37:17.371   504   654 D ConnectivityService: NetReassign [no changes]
+11-23 23:37:17.372   504   538 I DropBoxManagerService: add tag=system_app_strictmode isTagEnabled=true flags=0x2
+11-23 23:37:17.373   430   471 I OMXClient: IOmx service obtained
+11-23 23:37:17.373   433   433 I OMXMaster: makeComponentInstance(OMX.google.vp8.encoder) in android.hardwar process
+11-23 23:37:17.375   430   471 W OMXUtils: do not know color format 0x7f000789 = 2130708361
+11-23 23:37:17.375   433   433 E OMXNodeInstance: getConfig(0xf2300550:google.vp8.encoder, ConfigAndroidIntraRefresh(0x6f60000a)) ERROR: Undefined(0x80001001)
+11-23 23:37:17.375   433   433 E OMXNodeInstance: getParameter(0xf2300550:google.vp8.encoder, ParamVideoIntraRefresh(0x6000006)) ERROR: UnsupportedIndex(0x8000101a)
+--
+11-23 23:37:20.487  1374  1374 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-23 23:37:20.505  1374  1374 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.profilebootclasspath"
+11-23 23:37:20.505  1374  1374 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.enable_apex_image"
+11-23 23:37:20.505  1374  1374 I AndroidRuntime: Using default boot image
+11-23 23:37:20.506  1374  1374 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.disable_lock_profiling"
+11-23 23:37:20.506  1374  1374 I AndroidRuntime: Leaving lock profiling enabled
+11-23 23:37:20.506  1374  1374 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.enable_generational_cc"
+11-23 23:37:20.507  1374  1374 I app_process: Core platform API reporting enabled, enforcing=false
+11-23 23:37:20.735     0     0 I mkswap  : Swapspace size: 1521444k, UUID=7b33fa13-1a75-41ea-ad24-5416c8a17f37
+11-23 23:37:20.550   716   716 V KeyguardUpdateMonitor: SubInfo:{id=1 iccId=89014103211118510720 simSlotIndex=0 carrierId=-1 displayName=Android carrierName= nameSource=0 iconTint=-16746133 number=+15555215554 dataRoaming=0 iconBitmap=android.graphics.Bitmap@4690746 mcc=310 mnc=260 countryIso=null isEmbedded=false nativeAccessRules=null cardString=89014103211118510720 cardId=-1 isOpportunistic=false groupUUID=null isGroupDisabled=false profileClass=-1 ehplmns=null hplmns=null subscriptionType=0 groupOwner=null carrierConfigAccessRules=null areUiccApplicationsEnabled=true}
+11-23 23:37:20.550   504  1282 D TelephonyRegistryManager: onSubscriptionsChangedListener callback received.
+11-23 23:37:20.550   504  1282 I chatty  : uid=1000(system) Binder:504_B identical 3 lines
+11-23 23:37:20.550   504  1282 D TelephonyRegistryManager: onSubscriptionsChangedListener callback received.
+11-23 23:37:20.550   716   931 D TelephonyRegistryManager: onSubscriptionsChangedListener callback received.
+11-23 23:37:20.550  1032  1386 D TelephonyRegistryManager: onSubscriptionsChangedListener callback received.
+11-23 23:37:20.550   716   742 D TelephonyRegistryManager: onSubscriptionsChangedListener callback received.
+11-23 23:37:20.550  1032  1386 D TelephonyRegistryManager: onSubscriptionsChangedListener callback received.
+11-23 23:37:20.550   697  1188 D TelephonyRegistryManager: onSubscriptionsChangedListener callback received.
+11-23 23:37:20.550  1032  1051 D TelephonyRegistryManager: onSubscriptionsChangedListener callback received.
+11-23 23:37:20.550  1032  1049 D TelephonyRegistryManager: onSubscriptionsChangedListener callback received.
+11-23 23:37:20.550  1032  1219 D TelephonyRegistryManager: onSubscriptionsChangedListener callback received.
+11-23 23:37:20.550  1032  1228 D TelephonyRegistryManager: onSubscriptionsChangedListener callback received.
+11-23 23:37:20.550  1032  1263 D TelephonyRegistryManager: onSubscriptionsChangedListener callback received.
+11-23 23:37:20.550   697  1189 I HeadsetPhoneState: stopListenForPhoneState(), no listener indicates nothing is listening
+11-23 23:37:20.550   697  1189 W HeadsetPhoneState: startListenForPhoneState, no event to listen
+11-23 23:37:20.551  1032  1032 D TelephonyProvider: subIdString = 1 subId = 1
+11-23 23:37:20.557   504   536 V PackageManager: reconcileAppsData finished 163 packages
+11-23 23:37:20.557   504   536 I ActivityManager: User 0 state changed from RUNNING_LOCKED to RUNNING_UNLOCKING
+11-23 23:37:20.557   504   536 D ActivityManager: Unlocking user 0 progress 20
+11-23 23:37:20.558   504   536 W Looper  : Slow dispatch took 1101ms android.fg h=android.os.Handler c=com.android.server.am.-$$Lambda$UserController$stQk1028ON105v_u-VMykVjcxLk@d6dda09 m=0
+11-23 23:37:20.558   504   536 W Looper  : Slow delivery took 1099ms android.fg h=android.os.Handler c=com.android.server.am.-$$Lambda$UserController$G0WJmqt4X_QG30fRlvXobn18mrE@c2ac40e m=0
+--
+11-23 23:37:20.933  1374  1374 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-23 23:37:20.935   504   598 W InputDispatcher: Waiting because no window has focus but ActivityRecord{f73d8bb u0 com.android.settings/.FallbackHome t3} may eventually add a window when it finishes starting up. Will wait for 5000ms
+11-23 23:37:20.935   504   598 W InputDispatcher: Still no focused window. Will drop the event in 4999ms
+11-23 23:37:20.938  1484  1484 W oid.documentsu: Unexpected CPU variant for X86 using defaults: x86_64
+11-23 23:37:20.939   504   546 W ActivityManager: Slow operation: 319ms so far, now at startProcess: returned from zygote!
+11-23 23:37:20.939   504   546 W ActivityManager: Slow operation: 319ms so far, now at startProcess: done updating battery stats
+11-23 23:37:20.939   504   546 W ActivityManager: Slow operation: 319ms so far, now at startProcess: building log message
+11-23 23:37:20.939   504   546 I ActivityManager: Start proc 1484:com.android.documentsui/u0a76 for broadcast {com.android.documentsui/com.android.documentsui.PreBootReceiver}
+11-23 23:37:20.939   504   546 W ActivityManager: Slow operation: 319ms so far, now at startProcess: starting to update pids map
+11-23 23:37:20.939   504   546 W ActivityManager: Slow operation: 319ms so far, now at startProcess: done updating pids map
+11-23 23:37:20.939   504   546 W ActivityManager: Slow operation: 299ms so far, now at startProcess: asking zygote to start proc
+11-23 23:37:20.941   504   504 V NotificationAssistants: enabling notification assistant for 0: ComponentInfo{android.ext.services/android.ext.services.notification.Assistant}
+11-23 23:37:20.941   504   504 V NotificationAssistants: binding: Intent { act=android.service.notification.NotificationAssistantService cmp=android.ext.services/.notification.Assistant (has extras) }
+11-23 23:37:20.943   504   598 W InputDispatcher: Still no focused window. Will drop the event in 4992ms
+11-23 23:37:20.943   716   716 V KeyguardUpdateMonitor: onSubscriptionInfoChanged()
+11-23 23:37:20.946  1419  1419 I .ims.rcsservic: The ClassLoaderContext is a special shared library.
+11-23 23:37:20.949   716   716 V KeyguardUpdateMonitor: SubInfo:{id=1 iccId=89014103211118510720 simSlotIndex=0 carrierId=-1 displayName=Android carrierName= nameSource=0 iconTint=-16746133 number=+15555215554 dataRoaming=0 iconBitmap=android.graphics.Bitmap@b9e51d2 mcc=310 mnc=260 countryIso=us isEmbedded=false nativeAccessRules=null cardString=89014103211118510720 cardId=-1 isOpportunistic=false groupUUID=null isGroupDisabled=false profileClass=-1 ehplmns=null hplmns=null subscriptionType=0 groupOwner=null carrierConfigAccessRules=null areUiccApplicationsEnabled=true}
+11-23 23:37:20.950  1032  1032 D TelephonyProvider: subIdString = 1 subId = 1
+11-23 23:37:20.954  1440  1440 I or.multidispla: The ClassLoaderContext is a special shared library.
+11-23 23:37:20.961   716   716 V KeyguardUpdateMonitor: onSubscriptionInfoChanged()
+11-23 23:37:20.965   716   716 V KeyguardUpdateMonitor: SubInfo:{id=1 iccId=89014103211118510720 simSlotIndex=0 carrierId=-1 displayName=Android carrierName= nameSource=0 iconTint=-16746133 number=+15555215554 dataRoaming=0 iconBitmap=android.graphics.Bitmap@5943959 mcc=310 mnc=260 countryIso=us isEmbedded=false nativeAccessRules=null cardString=89014103211118510720 cardId=-1 isOpportunistic=false groupUUID=null isGroupDisabled=false profileClass=-1 ehplmns=null hplmns=null subscriptionType=0 groupOwner=null carrierConfigAccessRules=null areUiccApplicationsEnabled=true}
+11-23 23:37:20.967   504   533 D TelephonyRegistryManager: onSubscriptionsChangedListener callback received.
+11-23 23:37:20.967   504   533 I chatty  : uid=1000(system) Binder:504_1 identical 3 lines
+11-23 23:37:20.967   504   533 D TelephonyRegistryManager: onSubscriptionsChangedListener callback received.
+11-23 23:37:20.968   697  1437 D TelephonyRegistryManager: onSubscriptionsChangedListener callback received.
+11-23 23:37:20.968   716  1378 D TelephonyRegistryManager: onSubscriptionsChangedListener callback received.
+--
+11-23 23:37:22.148  1374  1374 D AndroidRuntime: Shutting down VM
+11-23 23:37:22.149   504   561 I ActivityTaskManager: START u0 {act=android.intent.action.MAIN cat=[android.intent.category.HOME] flg=0x10000100 cmp=com.android.provision/.DefaultActivity} from uid 0
+11-23 23:37:22.154   504   539 D EventSequenceValidator: Transition from ACTIVITY_LAUNCHED to ACTIVITY_CANCELLED
+11-23 23:37:22.156   697   697 V AvrcpMediaPlayerList: mPackageChangedBroadcastReceiver: action: android.intent.action.PACKAGE_CHANGED
+11-23 23:37:22.156   697   697 D AvrcpMediaPlayerList: Name of package changed: com.android.sdksetup
+11-23 23:37:22.157   504   539 D EventSequenceValidator: Transition from ACTIVITY_CANCELLED to INTENT_STARTED
+11-23 23:37:22.157   504   539 D EventSequenceValidator: Transition from INTENT_STARTED to ACTIVITY_LAUNCHED
+11-23 23:37:22.162   504   536 I RoleManagerService: Granting default roles...
+11-23 23:37:22.163   504   539 D CompatibilityChangeReporter: Compat change id reported: 135634846; UID 10116; state: DISABLED
+11-23 23:37:22.163   504   546 D CompatibilityChangeReporter: Compat change id reported: 143937733; UID 10116; state: ENABLED
+11-23 23:37:22.166   504   504 W AppWidgetServiceImpl: Failed to read state: java.io.FileNotFoundException: /data/system/users/0/appwidgets.xml: open failed: ENOENT (No such file or directory)
+11-23 23:37:22.166   504   504 V AppWidgetServiceImpl: Upgrading widget database from 0 to 1
+11-23 23:37:22.166   504   504 I Telecom : DefaultDialerCache: Refreshing default dialer for user 0: now com.android.dialer: DDC.oR@ADQ
+11-23 23:37:22.167   735   766 I PermissionControllerServiceImpl: Updating user sensitive for uid 10114
+11-23 23:37:22.170  1694  1694 I gedprovisionin: The ClassLoaderContext is a special shared library.
+11-23 23:37:22.172  1694  1694 D NetworkSecurityConfig: No Network Security Config specified, using platform default
+11-23 23:37:22.172  1694  1694 D NetworkSecurityConfig: No Network Security Config specified, using platform default
+11-23 23:37:22.172  1694  1694 I CarUiInstaller: CarUiInstaller started for com.android.managedprovisioning
+11-23 23:37:22.173  1484  1525 I ProvidersCache: Provider returned no roots. Possibly naughty: com.android.externalstorage.documents
+11-23 23:37:22.177  1599  1599 D ExternalStorage: After updating volumes, found 1 active roots
+11-23 23:37:22.178   504   787 W StorageManagerService: Reporting emulated;0 unmounted due to system locked
+11-23 23:37:22.178  1404  1404 V MediaStore: Examining volume emulated;0 with name external_primary and state mounted
+11-23 23:37:22.178  1404  1404 V MediaProvider: Updated external volumes to: {external_primary}
+11-23 23:37:22.179   504   504 W StorageManagerService: Reporting emulated;0 unmounted due to system locked
+11-23 23:37:22.180  1675  1675 I Dialer  : DialerExecutorModule.newThread - creating low priority thread
+11-23 23:37:22.183  1675  1675 I Dialer  : CallLogConfigImpl.schedulePollingJob - scheduling
+--
+11-23 23:37:51.976  2411  2411 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-23 23:37:51.978  2411  2411 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.profilebootclasspath"
+11-23 23:37:51.978  2411  2411 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.enable_apex_image"
+11-23 23:37:51.978  2411  2411 I AndroidRuntime: Using default boot image
+11-23 23:37:51.978  2411  2411 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.disable_lock_profiling"
+11-23 23:37:51.978  2411  2411 I AndroidRuntime: Leaving lock profiling enabled
+11-23 23:37:51.978  2411  2411 E libc    : Access denied finding property "persist.device_config.runtime_native_boot.enable_generational_cc"
+11-23 23:37:51.979  2411  2411 I app_process: Core platform API reporting enabled, enforcing=false
+11-23 23:37:52.020  2411  2411 D app_process: Time zone APEX ICU file found: /apex/com.android.tzdata/etc/icu/icu_tzdata.dat
+11-23 23:37:52.020  2411  2411 D app_process: I18n APEX ICU file found: /apex/com.android.i18n/etc/icu/icudt66l.dat
+11-23 23:37:52.022  2411  2411 W app_process: Unexpected CPU variant for X86 using defaults: x86_64
+11-23 23:37:52.025  2411  2411 I app_process: The ClassLoaderContext is a special shared library.
+11-23 23:37:52.033  2411  2411 W app_process: JNI RegisterNativeMethods: attempt to register 0 native methods for android.media.AudioAttributes
+11-23 23:37:52.036  2411  2411 D AndroidRuntime: Calling main entry com.android.commands.am.Am
+11-23 23:37:52.039   504   533 I ActivityManager: Force stopping de.ostlertekker.ultraiptv.debug appid=10130 user=0: start instr
+11-23 23:37:52.040   504   533 D CompatibilityChangeReporter: Compat change id reported: 135634846; UID 10130; state: DISABLED
+11-23 23:37:52.040   504   546 D CompatibilityChangeReporter: Compat change id reported: 143937733; UID 10130; state: ENABLED
+11-23 23:37:52.044   280   280 D Zygote  : Forked child process 2423
+11-23 23:37:52.045   504   546 I ActivityManager: Start proc 2423:de.ostlertekker.ultraiptv.debug/u0a130 for added application de.ostlertekker.ultraiptv.debug
+11-23 23:37:52.048  2423  2423 I ultraiptv.debu: Late-enabling -Xcheck:jni
+11-23 23:37:52.055  2423  2423 I ultraiptv.debu: Unquickening 12 vdex files!
+11-23 23:37:52.056  2423  2423 W ultraiptv.debu: Unexpected CPU variant for X86 using defaults: x86_64
+11-23 23:37:52.059   379   396 I adbd    : jdwp connection from 2423
+11-23 23:37:52.073  2423  2423 W ActivityThread: Package uses different ABI(s) than its instrumentation: package[de.ostlertekker.ultraiptv.debug]: x86_64, null instrumentation[de.ostlertekker.ultraiptv.debug.test]: null, null
+11-23 23:37:52.075  2423  2423 I ultraiptv.debu: The ClassLoaderContext is a special shared library.
+11-23 23:37:52.302   504   536 I RoleManagerService: Granting default roles...
+11-23 23:37:52.076  2423  2423 I chatty  : uid=10130(u0_a130) de.ostlertekker.ultraiptv.debug identical 1 line
+11-23 23:37:52.077  2423  2423 I ultraiptv.debu: The ClassLoaderContext is a special shared library.
+11-23 23:37:52.577  2423  2423 D ApplicationLoaders: Returning zygote-cached class loader: /system/framework/android.test.base.jar
+11-23 23:37:52.577  2423  2423 D ApplicationLoaders: Returning zygote-cached class loader: /system/framework/android.test.base.jar
+11-23 23:37:52.578  2423  2423 I ultraiptv.debu: The ClassLoaderContext is a special shared library.
+11-23 23:37:52.579  2423  2423 D ApplicationLoaders: Returning zygote-cached class loader: /system/framework/android.test.base.jar
+11-23 23:37:52.579  2423  2423 D ApplicationLoaders: Returning zygote-cached class loader: /system/framework/android.test.base.jar
+11-23 23:37:52.579  2423  2423 I ultraiptv.debu: The ClassLoaderContext is a special shared library.
+11-23 23:37:52.581  2423  2423 I chatty  : uid=10130(u0_a130) de.ostlertekker.ultraiptv.debug identical 2 lines
+11-23 23:37:52.582  2423  2423 I ultraiptv.debu: The ClassLoaderContext is a special shared library.
+11-23 23:37:53.070  2423  2423 W ultraiptv.debu: Accessing hidden method Landroid/app/Instrumentation;->execStartActivity(Landroid/content/Context;Landroid/os/IBinder;Landroid/os/IBinder;Landroid/app/Activity;Landroid/content/Intent;ILandroid/os/Bundle;)Landroid/app/Instrumentation$ActivityResult; (greylist, linking, allowed)
+11-23 23:37:53.070  2423  2423 W ultraiptv.debu: Accessing hidden method Landroid/app/Instrumentation;->execStartActivity(Landroid/content/Context;Landroid/os/IBinder;Landroid/os/IBinder;Ljava/lang/String;Landroid/content/Intent;ILandroid/os/Bundle;)Landroid/app/Instrumentation$ActivityResult; (greylist, linking, allowed)
+11-23 23:37:53.073  2423  2423 D NetworkSecurityConfig: No Network Security Config specified, using platform default
+--
+11-23 23:38:01.660  2504  2504 I AndroidRuntime: VM exiting with result code 0, cleanup skipped.
+11-23 23:38:01.715   504   598 W system_server: Long monitor contention with owner Binder:504_4 (691) at void com.android.server.wm.TaskChangeNotificationController.forAllLocalListeners(com.android.server.wm.TaskChangeNotificationController$TaskStackConsumer, android.os.Message)(TaskChangeNotificationController.java:351) waiters=3 in boolean com.android.server.wm.InputManagerCallback.notifyFocusChanged(android.os.IBinder, android.os.IBinder) for 478ms
+11-23 23:38:01.715   504   504 W system_server: Long monitor contention with owner Binder:504_4 (691) at void com.android.server.wm.TaskChangeNotificationController.forAllLocalListeners(com.android.server.wm.TaskChangeNotificationController$TaskStackConsumer, android.os.Message)(TaskChangeNotificationController.java:351) waiters=4 in boolean com.android.server.wm.WindowProcessController.hasActivities() for 373ms
+11-23 23:38:01.715   504   540 W system_server: Long monitor contention with owner Binder:504_4 (691) at void com.android.server.wm.TaskChangeNotificationController.forAllLocalListeners(com.android.server.wm.TaskChangeNotificationController$TaskStackConsumer, android.os.Message)(TaskChangeNotificationController.java:351) waiters=1 in void com.android.server.wm.InputMonitor$UpdateInputWindows.run() for 490ms
+11-23 23:38:01.716   504   504 I ActivityManager: PendingStartActivityUids startActivity to updateOomAdj delay:2973ms, uid:10130
+11-23 23:38:01.716   504   504 W Looper  : Slow dispatch took 374ms main h=android.app.ActivityThread$H c=<recycled PooledLambda@98d0a9> m=0
+11-23 23:38:01.717   504   539 D EventSequenceValidator: Transition from ACTIVITY_LAUNCHED to ACTIVITY_FINISHED
+11-23 23:38:01.722   280   280 I Zygote  : Process 2504 exited cleanly (0)
+11-23 23:38:01.723   504  1103 I system_server: oneway function results will be dropped but finished with status OK and parcel size 4
+11-23 23:38:01.723   504   598 W InputDispatcher: channel '14e21fb de.ostlertekker.ultraiptv.debug/de.ostlertekker.ultraiptv.core.i18n.RestartActivity (server)' ~ Consumer closed input channel or an error occurred.  events=0xd
+11-23 23:38:01.723   504   598 E InputDispatcher: channel '14e21fb de.ostlertekker.ultraiptv.debug/de.ostlertekker.ultraiptv.core.i18n.RestartActivity (server)' ~ Channel is unrecoverably broken and will be disposed!
+11-23 23:38:01.934     0     0 I binder  : undelivered transaction 142344, process died.
+11-23 23:38:01.939     0     0 I binder  : undelivered transaction 142343, process died.
+11-23 23:38:01.724   504  1088 I WindowManager: WIN DEATH: Window{14e21fb u0 de.ostlertekker.ultraiptv.debug/de.ostlertekker.ultraiptv.core.i18n.RestartActivity}
+11-23 23:38:01.724   504  1088 W InputDispatcher: Attempted to unregister already unregistered input channel '14e21fb de.ostlertekker.ultraiptv.debug/de.ostlertekker.ultraiptv.core.i18n.RestartActivity (server)'
+11-23 23:38:01.781   504   539 D EventSequenceValidator: Transition from ACTIVITY_FINISHED to INTENT_STARTED
+11-23 23:38:01.784   504   539 D EventSequenceValidator: Transition from INTENT_STARTED to INTENT_FAILED
+11-23 23:38:01.837   297  1574 D goldfish-address-space: claimShared: Ask to claim region [0x3f8000000 0x3f87e9000]
+11-23 23:38:01.840   504   787 I ActivityManager: Process de.ostlertekker.ultraiptv.debug:restart (pid 2504) has died: fg  TOP 
+11-23 23:38:01.842   504   547 I libprocessgroup: Successfully killed process cgroup uid 10130 pid 2504 in 0ms
+11-23 23:38:01.842   504   787 W ActivityTaskManager: Tried to set launchTime (0) < mLastActivityLaunchTime (56806)
+11-23 23:38:01.843   504   787 W InputReader: Device virtio_input_multi_touch_10 is associated with display ADISPLAY_ID_NONE.
+11-23 23:38:01.843   504   787 W InputReader: Device virtio_input_multi_touch_7 is associated with display ADISPLAY_ID_NONE.
+11-23 23:38:01.843   504   787 W InputReader: Device virtio_input_multi_touch_4 is associated with display ADISPLAY_ID_NONE.
+11-23 23:38:01.843   504   787 W InputReader: Device virtio_input_multi_touch_11 is associated with display ADISPLAY_ID_NONE.
+11-23 23:38:01.843   504   787 W InputReader: Device virtio_input_multi_touch_5 is associated with display ADISPLAY_ID_NONE.
+--
+11-23 23:38:08.294  2411  2411 D AndroidRuntime: Shutting down VM
+11-23 23:38:08.622     0     0 I binder  : undelivered TRANSACTION_COMPLETE
+11-23 23:38:08.624     0     0 I binder  : undelivered transaction 147394, process died.
+11-23 23:38:08.416   280   280 I Zygote  : Process 2423 exited due to signal 9 (Killed)
+11-23 23:38:08.417   504   539 W ActivityManager: setHasOverlayUi called on unknown pid: 2423
+11-23 23:38:08.417   504  2367 W WindowManager: Cannot find window which accessibility connection is added to
+11-23 23:38:08.423   504   547 I libprocessgroup: Successfully killed process cgroup uid 10130 pid 2423 in 135ms
+11-23 23:38:08.477   297  1574 D goldfish-address-space: claimShared: Ask to claim region [0x3f8fd4000 0x3f97bd000]
+11-23 23:38:08.492   334   334 E Layer   : [Surface(name=Task=1)/@0x9856a4 - animation-leash#0] No local sync point found
+11-23 23:38:08.492   334   334 E Layer   : [Surface(name=Task=9)/@0xc3b03d1 - animation-leash#0] No local sync point found
+11-23 23:38:08.516   297  1574 D goldfish-address-space: claimShared: Ask to claim region [0x3fa482000 0x3fac6b000]
+11-23 23:38:08.522   887   887 I Choreographer: Skipped 35 frames!  The application may be doing too much work on its main thread.
+11-23 23:38:08.526   334   334 E Layer   : [Surface(name=Task=1)/@0x9856a4 - animation-leash#0] No local sync point found
+11-23 23:38:08.526   334   334 E Layer   : [Surface(name=Task=9)/@0xc3b03d1 - animation-leash#0] No local sync point found
+11-23 23:38:08.568   297  1574 D goldfish-address-space: claimShared: Ask to claim region [0x3f87eb000 0x3f8fd4000]
+11-23 23:38:08.584   504   514 I system_server: NativeAlloc concurrent copying GC freed 104868(5800KB) AllocSpace objects, 37(2508KB) LOS objects, 49% free, 9603KB/18MB, paused 45us total 117.069ms
+11-23 23:38:08.674   286  2499 W android.hardware.audio.service.ranchu: TinyalsaSink::write:125 pcm_write was late reading frames, dropping 22131 us of audio
+11-23 23:38:08.765   286  2499 I chatty  : uid=1041(audioserver) audio.service.r identical 3 lines
+11-23 23:38:08.803   286  2499 W android.hardware.audio.service.ranchu: TinyalsaSink::write:125 pcm_write was late reading frames, dropping 22131 us of audio
+11-23 23:38:08.858  2575  2577 I cmd     : oneway function results will be dropped but finished with status OK and parcel size 4
+11-23 23:38:08.867   504   534 I system_server: oneway function results will be dropped but finished with status OK and parcel size 4
+11-23 23:38:08.943  2587  2589 I cmd     : oneway function results will be dropped but finished with status OK and parcel size 4
+11-23 23:38:09.442   504   545 I ActivityManager: Force stopping de.ostlertekker.ultraiptv.debug appid=10130 user=-1: deletePackageX
+11-23 23:38:09.446   504   561 I PackageManager: Removing permission de.ostlertekker.ultraiptv.debug.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION that used to be declared by de.ostlertekker.ultraiptv.debug
+11-23 23:38:09.446   504   561 W PackageManager: Removing dangling permission: de.ostlertekker.ultraiptv.debug.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION from package de.ostlertekker.ultraiptv.debug
+11-23 23:38:09.446   504   561 I PackageManager: Permission ownership changed. Updating all permissions.
