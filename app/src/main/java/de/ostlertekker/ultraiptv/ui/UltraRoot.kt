@@ -59,6 +59,7 @@ import de.ostlertekker.ultraiptv.core.ui.NavRail
 import de.ostlertekker.ultraiptv.core.ui.UltraThemeHost
 import de.ostlertekker.ultraiptv.feature.home.HomeScreen
 import de.ostlertekker.ultraiptv.feature.intro.IntroScreen
+import de.ostlertekker.ultraiptv.feature.intro.SetupWizard
 import de.ostlertekker.ultraiptv.feature.livetv.EpgScreen
 import de.ostlertekker.ultraiptv.feature.livetv.LiveTvScreen
 import de.ostlertekker.ultraiptv.feature.movies.MovieDetailScreen
@@ -109,7 +110,7 @@ object Routes {
     fun timeMachine(at: Long) = "timemachine?at=$at"
 }
 
-private enum class Phase { INTRO, SETUP, PROFILES, MAIN }
+private enum class Phase { INTRO, WIZARD, SETUP, PROFILES, MAIN }
 
 @Composable
 fun UltraRoot(startRoute: String? = null, vm: RootViewModel = hiltViewModel()) {
@@ -121,7 +122,9 @@ fun UltraRoot(startRoute: String? = null, vm: RootViewModel = hiltViewModel()) {
         Box(Modifier.fillMaxSize().background(Color.Black))
         return
     }
-    var phase by rememberSaveable { mutableStateOf(if (s.introEnabled) Phase.INTRO else Phase.SETUP) }
+    // Einrichtungsassistent nur beim ersten Start (noch keine Quelle) oder wenn er in den Einstellungen erneut angefordert wurde
+    val wantWizard = (!s.wizardDone && !hasProvider) || s.wizardAgain
+    var phase by rememberSaveable { mutableStateOf(if (s.introEnabled) Phase.INTRO else if (wantWizard) Phase.WIZARD else Phase.SETUP) }
     var introFull by rememberSaveable { mutableStateOf(!s.introPlayedOnce) }
 
     UltraThemeHost(s, vm.device.tier, vm.sounds) {
@@ -130,8 +133,9 @@ fun UltraRoot(startRoute: String? = null, vm: RootViewModel = hiltViewModel()) {
             Phase.INTRO -> IntroScreen(full = introFull, soundEnabled = s.introSound, sounds = vm.sounds, theme = theme) {
                 if (introFull) vm.introFinished()
                 introFull = false
-                phase = Phase.SETUP
+                phase = if (wantWizard) Phase.WIZARD else Phase.SETUP
             }
+            Phase.WIZARD -> SetupWizard(hasProvider) { vm.wizardFinished(); phase = Phase.SETUP }
             Phase.SETUP -> {
                 LaunchedEffect(Unit) { vm.onStartup() }
                 if (!hasProvider) {

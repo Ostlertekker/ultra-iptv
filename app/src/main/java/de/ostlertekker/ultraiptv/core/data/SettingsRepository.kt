@@ -37,6 +37,10 @@ data class AppSettings(
     val introEnabled: Boolean = true,
     val introSound: Boolean = true,
     val introPlayedOnce: Boolean = false,
+    /** Einrichtungsassistent abgeschlossen/übersprungen. */
+    val wizardDone: Boolean = false,
+    /** Assistent beim nächsten Start erneut zeigen (aus den Einstellungen). */
+    val wizardAgain: Boolean = false,
     val uiSounds: Boolean = true,
     val themeSounds: Boolean = true,
     val uiVolume: Float = 0.5f,
@@ -176,6 +180,8 @@ object Keys {
     val INTRO = booleanPreferencesKey("intro")
     val INTRO_SOUND = booleanPreferencesKey("intro_sound")
     val INTRO_PLAYED = booleanPreferencesKey("intro_played")
+    val WIZARD_DONE = booleanPreferencesKey("wizard_done")
+    val WIZARD_AGAIN = booleanPreferencesKey("wizard_again")
     val UI_SOUNDS = booleanPreferencesKey("ui_sounds")
     val THEME_SOUNDS = booleanPreferencesKey("theme_sounds")
     val UI_VOLUME = floatPreferencesKey("ui_volume")
@@ -300,6 +306,8 @@ fun Preferences.toSettings(): AppSettings {
         introEnabled = this[Keys.INTRO] ?: d.introEnabled,
         introSound = this[Keys.INTRO_SOUND] ?: d.introSound,
         introPlayedOnce = this[Keys.INTRO_PLAYED] ?: d.introPlayedOnce,
+        wizardDone = this[Keys.WIZARD_DONE] ?: d.wizardDone,
+        wizardAgain = this[Keys.WIZARD_AGAIN] ?: d.wizardAgain,
         uiSounds = this[Keys.UI_SOUNDS] ?: d.uiSounds,
         themeSounds = this[Keys.THEME_SOUNDS] ?: d.themeSounds,
         uiVolume = this[Keys.UI_VOLUME] ?: d.uiVolume,

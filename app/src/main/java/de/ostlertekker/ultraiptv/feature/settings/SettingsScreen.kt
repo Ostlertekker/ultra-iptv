@@ -562,6 +562,7 @@ private fun LazyListScope.generalPage(vm: SettingsViewModel, s: AppSettings) {
                 vm.set(Keys.START_ACTION, (s.startAction + 1) % 4)
             }
             SSwitch("Startintro anzeigen", s.introEnabled) { vm.set(Keys.INTRO, it) }
+            SRow("Einrichtungsassistent erneut zeigen", if (s.wizardAgain) "✓ beim nächsten Start" else null) { vm.set(Keys.WIZARD_AGAIN, !s.wizardAgain) }
             SSwitch("Menü-Töne", s.uiSounds) { vm.set(Keys.UI_SOUNDS, it) }
         }
     }

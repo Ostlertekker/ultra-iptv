@@ -119,6 +119,7 @@ class RootViewModel @Inject constructor(
     suspend fun lastChannelId(): String? = user.recentChannels.first().firstOrNull()?.itemId
 
     fun introFinished() = viewModelScope.launch { settingsRepo.set(Keys.INTRO_PLAYED, true) }
+    fun wizardFinished() = viewModelScope.launch { settingsRepo.set(Keys.WIZARD_DONE, true); settingsRepo.set(Keys.WIZARD_AGAIN, false) }
 }
 
 /** Startet den Vollbild-Player. */
