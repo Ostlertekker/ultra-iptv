@@ -79,8 +79,6 @@ data class AppSettings(
     /** Jellyfin (Einstellungen › Jellyfin): Bitrate-Stufe, Transkodierung erzwingen, Audiokanäle, Untertitel, Fortschritt melden, ausgeblendete Reihen. */
     val jfMaxBitrate: Int = 0,
     val jfForceTranscode: Boolean = false,
-    /** Jellyfin-Datensparmodus: nur Bild + gewählte Tonspur übertragen (unverändert kopiert). */
-    val jfDataSaver: Boolean = true,
     val jfAudioChannels: Int = 1,
     val jfSubtitles: Int = 0,
     val jfReportProgress: Boolean = true,
@@ -212,7 +210,6 @@ object Keys {
     val PRO_ANIM = intPreferencesKey("pro_anim")
     val JF_MAX_BITRATE = intPreferencesKey("jf_max_bitrate")
     val JF_FORCE_TRANSCODE = booleanPreferencesKey("jf_force_transcode")
-    val JF_DATA_SAVER = booleanPreferencesKey("jf_data_saver")
     val JF_AUDIO_CHANNELS = intPreferencesKey("jf_audio_channels")
     val JF_SUBTITLES = intPreferencesKey("jf_subtitles")
     val JF_REPORT_PROGRESS = booleanPreferencesKey("jf_report_progress")
@@ -338,7 +335,6 @@ fun Preferences.toSettings(): AppSettings {
         proAnim = this[Keys.PRO_ANIM] ?: d.proAnim,
         jfMaxBitrate = this[Keys.JF_MAX_BITRATE] ?: d.jfMaxBitrate,
         jfForceTranscode = this[Keys.JF_FORCE_TRANSCODE] ?: d.jfForceTranscode,
-        jfDataSaver = this[Keys.JF_DATA_SAVER] ?: d.jfDataSaver,
         jfAudioChannels = this[Keys.JF_AUDIO_CHANNELS] ?: d.jfAudioChannels,
         jfSubtitles = this[Keys.JF_SUBTITLES] ?: d.jfSubtitles,
         jfReportProgress = this[Keys.JF_REPORT_PROGRESS] ?: d.jfReportProgress,
