@@ -41,6 +41,8 @@ data class AppSettings(
     val wizardDone: Boolean = false,
     /** Assistent beim nächsten Start erneut zeigen (aus den Einstellungen). */
     val wizardAgain: Boolean = false,
+    /** In der Menüzeile ausgeblendete Bereiche (Routen, kommagetrennt). Standard: alle sichtbar. */
+    val hiddenTabs: Set<String> = emptySet(),
     val uiSounds: Boolean = true,
     val themeSounds: Boolean = true,
     val uiVolume: Float = 0.5f,
@@ -182,6 +184,7 @@ object Keys {
     val INTRO_PLAYED = booleanPreferencesKey("intro_played")
     val WIZARD_DONE = booleanPreferencesKey("wizard_done")
     val WIZARD_AGAIN = booleanPreferencesKey("wizard_again")
+    val HIDDEN_TABS = stringPreferencesKey("hidden_tabs")
     val UI_SOUNDS = booleanPreferencesKey("ui_sounds")
     val THEME_SOUNDS = booleanPreferencesKey("theme_sounds")
     val UI_VOLUME = floatPreferencesKey("ui_volume")
@@ -308,6 +311,7 @@ fun Preferences.toSettings(): AppSettings {
         introPlayedOnce = this[Keys.INTRO_PLAYED] ?: d.introPlayedOnce,
         wizardDone = this[Keys.WIZARD_DONE] ?: d.wizardDone,
         wizardAgain = this[Keys.WIZARD_AGAIN] ?: d.wizardAgain,
+        hiddenTabs = (this[Keys.HIDDEN_TABS] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
         uiSounds = this[Keys.UI_SOUNDS] ?: d.uiSounds,
         themeSounds = this[Keys.THEME_SOUNDS] ?: d.themeSounds,
         uiVolume = this[Keys.UI_VOLUME] ?: d.uiVolume,

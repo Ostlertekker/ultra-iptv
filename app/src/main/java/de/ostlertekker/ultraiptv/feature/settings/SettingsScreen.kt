@@ -564,6 +564,13 @@ private fun LazyListScope.generalPage(vm: SettingsViewModel, s: AppSettings) {
             SSwitch("Startintro anzeigen", s.introEnabled) { vm.set(Keys.INTRO, it) }
             SRow("Einrichtungsassistent erneut zeigen", if (s.wizardAgain) "✓ beim nächsten Start" else null) { vm.set(Keys.WIZARD_AGAIN, !s.wizardAgain) }
             SSwitch("Menü-Töne", s.uiSounds) { vm.set(Keys.UI_SOUNDS, it) }
+            SHeader("Bereiche in der Menüzeile")
+            de.ostlertekker.ultraiptv.ui.MENU_SECTIONS.forEach { (id, name) ->
+                SSwitch(name, id !in s.hiddenTabs) { on ->
+                    val set = if (on) s.hiddenTabs - id else s.hiddenTabs + id
+                    vm.set(Keys.HIDDEN_TABS, set.joinToString(","))
+                }
+            }
         }
     }
 }

@@ -24,7 +24,7 @@ class ZWizardTest {
     private fun key(code: Int) {
         val t = android.os.SystemClock.uptimeMillis()
         instr.uiAutomation.injectInputEvent(KeyEvent(t, t, KeyEvent.ACTION_DOWN, code, 0), true)
-        instr.uiAutomation.injectInputEvent(KeyEvent(t, t, KeyEvent.ACTION_UP, code, 0), true)
+        instr.uiAutomation.injectInputEvent(KeyEvent(t, t + 30, KeyEvent.ACTION_UP, code, 0), true)
     }
 
     @Test fun wizardWalkthrough() {

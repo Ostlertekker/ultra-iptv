@@ -110,6 +110,12 @@ object Routes {
     fun timeMachine(at: Long) = "timemachine?at=$at"
 }
 
+/** Abschaltbare Bereiche der Menüzeile (Route/Kennung → Name). */
+val MENU_SECTIONS = listOf(
+    Routes.LIVE to "Live-TV", Routes.MOVIES to "Filme", Routes.SERIES to "Serien", Routes.RADIO to "Radio",
+    Routes.JELLYFIN to "Jellyfin", "app:YOUTUBE" to "YouTube", "app:BROWSER" to "Browser", Routes.EXPLORE to "Tools",
+)
+
 private enum class Phase { INTRO, WIZARD, SETUP, PROFILES, MAIN }
 
 @Composable
@@ -181,12 +187,10 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route ?: Routes.HOME
     val railFocus = remember { FocusRequester() }
-    val items = remember {
-        listOf(
-            NavItem(Routes.HOME, "Start"), NavItem(Routes.LIVE, "Live-TV"), NavItem(Routes.MOVIES, "Filme"),
-            NavItem(Routes.SERIES, "Serien"), NavItem(Routes.RADIO, "Radio"), NavItem(Routes.JELLYFIN, "Jellyfin"), NavItem("app:YOUTUBE", "YouTube"), NavItem("app:BROWSER", "Browser"),
-            NavItem(Routes.EXPLORE, "Tools"),
-        )
+    // Bereiche lassen sich in den Einstellungen einzeln ausblenden (Start bleibt immer)
+    val hiddenTabs = vm.settings.collectAsStateWithLifecycle().value?.hiddenTabs ?: emptySet()
+    val items = remember(hiddenTabs) {
+        listOf(NavItem(Routes.HOME, "Start")) + MENU_SECTIONS.filter { it.first !in hiddenTabs }.map { NavItem(it.first, it.second) }
     }
     val utility = remember { listOf(NavItem(Routes.SEARCH, "Suche", Icons.Default.Search), NavItem(Routes.SETTINGS, "Einstellungen", Icons.Default.Settings)) }
     LaunchedEffect(Unit) { delay(150); runCatching { railFocus.requestFocus() } }
