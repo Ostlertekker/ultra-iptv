@@ -31,12 +31,15 @@ class ZWizardTest {
         ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)).use {
             Thread.sleep(14_000) // Intro abwarten
-            shot("0_start")
-            for (i in 1..8) {
-                Thread.sleep(if (i == 1) 500 else 2600)
-                shot("${i}_schritt")
-                key(KeyEvent.KEYCODE_DPAD_CENTER)
-            }
+            val D = KeyEvent.KEYCODE_DPAD_DOWN; val U = KeyEvent.KEYCODE_DPAD_UP; val R = KeyEvent.KEYCODE_DPAD_RIGHT; val OK = KeyEvent.KEYCODE_DPAD_CENTER
+            fun keys(vararg c: Int) { for (k in c) { key(k); Thread.sleep(250) } }
+            shot("0_willkommen"); keys(OK); Thread.sleep(2500)
+            shot("1_iptv"); keys(U, R, OK); Thread.sleep(2500)
+            shot("2_jellyfin"); keys(D, D, D, D, R, R, OK); Thread.sleep(2500)
+            shot("3_seerr"); keys(D, D, D, R, R, OK); Thread.sleep(2500)
+            shot("4_wetter"); keys(D, R, R, OK); Thread.sleep(2500)
+            shot("5_news"); keys(D, D, R, OK); Thread.sleep(2500)
+            shot("6_fertig"); keys(OK)
             Thread.sleep(2500)
             shot("9_danach")
             StabilityGuard.lastCrash(context)?.let { throw AssertionError("Absturz:\n$it") }

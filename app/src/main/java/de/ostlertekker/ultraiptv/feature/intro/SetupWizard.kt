@@ -63,6 +63,27 @@ import androidx.compose.ui.unit.sp
 import de.ostlertekker.ultraiptv.core.design.LocalUltraTheme
 import de.ostlertekker.ultraiptv.core.ui.TvButton
 import de.ostlertekker.ultraiptv.core.ui.motionOk
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.focus.focusRequester
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import de.ostlertekker.ultraiptv.core.data.Keys
+import de.ostlertekker.ultraiptv.core.data.SettingsRepository
+import de.ostlertekker.ultraiptv.core.jellyfin.JellyfinRepository
+import de.ostlertekker.ultraiptv.core.news.NewsSources
+import de.ostlertekker.ultraiptv.core.seerr.SeerrRepository
+import de.ostlertekker.ultraiptv.core.ui.TvChip
+import de.ostlertekker.ultraiptv.core.ui.TvTextField
+import de.ostlertekker.ultraiptv.core.weather.WeatherRepository
+import javax.inject.Inject
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.abs
@@ -71,115 +92,330 @@ import kotlin.math.sin
 /** Wie sich Ulli (das Fernseher-Maskottchen) in einem Schritt verhält. */
 private enum class Mood { WAVE, TALK, POINT, THINK, CHEER }
 
-private data class WizardStep(
-    val icon: String,
-    val title: String,
-    val speech: String,
-    val points: List<Pair<String, String>>,
-    val mood: Mood,
-)
+private enum class WStep { WELCOME, IPTV, JELLYFIN, SEERR, WEATHER, NEWS, DONE }
 
-private fun steps(hasProvider: Boolean) = listOf(
-    WizardStep("👋", "Willkommen bei ULTRA IPTV",
-        "Hi, ich bin Ulli! Ich zeig dir in einer Minute die wichtigsten Funktionen. Keine Lust? Dann einfach „Überspringen“.",
-        listOf("📺" to "Live-TV, Filme und Serien deines Anbieters", "🎬" to "Jellyfin, Radio, YouTube und Browser – alles in der App",
-            "⚡" to "Schnelles Umschalten und ein übersichtliches TV-Programm"), Mood.WAVE),
-    WizardStep("🎮", "Die Fernbedienung",
-        "Alles geht mit der Fernbedienung. Hier die wichtigsten Tasten im Player:",
-        listOf("▲ ▼" to "Im Live-TV den Sender wechseln – sofort", "OK" to "Steuerleiste einblenden",
-            "◀ ▶" to "Bei Filmen und Serien spulen", "0–9" to "Sendernummer direkt eingeben", "⟲" to "Zurück schließt Menüs und den Player"), Mood.POINT),
-    WizardStep("📡", "Live-TV & TV-Programm",
-        "Unter „Live-TV“ findest du alle Sender und das TV-Programm. Da kannst du dir auch Erinnerungen stellen.",
-        listOf("🗂" to "Sender nach Gruppen sortiert", "🗓" to "TV-Programm: mit ◀ ▶ am Rand durch die Zeit blättern",
-            "🔔" to "Künftige Sendung auswählen → Erinnerung setzen", "⏮" to "Vorherige-Taste: zurück zum letzten Sender"), Mood.TALK),
-    WizardStep("🍿", "Filme & Serien",
-        "Bei Filmen und Serien merkt sich die App, wo du warst. Die Reihen laden beim Scrollen einfach weiter nach.",
-        listOf("▶" to "Weiterschauen, wo du aufgehört hast", "♥" to "Favoriten und Merkliste",
-            "∞" to "Reihen laden beim Scrollen automatisch nach", "📺" to "Serien: nächste Folge startet von selbst"), Mood.POINT),
-    WizardStep("🧩", "Noch mehr im Menü",
-        "Oben im Menü steckt noch mehr. Alles läuft direkt in der App – es öffnet sich keine fremde App.",
-        listOf("🟣" to "Jellyfin: deine eigene Mediathek", "📻" to "Radio", "▶" to "YouTube und Browser",
-            "🔍" to "Suche oben rechts – auch per Spracheingabe"), Mood.TALK),
-    WizardStep("🛠", "Tools",
-        "Hakt mal etwas? Unter „Tools“ findest du Helfer, die das Problem eingrenzen.",
-        listOf("🚀" to "Speedtest – reicht die Leitung für HD oder 4K?", "✅" to "Verbindungscheck: Internet, DNS, Anbieter, Jellyfin",
-            "🩺" to "App-Diagnose mit Umschalt-Zeiten"), Mood.THINK),
-    WizardStep("⚙", "Einstellungen",
-        "In den Einstellungen passt du die App an dich an. Diesen Assistenten kannst du dort auch erneut starten.",
-        listOf("🎨" to "Design, Hintergrund und Töne", "👤" to "Profile für mehrere Personen",
-            "⬆" to "App- und System-Updates", "🎓" to "Allgemein › Einrichtungsassistent erneut zeigen"), Mood.TALK),
-    WizardStep("🎉", "Alles klar!",
-        if (hasProvider) "Das war's schon! Viel Spaß mit ULTRA IPTV – ich bin dann mal still."
-        else "Das war's schon! Als Nächstes richtest du deine Quelle ein – dein Anbieter gibt dir dafür die Zugangsdaten.",
-        if (hasProvider) listOf("✓" to "Deine Quelle ist schon eingerichtet")
-        else listOf("1" to "Xtream-Zugang oder M3U-Playlist deines Anbieters", "2" to "Nur legale, autorisierte Quellen verwenden",
-            "3" to "Zugangsdaten werden verschlüsselt gespeichert"), Mood.CHEER),
-)
+@HiltViewModel
+class SetupWizardViewModel @Inject constructor(
+    val jellyfin: JellyfinRepository,
+    val seerr: SeerrRepository,
+    val weather: WeatherRepository,
+    val settingsRepo: SettingsRepository,
+) : ViewModel() {
+    val settings = settingsRepo.settings.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val busy = MutableStateFlow(false)
+    val msg = MutableStateFlow<String?>(null)
+    val ok = MutableStateFlow(false)
+    val found = MutableStateFlow<List<Pair<String, String>>?>(null)
+
+    fun reset() { msg.value = null; ok.value = false; busy.value = false }
+
+    private fun run(block: suspend () -> String) {
+        if (busy.value) return
+        busy.value = true; msg.value = null
+        viewModelScope.launch {
+            runCatching { block() }.onSuccess { msg.value = it; ok.value = true }.onFailure { msg.value = "⚠ " + (it.message ?: "Fehler"); ok.value = false }
+            busy.value = false
+        }
+    }
+
+    fun jfLogin(server: String, user: String, pw: String) = run { jellyfin.login(server, user, pw).let { "Verbunden mit ${it.serverName} als ${it.userName}" } }
+    fun jfSearch() = viewModelScope.launch { found.value = null; found.value = runCatching { jellyfin.discover() }.getOrDefault(emptyList()) }
+    fun seerrLogin(server: String, user: String, pw: String) = run {
+        val name = seerr.login(server, user, pw); settingsRepo.set(Keys.SEERR_ENABLED, true); "Angemeldet als $name"
+    }
+    fun setPlace(place: String) = run {
+        val r = weather.setPlace(place).getOrThrow()
+        settingsRepo.set(Keys.WEATHER_ENABLED, r.isNotBlank()); if (r.isBlank()) "Wetter ausgeblendet" else "Wetter für $r"
+    }
+    fun news(source: String?) = viewModelScope.launch {
+        if (source == null) settingsRepo.set(Keys.NEWS_ENABLED, false)
+        else { settingsRepo.set(Keys.NEWS_SOURCE, source); settingsRepo.set(Keys.NEWS_ENABLED, true) }
+    }
+    fun newsLocal(on: Boolean) = viewModelScope.launch { settingsRepo.set(Keys.NEWS_LOCAL, on) }
+}
+
+private fun speechOf(st: WStep, hasProvider: Boolean, ok: Boolean) = when (st) {
+    WStep.WELCOME -> "Hi, ich bin Ulli! Ich helf dir, alles einzurichten – dauert nur ein paar Minuten. Alles außer dem Anbieter ist freiwillig."
+    WStep.IPTV -> if (hasProvider) "Super, dein IPTV-Anbieter ist schon eingerichtet!" else "Zuerst dein IPTV-Anbieter. Die Zugangsdaten bekommst du von ihm – Xtream-Zugang oder M3U-Link."
+    WStep.JELLYFIN -> if (ok) "Klasse, Jellyfin ist verbunden!" else "Hast du einen eigenen Jellyfin-Server? Dann verbinden wir ihn jetzt. Sonst einfach überspringen."
+    WStep.SEERR -> if (ok) "Perfekt, Seerr ist angemeldet!" else "Mit Seerr kannst du Filme und Serien anfragen, die noch fehlen. Angemeldet wird mit deinem Jellyfin-Konto."
+    WStep.WEATHER -> if (ok) "Wetter läuft! Das siehst du oben neben dem Logo." else "Für welchen Ort soll ich dir das Wetter anzeigen? Stadt oder Postleitzahl reicht."
+    WStep.NEWS -> "Möchtest du unten eine Nachrichten-Laufschrift? Such dir eine Quelle aus – oder lass sie aus."
+    WStep.DONE -> "Fertig! Alles Weitere findest du jederzeit in den Einstellungen. Viel Spaß!"
+}
+
+private fun moodOf(st: WStep, ok: Boolean) = when {
+    ok -> Mood.CHEER
+    st == WStep.WELCOME -> Mood.WAVE
+    st == WStep.DONE -> Mood.CHEER
+    st == WStep.IPTV || st == WStep.WEATHER -> Mood.POINT
+    st == WStep.SEERR -> Mood.THINK
+    else -> Mood.TALK
+}
 
 /**
- * Einrichtungsassistent beim ersten Start: führt mit dem Maskottchen „Ulli“ durch die wichtigsten Funktionen.
- * Jederzeit überspringbar; [onDone] wird beim Abschluss und beim Überspringen aufgerufen.
+ * Einrichtungsassistent beim ersten Start: Ulli führt durch die Anmeldung – IPTV-Anbieter, Jellyfin, Seerr, Wetter, Nachrichten.
+ * Jeder Schritt außer dem Anbieter ist freiwillig; „Überspringen“ beendet den Assistenten. [onDone] beim Abschluss/Überspringen.
  */
 @Composable
-fun SetupWizard(hasProvider: Boolean, onDone: () -> Unit) {
+fun SetupWizard(hasProvider: Boolean, onDone: () -> Unit, vm: SetupWizardViewModel = hiltViewModel()) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
-    val all = remember(hasProvider) { steps(hasProvider) }
+    val all = WStep.entries
     var index by rememberSaveable { mutableIntStateOf(0) }
     var forward by remember { mutableStateOf(true) }
+    var providerNow by remember { mutableStateOf(hasProvider) }
     val step = all[index]
-    val last = index == all.lastIndex
-    val nextFocus = remember { FocusRequester() }
+    val ok by vm.ok.collectAsStateWithLifecycle()
     val anim = motionOk()
-    fun go(d: Int) { val n = (index + d).coerceIn(0, all.lastIndex); if (n != index) { forward = d > 0; index = n } }
-
-    LaunchedEffect(index) { delay(80); runCatching { nextFocus.requestFocus() } }
+    fun go(d: Int) { val n = (index + d).coerceIn(0, all.lastIndex); if (n != index) { forward = d > 0; vm.reset(); index = n } }
+    // bereits verbundene Dienste gleich als erledigt zeigen
+    LaunchedEffect(index) {
+        when (step) {
+            WStep.JELLYFIN -> vm.jellyfin.session.value?.let { vm.msg.value = "Verbunden mit ${it.serverName} als ${it.userName}"; vm.ok.value = true }
+            WStep.SEERR -> vm.seerr.state.value.takeIf { it.loggedIn }?.let { vm.msg.value = "Angemeldet als ${it.user}"; vm.ok.value = true }
+            else -> Unit
+        }
+    }
 
     Box(
         Modifier.fillMaxSize()
             .background(Brush.verticalGradient(listOf(p.bgTop, p.bgBottom)))
             .onPreviewKeyEvent { ev ->
                 if (ev.key == Key.Back && ev.type == KeyEventType.KeyUp) { if (index > 0) go(-1); true }
-                else ev.key == Key.Back
+                else ev.key == Key.Back && ev.type == KeyEventType.KeyDown
             },
     ) {
-        // weicher Lichtschein hinter dem Maskottchen
         Canvas(Modifier.fillMaxSize()) {
             drawCircle(Brush.radialGradient(listOf(p.glow.copy(alpha = 0.22f), Color.Transparent),
-                center = Offset(size.width * 0.2f, size.height * 0.55f), radius = size.width * 0.35f),
-                radius = size.width * 0.35f, center = Offset(size.width * 0.2f, size.height * 0.55f))
+                center = Offset(size.width * 0.15f, size.height * 0.6f), radius = size.width * 0.3f),
+                radius = size.width * 0.3f, center = Offset(size.width * 0.15f, size.height * 0.6f))
         }
-        Row(Modifier.fillMaxSize().padding(horizontal = 64.dp, vertical = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-            // Links: Ulli + Sprechblase
-            Column(Modifier.width(380.dp).fillMaxHeight(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                SpeechBubble(step.speech, key = index)
-                Spacer(Modifier.height(14.dp))
-                Ulli(step.mood, switchKey = index, modifier = Modifier.size(230.dp, 260.dp))
+        Row(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 28.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.width(270.dp).fillMaxHeight(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                SpeechBubble(speechOf(step, providerNow, ok), key = index * 2 + (if (ok) 1 else 0))
+                Spacer(Modifier.height(10.dp))
+                Ulli(moodOf(step, ok), switchKey = index, modifier = Modifier.size(190.dp, 215.dp))
             }
-            Spacer(Modifier.width(40.dp))
-            // Rechts: Inhalt des Schritts
+            Spacer(Modifier.width(28.dp))
             Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.Center) {
-                Text("SCHRITT ${index + 1} VON ${all.size}", color = p.textDim, fontSize = 13.sp, letterSpacing = 3.sp)
-                Spacer(Modifier.height(8.dp))
-                Progress(index, all.size)
-                Spacer(Modifier.height(22.dp))
-                AnimatedContent(index, label = "wizStep", transitionSpec = {
+                if (step != WStep.WELCOME && step != WStep.DONE) {
+                    Text("SCHRITT $index VON ${all.size - 2}", color = p.textDim, fontSize = 12.sp, letterSpacing = 3.sp)
+                    Spacer(Modifier.height(6.dp))
+                    Progress(index - 1, all.size - 2)
+                    Spacer(Modifier.height(14.dp))
+                }
+                AnimatedContent(index, label = "wizStep", modifier = Modifier.weight(1f, fill = false), transitionSpec = {
                     if (!anim) fadeIn(tween(0)) togetherWith fadeOut(tween(0))
                     else {
                         val dir = if (forward) 1 else -1
                         (slideInHorizontally(tween(320)) { it / 6 * dir } + fadeIn(tween(320))) togetherWith
                             (slideOutHorizontally(tween(220)) { -it / 8 * dir } + fadeOut(tween(180)))
                     }
-                }) { i -> StepCard(all[i]) }
-                Spacer(Modifier.height(28.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (index > 0) TvButton("Zurück", onClick = { go(-1) })
-                    TvButton(if (last) (if (hasProvider) "Los geht's" else "Quelle einrichten") else "Weiter",
-                        onClick = { if (last) onDone() else go(1) }, primary = true, focusRequester = nextFocus)
-                    if (!last) TvButton("Überspringen", onClick = onDone)
+                }) { i ->
+                    when (all[i]) {
+                        WStep.WELCOME -> WelcomePane(onStart = { go(1) }, onSkip = onDone)
+                        WStep.IPTV -> IptvPane(providerNow, onSaved = { providerNow = true; go(1) }, onNext = { go(1) }, onBack = { go(-1) })
+                        WStep.JELLYFIN -> JellyfinPane(vm, onNext = { go(1) }, onBack = { go(-1) })
+                        WStep.SEERR -> SeerrPane(vm, onNext = { go(1) }, onBack = { go(-1) })
+                        WStep.WEATHER -> WeatherPane(vm, onNext = { go(1) }, onBack = { go(-1) })
+                        WStep.NEWS -> NewsPane(vm, onNext = { go(1) }, onBack = { go(-1) })
+                        WStep.DONE -> DonePane(providerNow, onDone)
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PaneTitle(icon: String, title: String, sub: String) {
+    val theme = LocalUltraTheme.current
+    val p = theme.palette
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(icon, fontSize = 30.sp); Spacer(Modifier.width(12.dp))
+        Text(title, color = p.text, fontSize = 30.sp, fontWeight = FontWeight.Bold, fontFamily = theme.spec.fontFamily)
+    }
+    Text(sub, color = p.textDim, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp, bottom = 14.dp))
+}
+
+/** Untere Knopfzeile eines Schritts: Zurück · Hauptaktion · Weiter/Überspringen. */
+@Composable
+private fun NavRow(onBack: () -> Unit, onNext: () -> Unit, done: Boolean, extra: (@Composable () -> Unit)? = null, nextFocus: FocusRequester? = null) {
+    Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        TvButton("Zurück", onClick = onBack)
+        extra?.invoke()
+        TvButton(if (done) "Weiter" else "Überspringen", onClick = onNext, primary = done, focusRequester = nextFocus)
+    }
+}
+
+@Composable
+private fun Status(vm: SetupWizardViewModel) {
+    val msg by vm.msg.collectAsStateWithLifecycle()
+    val ok by vm.ok.collectAsStateWithLifecycle()
+    msg?.let { Text(if (ok) "✓ $it" else it, color = if (ok) Color(0xFF4ADE80) else Color(0xFFFF8A80), fontSize = 15.sp,
+        fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 10.dp)) }
+}
+
+@Composable
+private fun WelcomePane(onStart: () -> Unit, onSkip: () -> Unit) {
+    val theme = LocalUltraTheme.current
+    val p = theme.palette
+    val f = remember { FocusRequester() }
+    LaunchedEffect(Unit) { delay(120); runCatching { f.requestFocus() } }
+    Column {
+        Text("WILLKOMMEN BEI", color = p.textDim, fontSize = 13.sp, letterSpacing = 4.sp)
+        Text("ULTRA IPTV", color = p.text, fontSize = 52.sp, fontWeight = FontWeight.ExtraBold, fontFamily = theme.spec.fontFamily)
+        Spacer(Modifier.height(10.dp))
+        listOf("📺" to "IPTV-Anbieter", "🟣" to "Jellyfin (optional)", "🎟" to "Seerr (optional)", "⛅" to "Wetter", "📰" to "Nachrichten-Laufschrift")
+            .forEachIndexed { i, (ic, t) ->
+                val a = remember { Animatable(0f) }
+                LaunchedEffect(Unit) { delay(150L + i * 90L); a.animateTo(1f, tween(260)) }
+                Row(Modifier.graphicsLayer { alpha = a.value; translationX = (1f - a.value) * 30f }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(26.dp).clip(CircleShape).background(p.primary.copy(alpha = 0.2f)), contentAlignment = Alignment.Center) {
+                        Text("${i + 1}", color = p.primary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.width(12.dp)); Text("$ic  $t", color = p.text, fontSize = 18.sp)
+                }
+            }
+        Row(Modifier.padding(top = 22.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            TvButton("Einrichtung starten", onClick = onStart, primary = true, focusRequester = f)
+            TvButton("Überspringen", onClick = onSkip)
+        }
+    }
+}
+
+@Composable
+private fun IptvPane(hasProvider: Boolean, onSaved: () -> Unit, onNext: () -> Unit, onBack: () -> Unit) {
+    if (hasProvider) {
+        val f = remember { FocusRequester() }
+        LaunchedEffect(Unit) { delay(120); runCatching { f.requestFocus() } }
+        Column {
+            PaneTitle("📺", "IPTV-Anbieter", "Deine Quelle ist bereits eingerichtet. Ändern kannst du sie später unter Einstellungen.")
+            Text("✓ Eingerichtet", color = Color(0xFF4ADE80), fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+            NavRow(onBack, onNext, done = true, nextFocus = f)
+        }
+    } else Column {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(bottom = 4.dp)) {
+            TvButton("Zurück", onClick = onBack)
+            TvButton("Später einrichten", onClick = onNext)
+        }
+        Box(Modifier.weight(1f, fill = false)) {
+            de.ostlertekker.ultraiptv.feature.settings.ProviderSetupScreen(onDone = onSaved, firstRun = false)
+        }
+    }
+}
+
+@Composable
+private fun JellyfinPane(vm: SetupWizardViewModel, onNext: () -> Unit, onBack: () -> Unit) {
+    val p = LocalUltraTheme.current.palette
+    var server by remember { mutableStateOf(vm.jellyfin.savedServer()) }
+    var user by remember { mutableStateOf(vm.jellyfin.savedUser()) }
+    var pw by remember { mutableStateOf("") }
+    val busy by vm.busy.collectAsStateWithLifecycle()
+    val ok by vm.ok.collectAsStateWithLifecycle()
+    val found by vm.found.collectAsStateWithLifecycle()
+    val f = remember { FocusRequester() }; val next = remember { FocusRequester() }
+    LaunchedEffect(Unit) { delay(120); runCatching { f.requestFocus() } }
+    LaunchedEffect(ok) { if (ok) { delay(100); runCatching { next.requestFocus() } } }
+    Column(Modifier.verticalScroll(rememberScrollState())) {
+        PaneTitle("🟣", "Jellyfin verbinden", "Deine eigene Mediathek direkt in der App. Gleiche Adresse und Anmeldung wie in der Jellyfin-App.")
+        TvTextField(server, { server = it }, "Serveradresse (z. B. 192.168.1.10:8096 oder meinserver.de)", modifier = Modifier.fillMaxWidth(), focusRequester = f)
+        Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            TvChip(if (found == null && busy) "Suche …" else "Im Heimnetz suchen", false, { vm.jfSearch() })
+            found?.let { list ->
+                if (list.isEmpty()) Text("Kein Server gefunden", color = p.textDim, fontSize = 13.sp)
+                list.take(3).forEach { (addr, name) -> TvChip("$name · ${addr.substringAfter("://")}", server == addr, { server = addr }) }
+            }
+        }
+        TvTextField(user, { user = it }, "Benutzername", modifier = Modifier.fillMaxWidth())
+        Spacer(Modifier.height(8.dp))
+        TvTextField(pw, { pw = it }, "Passwort", modifier = Modifier.fillMaxWidth(), password = true)
+        Status(vm)
+        NavRow(onBack, onNext, done = ok, nextFocus = next, extra = {
+            if (!ok) TvButton(if (busy) "Verbinde …" else "Verbinden", primary = true, onClick = { if (!busy && server.isNotBlank()) vm.jfLogin(server, user, pw) })
+        })
+    }
+}
+
+@Composable
+private fun SeerrPane(vm: SetupWizardViewModel, onNext: () -> Unit, onBack: () -> Unit) {
+    var server by remember { mutableStateOf(vm.seerr.savedServer()) }
+    var user by remember { mutableStateOf(vm.jellyfin.session.value?.userName ?: vm.jellyfin.savedUser()) }
+    var pw by remember { mutableStateOf("") }
+    val busy by vm.busy.collectAsStateWithLifecycle()
+    val ok by vm.ok.collectAsStateWithLifecycle()
+    val f = remember { FocusRequester() }; val next = remember { FocusRequester() }
+    LaunchedEffect(Unit) { delay(120); runCatching { f.requestFocus() } }
+    LaunchedEffect(ok) { if (ok) { delay(100); runCatching { next.requestFocus() } } }
+    Column(Modifier.verticalScroll(rememberScrollState())) {
+        PaneTitle("🎟", "Seerr anmelden", "Optional: Filme und Serien anfragen (Jellyseerr/Overseerr). Anmeldung mit deinem Jellyfin-Konto – das Passwort wird nicht gespeichert.")
+        TvTextField(server, { server = it }, "Seerr-Adresse (z. B. 192.168.1.10:5055)", modifier = Modifier.fillMaxWidth(), focusRequester = f)
+        Spacer(Modifier.height(8.dp))
+        TvTextField(user, { user = it }, "Jellyfin-Benutzername", modifier = Modifier.fillMaxWidth())
+        Spacer(Modifier.height(8.dp))
+        TvTextField(pw, { pw = it }, "Jellyfin-Passwort", modifier = Modifier.fillMaxWidth(), password = true)
+        Status(vm)
+        NavRow(onBack, onNext, done = ok, nextFocus = next, extra = {
+            if (!ok) TvButton(if (busy) "Anmelden …" else "Anmelden", primary = true,
+                onClick = { if (!busy && server.isNotBlank() && user.isNotBlank()) vm.seerrLogin(server, user, pw) })
+        })
+    }
+}
+
+@Composable
+private fun WeatherPane(vm: SetupWizardViewModel, onNext: () -> Unit, onBack: () -> Unit) {
+    val s by vm.settings.collectAsStateWithLifecycle()
+    var place by remember { mutableStateOf(s?.weatherPlace?.substringBefore(",") ?: "") }
+    val busy by vm.busy.collectAsStateWithLifecycle()
+    val ok by vm.ok.collectAsStateWithLifecycle()
+    val f = remember { FocusRequester() }; val next = remember { FocusRequester() }
+    LaunchedEffect(Unit) { delay(120); runCatching { f.requestFocus() } }
+    LaunchedEffect(ok) { if (ok) { delay(100); runCatching { next.requestFocus() } } }
+    Column {
+        PaneTitle("⛅", "Wetter", "Das Wetter erscheint oben neben „ULTRA IPTV“. Der Ort bestimmt auch die passenden Nachrichten.")
+        TvTextField(place, { place = it }, "Ort oder Postleitzahl (z. B. Berlin oder 10115)", modifier = Modifier.fillMaxWidth(), focusRequester = f)
+        Status(vm)
+        NavRow(onBack, onNext, done = ok, nextFocus = next, extra = {
+            if (!ok) TvButton(if (busy) "Suche …" else "Ort übernehmen", primary = true, onClick = { if (!busy && place.isNotBlank()) vm.setPlace(place) })
+        })
+    }
+}
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun NewsPane(vm: SetupWizardViewModel, onNext: () -> Unit, onBack: () -> Unit) {
+    val p = LocalUltraTheme.current.palette
+    val s by vm.settings.collectAsStateWithLifecycle()
+    val st = s ?: return
+    val f = remember { FocusRequester() }
+    LaunchedEffect(Unit) { delay(120); runCatching { f.requestFocus() } }
+    Column(Modifier.verticalScroll(rememberScrollState())) {
+        PaneTitle("📰", "Nachrichten-Laufschrift", "Eine Zeile mit aktuellen Schlagzeilen am unteren Rand. Quelle wählen oder ausschalten.")
+        val on = st.newsEnabled
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            TvChip("Aus", !on, { vm.news(null) }, modifier = Modifier.focusRequester(f))
+            NewsSources.choices.filter { it.first != "off" }.forEach { (id, label) -> TvChip(label, on && st.newsSource == id, { vm.news(id) }) }
+        }
+        Spacer(Modifier.height(12.dp))
+        TvChip(if (st.newsLocal) "✓ Lokalnachrichten einmischen" else "Lokalnachrichten einmischen", st.newsLocal, { vm.newsLocal(!st.newsLocal) })
+        Text("„Automatisch“ wählt passend zu Land und Sprache deines Wetter-Orts.", color = p.textDim, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
+        NavRow(onBack, onNext, done = true)
+    }
+}
+
+@Composable
+private fun DonePane(hasProvider: Boolean, onDone: () -> Unit) {
+    val theme = LocalUltraTheme.current
+    val p = theme.palette
+    val f = remember { FocusRequester() }
+    LaunchedEffect(Unit) { delay(150); runCatching { f.requestFocus() } }
+    Column {
+        Text("🎉", fontSize = 48.sp)
+        Text("Alles eingerichtet!", color = p.text, fontSize = 42.sp, fontWeight = FontWeight.ExtraBold, fontFamily = theme.spec.fontFamily)
+        Text(if (hasProvider) "Viel Spaß mit ULTRA IPTV." else "Den IPTV-Anbieter richtest du als Nächstes ein.",
+            color = p.textDim, fontSize = 16.sp, modifier = Modifier.padding(top = 6.dp))
+        Row(Modifier.padding(top = 22.dp)) { TvButton(if (hasProvider) "Los geht's" else "Anbieter einrichten", onClick = onDone, primary = true, focusRequester = f) }
     }
 }
 
@@ -191,38 +427,6 @@ private fun Progress(index: Int, total: Int) {
             val w by animateFloatAsState(if (i == index) 34f else 10f, tween(260), label = "dotW")
             Box(Modifier.size(w.dp, 6.dp).clip(RoundedCornerShape(3.dp))
                 .background(if (i <= index) p.primary else p.textDim.copy(alpha = 0.3f)))
-        }
-    }
-}
-
-@Composable
-private fun StepCard(step: WizardStep) {
-    val theme = LocalUltraTheme.current
-    val p = theme.palette
-    val anim = motionOk()
-    Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(step.icon, fontSize = 40.sp)
-            Spacer(Modifier.width(14.dp))
-            Text(step.title, color = p.text, fontSize = 38.sp, fontWeight = FontWeight.Bold, fontFamily = theme.spec.fontFamily)
-        }
-        Spacer(Modifier.height(20.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            step.points.forEachIndexed { i, (k, v) ->
-                // Punkte erscheinen nacheinander
-                val a = remember { Animatable(if (anim) 0f else 1f) }
-                LaunchedEffect(Unit) { if (anim) { delay(140L + i * 110L); a.animateTo(1f, tween(280)) } }
-                Row(Modifier.graphicsLayer { alpha = a.value; translationY = (1f - a.value) * 18f }
-                    .fillMaxWidth(0.92f).clip(RoundedCornerShape(14.dp)).background(p.surface.copy(alpha = 0.55f))
-                    .padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.width(76.dp), contentAlignment = Alignment.CenterStart) {
-                        Text(k, color = p.primary, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1,
-                            modifier = Modifier.clip(RoundedCornerShape(8.dp)).border(1.5.dp, p.primary.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                                .padding(horizontal = 10.dp, vertical = 3.dp))
-                    }
-                    Text(v, color = p.text, fontSize = 18.sp)
-                }
-            }
         }
     }
 }

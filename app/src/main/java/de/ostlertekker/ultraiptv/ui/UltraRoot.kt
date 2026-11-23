@@ -135,7 +135,7 @@ fun UltraRoot(startRoute: String? = null, vm: RootViewModel = hiltViewModel()) {
                 introFull = false
                 phase = if (wantWizard) Phase.WIZARD else Phase.SETUP
             }
-            Phase.WIZARD -> SetupWizard(hasProvider) { vm.wizardFinished(); phase = Phase.SETUP }
+            Phase.WIZARD -> SetupWizard(hasProvider, onDone = { vm.wizardFinished(); phase = Phase.SETUP })
             Phase.SETUP -> {
                 LaunchedEffect(Unit) { vm.onStartup() }
                 if (!hasProvider) {
