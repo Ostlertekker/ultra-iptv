@@ -2,6 +2,9 @@
 
 package de.ostlertekker.ultraiptv.core.player
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import android.content.Context
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -258,11 +261,11 @@ class PlayerEngine @Inject constructor(
         lastPos = pos
         if (now < graceUntil) return
         // Server hat die Verbindung beendet (MPEG-TS) → sofort weiter
-        if (state == Player.STATE_ENDED) { reconnect("Stream wurde vom Server beendet"); return }
-        if (state == Player.STATE_IDLE && _error.value == null) { reconnect("Stream angehalten"); return }
+        if (state == Player.STATE_ENDED) { reconnect(tr("Stream wurde vom Server beendet")); return }
+        if (state == Player.STATE_IDLE && _error.value == null) { reconnect(tr("Stream angehalten")); return }
         if (state == Player.STATE_IDLE) return // Fehlerbehandlung läuft
         val limit = cfg.stallTimeoutSec.coerceIn(3, 60) * 1000L * (1 + consecutiveReconnects.coerceAtMost(3))
-        if (now - lastProgressAt > limit) reconnect("Bild steht")
+        if (now - lastProgressAt > limit) reconnect(tr("Bild steht"))
     }
 
     /** Live pausieren (Nutzer). Der Wächter hält still, Verbindungsabbrüche lösen keine Wiedergabe aus. */
@@ -287,7 +290,7 @@ class PlayerEngine @Inject constructor(
         if (tsBuffer != null) {
             // Zeitversatz aktiv: die Anbieter-Verbindung neu aufbauen, der Player liest weiter aus dem Puffer
             consecutiveReconnects++
-            _notice.value = "$reason – verbinde neu …"
+            _notice.value = trf("{0} – verbinde neu …", reason)
             _stats.update { it.copy(recoveries = it.recoveries + 1, lastError = reason) }
             graceUntil = SystemClock.elapsedRealtime() + 8_000
             lastProgressAt = SystemClock.elapsedRealtime()
@@ -298,7 +301,7 @@ class PlayerEngine @Inject constructor(
         consecutiveReconnects++
         retryJob?.cancel()
         _stats.update { it.copy(recoveries = it.recoveries + 1, lastError = reason) }
-        _notice.value = "$reason – verbinde neu …"
+        _notice.value = trf("{0} – verbinde neu …", reason)
         val now = SystemClock.elapsedRealtime()
         graceUntil = now + 6_000 + 2_000L * consecutiveReconnects.coerceAtMost(5)
         lastProgressAt = now
@@ -628,13 +631,13 @@ class PlayerEngine @Inject constructor(
         }
     }
 
-    private fun channelLabel(c: Int) = when (c) { 1 -> "Mono"; 2 -> "Stereo"; 6 -> "5.1"; 8 -> "7.1"; else -> "$c Kanäle" }
+    private fun channelLabel(c: Int) = when (c) { 1 -> "Mono"; 2 -> "Stereo"; 6 -> "5.1"; 8 -> "7.1"; else -> trf("{0} Kanäle", c) }
 
     private fun codecName(mime: String?): String? = when (mime) {
-        MimeTypes.AUDIO_AC3 -> "Dolby Digital"
-        MimeTypes.AUDIO_E_AC3 -> "Dolby Digital Plus"
-        MimeTypes.AUDIO_E_AC3_JOC -> "Dolby Atmos (DD+ JOC)"
-        MimeTypes.AUDIO_TRUEHD -> "Dolby TrueHD"
+        MimeTypes.AUDIO_AC3 -> tr("Dolby Digital")
+        MimeTypes.AUDIO_E_AC3 -> tr("Dolby Digital Plus")
+        MimeTypes.AUDIO_E_AC3_JOC -> tr("Dolby Atmos (DD+ JOC)")
+        MimeTypes.AUDIO_TRUEHD -> tr("Dolby TrueHD")
         MimeTypes.AUDIO_DTS -> "DTS"
         MimeTypes.AUDIO_AAC -> "AAC"
         MimeTypes.AUDIO_MPEG -> "MP3"
@@ -684,7 +687,7 @@ class PlayerEngine @Inject constructor(
             // Live-Stream zu Ende (Server schließt Verbindung) → sofort neu verbinden statt anzuhalten
             if (playbackState == Player.STATE_ENDED && live && userPaused) { pausedConnectionLost = true; return }
             if (playbackState == Player.STATE_ENDED && live && cfg.liveReconnect && currentUrl != null) {
-                scope.launch { delay(300); if (exo?.playbackState == Player.STATE_ENDED) reconnect("Stream wurde vom Server beendet") }
+                scope.launch { delay(300); if (exo?.playbackState == Player.STATE_ENDED) reconnect(tr("Stream wurde vom Server beendet")) }
             }
         }
 
@@ -716,8 +719,8 @@ class PlayerEngine @Inject constructor(
             }
             if (http == 401 || http == 403 || http == 404) {
                 _error.value = when (http) {
-                    404 -> "Dieser Stream existiert beim Anbieter nicht mehr (404)."
-                    else -> "Zugriff verweigert ($http): Abo abgelaufen oder Verbindungslimit erreicht – läuft der Account gerade auf einem anderen Gerät?"
+                    404 -> tr("Dieser Stream existiert beim Anbieter nicht mehr (404).")
+                    else -> trf("Zugriff verweigert ({0}): Abo abgelaufen oder Verbindungslimit erreicht – läuft der Account gerade auf einem anderen Gerät?", http)
                 }
                 _fatal.update { it + 1 }
                 return
@@ -732,7 +735,7 @@ class PlayerEngine @Inject constructor(
             if (live && cfg.liveReconnect && !hardFail) {
                 retries++
                 if (retries == 4) _fatal.update { it + 1 } // Ausweichsender anbieten (falls aktiviert), trotzdem weiter versuchen
-                _notice.value = "Verbindung unterbrochen – neuer Versuch $retries …"
+                _notice.value = trf("Verbindung unterbrochen – neuer Versuch {0} …", retries)
                 retryJob?.cancel()
                 retryJob = scope.launch {
                     delay((1000L shl (retries - 1).coerceAtMost(4)).coerceAtMost(15_000))
@@ -761,11 +764,11 @@ class PlayerEngine @Inject constructor(
             _error.value = when (error.errorCode) {
                 PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "Der Server hat den Stream abgelehnt (HTTP-Fehler). Zugang/Abo prüfen."
                 PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
-                PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "Keine Verbindung zum Stream-Server."
+                PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> tr("Keine Verbindung zum Stream-Server.")
                 PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
-                PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED -> "Dieses Gerät kann das Videoformat nicht dekodieren."
-                PlaybackException.ERROR_CODE_DRM_UNSPECIFIED -> "Geschützter Inhalt (DRM) – nicht abspielbar."
-                else -> "Wiedergabefehler: ${error.errorCodeName}"
+                PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED -> tr("Dieses Gerät kann das Videoformat nicht dekodieren.")
+                PlaybackException.ERROR_CODE_DRM_UNSPECIFIED -> tr("Geschützter Inhalt (DRM) – nicht abspielbar.")
+                else -> trf("Wiedergabefehler: {0}", error.errorCodeName)
             }
             _fatal.update { it + 1 }
         }
@@ -779,9 +782,9 @@ class PlayerEngine @Inject constructor(
         override fun onVideoInputFormatChanged(eventTime: AnalyticsListener.EventTime, format: Format, decoderReuseEvaluation: DecoderReuseEvaluation?) {
             ZapMonitor.format()
             val hdr = when {
-                format.sampleMimeType == MimeTypes.VIDEO_DOLBY_VISION -> "Dolby Vision (Quelle)"
+                format.sampleMimeType == MimeTypes.VIDEO_DOLBY_VISION -> tr("Dolby Vision (Quelle)")
                 format.colorInfo?.colorTransfer == C.COLOR_TRANSFER_ST2084 -> "HDR10 / PQ (Quelle)"
-                format.colorInfo?.colorTransfer == C.COLOR_TRANSFER_HLG -> "HLG (Quelle)"
+                format.colorInfo?.colorTransfer == C.COLOR_TRANSFER_HLG -> tr("HLG (Quelle)")
                 else -> null
             }
             _stats.update {

@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.design
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
@@ -91,23 +94,23 @@ data class UiPrefs(
 val LocalUiPrefs = staticCompositionLocalOf { UiPrefs() }
 
 object DesignOptions {
-    val proStyleNames = listOf("Aus", "Verlauf", "Akzentfarbe", "Weiß", "Nur Rahmen", "Nur Schrift",
+    val proStyleNames = listOf("Aus", "Verlauf", "Akzentfarbe", tr("Weiß"), tr("Nur Rahmen"), tr("Nur Schrift"),
         "Gold", "Chrom", "Neon", "Glas", "Regenbogen", "Carbon", "Feuer")
     val proAnimNames = listOf("Aus", "Glanz", "Pulsieren", "Leuchten", "Farbwechsel", "Rahmenlauf", "Funkeln")
-    val proSizeNames = listOf("Sehr klein", "Klein", "Mittel")
+    val proSizeNames = listOf(tr("Sehr klein"), "Klein", "Mittel")
     val proPositionNames = listOf("Hochgestellt", "Mittig")
-    val cornerNames = listOf("Theme-Standard", "Eckig", "Leicht gerundet", "Rund", "Extra rund")
+    val cornerNames = listOf("Theme-Standard", "Eckig", tr("Leicht gerundet"), "Rund", tr("Extra rund"))
     val cornerValues = listOf<Dp?>(null, 0.dp, 8.dp, 18.dp, 28.dp)
-    val zoomNames = listOf("Theme-Standard", "Kein Zoom", "Dezent", "Normal", "Stark")
+    val zoomNames = listOf("Theme-Standard", tr("Kein Zoom"), "Dezent", "Normal", "Stark")
     val zoomValues = listOf<Float?>(null, 1f, 1.03f, 1.07f, 1.12f)
     // Reihenfolge der ersten fünf nicht ändern (gespeicherte Auswahl bleibt gültig); neue Schriften hinten anhängen
-    val fontNames = listOf("Standard (Inter)", "System modern", "System klassisch", "System technisch", "System verspielt") +
+    val fontNames = listOf(tr("Standard (Inter)"), tr("System modern"), tr("System klassisch"), tr("System technisch"), tr("System verspielt")) +
         AppFonts.catalog.map { it.first }
     val fontValues = listOf<FontFamily?>(null, FontFamily.SansSerif, FontFamily.Serif, FontFamily.Monospace, FontFamily.Cursive) +
         AppFonts.catalog.map { it.third }
     val scaleValues = listOf(0.85f, 0.9f, 1f, 1.1f, 1.2f)
-    val densityNames = listOf("Kompakt", "Normal", "Groß")
-    val posterNames = listOf("Klein", "Mittel", "Groß", "Riesig")
+    val densityNames = listOf("Kompakt", "Normal", tr("Groß"))
+    val posterNames = listOf("Klein", "Mittel", tr("Groß"), "Riesig")
 }
 
 /** Es gibt nur noch ein Design: komplett schwarzer Hintergrund; Akzentfarbe und Schriftart bleiben wählbar. */
@@ -155,24 +158,24 @@ object ThemeEngine {
 
     /** Auswählbare Akzentfarben (0 = Theme-Standard). */
     val accentPresets: List<Pair<String, Long>> = listOf(
-        "Standard (Eisblau)" to 0L,
+        tr("Standard (Eisblau)") to 0L,
         "Violett" to 0xFF9D6BFFL, "Eisblau" to 0xFF4FC3F7L, "Gold" to 0xFFFFC94DL, "Smaragd" to 0xFF2EE59DL,
-        "Magenta" to 0xFFFF4FD8L, "Rot" to 0xFFFF4545L, "Weiß" to 0xFFF2F2F2L,
-        "Orange" to 0xFFFF8A2AL, "Zitrone" to 0xFFF4FF4DL, "Limette" to 0xFF9BFF3DL, "Türkis" to 0xFF1DE9B6L,
-        "Himmelblau" to 0xFF40A9FFL, "Königsblau" to 0xFF3D5AFEL, "Lavendel" to 0xFFC3A6FFL, "Pink" to 0xFFFF80ABL,
+        "Magenta" to 0xFFFF4FD8L, "Rot" to 0xFFFF4545L, tr("Weiß") to 0xFFF2F2F2L,
+        "Orange" to 0xFFFF8A2AL, "Zitrone" to 0xFFF4FF4DL, "Limette" to 0xFF9BFF3DL, tr("Türkis") to 0xFF1DE9B6L,
+        "Himmelblau" to 0xFF40A9FFL, tr("Königsblau") to 0xFF3D5AFEL, "Lavendel" to 0xFFC3A6FFL, "Pink" to 0xFFFF80ABL,
         "Koralle" to 0xFFFF7F6BL, "Kupfer" to 0xFFD9895BL, "Silber" to 0xFFC9D1D9L, "Rosé-Gold" to 0xFFF4B6A6L,
-        "Neon-Grün" to 0xFF39FF14L, "Blutrot" to 0xFFD50000L,
+        tr("Neon-Grün") to 0xFF39FF14L, "Blutrot" to 0xFFD50000L,
     )
 }
 
-val LocalUltraTheme = staticCompositionLocalOf<ResolvedTheme> { error("Kein Theme gesetzt") }
+val LocalUltraTheme = staticCompositionLocalOf<ResolvedTheme> { error(tr("Kein Theme gesetzt")) }
 
 private object BuiltInThemes {
     private fun c(v: Long) = Color(v.toInt())
 
     /** Einziges Design: reines Schwarz, Anthrazit-Flächen, Eisblau als Standard-Akzent, Inter-Schrift. */
     val black = ThemeSpec(
-        "premium", "SCHWARZ", "Komplett schwarzer Hintergrund",
+        "premium", "SCHWARZ", tr("Komplett schwarzer Hintergrund"),
         UltraPalette(c(0xFF000000), c(0xFF000000), c(0xFF1C1F24), c(0xFF243447), c(0xFF8FD3FF), c(0xFF5AB4FF),
             c(0xFFFFFFFF), c(0xFFB4B9C3), c(0xFF8FD3FF), c(0xFFFFFFFF), c(0xFF8FD3FF)),
         AppFonts.Inter, FontWeight.Bold, 14.dp, 1.05f, 1.dp,

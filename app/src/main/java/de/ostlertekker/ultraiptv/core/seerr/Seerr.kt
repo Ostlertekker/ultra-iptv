@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.seerr
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
@@ -103,8 +106,8 @@ object SeerrStatus {
 
     /** Radarr/Sonarr-Download-Status auf Deutsch. */
     fun download(s: String): String = when (s.lowercase()) {
-        "downloading" -> "Lädt"; "queued" -> "In Warteschlange"; "paused" -> "Pausiert"
-        "completed" -> "Fertig – wird importiert"; "delay" -> "Verzögert"; "warning" -> "Warnung"; "failed" -> "Fehler"
+        "downloading" -> tr("Lädt"); "queued" -> tr("In Warteschlange"); "paused" -> "Pausiert"
+        "completed" -> tr("Fertig – wird importiert"); "delay" -> tr("Verzögert"); "warning" -> "Warnung"; "failed" -> "Fehler"
         else -> s.replaceFirstChar { it.uppercase() }
     }
 
@@ -121,7 +124,7 @@ object SeerrStatus {
     }
 
     fun media(s: Int): String? = when (s) {
-        PENDING -> "Angefragt"; PROCESSING -> "Wird bearbeitet"; PARTIAL -> "Teilweise verfügbar"; AVAILABLE -> "Verfügbar"
+        PENDING -> "Angefragt"; PROCESSING -> tr("Wird bearbeitet"); PARTIAL -> tr("Teilweise verfügbar"); AVAILABLE -> tr("Verfügbar")
         6 -> "Gesperrt"; else -> null
     }
 
@@ -129,7 +132,7 @@ object SeerrStatus {
     fun request(req: Int, media: Int): String = when {
         req == REQ_DECLINED -> "Abgelehnt"
         req == REQ_FAILED -> "Fehlgeschlagen"
-        req == REQ_PENDING -> "Wartet auf Freigabe"
+        req == REQ_PENDING -> tr("Wartet auf Freigabe")
         else -> media(media) ?: "Freigegeben"
     }
 }
@@ -281,7 +284,7 @@ class SeerrRepository @Inject constructor(
 
     private suspend fun call(method: String, path: String, body: JsonElement? = null, server: String = _state.value.server,
                              cookie: String? = prefs.getString("cookie", null)): Pair<JsonElement?, List<String>> = withContext(Dispatchers.IO) {
-        if (server.isBlank()) throw SeerrException("Kein Seerr-Server eingetragen")
+        if (server.isBlank()) throw SeerrException(tr("Kein Seerr-Server eingetragen"))
         val req = Request.Builder().url(if (path.startsWith("http")) path else server + path)
             .header("Accept", "application/json")
             .apply { cookie?.let { header("Cookie", it) } }
@@ -292,17 +295,17 @@ class SeerrRepository @Inject constructor(
             http.newCall(req).execute().use { r ->
                 val text = r.body?.string().orEmpty()
                 if (r.code == 401 || r.code == 403) {
-                    if (path.startsWith("/api/v1/auth/jellyfin")) throw SeerrException("Benutzername oder Passwort falsch (oder kein Zugriff auf Seerr)", r.code)
-                    clearSession(); throw SeerrException("Seerr-Anmeldung abgelaufen – bitte neu anmelden", r.code)
+                    if (path.startsWith("/api/v1/auth/jellyfin")) throw SeerrException(tr("Benutzername oder Passwort falsch (oder kein Zugriff auf Seerr)"), r.code)
+                    clearSession(); throw SeerrException(tr("Seerr-Anmeldung abgelaufen – bitte neu anmelden"), r.code)
                 }
                 if (!r.isSuccessful) {
                     val msg = runCatching { (json.parseToJsonElement(text) as? JsonObject)?.get("message")?.let { (it as? JsonPrimitive)?.contentOrNull } }.getOrNull()
-                    throw SeerrException(msg ?: "Seerr antwortet mit Fehler ${r.code}", r.code)
+                    throw SeerrException(msg ?: trf("Seerr antwortet mit Fehler {0}", r.code), r.code)
                 }
                 (if (text.isBlank()) null else json.parseToJsonElement(text)) to r.headers("Set-Cookie")
             }
         } catch (e: SeerrException) { throw e } catch (e: Exception) {
-            throw SeerrException("Seerr nicht erreichbar (${e.message ?: e.javaClass.simpleName})")
+            throw SeerrException(trf("Seerr nicht erreichbar ({0})", (e.message ?: e.javaClass.simpleName)))
         }
     }
 
@@ -314,7 +317,7 @@ class SeerrRepository @Inject constructor(
         val (el, cookies) = call("POST", "/api/v1/auth/jellyfin", buildJsonObject { put("username", user.trim()); put("password", password) },
             server = server, cookie = null)
         val sid = cookies.map { it.substringBefore(';').trim() }.filter { it.contains('=') }.joinToString("; ")
-        if (sid.isBlank()) throw SeerrException("Seerr hat keine Sitzung geliefert")
+        if (sid.isBlank()) throw SeerrException(tr("Seerr hat keine Sitzung geliefert"))
         val o = el as? JsonObject
         val name = (o?.get("displayName") as? JsonPrimitive)?.contentOrNull ?: (o?.get("jellyfinUsername") as? JsonPrimitive)?.contentOrNull ?: user.trim()
         val uid = (o?.get("id") as? JsonPrimitive)?.intOrNull ?: -1
@@ -342,7 +345,7 @@ class SeerrRepository @Inject constructor(
         val me = get("/api/v1/auth/me") as? JsonObject
         val v = (status?.get("version") as? JsonPrimitive)?.contentOrNull ?: "?"
         val name = (me?.get("displayName") as? JsonPrimitive)?.contentOrNull ?: _state.value.user ?: "?"
-        return "Verbunden mit Seerr $v als $name"
+        return trf("Verbunden mit Seerr {0} als {1}", v, name)
     }
 
     private suspend fun ready() = _state.value.loggedIn && settingsRepo.current().seerrEnabled

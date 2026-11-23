@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.player
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import android.net.Uri
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
@@ -230,7 +233,7 @@ class TimeshiftDataSource(private val buffer: () -> TimeshiftBuffer?) : BaseData
 
     override fun open(dataSpec: DataSpec): Long {
         uri = dataSpec.uri
-        buf = buffer() ?: throw java.io.IOException("Zeitversatz-Puffer nicht aktiv")
+        buf = buffer() ?: throw java.io.IOException(tr("Zeitversatz-Puffer nicht aktiv"))
         transferInitializing(dataSpec)
         val base = dataSpec.uri.getQueryParameter("o")?.toLongOrNull() ?: 0L
         pos = (base + dataSpec.position).coerceAtLeast(buf!!.oldestOffset)

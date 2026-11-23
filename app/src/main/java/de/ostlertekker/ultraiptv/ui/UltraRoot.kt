@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.ui
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.border
@@ -192,7 +195,7 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
     val items = remember(hiddenTabs) {
         listOf(NavItem(Routes.HOME, "Start")) + MENU_SECTIONS.filter { it.first !in hiddenTabs }.map { NavItem(it.first, it.second) }
     }
-    val utility = remember { listOf(NavItem(Routes.SEARCH, "Suche", Icons.Default.Search), NavItem(Routes.SETTINGS, "Einstellungen", Icons.Default.Settings)) }
+    val utility = remember { listOf(NavItem(Routes.SEARCH, tr("Suche"), Icons.Default.Search), NavItem(Routes.SETTINGS, tr("Einstellungen"), Icons.Default.Settings)) }
     LaunchedEffect(Unit) { delay(150); runCatching { railFocus.requestFocus() } }
     // Direkter Einstieg in eine Seite (z. B. für automatische Oberflächentests)
     LaunchedEffect(startRoute) {
@@ -333,7 +336,7 @@ private fun CrashReportDialog() {
     val text = remember {
         listOfNotNull(
             de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.lastCrash(context)?.let { "ABSTURZ\n$it" },
-            de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.lastFreeze(context)?.let { "HÄNGER\n$it" },
+            de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.lastFreeze(context)?.let { trf("HÄNGER\n{0}", it) },
         ).joinToString("\n\n").lines().filter { it.isNotBlank() }.take(34).joinToString("\n")
     }
     val close = remember { androidx.compose.ui.focus.FocusRequester() }
@@ -341,15 +344,15 @@ private fun CrashReportDialog() {
     androidx.activity.compose.BackHandler { prefs.edit().putLong("seen", time).apply(); visible = false }
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.88f)).padding(36.dp)) {
         Column {
-            Text("ULTRA IPTV wurde beim letzten Mal unerwartet beendet", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            Text("Bitte ein Foto von diesem Bildschirm schicken – es zeigt genau, wo der Fehler liegt.", color = Color(0xFFB6FF1A), fontSize = 14.sp,
+            Text(tr("ULTRA IPTV wurde beim letzten Mal unerwartet beendet"), color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text(tr("Bitte ein Foto von diesem Bildschirm schicken – es zeigt genau, wo der Fehler liegt."), color = Color(0xFFB6FF1A), fontSize = 14.sp,
                 modifier = Modifier.padding(vertical = 8.dp))
             Text(text, color = Color.White, fontSize = 11.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                 modifier = Modifier.weight(1f).fillMaxWidth().background(Color(0xFF111111)).padding(10.dp))
             Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                de.ostlertekker.ultraiptv.core.ui.TvButton("Schließen", onClick = { prefs.edit().putLong("seen", time).apply(); visible = false },
+                de.ostlertekker.ultraiptv.core.ui.TvButton(tr("Schließen"), onClick = { prefs.edit().putLong("seen", time).apply(); visible = false },
                     primary = true, focusRequester = close)
-                de.ostlertekker.ultraiptv.core.ui.TvButton("Bericht löschen", onClick = {
+                de.ostlertekker.ultraiptv.core.ui.TvButton(tr("Bericht löschen"), onClick = {
                     de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.clear(context); prefs.edit().putLong("seen", time).apply(); visible = false
                 })
             }

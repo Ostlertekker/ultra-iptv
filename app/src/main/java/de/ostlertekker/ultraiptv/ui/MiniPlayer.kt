@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.ui
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -78,7 +81,7 @@ fun MiniPlayerOverlay(engine: PlayerEngine, modifier: Modifier = Modifier) {
             modifier = Modifier.fillMaxSize(),
         )
         Text(
-            if (focused) "OK: Vollbild · lange OK: schließen" else info.title,
+            if (focused) tr("OK: Vollbild · lange OK: schließen") else info.title,
             color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().background(Color.Black.copy(alpha = 0.6f)).padding(horizontal = 8.dp, vertical = 4.dp),
         )

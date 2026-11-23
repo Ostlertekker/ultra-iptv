@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.jellyfin
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.foundation.horizontalScroll
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
@@ -83,7 +86,7 @@ const val JF_PREFIX = "jf:"
 
 private fun JfItem.meta(): String = listOfNotNull(
     year?.toString(), genres.firstOrNull(),
-    runtimeMs.takeIf { it > 0 }?.let { "${it / 60_000} Min." },
+    runtimeMs.takeIf { it > 0 }?.let { trf("{0} Min.", (it / 60_000)) },
     rating?.takeIf { it > 0 }?.let { ratingLabel(it) }, officialRating,
 ).joinToString(" · ")
 
@@ -150,11 +153,11 @@ class JellyfinViewModel @Inject constructor(
     init { if (repo.restore() != null) load() }
 
     fun login(server: String, user: String, pw: String) = viewModelScope.launch {
-        if (server.isBlank() || user.isBlank()) { error.value = "Bitte Serveradresse und Benutzername eingeben."; return@launch }
+        if (server.isBlank() || user.isBlank()) { error.value = tr("Bitte Serveradresse und Benutzername eingeben."); return@launch }
         busy.value = true; error.value = null
         runCatching { repo.login(server, user, pw) }
             .onSuccess { load() }
-            .onFailure { error.value = it.message ?: "Anmeldung fehlgeschlagen" }
+            .onFailure { error.value = it.message ?: tr("Anmeldung fehlgeschlagen") }
         busy.value = false
     }
 
@@ -197,18 +200,18 @@ class JellyfinViewModel @Inject constructor(
             rows.value = listOf(
                 CinemaRow("Bibliotheken", libraries.value.map { repo.tile(it) }, landscape = true),
                 CinemaRow("Weiterschauen", resume.await().map { repo.tile(it, resume = true) }, landscape = true),
-                CinemaRow("Nächste Folgen", nextUp.await().map { repo.tile(it, resume = true) }, landscape = true),
+                CinemaRow(tr("Nächste Folgen"), nextUp.await().map { repo.tile(it, resume = true) }, landscape = true),
                 CinemaRow("Anfragen", reqs.map { it.tile() }),
-                CinemaRow("Zuletzt hinzugefügt", latest.await().map { repo.tile(it) }),
-                CinemaRow("Zuletzt angesehen", recent.await().map { repo.tile(it) }),
-                CinemaRow("Meine Favoriten", favs.await().map { repo.tile(it) }),
+                CinemaRow(tr("Zuletzt hinzugefügt"), latest.await().map { repo.tile(it) }),
+                CinemaRow(tr("Zuletzt angesehen"), recent.await().map { repo.tile(it) }),
+                CinemaRow(tr("Meine Favoriten"), favs.await().map { repo.tile(it) }),
                 CinemaRow("Filme", movies.await().map { repo.tile(it) }),
                 CinemaRow("Serien", series.await().map { repo.tile(it) }),
-                CinemaRow("Entdecken (Seerr)", disc.map { it.tile() }),
+                CinemaRow(tr("Entdecken (Seerr)"), disc.map { it.tile() }),
             )
             watchRequests()
         } catch (e: Exception) {
-            error.value = e.message ?: "Jellyfin nicht erreichbar"
+            error.value = e.message ?: tr("Jellyfin nicht erreichbar")
         }
         loading.value = false
     }
@@ -250,24 +253,24 @@ fun JellyfinScreen(nav: NavController, vm: JellyfinViewModel = hiltViewModel()) 
     val loading by vm.loading.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { if (allRows.isEmpty() && !loading) vm.load() }
-    val hero = allRows.firstOrNull { it.title == "Zuletzt hinzugefügt" }?.tiles?.firstOrNull { !it.backdrop.isNullOrBlank() && it.kind != "Episode" }
+    val hero = allRows.firstOrNull { it.title == tr("Zuletzt hinzugefügt") }?.tiles?.firstOrNull { !it.backdrop.isNullOrBlank() && it.kind != "Episode" }
     CinemaOverview(hero, rows,
         header = {
             Column {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Jellyfin", color = p.text, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                    Text(tr("Jellyfin"), color = p.text, fontSize = 26.sp, fontWeight = FontWeight.Bold)
                     Text("${session?.serverName ?: ""} · ${session?.userName ?: ""} · ${session?.server?.substringAfter("://") ?: ""}", color = p.textDim, fontSize = 13.sp,
                         maxLines = 1)
                 }
                 // Eigene Zeile, linksbündig direkt über „Abspielen“ – so führt Pfeil hoch zuverlässig hierher
                 Row(Modifier.padding(top = 6.dp).horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(vertical = 4.dp, horizontal = 2.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TvChip("Suchen", false, { nav.navigate(Routes.JF_SEARCH) }, icon = androidx.compose.material.icons.Icons.Default.Search)
+                    TvChip(tr("Suchen"), false, { nav.navigate(Routes.JF_SEARCH) }, icon = androidx.compose.material.icons.Icons.Default.Search)
                     libs.forEach { l -> TvChip(l.name, false, { nav.navigate(Routes.jfLibrary(l.id, l.name)) }) }
-                    TvChip("↻ Aktualisieren", false, { vm.refresh() })
-                    TvChip("Abmelden", false, { vm.logout() })
+                    TvChip(tr("↻ Aktualisieren"), false, { vm.refresh() })
+                    TvChip(tr("Abmelden"), false, { vm.logout() })
                 }
-                if (loading && rows.isEmpty()) UltraLoader(Modifier.padding(top = 20.dp), "Jellyfin-Bibliothek wird geladen …")
+                if (loading && rows.isEmpty()) UltraLoader(Modifier.padding(top = 20.dp), tr("Jellyfin-Bibliothek wird geladen …"))
                 error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp)) }
             }
         },
@@ -306,13 +309,13 @@ private fun JellyfinLogin(vm: JellyfinViewModel) {
     val searching by vm.searching.collectAsStateWithLifecycle()
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(Modifier.width(560.dp).background(p.surface, RoundedCornerShape(18.dp)).padding(28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Mit Jellyfin verbinden", color = p.text, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-            Text("Deine eigene Mediathek direkt in ULTRA IPTV – Filme und Serien laufen im eingebauten Player.", color = p.textDim, fontSize = 14.sp)
-            TvTextField(server, { server = it }, "Serveradresse – wie in der Jellyfin-App (z. B. meinserver.de oder 192.168.1.10:8096)", modifier = Modifier.fillMaxWidth())
+            Text(tr("Mit Jellyfin verbinden"), color = p.text, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            Text(tr("Deine eigene Mediathek direkt in ULTRA IPTV – Filme und Serien laufen im eingebauten Player."), color = p.textDim, fontSize = 14.sp)
+            TvTextField(server, { server = it }, tr("Serveradresse – wie in der Jellyfin-App (z. B. meinserver.de oder 192.168.1.10:8096)"), modifier = Modifier.fillMaxWidth())
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                TvChip(if (searching) "Suche …" else "Im Heimnetz suchen", false, { if (!searching) vm.searchLan() }, icon = androidx.compose.material.icons.Icons.Default.Search)
+                TvChip(if (searching) tr("Suche …") else tr("Im Heimnetz suchen"), false, { if (!searching) vm.searchLan() }, icon = androidx.compose.material.icons.Icons.Default.Search)
                 found?.let { list ->
-                    if (list.isEmpty()) Text("Kein Server im Heimnetz gefunden", color = p.textDim, fontSize = 13.sp)
+                    if (list.isEmpty()) Text(tr("Kein Server im Heimnetz gefunden"), color = p.textDim, fontSize = 13.sp)
                     list.forEach { (addr, name) -> TvChip("$name · ${addr.substringAfter("://")}", server == addr, { server = addr }) }
                 }
             }
@@ -320,8 +323,8 @@ private fun JellyfinLogin(vm: JellyfinViewModel) {
             TvTextField(pw, { pw = it }, "Passwort", modifier = Modifier.fillMaxWidth(), password = true)
             error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 14.sp) }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                TvButton(if (busy) "Verbinde … (prüfe Adressen)" else "Verbinden", onClick = { if (!busy) vm.login(server, user, pw) }, primary = true)
-                Text("Zugangsdaten werden verschlüsselt auf dem Gerät gespeichert.", color = p.textDim, fontSize = 12.sp)
+                TvButton(if (busy) tr("Verbinde … (prüfe Adressen)") else "Verbinden", onClick = { if (!busy) vm.login(server, user, pw) }, primary = true)
+                Text(tr("Zugangsdaten werden verschlüsselt auf dem Gerät gespeichert."), color = p.textDim, fontSize = 12.sp)
             }
         }
     }
@@ -380,12 +383,12 @@ fun JellyfinLibraryScreen(nav: NavController, vm: JellyfinLibraryViewModel = hil
             Text(vm.title, color = p.text, fontSize = 28.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(end = 8.dp))
             if (total >= 0) Text("$total Titel", color = p.textDim, fontSize = 14.sp, modifier = Modifier.padding(end = 12.dp))
             TvChip("A–Z", sort == "SortName", { vm.setSort("SortName") })
-            TvChip("Neu", sort == "DateCreated", { vm.setSort("DateCreated") })
-            TvChip("Bewertung", sort == "CommunityRating", { vm.setSort("CommunityRating") })
-            TvChip("Erscheinungsjahr", sort == "ProductionYear", { vm.setSort("ProductionYear") })
+            TvChip(tr("Neu"), sort == "DateCreated", { vm.setSort("DateCreated") })
+            TvChip(tr("Bewertung"), sort == "CommunityRating", { vm.setSort("CommunityRating") })
+            TvChip(tr("Erscheinungsjahr"), sort == "ProductionYear", { vm.setSort("ProductionYear") })
         }
         error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 14.sp) }
-        if (total < 0) UltraLoader(Modifier.padding(top = 30.dp), "Bibliothek wird geladen …")
+        if (total < 0) UltraLoader(Modifier.padding(top = 30.dp), tr("Bibliothek wird geladen …"))
         LazyVerticalGrid(GridCells.Adaptive(160.dp), state = grid, horizontalArrangement = Arrangement.spacedBy(20.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 12.dp + FocusBleedV, bottom = 60.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
             items(list.size, key = { list[it].id }, contentType = { "poster" }) { i ->
@@ -463,7 +466,7 @@ fun JellyfinMovieScreen(nav: NavController, vm: JellyfinItemViewModel = hiltView
     androidx.lifecycle.compose.LifecycleResumeEffect(vm.id) { vm.load(); onPauseOrDispose { } }
     val m = item
     if (m == null) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { if (error != null) Text("⚠ $error", color = p.textDim) else UltraLoader(label = "Lädt …") }
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { if (error != null) Text("⚠ $error", color = p.textDim) else UltraLoader(label = tr("Lädt …")) }
         return
     }
     // Ändert sich die Knopfreihe (z. B. nach „Gesehen“), bleibt der Fokus auf dem Abspielknopf statt verloren zu gehen
@@ -477,33 +480,33 @@ fun JellyfinMovieScreen(nav: NavController, vm: JellyfinItemViewModel = hiltView
             Spacer(Modifier.width(36.dp))
             Column(Modifier.width(640.dp)) {
                 Text(m.name, color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(m.meta() + (if (m.played) "  ·  ✓ Gesehen" else "") + (if (m.genres.size > 1) "  ·  " + m.genres.drop(1).joinToString(", ") else ""),
+                Text(m.meta() + (if (m.played) tr("  ·  ✓ Gesehen") else "") + (if (m.genres.size > 1) "  ·  " + m.genres.drop(1).joinToString(", ") else ""),
                     color = p.primary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.padding(vertical = 6.dp))
-                Text(m.overview ?: "Keine Beschreibung verfügbar.", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp, maxLines = 3,
+                Text(m.overview ?: tr("Keine Beschreibung verfügbar."), color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp, maxLines = 3,
                     overflow = TextOverflow.Ellipsis)
-                val credits = listOfNotNull(m.people.takeIf { it.isNotEmpty() }?.let { "Mit: " + it.joinToString(", ") },
-                    m.directors.takeIf { it.isNotEmpty() }?.let { "Regie: " + it.joinToString(", ") }).joinToString("   ·   ")
+                val credits = listOfNotNull(m.people.takeIf { it.isNotEmpty() }?.let { tr("Mit: ") + it.joinToString(", ") },
+                    m.directors.takeIf { it.isNotEmpty() }?.let { tr("Regie: ") + it.joinToString(", ") }).joinToString("   ·   ")
                 if (credits.isNotBlank()) Text(credits, color = p.textDim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
                 Spacer(Modifier.height(16.dp))
                 // Scrollbar: passt die Reihe nicht auf den Bildschirm, rückt der fokussierte Button ins Bild
                 Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(vertical = 4.dp, horizontal = 2.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (m.positionMs > 30_000 && !m.played) {
-                        TvButton("▶ Fortsetzen · ${m.positionMs / 60_000} Min.", onClick = { context.openPlayer(ContentKind.MOVIE, JF_PREFIX + m.id, m.positionMs) },
+                        TvButton(trf("▶ Fortsetzen · {0} Min.", (m.positionMs / 60_000)), onClick = { context.openPlayer(ContentKind.MOVIE, JF_PREFIX + m.id, m.positionMs) },
                             primary = true, focusRequester = playFocus)
-                        TvButton("Von vorne", onClick = { context.openPlayer(ContentKind.MOVIE, JF_PREFIX + m.id, 0) })
+                        TvButton(tr("Von vorne"), onClick = { context.openPlayer(ContentKind.MOVIE, JF_PREFIX + m.id, 0) })
                     } else {
-                        TvButton("▶ Abspielen", onClick = { context.openPlayer(ContentKind.MOVIE, JF_PREFIX + m.id, 0) }, primary = true, focusRequester = playFocus)
+                        TvButton(tr("▶ Abspielen"), onClick = { context.openPlayer(ContentKind.MOVIE, JF_PREFIX + m.id, 0) }, primary = true, focusRequester = playFocus)
                     }
                     val scope = androidx.compose.runtime.rememberCoroutineScope()
-                    TvButton("Trailer", onClick = { scope.launch { openJfTrailer(context, vm.repo, m) } })
-                    TvButton(if (m.favorite) "♥ Favorit" else "♡ Favorit", onClick = { vm.toggleFavorite() })
-                    TvButton(if (m.played) "Ungesehen" else "✓ Gesehen", onClick = { vm.togglePlayed(m) })
+                    TvButton(tr("Trailer"), onClick = { scope.launch { openJfTrailer(context, vm.repo, m) } })
+                    TvButton(if (m.favorite) tr("♥ Favorit") else tr("♡ Favorit"), onClick = { vm.toggleFavorite() })
+                    TvButton(if (m.played) "Ungesehen" else tr("✓ Gesehen"), onClick = { vm.togglePlayed(m) })
                 }
                 error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)) }
             }
         }
         if (similar.isNotEmpty()) Column(Modifier.align(Alignment.BottomStart).padding(start = 24.dp, bottom = 10.dp)) {
-            Text("Ähnliche Titel", color = p.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 4.dp))
+            Text(tr("Ähnliche Titel"), color = p.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 4.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
                 items(similar, key = { it.id }) { s ->
                     FocusCard(s.name, vm.repo.image(s), 84.dp, 124.dp, onClick = { openJellyfin(nav, context, vm.repo.tile(s), play = false) })
@@ -530,7 +533,7 @@ fun JellyfinSeriesScreen(nav: NavController, vm: JellyfinItemViewModel = hiltVie
     androidx.lifecycle.compose.LifecycleResumeEffect(vm.id) { vm.load(); onPauseOrDispose { } }
     val s = item
     if (s == null) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { if (error != null) Text("⚠ $error", color = p.textDim) else UltraLoader(label = "Lädt …") }
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { if (error != null) Text("⚠ $error", color = p.textDim) else UltraLoader(label = tr("Lädt …")) }
         return
     }
     // Weiterschauen: angefangene Folge, sonst erste ungesehene
@@ -539,19 +542,19 @@ fun JellyfinSeriesScreen(nav: NavController, vm: JellyfinItemViewModel = hiltVie
         Backdrop(vm.repo.image(s, "Backdrop"))
         Column(Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp, top = 16.dp)) {
             Text(s.name, color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Bold)
-            Text(listOfNotNull(s.meta().ifBlank { null }, seasons.size.takeIf { it > 0 }?.let { if (it == 1) "1 Staffel" else "$it Staffeln" }).joinToString("  ·  "),
+            Text(listOfNotNull(s.meta().ifBlank { null }, seasons.size.takeIf { it > 0 }?.let { if (it == 1) tr("1 Staffel") else "$it Staffeln" }).joinToString("  ·  "),
                 color = p.primary, fontSize = 14.sp, modifier = Modifier.padding(vertical = 6.dp))
             Text(s.overview ?: "", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(780.dp))
-            if (s.people.isNotEmpty()) Text("Mit: ${s.people.joinToString(", ")}", color = p.text, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            if (s.people.isNotEmpty()) Text(trf("Mit: {0}", (s.people.joinToString(", "))), color = p.text, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.width(780.dp).padding(top = 4.dp))
             Spacer(Modifier.height(12.dp))
             Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(vertical = 4.dp, horizontal = 2.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (resume != null) TvButton(
-                    (if (resume.positionMs > 0) "▶ Weiter: " else "▶ ") + "S${resume.parentIndex ?: 0} E${resume.index ?: 0}",
+                    (if (resume.positionMs > 0) tr("▶ Weiter: ") else "▶ ") + "S${resume.parentIndex ?: 0} E${resume.index ?: 0}",
                     onClick = { context.openPlayer(ContentKind.EPISODE, JF_PREFIX + resume.id, if (resume.played) 0 else resume.positionMs) }, primary = true)
-                TvButton(if (s.favorite) "♥ Favorit" else "♡ Favorit", onClick = { vm.toggleFavorite() })
+                TvButton(if (s.favorite) tr("♥ Favorit") else tr("♡ Favorit"), onClick = { vm.toggleFavorite() })
                 val scope = androidx.compose.runtime.rememberCoroutineScope()
-                TvButton("Trailer", onClick = { scope.launch { openJfTrailer(context, vm.repo, s) } })
+                TvButton(tr("Trailer"), onClick = { scope.launch { openJfTrailer(context, vm.repo, s) } })
                 Text("Lange OK auf einer Folge: gesehen / ungesehen", color = p.textDim, fontSize = 12.sp)
             }
             error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 13.sp) }
@@ -560,7 +563,7 @@ fun JellyfinSeriesScreen(nav: NavController, vm: JellyfinItemViewModel = hiltVie
                 items(seasons, key = { it.id }) { st -> TvChip(st.name, st.id == season, { vm.selectSeason(st.id) }) }
             }
             Spacer(Modifier.height(10.dp))
-            if (epsLoading && eps.isEmpty()) UltraLoader(label = "Folgen werden geladen …")
+            if (epsLoading && eps.isEmpty()) UltraLoader(label = tr("Folgen werden geladen …"))
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 60.dp)) {
                 items(eps, key = { it.id }) { ep ->
                     JfEpisodeRow(ep, vm.repo.image(ep, width = 480),
@@ -597,7 +600,7 @@ private fun JfEpisodeRow(ep: JfItem, image: String?, onLongClick: () -> Unit, on
         Column(Modifier.weight(1f)) {
             Text("S${ep.parentIndex ?: 0} · E${ep.index ?: 0} · ${ep.name}", color = if (ep.played) p.textDim else p.text, fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(listOfNotNull(ep.runtimeMs.takeIf { it > 0 }?.let { "${it / 60_000} Min." }, if (ep.played) "Gesehen" else null,
+            Text(listOfNotNull(ep.runtimeMs.takeIf { it > 0 }?.let { trf("{0} Min.", (it / 60_000)) }, if (ep.played) "Gesehen" else null,
                 ep.positionMs.takeIf { it > 0 && !ep.played }?.let { "bei ${it / 60_000} Min." }).joinToString(" · "), color = p.textDim, fontSize = 12.sp)
             ep.overview?.let { Text(it, color = p.textDim, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis) }
         }

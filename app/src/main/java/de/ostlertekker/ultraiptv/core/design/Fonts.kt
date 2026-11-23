@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.design
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -38,25 +41,25 @@ object AppFonts {
 
     /** Auswahlliste für die Einstellungen: Name, Beschreibung, Schrift. */
     val catalog: List<Triple<String, String, FontFamily>> = listOf(
-        Triple("Inter", "Apple-Werbe-Look – klar und edel", Inter),
-        Triple("Manrope", "Modern, wie Smartphone-Menüs", Manrope),
-        Triple("Montserrat", "Kräftig wie Kinoplakate", Montserrat),
-        Triple("Poppins", "Rund und modern", Poppins),
-        Triple("Lexend", "Besonders gut lesbar", Lexend),
-        Triple("Nunito", "Freundlich und weich", Nunito),
-        Triple("Space Grotesk", "Technisch-modern", SpaceGrotesk),
-        Triple("Comfortaa", "Verspielt und rund", Comfortaa),
-        Triple("Titillium", "Konsolen-Menü-Stil", Titillium),
+        Triple("Inter", tr("Apple-Werbe-Look – klar und edel"), Inter),
+        Triple("Manrope", tr("Modern, wie Smartphone-Menüs"), Manrope),
+        Triple("Montserrat", tr("Kräftig wie Kinoplakate"), Montserrat),
+        Triple("Poppins", tr("Rund und modern"), Poppins),
+        Triple("Lexend", tr("Besonders gut lesbar"), Lexend),
+        Triple("Nunito", tr("Freundlich und weich"), Nunito),
+        Triple(tr("Space Grotesk"), "Technisch-modern", SpaceGrotesk),
+        Triple("Comfortaa", tr("Verspielt und rund"), Comfortaa),
+        Triple("Titillium", tr("Konsolen-Menü-Stil"), Titillium),
         Triple("Rajdhani", "Gaming-HUD", Rajdhani),
-        Triple("Exo 2", "Futuristisch", Exo2),
+        Triple(tr("Exo 2"), "Futuristisch", Exo2),
         Triple("Orbitron", "Science-Fiction", Orbitron),
-        Triple("Audiowide", "Rennspiel und Retro-Zukunft", Audiowide),
-        Triple("Russo One", "Sport und Action", RussoOne),
+        Triple("Audiowide", tr("Rennspiel und Retro-Zukunft"), Audiowide),
+        Triple(tr("Russo One"), tr("Sport und Action"), RussoOne),
         Triple("Righteous", "Retro-Arcade", Righteous),
-        Triple("Oswald", "Schmal und stark", Oswald),
+        Triple("Oswald", tr("Schmal und stark"), Oswald),
         Triple("Teko", "Sportsender-Look", Teko),
-        Triple("Bebas Neue", "Schlagzeilen in Großbuchstaben", BebasNeue),
-        Triple("Playfair", "Elegante Serifen", Playfair),
+        Triple(tr("Bebas Neue"), tr("Schlagzeilen in Großbuchstaben"), BebasNeue),
+        Triple("Playfair", tr("Elegante Serifen"), Playfair),
         Triple("Pixel", "8-Bit-Konsole", PressStart),
     )
 }

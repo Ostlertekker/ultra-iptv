@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.discover
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import android.app.Activity
 import android.content.Intent
 import android.speech.RecognizerIntent
@@ -114,8 +117,8 @@ fun ProgramRow(p: AiringProgram, now: Long, badge: String?, onClick: () -> Unit,
 
 /** Status-Text einer Sendung abhängig von Zeit und Archiv. */
 fun programBadge(p: AiringProgram, now: Long): String = when {
-    p.startMs <= now && p.endMs > now -> "● LIVE"
-    p.endMs <= now && p.archiveDays > 0 && p.startMs >= now - p.archiveDays * 86_400_000L -> "▶ ARCHIV"
+    p.startMs <= now && p.endMs > now -> tr("● LIVE")
+    p.endMs <= now && p.archiveDays > 0 && p.startMs >= now - p.archiveDays * 86_400_000L -> tr("▶ ARCHIV")
     p.endMs <= now -> "vorbei"
     else -> "in ${((p.startMs - now) / 60_000).let { if (it >= 60) "${it / 60} h ${it % 60} min" else "$it min" }}"
 }
@@ -130,10 +133,10 @@ fun rememberProgramAction(vm: DiscoverViewModel): (AiringProgram) -> Unit {
         when {
             p.startMs <= now && p.endMs > now -> context.openPlayer(ContentKind.LIVE, p.channelId, category = p.category)
             p.endMs <= now -> if (p.archiveDays > 0) context.openPlayer(ContentKind.LIVE, p.channelId, category = p.category, catchupStart = p.startMs, catchupEnd = p.endMs)
-                else Toast.makeText(context, "Für ${p.channelName} meldet der Anbieter kein Archiv", Toast.LENGTH_SHORT).show()
+                else Toast.makeText(context, trf("Für {0} meldet der Anbieter kein Archiv", p.channelName), Toast.LENGTH_SHORT).show()
             else -> scope.launch {
                 val on = vm.toggleReminder(p)
-                Toast.makeText(context, if (on) "⏰ Erinnerung: ${p.title} um ${formatTime(p.startMs)}" else "Erinnerung entfernt", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, if (on) trf("⏰ Erinnerung: {0} um {1}", p.title, (formatTime(p.startMs))) else tr("Erinnerung entfernt"), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -176,27 +179,27 @@ fun SportsScreen(nav: NavController, vm: DiscoverViewModel = hiltViewModel()) {
     }
     Column(Modifier.fillMaxSize().padding(24.dp)) {
         val secs = ((nextAt - tick) / 1000).coerceAtLeast(0)
-        ScreenTitle("Live-Spielstände", subtitle = board?.let {
+        ScreenTitle(tr("Live-Spielstände"), subtitle = board?.let {
             "Stand ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.GERMAN).format(java.util.Date(it.fetchedAt))}" +
-                (if (failed) " · ⚠ letzte Aktualisierung fehlgeschlagen" else "") +
-                " · nächste in $secs s · Quelle: ESPN"
-        } ?: "Lade Live-Daten …")
+                (if (failed) tr(" · ⚠ letzte Aktualisierung fehlgeschlagen") else "") +
+                trf(" · nächste in {0} s · Quelle: ESPN", secs)
+        } ?: tr("Lade Live-Daten …"))
         Row(Modifier.fillMaxSize().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             LazyColumn(Modifier.weight(0.5f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 // Nur Spiele, die gerade laufen
                 val evs = board?.events.orEmpty().filter { it.live }
                 if (board != null && evs.isEmpty()) item {
-                    EmptyHint("Gerade läuft kein Spiel. Abgedeckt: " + League.entries.joinToString(", ") { it.label } + ".")
+                    EmptyHint(tr("Gerade läuft kein Spiel. Abgedeckt: ") + League.entries.joinToString(", ") { it.label } + ".")
                 }
                 // OK auf ein bereits gewähltes Spiel öffnet das Match-Center im Vollbild
                 items(evs, key = { it.league.name + it.id }) { e -> ScoreRow(e, selected?.id == e.id) { if (selected?.id == e.id) fullscreen = e else selected = e } }
             }
             Column(Modifier.weight(0.5f).fillMaxHeight().background(pal.surface, RoundedCornerShape(14.dp)).padding(14.dp)) {
                 val e = current
-                if (e == null) EmptyHint("Spiel auswählen für Ereignisse, Aufstellungen und Statistiken.")
+                if (e == null) EmptyHint(tr("Spiel auswählen für Ereignisse, Aufstellungen und Statistiken."))
                 else {
-                    TvButton("⛶  Match-Center im Vollbild", onClick = { fullscreen = e }, primary = true)
-                    Text("Tipp: OK auf das gewählte Spiel öffnet es ebenfalls im Vollbild", color = pal.textDim, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp, bottom = 6.dp))
+                    TvButton(tr("⛶  Match-Center im Vollbild"), onClick = { fullscreen = e }, primary = true)
+                    Text(tr("Tipp: OK auf das gewählte Spiel öffnet es ebenfalls im Vollbild"), color = pal.textDim, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp, bottom = 6.dp))
                     MatchPanel(e, detail, vm)
                 }
             }
@@ -214,7 +217,7 @@ private fun ScoreRow(e: ScoreEvent, selected: Boolean, onClick: () -> Unit) {
         .background(if (focused || selected) pal.surfaceFocused else pal.surface, shape).padding(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("${e.league.sport.emoji} ${e.league.label}", color = pal.textDim, fontSize = 11.sp, modifier = Modifier.weight(1f))
-            Text(when (e.state) { "in" -> "● LIVE ${e.clock ?: ""}"; "post" -> e.detail.ifBlank { "Beendet" }
+            Text(when (e.state) { "in" -> trf("● LIVE {0}", (e.clock ?: "")); "post" -> e.detail.ifBlank { "Beendet" }
                 else -> if (android.text.format.DateUtils.isToday(e.startMs)) formatTime(e.startMs)
                     else java.text.SimpleDateFormat("EE HH:mm", java.util.Locale.GERMAN).format(java.util.Date(e.startMs)) },
                 color = if (e.live) Color(0xFFFF5050) else pal.textDim, fontSize = 11.sp, fontWeight = FontWeight.Bold)
@@ -265,10 +268,10 @@ private fun MatchPanel(e: ScoreEvent, d: de.ostlertekker.ultraiptv.core.discover
             Text(e.scoreLine, color = pal.text, fontSize = 20.sp, fontWeight = FontWeight.Black)
             Text(listOfNotNull(e.detail.takeIf { it.isNotBlank() }, e.clock?.takeIf { e.live }, e.venue).joinToString(" · "), color = pal.textDim, fontSize = 12.sp)
         }
-        if (d == null) item { Text(if (failed) "Für dieses Spiel liefert die Datenquelle keine weiteren Details." else "Lade Spieldetails …", color = pal.textDim, fontSize = 12.sp) }
+        if (d == null) item { Text(if (failed) tr("Für dieses Spiel liefert die Datenquelle keine weiteren Details.") else tr("Lade Spieldetails …"), color = pal.textDim, fontSize = 12.sp) }
         else {
             item { SectionHeader("Ereignisse") }
-            if (d.keyEvents.isEmpty()) item { Text("Keine Ereignisdaten von der Quelle.", color = pal.textDim, fontSize = 12.sp) }
+            if (d.keyEvents.isEmpty()) item { Text(tr("Keine Ereignisdaten von der Quelle."), color = pal.textDim, fontSize = 12.sp) }
             items(d.keyEvents.takeLast(40).reversed()) { k ->
                 Text("${k.clock ?: ""}  ${k.text}", color = pal.text, fontSize = 12.sp, maxLines = 2)
             }
@@ -285,7 +288,7 @@ private fun MatchPanel(e: ScoreEvent, d: de.ostlertekker.ultraiptv.core.discover
                     Text(r.players.filter { it.starter }.ifEmpty { r.players }.take(11).joinToString(" · ") { p -> listOfNotNull(p.jersey, p.name).joinToString(" ") },
                         color = pal.text, fontSize = 11.sp)
                 }
-            } else item { Text("Aufstellungen: von der Quelle (noch) nicht geliefert.", color = pal.textDim, fontSize = 12.sp) }
+            } else item { Text(tr("Aufstellungen: von der Quelle (noch) nicht geliefert."), color = pal.textDim, fontSize = 12.sp) }
         }
     }
 }

@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.backup
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import android.content.Context
 import androidx.room.withTransaction
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -57,7 +60,7 @@ class BackupManager @Inject constructor(
     suspend fun export(includeAccounts: Boolean): JsonObject = withContext(Dispatchers.IO) {
         val user = db.user()
         buildJsonObject {
-            put("app", "ULTRA IPTV")
+            put("app", tr("ULTRA IPTV"))
             put("format", 1)
             put("appVersion", BuildConfig.VERSION_NAME)
             put("createdAt", System.currentTimeMillis())
@@ -117,8 +120,8 @@ class BackupManager @Inject constructor(
 
     /** Stellt eine Sicherung wieder her. Profile, Favoriten, Verlauf und Marken werden ersetzt; Konten zusammengeführt. */
     suspend fun restore(jsonText: String): RestoreResult = withContext(Dispatchers.IO) {
-        val root = Json.parseToJsonElement(jsonText) as? JsonObject ?: error("Keine gültige Sicherung")
-        if ((root["app"] as? JsonPrimitive)?.contentOrNull != "ULTRA IPTV") error("Datei ist keine ULTRA-IPTV-Sicherung")
+        val root = Json.parseToJsonElement(jsonText) as? JsonObject ?: error(tr("Keine gültige Sicherung"))
+        if ((root["app"] as? JsonPrimitive)?.contentOrNull != tr("ULTRA IPTV")) error(tr("Datei ist keine ULTRA-IPTV-Sicherung"))
         fun JsonElement?.o() = this as? JsonObject
         fun JsonObject.s(k: String) = (this[k] as? JsonPrimitive)?.contentOrNull?.takeIf { it != "null" }
         fun JsonObject.l(k: String) = (this[k] as? JsonPrimitive)?.longOrNull ?: 0L

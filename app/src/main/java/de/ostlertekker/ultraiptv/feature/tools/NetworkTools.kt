@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.tools
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import de.ostlertekker.ultraiptv.core.ui.fadeOnChange
 import android.annotation.SuppressLint
 import android.content.Context
@@ -123,10 +126,10 @@ data class CheckRow(val name: String, val ok: Boolean?, val ms: Long? = null, va
 /** Bewertung der Download-Rate für Streaming (Richtwerte für einen gleichzeitigen Stream). */
 fun streamRating(mbps: Double): String = when {
     mbps >= 25 -> "Reicht für 4K / UHD"
-    mbps >= 10 -> "Reicht für Full HD, für 4K knapp"
-    mbps >= 5 -> "Reicht für HD"
-    mbps >= 2.5 -> "Reicht für SD, HD kann ruckeln"
-    else -> "Zu langsam für flüssiges Streaming"
+    mbps >= 10 -> tr("Reicht für Full HD, für 4K knapp")
+    mbps >= 5 -> tr("Reicht für HD")
+    mbps >= 2.5 -> tr("Reicht für SD, HD kann ruckeln")
+    else -> tr("Zu langsam für flüssiges Streaming")
 }
 
 // =====================================================================================================
@@ -171,19 +174,19 @@ class NetworkToolsViewModel @Inject constructor(
     fun startSpeedtest(withProvider: Boolean = false) {
         speedJob?.cancel()
         speedJob = viewModelScope.launch(Dispatchers.IO) {
-            speed.value = SpeedState(running = true, phase = "Ping wird gemessen …", server = "Hetzner Falkenstein (DE)")
+            speed.value = SpeedState(running = true, phase = tr("Ping wird gemessen …"), server = tr("Hetzner Falkenstein (DE)"))
             try {
                 val (ping, jitter) = pingHetzner()
-                speed.value = speed.value.copy(pingMs = ping, jitterMs = jitter, phase = "Download wird gemessen …")
+                speed.value = speed.value.copy(pingMs = ping, jitterMs = jitter, phase = tr("Download wird gemessen …"))
                 val down = measureDownload("$hetzner/1GB.bin", 8_000) { live -> speed.value = speed.value.copy(live = live, samples = speed.value.samples + live) }
-                speed.value = speed.value.copy(downMbps = down, live = null, samples = emptyList(), phase = "Upload wird gemessen …")
+                speed.value = speed.value.copy(downMbps = down, live = null, samples = emptyList(), phase = tr("Upload wird gemessen …"))
                 val up = measureUpload { live -> speed.value = speed.value.copy(live = live, samples = speed.value.samples + live) }
                 speed.value = speed.value.copy(upMbps = up, live = null, samples = emptyList())
                 if (withProvider) {
-                    speed.value = speed.value.copy(phase = "Anbieter-Stream wird gemessen …")
+                    speed.value = speed.value.copy(phase = tr("Anbieter-Stream wird gemessen …"))
                     val ch = runCatching { content.channelsAllOnce(1).firstOrNull() }.getOrNull()
                     val url = ch?.let { runCatching { resolver.resolve(it.streamUrl, settingsRepo.current().liveFormat) }.getOrNull() }
-                    if (url == null) speed.value = speed.value.copy(providerNote = "Kein Live-Sender vorhanden")
+                    if (url == null) speed.value = speed.value.copy(providerNote = tr("Kein Live-Sender vorhanden"))
                     else {
                         val r = runCatching { measureDownload(url, 5_000) { live -> speed.value = speed.value.copy(live = live, samples = speed.value.samples + live) } }
                         speed.value = speed.value.copy(providerMbps = r.getOrNull(), live = null, samples = emptyList(),
@@ -193,7 +196,7 @@ class NetworkToolsViewModel @Inject constructor(
                 speed.value = speed.value.copy(running = false, phase = "Fertig")
             } catch (e: kotlinx.coroutines.CancellationException) { throw e
             } catch (e: Exception) {
-                speed.value = speed.value.copy(running = false, live = null, phase = "", error = "Test fehlgeschlagen: ${e.message ?: "keine Verbindung"}")
+                speed.value = speed.value.copy(running = false, live = null, phase = "", error = trf("Test fehlgeschlagen: {0}", (e.message ?: "keine Verbindung")))
             }
         }
     }
@@ -217,7 +220,7 @@ class NetworkToolsViewModel @Inject constructor(
         var lastTick = 0L
         http.newCall(Request.Builder().url(url).build()).execute().use { r ->
             if (!r.isSuccessful) error("HTTP ${r.code}")
-            val input = r.body?.byteStream() ?: error("Leere Antwort")
+            val input = r.body?.byteStream() ?: error(tr("Leere Antwort"))
             val buf = ByteArray(64 * 1024)
             while (isActive) {
                 val n = input.read(buf); if (n < 0) break
@@ -319,7 +322,7 @@ class NetworkToolsViewModel @Inject constructor(
             val chunk = ByteArray(64 * 1024) { (it * 31).toByte() }
             var left = size
             while (left > 0) {
-                if (!go()) throw java.io.IOException("Messzeit vorbei")
+                if (!go()) throw java.io.IOException(tr("Messzeit vorbei"))
                 val n = minOf(left, chunk.size.toLong()).toInt()
                 sink.write(chunk, 0, n); counter.addAndGet(n.toLong()); left -= n
             }
@@ -350,31 +353,31 @@ class NetworkToolsViewModel @Inject constructor(
                 else probe("Internet", "https://fsn1-speed.hetzner.com/", anyHttpIsOk = true)
                     .let { h -> h.copy(detail = listOf(h.detail, "Hetzner").filter { it.isNotBlank() }.joinToString(" · ")) }
             }
-            step("Namensauflösung (DNS)") {
+            step(tr("Namensauflösung (DNS)")) {
                 val t0 = System.nanoTime()
                 runCatching { java.net.InetAddress.getByName("example.org") }.fold(
-                    { CheckRow("Namensauflösung (DNS)", true, (System.nanoTime() - t0) / 1_000_000, it.hostAddress ?: "") },
-                    { CheckRow("Namensauflösung (DNS)", false, detail = it.message ?: "Fehler") })
+                    { CheckRow(tr("Namensauflösung (DNS)"), true, (System.nanoTime() - t0) / 1_000_000, it.hostAddress ?: "") },
+                    { CheckRow(tr("Namensauflösung (DNS)"), false, detail = it.message ?: "Fehler") })
             }
             // IPTV-Anbieter (nur Serveradresse, keine Zugangsdaten)
             step("IPTV-Anbieter") {
                 val cfg = runCatching { creds.load() }.getOrNull()
                 val providerUrl = cfg?.let { c -> (c.server.ifBlank { c.m3uUrl }).takeIf { it.isNotBlank() } }
-                if (providerUrl == null) CheckRow("IPTV-Anbieter", null, detail = "Keine Quelle eingerichtet")
+                if (providerUrl == null) CheckRow("IPTV-Anbieter", null, detail = tr("Keine Quelle eingerichtet"))
                 else probe("IPTV-Anbieter", originOf(providerUrl), anyHttpIsOk = true)
             }
             step("Jellyfin") {
                 val jf = jellyfin.session.value ?: runCatching { jellyfin.restore() }.getOrNull()
-                if (jf == null) CheckRow("Jellyfin", null, detail = "Nicht angemeldet")
+                if (jf == null) CheckRow("Jellyfin", null, detail = tr("Nicht angemeldet"))
                 else probe("Jellyfin", jf.server.trimEnd('/') + "/System/Info/Public")
             }
             step("Seerr") {
                 val st = seerr.state.value
-                if (!st.loggedIn) CheckRow("Seerr", null, detail = "Nicht verbunden")
+                if (!st.loggedIn) CheckRow("Seerr", null, detail = tr("Nicht verbunden"))
                 else probe("Seerr", st.server.trimEnd('/') + "/api/v1/status")
             }
             // Filterlisten (Browser-Werbeblocker)
-            step("Filterlisten (Werbeblocker)") { probe("Filterlisten (Werbeblocker)", "https://easylist.to/", anyHttpIsOk = true) }
+            step(tr("Filterlisten (Werbeblocker)")) { probe(tr("Filterlisten (Werbeblocker)"), "https://easylist.to/", anyHttpIsOk = true) }
             checkCurrent.value = null
             checking.value = false
         }
@@ -391,8 +394,8 @@ class NetworkToolsViewModel @Inject constructor(
         return runCatching {
             http.newCall(Request.Builder().url(url).header("User-Agent", "UltraIPTV").build()).execute().use { r ->
                 val ms = (System.nanoTime() - t0) / 1_000_000
-                if (r.isSuccessful || r.code == 204 || anyHttpIsOk) CheckRow(name, true, ms, "$host · Antwort ${r.code}")
-                else CheckRow(name, false, ms, "$host · Fehler ${r.code}")
+                if (r.isSuccessful || r.code == 204 || anyHttpIsOk) CheckRow(name, true, ms, trf("{0} · Antwort {1}", host, r.code))
+                else CheckRow(name, false, ms, trf("{0} · Fehler {1}", host, r.code))
             }
         }.getOrElse { CheckRow(name, false, detail = "$host · " + (it.message ?: it.javaClass.simpleName)) }
     }
@@ -418,33 +421,33 @@ class NetworkToolsViewModel @Inject constructor(
             val out = ArrayList<Pair<String, String>>()
             val bars = ArrayList<DiagBar>()
             out += "App-Version" to "${de.ostlertekker.ultraiptv.BuildConfig.VERSION_NAME} (${de.ostlertekker.ultraiptv.BuildConfig.VERSION_CODE})"
-            out += "Gerät" to "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}"
-            out += "Android" to "${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})"
+            out += tr("Gerät") to "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}"
+            out += "Android" to trf("{0} (API {1})", android.os.Build.VERSION.RELEASE, android.os.Build.VERSION.SDK_INT)
             val rt = Runtime.getRuntime()
-            out += "Arbeitsspeicher der App" to "${mb(rt.totalMemory() - rt.freeMemory())} von max. ${mb(rt.maxMemory())}"
-            bars += DiagBar("ram_app", "Arbeitsspeicher der App", frac(rt.totalMemory() - rt.freeMemory(), rt.maxMemory()), mb(rt.totalMemory() - rt.freeMemory()))
+            out += tr("Arbeitsspeicher der App") to "${mb(rt.totalMemory() - rt.freeMemory())} von max. ${mb(rt.maxMemory())}"
+            bars += DiagBar("ram_app", tr("Arbeitsspeicher der App"), frac(rt.totalMemory() - rt.freeMemory(), rt.maxMemory()), mb(rt.totalMemory() - rt.freeMemory()))
             ctx.getSystemService(android.app.ActivityManager::class.java)?.let { am ->
                 val mi = android.app.ActivityManager.MemoryInfo(); am.getMemoryInfo(mi)
-                out += "Arbeitsspeicher des Geräts" to "${mb(mi.availMem)} frei von ${mb(mi.totalMem)}" + if (mi.lowMemory) " · knapp!" else ""
-                bars += DiagBar("ram_dev", "Arbeitsspeicher des Geräts", frac(mi.totalMem - mi.availMem, mi.totalMem), "${mb(mi.totalMem - mi.availMem)} belegt")
+                out += tr("Arbeitsspeicher des Geräts") to "${mb(mi.availMem)} frei von ${mb(mi.totalMem)}" + if (mi.lowMemory) tr(" · knapp!") else ""
+                bars += DiagBar("ram_dev", tr("Arbeitsspeicher des Geräts"), frac(mi.totalMem - mi.availMem, mi.totalMem), "${mb(mi.totalMem - mi.availMem)} belegt")
             }
             val cacheB = sizeOf(ctx.cacheDir)
-            out += "Cache (Bilder, Web …)" to mb(cacheB)
+            out += tr("Cache (Bilder, Web …)") to mb(cacheB)
             val dbDir = ctx.getDatabasePath("x").parentFile
             val appTotal = sizeOf(ctx.filesDir) + sizeOf(dbDir) + cacheB
-            out += "Datenbank (Sender, Filme, EPG)" to mb(sizeOf(dbDir))
-            out += "App-Daten gesamt" to mb(appTotal)
-            bars += DiagBar("cache", "Cache (Anteil an App-Daten)", frac(cacheB, appTotal), mb(cacheB))
+            out += tr("Datenbank (Sender, Filme, EPG)") to mb(sizeOf(dbDir))
+            out += tr("App-Daten gesamt") to mb(appTotal)
+            bars += DiagBar("cache", tr("Cache (Anteil an App-Daten)"), frac(cacheB, appTotal), mb(cacheB))
             runCatching { android.os.StatFs(ctx.filesDir.path) }.getOrNull()?.let { st ->
-                out += "Freier Gerätespeicher" to "${mb(st.availableBytes)} von ${mb(st.totalBytes)}"
-                bars += DiagBar("disk", "Gerätespeicher", frac(st.totalBytes - st.availableBytes, st.totalBytes), "${mb(st.totalBytes - st.availableBytes)} belegt")
+                out += tr("Freier Gerätespeicher") to "${mb(st.availableBytes)} von ${mb(st.totalBytes)}"
+                bars += DiagBar("disk", tr("Gerätespeicher"), frac(st.totalBytes - st.availableBytes, st.totalBytes), "${mb(st.totalBytes - st.availableBytes)} belegt")
             }
             out += "Software-Tondecoder" to (if (runCatching { androidx.media3.decoder.ffmpeg.FfmpegLibrary.isAvailable() }.getOrDefault(false)) "aktiv" else "nicht verfügbar")
             diag.value = out
             diagBars.value = bars.sortedBy { listOf("ram_app", "ram_dev", "disk", "cache").indexOf(it.id) }
             lastErrors.value = listOfNotNull(
                 de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.lastCrash(ctx)?.let { "ABSTURZ\n$it" },
-                de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.lastFreeze(ctx)?.let { "HÄNGER\n$it" },
+                de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.lastFreeze(ctx)?.let { trf("HÄNGER\n{0}", it) },
             ).joinToString("\n\n").lines().filter { it.isNotBlank() }.take(14).joinToString("\n").ifBlank { null }
         }
     }
@@ -481,8 +484,8 @@ class NetworkToolsViewModel @Inject constructor(
             val net = cm?.activeNetwork
             val caps = net?.let { cm.getNetworkCapabilities(it) }
             val type = when {
-                caps == null -> "Keine Verbindung"
-                caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "LAN (Kabel)"
+                caps == null -> tr("Keine Verbindung")
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> tr("LAN (Kabel)")
                 caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "WLAN"
                 caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "Mobilfunk"
                 caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> "VPN"
@@ -494,15 +497,15 @@ class NetworkToolsViewModel @Inject constructor(
                 @Suppress("DEPRECATION") val wi = runCatching { ctx.applicationContext.getSystemService(WifiManager::class.java)?.connectionInfo }.getOrNull()
                 if (wi != null) {
                     val f = wi.frequency
-                    if (f > 0) out += "WLAN-Band" to when { f >= 5925 -> "6 GHz"; f >= 4900 -> "5 GHz"; else -> "2,4 GHz" } + " (Kanal-Frequenz $f MHz)"
+                    if (f > 0) out += "WLAN-Band" to when { f >= 5925 -> tr("6 GHz"); f >= 4900 -> tr("5 GHz"); else -> tr("2,4 GHz") } + trf(" (Kanal-Frequenz {0} MHz)", f)
                     val rssi = wi.rssi
                     if (rssi > -127 && rssi < 0) wifiRssi.value = rssi
-                    out += "Signalstärke" to "$rssi dBm · " + when { rssi >= -55 -> "sehr gut"; rssi >= -67 -> "gut"; rssi >= -75 -> "mittel"; else -> "schwach" }
+                    out += tr("Signalstärke") to "$rssi dBm · " + when { rssi >= -55 -> "sehr gut"; rssi >= -67 -> "gut"; rssi >= -75 -> "mittel"; else -> "schwach" }
                     if (wi.linkSpeed > 0) out += "Verbindungsrate" to "${wi.linkSpeed} Mbit/s"
                 }
             }
             caps?.let { c ->
-                if (c.linkDownstreamBandwidthKbps > 0) out += "Geschätzte Bandbreite" to "↓ ${c.linkDownstreamBandwidthKbps / 1000} / ↑ ${c.linkUpstreamBandwidthKbps / 1000} Mbit/s"
+                if (c.linkDownstreamBandwidthKbps > 0) out += tr("Geschätzte Bandbreite") to "↓ ${c.linkDownstreamBandwidthKbps / 1000} / ↑ ${c.linkUpstreamBandwidthKbps / 1000} Mbit/s"
             }
             net?.let { cm.getLinkProperties(it) }?.let { lp ->
                 val ips = lp.linkAddresses.map { it.address.hostAddress ?: "" }.filter { it.isNotBlank() }
@@ -514,11 +517,11 @@ class NetworkToolsViewModel @Inject constructor(
             info.value = out.toList()
             // Öffentliche Adresse + Internetanbieter
             runCatching { meta() }.onSuccess { m ->
-                m.optString("clientIp").ifBlank { null }?.let { out += "Öffentliche IP" to it }
+                m.optString("clientIp").ifBlank { null }?.let { out += tr("Öffentliche IP") to it }
                 m.optString("asOrganization").ifBlank { null }?.let { out += "Internetanbieter" to it }
                 listOfNotNull(m.optString("city").ifBlank { null }, m.optString("country").ifBlank { null }).takeIf { it.isNotEmpty() }
-                    ?.let { out += "Standort (laut IP)" to it.joinToString(", ") }
-            }.onFailure { out += "Öffentliche IP" to "nicht ermittelbar (kein Internet?)" }
+                    ?.let { out += tr("Standort (laut IP)") to it.joinToString(", ") }
+            }.onFailure { out += tr("Öffentliche IP") to "nicht ermittelbar (kein Internet?)" }
             info.value = out.toList()
         }
     }
@@ -539,7 +542,7 @@ private val Bad = Color(0xFFFF6B6B)
 fun ToolsScreen(vm: NetworkToolsViewModel = hiltViewModel()) {
     var tool by remember { mutableStateOf(Tool.SPEED) }
     Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 12.dp)) {
-        ScreenTitle("Tools", subtitle = "Netzwerk prüfen und App-Zustand – Geschwindigkeit, Erreichbarkeit, Verbindungsdaten, Diagnose")
+        ScreenTitle("Tools", subtitle = tr("Netzwerk prüfen und App-Zustand – Geschwindigkeit, Erreichbarkeit, Verbindungsdaten, Diagnose"))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Tool.entries.forEach { t -> TvChip(t.label, tool == t, { tool = t }) }
         }
@@ -709,7 +712,7 @@ private fun SpeedPane(vm: NetworkToolsViewModel) {
     val inUp = s.upMbps == null && s.phase.startsWith("Upload")
     Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(bottom = 40.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Stat("Ping", fmt(pingC, 0), "ms", Modifier.width(200.dp))
+            Stat(tr("Ping"), fmt(pingC, 0), "ms", Modifier.width(200.dp))
             Stat("Download", fmt(if (inDown) s.live else downC), "Mbit/s", Modifier.width(260.dp))
             Stat("Upload", fmt(if (inUp) s.live else upC), "Mbit/s", Modifier.width(260.dp))
         }
@@ -720,7 +723,7 @@ private fun SpeedPane(vm: NetworkToolsViewModel) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 PhaseSteps(s)
                 if (s.samples.size >= 2 || inDown || inUp) Sparkline(s.samples)
-                val sub = listOfNotNull(s.phase.ifBlank { null }, s.jitterMs?.let { "Jitter ${fmt(it, 0)} ms" }, s.server?.let { "Messserver: $it" }).joinToString(" · ")
+                val sub = listOfNotNull(s.phase.ifBlank { null }, s.jitterMs?.let { trf("Jitter {0} ms", (fmt(it, 0))) }, s.server?.let { trf("Messserver: {0}", it) }).joinToString(" · ")
                 if (sub.isNotBlank()) Text(sub, color = p.textDim, fontSize = 14.sp)
             }
         }
@@ -739,11 +742,11 @@ private fun SpeedPane(vm: NetworkToolsViewModel) {
         s.providerMbps?.let { Text("Durchsatz eines Anbieter-Streams: ${fmt(it)} Mbit/s (die Stream-Bitrate begrenzt den Wert)", color = p.text, fontSize = 15.sp, modifier = Modifier.padding(bottom = 8.dp)) }
         s.providerNote?.let { Text(it, color = p.textDim, fontSize = 14.sp, modifier = Modifier.padding(bottom = 8.dp)) }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            TvButton(if (s.running) "Test läuft …" else if (s.downMbps != null) "Erneut testen" else "Test starten",
+            TvButton(if (s.running) tr("Test läuft …") else if (s.downMbps != null) tr("Erneut testen") else tr("Test starten"),
                 onClick = { if (!s.running) vm.startSpeedtest(false) }, primary = true)
-            TvButton("Mit Anbieter-Stream", onClick = { if (!s.running) vm.startSpeedtest(true) })
+            TvButton(tr("Mit Anbieter-Stream"), onClick = { if (!s.running) vm.startSpeedtest(true) })
         }
-        Text("Download und Ping: Hetzner Falkenstein (Deutschland), eine Verbindung, ca. 8 Sekunden. Upload: 4 MB über Cloudflare (Hetzner bietet keinen Upload-Test). „Mit Anbieter-Stream“ misst zusätzlich 5 Sekunden einen Sender deines Anbieters.",
+        Text(tr("Download und Ping: Hetzner Falkenstein (Deutschland), eine Verbindung, ca. 8 Sekunden. Upload: 4 MB über Cloudflare (Hetzner bietet keinen Upload-Test). „Mit Anbieter-Stream“ misst zusätzlich 5 Sekunden einen Sender deines Anbieters."),
             color = p.textDim.copy(alpha = 0.8f), fontSize = 12.sp, modifier = Modifier.padding(top = 10.dp))
     }
 }
@@ -766,7 +769,7 @@ private fun CheckPane(vm: NetworkToolsViewModel) {
     LaunchedEffect(Unit) { if (rows.isEmpty()) vm.runChecks() }
     Column {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            TvButton(if (busy) "Prüfe …" else "Erneut prüfen", onClick = { vm.runChecks() }, primary = true, enabled = !busy)
+            TvButton(if (busy) tr("Prüfe …") else tr("Erneut prüfen"), onClick = { vm.runChecks() }, primary = true, enabled = !busy)
             Text("${rows.size} / ${vm.checkTotal}", color = p.textDim, fontSize = 14.sp)
         }
         Spacer(Modifier.height(10.dp))
@@ -829,7 +832,7 @@ private fun InfoPane(vm: NetworkToolsViewModel) {
     val rssi by vm.wifiRssi.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.loadInfo() }
     Column {
-        TvButton("Aktualisieren", onClick = { vm.loadInfo() }, primary = true)
+        TvButton(tr("Aktualisieren"), onClick = { vm.loadInfo() }, primary = true)
         Spacer(Modifier.height(12.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 60.dp)) {
             items(rows.size, key = { i -> rows[i].first + "#" + i }) { i ->
@@ -839,7 +842,7 @@ private fun InfoPane(vm: NetworkToolsViewModel) {
                     verticalAlignment = Alignment.CenterVertically) {
                     Text(k, color = p.textDim, fontSize = 15.sp, modifier = Modifier.width(240.dp))
                     Text(v, color = p.text, fontSize = 15.sp)
-                    if (k == "Signalstärke") rssi?.let { WifiBars(it) }
+                    if (k == tr("Signalstärke")) rssi?.let { WifiBars(it) }
                 }
             }
         }
@@ -870,9 +873,9 @@ private fun DiagPane(vm: NetworkToolsViewModel) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 60.dp)) {
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                TvButton("Cache leeren", onClick = { msg = null; vm.clearCache { msg = it } }, primary = true)
-                TvButton("Aktualisieren", onClick = { vm.loadDiag() })
-                if (errors != null) TvButton("Fehler löschen", onClick = { vm.clearErrors() })
+                TvButton(tr("Cache leeren"), onClick = { msg = null; vm.clearCache { msg = it } }, primary = true)
+                TvButton(tr("Aktualisieren"), onClick = { vm.loadDiag() })
+                if (errors != null) TvButton(tr("Fehler löschen"), onClick = { vm.clearErrors() })
                 // (11) Bestätigung ploppt auf
                 msg?.let { m -> androidx.compose.runtime.key(m) {
                     Text("✓ $m", color = Good, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.popIn())
@@ -892,10 +895,10 @@ private fun DiagPane(vm: NetworkToolsViewModel) {
         }
         item { ZapStats() }
         item {
-            Text("Letzte Fehler", color = p.text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold,
+            Text(tr("Letzte Fehler"), color = p.text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(top = 14.dp, bottom = 4.dp).tvFocusable(RoundedCornerShape(8.dp), {}, scaleOnFocus = false))
-            Text(errors ?: "Keine Abstürze oder Hänger aufgezeichnet.", color = if (errors != null) Warn else p.textDim, fontSize = 13.sp)
-            Text("Cache leeren löscht nur Zwischenspeicher (Bilder, Web). Favoriten, Einstellungen, Profile und Fortschritte bleiben erhalten.",
+            Text(errors ?: tr("Keine Abstürze oder Hänger aufgezeichnet."), color = if (errors != null) Warn else p.textDim, fontSize = 13.sp)
+            Text(tr("Cache leeren löscht nur Zwischenspeicher (Bilder, Web). Favoriten, Einstellungen, Profile und Fortschritte bleiben erhalten."),
                 color = p.textDim.copy(alpha = 0.8f), fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp))
         }
     }
@@ -909,16 +912,16 @@ private fun ZapStats() {
     var recs by remember { mutableStateOf(de.ostlertekker.ultraiptv.core.player.ZapMonitor.all()) }
     val M = de.ostlertekker.ultraiptv.core.player.ZapMonitor
     Column(Modifier.padding(top = 14.dp)) {
-        Text("Senderwechsel-Messung", color = p.text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold,
+        Text(tr("Senderwechsel-Messung"), color = p.text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold,
             modifier = Modifier.tvFocusable(RoundedCornerShape(8.dp), { recs = M.all() }, scaleOnFocus = false).padding(vertical = 4.dp))
         if (recs.isEmpty()) {
-            Text("Noch keine Messwerte – einfach im Live-TV ein paar Mal umschalten.", color = p.textDim, fontSize = 13.sp)
+            Text(tr("Noch keine Messwerte – einfach im Live-TV ein paar Mal umschalten."), color = p.textDim, fontSize = 13.sp)
             return@Column
         }
-        val groups = listOf("Schnellstart an" to recs.filter { it.turbo }, "Schnellstart aus" to recs.filter { !it.turbo }).filter { it.second.isNotEmpty() }
+        val groups = listOf(tr("Schnellstart an") to recs.filter { it.turbo }, tr("Schnellstart aus") to recs.filter { !it.turbo }).filter { it.second.isNotEmpty() }
         Row(Modifier.padding(top = 6.dp)) {
-            Text("Wert (ms)", color = p.textDim, fontSize = 13.sp, modifier = Modifier.width(220.dp))
-            groups.forEach { (g, l) -> Text("$g (${l.size}×)  Median · P95 · P99", color = p.textDim, fontSize = 13.sp, modifier = Modifier.width(300.dp)) }
+            Text(tr("Wert (ms)"), color = p.textDim, fontSize = 13.sp, modifier = Modifier.width(220.dp))
+            groups.forEach { (g, l) -> Text(trf("{0} ({1}×)  Median · P95 · P99", g, l.size), color = p.textDim, fontSize = 13.sp, modifier = Modifier.width(300.dp)) }
         }
         M.METRICS.forEach { (name, sel) ->
             Row(Modifier.fillMaxWidth().tvFocusable(RoundedCornerShape(8.dp), {}, scaleOnFocus = false).padding(vertical = 3.dp)) {
@@ -932,14 +935,14 @@ private fun ZapStats() {
         groups.forEach { (g, l) ->
             val pred = l.filter { it.predicted }.map { it.total }
             val err = l.count { it.errors > 0 }
-            Text("$g: Ø CPU ${l.map { it.cpuPct }.average().toInt()} % · RAM ~${l.last().ramMb} MB · Ø Daten ${l.map { it.netKb }.average().toLong()} KB pro Wechsel · " +
-                "Fehler ${err} · Wiederholungen ${l.sumOf { it.retries }} · Start-Puffer Median ${M.pct(l.map { it.startBufferMs })?.median ?: "–"} ms" +
-                (M.pct(pred)?.let { " · vorbereitete Sender: Median ${it.median} ms (${it.n}×)" } ?: ""),
+            Text(trf("{0}: Ø CPU {1} % · RAM ~{2} MB · Ø Daten {3} KB pro Wechsel · ", g, (l.map { it.cpuPct }.average().toInt()), (l.last().ramMb), (l.map { it.netKb }.average().toLong())) +
+                trf("Fehler {0} · Wiederholungen {1} · Start-Puffer Median {2} ms", err, (l.sumOf { it.retries }), (M.pct(l.map { it.startBufferMs })?.median ?: "–")) +
+                (M.pct(pred)?.let { trf(" · vorbereitete Sender: Median {0} ms ({1}×)", it.median, it.n) } ?: ""),
                 color = p.textDim, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
-            TvButton("Aktualisieren", onClick = { recs = M.all() })
-            TvButton("Messwerte löschen", onClick = { M.clear(); recs = emptyList() })
+            TvButton(tr("Aktualisieren"), onClick = { recs = M.all() })
+            TvButton(tr("Messwerte löschen"), onClick = { M.clear(); recs = emptyList() })
         }
     }
 }

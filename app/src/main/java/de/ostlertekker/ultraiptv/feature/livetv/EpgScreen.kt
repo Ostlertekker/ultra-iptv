@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.livetv
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -79,7 +82,7 @@ class EpgViewModel @Inject constructor(
     fun toggleReminder(ch: ChannelEntity, prog: EpgProgramEntity) = viewModelScope.launch {
         val on = runCatching { notifications.toggleReminder(ch.id, ch.name, prog.title, prog.startMs) }.getOrNull()
         val t = java.text.SimpleDateFormat("EEE HH:mm", java.util.Locale.GERMANY).format(java.util.Date(prog.startMs))
-        message.value = when (on) { true -> "🔔 Erinnerung gesetzt: ${prog.title} ($t, ${ch.name})"; false -> "Erinnerung entfernt: ${prog.title}"; null -> "Erinnerung nicht möglich" }
+        message.value = when (on) { true -> trf("🔔 Erinnerung gesetzt: {0} ({1}, {2})", prog.title, t, ch.name); false -> trf("Erinnerung entfernt: {0}", prog.title); null -> tr("Erinnerung nicht möglich") }
         msgJob?.cancel(); msgJob = viewModelScope.launch { kotlinx.coroutines.delay(4_000); message.value = null }
     }
     fun jumpDay(days: Int) {
@@ -147,13 +150,13 @@ fun EpgScreen(vm: EpgViewModel = hiltViewModel()) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Column(Modifier.weight(1f)) {
                 Text("TV-Programm", color = p.text, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                Text((vm.category ?: "Alle Sender") + " · " + dayFmt.format(java.util.Date(start)), color = p.textDim, fontSize = 13.sp)
+                Text((vm.category ?: tr("Alle Sender")) + " · " + dayFmt.format(java.util.Date(start)), color = p.textDim, fontSize = 13.sp)
             }
-            TvButton("Gestern", onClick = { vm.jumpDay(-1) })
+            TvButton(tr("Gestern"), onClick = { vm.jumpDay(-1) })
             TvButton("◀", onClick = { vm.shift(-HALF_HOUR * 2) })
-            TvButton("Jetzt", onClick = { vm.jumpDay(0) }, primary = true)
+            TvButton(tr("Jetzt"), onClick = { vm.jumpDay(0) }, primary = true)
             TvButton("▶", onClick = { vm.shift(HALF_HOUR * 2) })
-            TvButton("Morgen", onClick = { vm.jumpDay(1) })
+            TvButton(tr("Morgen"), onClick = { vm.jumpDay(1) })
             TvButton("↻", onClick = { vm.refresh() })
         }
         // Detailbereich der fokussierten Sendung
@@ -164,13 +167,13 @@ fun EpgScreen(vm: EpgViewModel = hiltViewModel()) {
             if (d != null) Column {
                 Text("${formatTime(d.startMs)}–${formatTime(d.endMs)}  ${d.title}", color = p.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 Text(d.description ?: "", color = p.textDim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(when { d.endMs <= now -> "OK: als Catch-up ansehen (wenn der Sender ein Archiv hat)"; d.startMs > now -> "OK: Erinnerung setzen oder entfernen · Lang drücken: Sender jetzt ansehen"; else -> "OK: jetzt ansehen" } +
-                    " · ◀ ▶ am Rand: Zeit weiterblättern", color = p.primary, fontSize = 12.sp)
+                Text(when { d.endMs <= now -> tr("OK: als Catch-up ansehen (wenn der Sender ein Archiv hat)"); d.startMs > now -> tr("OK: Erinnerung setzen oder entfernen · Lang drücken: Sender jetzt ansehen"); else -> tr("OK: jetzt ansehen") } +
+                    tr(" · ◀ ▶ am Rand: Zeit weiterblättern"), color = p.primary, fontSize = 12.sp)
             } else if (sync.running) Text(sync.message, color = p.textDim)
         }
-        if (loading) { UltraLoader(Modifier.fillMaxWidth(), "TV-Programm wird geladen …"); return@Column }
+        if (loading) { UltraLoader(Modifier.fillMaxWidth(), tr("TV-Programm wird geladen …")); return@Column }
         if (programs.isEmpty()) {
-            Text("Keine EPG-Daten vorhanden. EPG-Adresse in den Einstellungen prüfen oder „EPG aktualisieren“ wählen.", color = p.textDim)
+            Text(tr("Keine EPG-Daten vorhanden. EPG-Adresse in den Einstellungen prüfen oder „EPG aktualisieren“ wählen."), color = p.textDim)
         }
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val nameW = 230.dp
@@ -226,7 +229,7 @@ fun EpgScreen(vm: EpgViewModel = hiltViewModel()) {
                                     }
                                 }
                                 if (list.isEmpty() || visible.isEmpty()) {
-                                    ProgramBlock("Keine Daten", false, Modifier.padding(start = 4.dp).width(gridW - 4.dp).then(edgeKeys(true, true)),
+                                    ProgramBlock(tr("Keine Daten"), false, Modifier.padding(start = 4.dp).width(gridW - 4.dp).then(edgeKeys(true, true)),
                                         { context.openPlayer(ContentKind.LIVE, ch.id, category = ch.category) },
                                         focusRequester = if (pf != null && pf.first == ch.id) targetReq else null) { }
                                 }
@@ -245,7 +248,7 @@ fun EpgScreen(vm: EpgViewModel = hiltViewModel()) {
                                                 when {
                                                     prog.startMs > now -> vm.toggleReminder(ch, prog)
                                                     prog.endMs <= now -> if (catchup) context.openPlayer(ContentKind.LIVE, ch.id, category = ch.category,
-                                                        catchupStart = prog.startMs, catchupEnd = prog.endMs) else vm.message.value = "Für diese Sendung gibt es kein Archiv."
+                                                        catchupStart = prog.startMs, catchupEnd = prog.endMs) else vm.message.value = tr("Für diese Sendung gibt es kein Archiv.")
                                                     else -> context.openPlayer(ContentKind.LIVE, ch.id, category = ch.category)
                                                 }
                                             }, past = prog.endMs <= now, narrow = w < 130.dp,

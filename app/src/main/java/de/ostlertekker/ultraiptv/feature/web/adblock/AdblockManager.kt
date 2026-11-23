@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.web.adblock
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import android.content.Context
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -42,9 +45,9 @@ class AdblockManager @Inject constructor(
                 "https://easylist-downloads.adblockplus.org/easylist.txt")),
             FilterList("easyprivacy", "EasyPrivacy", listOf("https://easylist.to/easylist/easyprivacy.txt",
                 "https://easylist-downloads.adblockplus.org/easyprivacy.txt")),
-            FilterList("easylistgermany", "EasyList Germany", listOf("https://easylist.to/easylistgermany/easylistgermany.txt",
+            FilterList("easylistgermany", tr("EasyList Germany"), listOf("https://easylist.to/easylistgermany/easylistgermany.txt",
                 "https://easylist-downloads.adblockplus.org/easylistgermany.txt")),
-            FilterList("urlhaus", "URLhaus (Schadsoftware)", listOf("https://malware-filter.gitlab.io/malware-filter/urlhaus-filter-agh-online.txt",
+            FilterList("urlhaus", tr("URLhaus (Schadsoftware)"), listOf("https://malware-filter.gitlab.io/malware-filter/urlhaus-filter-agh-online.txt",
                 "https://curbengh.github.io/malware-filter/urlhaus-filter-agh-online.txt",
                 "https://cdn.jsdelivr.net/gh/curbengh/urlhaus-filter/urlhaus-filter-agh-online.txt"), malware = true),
         )
@@ -133,7 +136,7 @@ class AdblockManager @Inject constructor(
         if (n > 0) {
             val ok = runCatching { rebuild() }.isSuccess
             // Rollback: Neu-Kompilieren fehlgeschlagen → alte Listen zurück
-            if (!ok) { for (l in LISTS) { val b = File(dir, l.id + ".bak"); if (b.exists()) { file(l).delete(); b.renameTo(file(l)) } }; runCatching { rebuild() }; error("Filter ließen sich nicht übernehmen – alte Fassung wiederhergestellt") }
+            if (!ok) { for (l in LISTS) { val b = File(dir, l.id + ".bak"); if (b.exists()) { file(l).delete(); b.renameTo(file(l)) } }; runCatching { rebuild() }; error(tr("Filter ließen sich nicht übernehmen – alte Fassung wiederhergestellt")) }
             for (l in LISTS) File(dir, l.id + ".bak").delete()
             prefs.edit().putLong("lastUpdate", System.currentTimeMillis()).apply()
         }
@@ -163,7 +166,7 @@ class AdblockManager @Inject constructor(
                     val tmp = File(dir, l.id + ".tmp")
                     r.body?.byteStream()?.use { input -> tmp.outputStream().use { input.copyTo(it) } } ?: error("leer")
                     if (!looksValid(tmp)) { tmp.delete(); error("ungültige Liste") }
-                    if (!tmp.renameTo(f)) { f.delete(); if (!tmp.renameTo(f)) error("Speichern fehlgeschlagen") }
+                    if (!tmp.renameTo(f)) { f.delete(); if (!tmp.renameTo(f)) error(tr("Speichern fehlgeschlagen")) }
                     r.header("ETag")?.let { prefs.edit().putString("etag_${l.id}_$url", it).apply() }
                     true
                 }
@@ -202,10 +205,10 @@ class AdblockManager @Inject constructor(
             "@@||imasdk.googleapis.com/pal/sdkloader/pal.js",
         )
         val readers = LISTS.mapNotNull { lines(it) }.let { if (it.isEmpty()) it else it + listOf(own) }
-        if (readers.isEmpty()) { status = "Filterlisten fehlen – werden geladen"; return@withLock }
+        if (readers.isEmpty()) { status = tr("Filterlisten fehlen – werden geladen"); return@withLock }
         val e = FilterEngine.build(readers)
         _engine.value = e
-        status = "${"%,d".format(e.ruleCount).replace(',', '.')} Filterregeln aktiv"
+        status = trf("{0} Filterregeln aktiv", ("%,d".format(e.ruleCount).replace(',', '.')))
         Log.i(TAG, "Filter kompiliert: ${e.ruleCount} Regeln in ${System.currentTimeMillis() - t0} ms")
     }
 }

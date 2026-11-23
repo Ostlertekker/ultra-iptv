@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.intro
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -116,7 +119,7 @@ fun IntroScreen(full: Boolean, soundEnabled: Boolean, sounds: AudioExperienceEng
                 translationY = (1f - easeOutCubic(a)) * 60f
             })
             Spacer(Modifier.height(6.dp))
-            Text("OstlerTekker&HorstyHaze Presents", color = Color.White.copy(alpha = 0.55f), fontSize = 13.sp, letterSpacing = 6.sp,
+            Text(tr("OstlerTekker&HorstyHaze Presents"), color = Color.White.copy(alpha = 0.55f), fontSize = 13.sp, letterSpacing = 6.sp,
                 fontFamily = AppFonts.Inter, fontWeight = FontWeight.Medium,
                 modifier = Modifier.graphicsLayer {
                     val a = easeOutCubic(clamp01((time.floatValue - 0.15f) / 0.6f))
@@ -144,7 +147,7 @@ fun IntroScreen(full: Boolean, soundEnabled: Boolean, sounds: AudioExperienceEng
                             }
                         },
                 ) {
-                    "ULTRA IPTV".forEachIndexed { i, ch ->
+                    tr("ULTRA IPTV").forEachIndexed { i, ch ->
                         if (ch == ' ') { Spacer(Modifier.width(22.dp)); return@forEachIndexed }
                         Text(ch.toString(), color = Color.White, fontSize = 76.sp, lineHeight = 80.sp, fontWeight = FontWeight.ExtraBold,
                             fontFamily = AppFonts.Inter, letterSpacing = 2.sp,

@@ -18,6 +18,8 @@ class UltraApp : Application(), ImageLoaderFactory {
     @Inject lateinit var http: okhttp3.OkHttpClient
 
     override fun onCreate() {
+        // Sprache vor allem anderen festlegen (Hilt baut in super.onCreate() schon Objekte mit Texten)
+        de.ostlertekker.ultraiptv.core.i18n.I18n.init(this)
         super.onCreate()
         de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.install(this)
         credentialStore.init()

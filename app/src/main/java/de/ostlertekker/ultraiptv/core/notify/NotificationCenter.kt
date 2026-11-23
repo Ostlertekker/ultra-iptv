@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.notify
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import kotlinx.coroutines.launch
 import android.app.AlarmManager
 import android.app.NotificationChannel
@@ -174,7 +177,7 @@ class NotificationCenter @Inject constructor(
                 val old = before[s.id] ?: return@forEach
                 if (s.addedAt > old && old > 0) {
                     val name = content.series(s.id)?.name ?: "Serie"
-                    post("series", "Neue Folgen: $name", "Bei einer deiner Lieblingsserien gibt es Neuigkeiten.", ContentKind.SERIES.name, s.id)
+                    post("series", trf("Neue Folgen: {0}", name), tr("Bei einer deiner Lieblingsserien gibt es Neuigkeiten."), ContentKind.SERIES.name, s.id)
                 }
             }
         }
@@ -187,7 +190,7 @@ class NotificationCenter @Inject constructor(
         val exp = info.expiresAt ?: return
         val days = (exp - System.currentTimeMillis()) / 86_400_000L
         if (days in 0..7 && extras.countRecent("account", "expiry", System.currentTimeMillis() - 86_400_000L) == 0) {
-            post("account", "Dein Anbieter-Konto läuft bald ab", "Noch $days Tag(e) – Ablauf am ${DateFormat.getDateInstance().format(Date(exp))}.", targetId = "expiry")
+            post("account", tr("Dein Anbieter-Konto läuft bald ab"), trf("Noch {0} Tag(e) – Ablauf am {1}.", days, (DateFormat.getDateInstance().format(Date(exp)))), targetId = "expiry")
         }
     }
 
@@ -205,7 +208,7 @@ class NotificationCenter @Inject constructor(
         fun createChannel(context: Context) {
             if (Build.VERSION.SDK_INT >= 26) {
                 val nm = context.getSystemService(NotificationManager::class.java)
-                nm.createNotificationChannel(NotificationChannel(CHANNEL, "ULTRA IPTV", NotificationManager.IMPORTANCE_DEFAULT))
+                nm.createNotificationChannel(NotificationChannel(CHANNEL, tr("ULTRA IPTV"), NotificationManager.IMPORTANCE_DEFAULT))
             }
         }
 

@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.diagnostics
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -54,13 +57,13 @@ data class SpeedResult(
     /** Empfehlung, welche Qualität die Leitung trägt. */
     val verdict: String
         get() {
-            val d = downloadMbps ?: return "Keine Messung"
+            val d = downloadMbps ?: return tr("Keine Messung")
             return when {
-                d >= 40 -> "Sehr gut – 4K-Streams flüssig möglich"
-                d >= 20 -> "Gut – 4K meist möglich, Full HD problemlos"
-                d >= 8 -> "Ausreichend für Full HD"
+                d >= 40 -> tr("Sehr gut – 4K-Streams flüssig möglich")
+                d >= 20 -> tr("Gut – 4K meist möglich, Full HD problemlos")
+                d >= 8 -> tr("Ausreichend für Full HD")
                 d >= 4 -> "Nur HD/720p stabil – Puffer „Groß“ empfohlen"
-                else -> "Zu langsam für stabiles Streaming"
+                else -> tr("Zu langsam für stabiles Streaming")
             }
         }
 }
@@ -99,32 +102,32 @@ class NetworkDiagnostics @Inject constructor(
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val caps = cm.getNetworkCapabilities(cm.activeNetwork)
         val type = when {
-            caps == null -> "Keine Verbindung"
-            caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "Ethernet (LAN)"
+            caps == null -> tr("Keine Verbindung")
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> tr("Ethernet (LAN)")
             caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "WLAN"
             caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "Mobilfunk"
             else -> "Andere"
         }
         out += InfoEntry("Verbindungsart", type, Accuracy.MEASURED)
         if (caps != null) {
-            out += InfoEntry("Bandbreite laut System", "↓ ${caps.linkDownstreamBandwidthKbps / 1000} Mbit/s · ↑ ${caps.linkUpstreamBandwidthKbps / 1000} Mbit/s", Accuracy.ESTIMATED)
-            out += InfoEntry("Internet bestätigt", if (caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) "Ja" else "Nein", Accuracy.MEASURED)
+            out += InfoEntry(tr("Bandbreite laut System"), "↓ ${caps.linkDownstreamBandwidthKbps / 1000} Mbit/s · ↑ ${caps.linkUpstreamBandwidthKbps / 1000} Mbit/s", Accuracy.ESTIMATED)
+            out += InfoEntry(tr("Internet bestätigt"), if (caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) "Ja" else "Nein", Accuracy.MEASURED)
         }
-        out += InfoEntry("Lokale IP-Adresse", localIpv4() ?: "unbekannt", if (localIpv4() != null) Accuracy.MEASURED else Accuracy.UNAVAILABLE)
+        out += InfoEntry(tr("Lokale IP-Adresse"), localIpv4() ?: "unbekannt", if (localIpv4() != null) Accuracy.MEASURED else Accuracy.UNAVAILABLE)
         // Internet + Standort (Cloudflare-Trace)
         try {
             var trace = ""
             val ms = timed { client.newCall(Request.Builder().url("https://www.cloudflare.com/cdn-cgi/trace").build()).execute().use { trace = it.body?.string().orEmpty() } }
             val loc = trace.lines().firstOrNull { it.startsWith("loc=") }?.substringAfter('=')
             out += InfoEntry("Internet-Erreichbarkeit", "OK ($ms ms)", Accuracy.MEASURED)
-            if (loc != null) out += InfoEntry("Erkannter Standort (öffentliche IP)", loc, Accuracy.MEASURED)
+            if (loc != null) out += InfoEntry(tr("Erkannter Standort (öffentliche IP)"), loc, Accuracy.MEASURED)
         } catch (e: Exception) {
-            out += InfoEntry("Internet-Erreichbarkeit", "Fehler: ${e.message}", Accuracy.MEASURED)
+            out += InfoEntry("Internet-Erreichbarkeit", trf("Fehler: {0}", e.message), Accuracy.MEASURED)
         }
         // Anbieter-Server
         val cfg = creds.load()
         if (cfg == null) {
-            out += InfoEntry("Anbieter", "Keine Quelle eingerichtet", Accuracy.UNAVAILABLE)
+            out += InfoEntry("Anbieter", tr("Keine Quelle eingerichtet"), Accuracy.UNAVAILABLE)
             return@withContext out
         }
         val base = if (cfg.type == ProviderType.XTREAM) XtreamUrls.normalizeServer(cfg.server) else cfg.m3uUrl
@@ -134,10 +137,10 @@ class NetworkDiagnostics @Inject constructor(
             try {
                 var addrs: Array<InetAddress> = emptyArray()
                 val dnsMs = timed { addrs = InetAddress.getAllByName(host) }
-                out += InfoEntry("DNS-Auflösung Anbieter", "$dnsMs ms → ${addrs.firstOrNull()?.hostAddress ?: "?"}", Accuracy.MEASURED)
+                out += InfoEntry(tr("DNS-Auflösung Anbieter"), "$dnsMs ms → ${addrs.firstOrNull()?.hostAddress ?: "?"}", Accuracy.MEASURED)
                 val port = uri?.port?.takeIf { it > 0 } ?: if (uri?.scheme == "https") 443 else 80
                 val tcpMs = timed { Socket().use { it.connect(InetSocketAddress(addrs.first(), port), 8000) } }
-                out += InfoEntry("TCP-Verbindung Anbieter (Port $port)", "$tcpMs ms", Accuracy.MEASURED)
+                out += InfoEntry(trf("TCP-Verbindung Anbieter (Port {0})", port), "$tcpMs ms", Accuracy.MEASURED)
             } catch (e: Exception) {
                 out += InfoEntry("Anbieter-Server", "Nicht erreichbar: ${SafeLog.redact(e.message ?: e.javaClass.simpleName)}", Accuracy.MEASURED)
             }
@@ -146,10 +149,10 @@ class NetworkDiagnostics @Inject constructor(
             val t0 = System.currentTimeMillis()
             val info = sync.refreshAccountInfo()
             val apiMs = System.currentTimeMillis() - t0
-            if (info == null) out += InfoEntry("Xtream-Anmeldung", "Fehlgeschlagen ($apiMs ms)", Accuracy.MEASURED)
+            if (info == null) out += InfoEntry("Xtream-Anmeldung", trf("Fehlgeschlagen ({0} ms)", apiMs), Accuracy.MEASURED)
             else {
-                out += InfoEntry("Xtream-Anmeldung", "OK ($apiMs ms) · Status: ${info.status ?: "?"}", Accuracy.MEASURED)
-                out += InfoEntry("Konto läuft ab", info.expiresAt?.let { DateFormat.getDateInstance().format(Date(it)) } ?: "unbegrenzt / nicht angegeben",
+                out += InfoEntry("Xtream-Anmeldung", trf("OK ({0} ms) · Status: {1}", apiMs, (info.status ?: "?")), Accuracy.MEASURED)
+                out += InfoEntry(tr("Konto läuft ab"), info.expiresAt?.let { DateFormat.getDateInstance().format(Date(it)) } ?: "unbegrenzt / nicht angegeben",
                     if (info.expiresAt != null) Accuracy.MEASURED else Accuracy.UNAVAILABLE)
                 out += InfoEntry("Verbindungen (aktiv / max.)", "${info.activeConnections ?: "?"} / ${info.maxConnections ?: "?"}", Accuracy.MEASURED)
                 if (info.isTrial) out += InfoEntry("Testzugang", "Ja", Accuracy.MEASURED)
@@ -201,7 +204,7 @@ class NetworkDiagnostics @Inject constructor(
         var bytes = 0L
         client.newCall(Request.Builder().url(url).build()).execute().use { resp ->
             if (!resp.isSuccessful) error("HTTP ${resp.code}")
-            val input = resp.body?.byteStream() ?: error("Leere Antwort")
+            val input = resp.body?.byteStream() ?: error(tr("Leere Antwort"))
             val buf = ByteArray(64 * 1024)
             while (coroutineContext.isActive) {
                 val n = input.read(buf)

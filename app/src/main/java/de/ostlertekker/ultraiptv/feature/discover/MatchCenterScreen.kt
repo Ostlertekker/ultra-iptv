@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.discover
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import androidx.compose.foundation.layout.PaddingValues
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedH
@@ -77,7 +80,7 @@ import de.ostlertekker.ultraiptv.core.ui.UltraLoader
 import de.ostlertekker.ultraiptv.core.ui.initialsOf
 import kotlinx.coroutines.launch
 
-private enum class McTab(val label: String) { OVERVIEW("Übersicht"), TICKER("Live-Ticker"), STATS("Statistik"), LINEUP("Aufstellung"), PLAYERS("Spieler"), TABLE("Tabelle"), FORM("Form & Duelle") }
+private enum class McTab(val label: String) { OVERVIEW(tr("Übersicht")), TICKER("Live-Ticker"), STATS("Statistik"), LINEUP("Aufstellung"), PLAYERS("Spieler"), TABLE("Tabelle"), FORM(tr("Form & Duelle")) }
 
 private fun hex(c: String?, fallback: Color): Color = runCatching { Color(android.graphics.Color.parseColor("#" + c!!.trim('#'))) }.getOrDefault(fallback)
 
@@ -98,7 +101,7 @@ fun MatchCenterScreen(e: ScoreEvent, vm: DiscoverViewModel, onClose: () -> Unit)
             val m = c
             if (m == null) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    if (failed) Text("Für dieses Spiel liefert die Datenquelle keine Detaildaten.", color = pal.textDim, fontSize = 16.sp) else UltraLoader(label = "Lade Spieldaten …")
+                    if (failed) Text(tr("Für dieses Spiel liefert die Datenquelle keine Detaildaten."), color = pal.textDim, fontSize = 16.sp) else UltraLoader(label = tr("Lade Spieldaten …"))
                 }
                 return@Column
             }
@@ -156,8 +159,8 @@ fun MatchCenterScreen(e: ScoreEvent, vm: DiscoverViewModel, onClose: () -> Unit)
                     Spacer(Modifier.height(40.dp))
                 }
             }
-            Text("◀ ▶ Reiter wechseln · ▲ ▼ blättern · Zurück schließt · " + (if (ev.live) "aktualisiert alle 30 s" else "Quelle: ESPN") +
-                " · Stand ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.GERMAN).format(java.util.Date(m.fetchedAt))}",
+            Text(tr("◀ ▶ Reiter wechseln · ▲ ▼ blättern · Zurück schließt · ") + (if (ev.live) "aktualisiert alle 30 s" else tr("Quelle: ESPN")) +
+                trf(" · Stand {0}", (java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.GERMAN).format(java.util.Date(m.fetchedAt)))),
                 color = pal.textDim, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
         }
     }
@@ -199,7 +202,7 @@ private fun Scoreboard(e: ScoreEvent, m: MatchCenter?) {
                     val al by inf.animateFloat(1f, 0.3f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "blink")
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(10.dp).alpha(al).background(Color(0xFFFF3B3B), CircleShape))
-                        Text("  LIVE · " + (e.detail.ifBlank { e.clock ?: "" }), color = Color(0xFFFF5050), fontSize = 17.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                        Text(tr("  LIVE · ") + (e.detail.ifBlank { e.clock ?: "" }), color = Color(0xFFFF5050), fontSize = 17.sp, fontWeight = FontWeight.Black, maxLines = 1)
                     }
                 } else Text(statusText(e), color = Color.White.copy(alpha = 0.75f), fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
@@ -228,7 +231,7 @@ private fun TeamSide(name: String, logo: String?, modifier: Modifier, lines: Lis
         }
         Text(name, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         lines.take(2).forEach { Text(it, color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp, maxLines = 1) }
-        if (lines.size > 2) Text("+${lines.size - 2} weitere", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
+        if (lines.size > 2) Text(trf("+{0} weitere", (lines.size - 2)), color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
     }
 }
 
@@ -258,9 +261,9 @@ private fun Overview(m: MatchCenter, e: ScoreEvent) {
                     }
                 }
             }
-            if (m.stats.isNotEmpty()) Card("Wichtigste Werte") { m.stats.take(5).forEach { StatBar(it) } }
+            if (m.stats.isNotEmpty()) Card(tr("Wichtigste Werte")) { m.stats.take(5).forEach { StatBar(it) } }
             if (m.incidents.isEmpty() && m.stats.isEmpty() && e.competitors.size <= 2)
-                Card("Spielverlauf") { Text(if (e.state == "pre") "Das Spiel hat noch nicht begonnen." else "Die Quelle liefert für dieses Spiel keinen Verlauf.", color = pal.textDim, fontSize = 14.sp) }
+                Card("Spielverlauf") { Text(if (e.state == "pre") tr("Das Spiel hat noch nicht begonnen.") else tr("Die Quelle liefert für dieses Spiel keinen Verlauf."), color = pal.textDim, fontSize = 14.sp) }
         }
         Column(Modifier.weight(1f)) {
             if (m.info.isNotEmpty()) Card("Spielinfo") {
@@ -272,7 +275,7 @@ private fun Overview(m: MatchCenter, e: ScoreEvent) {
                 }
             }
             val forms: List<Pair<String, String>> = listOfNotNull(m.home, m.away).mapNotNull { t -> t.form?.let { f -> (t.short ?: t.name) to f } }
-            if (forms.isNotEmpty()) Card("Form (letzte Spiele)") {
+            if (forms.isNotEmpty()) Card(tr("Form (letzte Spiele)")) {
                 forms.forEach { (n, f) -> Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(n, color = pal.text, fontSize = 14.sp, modifier = Modifier.width(150.dp), maxLines = 1)
                     f.forEach { r -> FormDot(r.toString()) }
@@ -294,7 +297,7 @@ private fun FormDot(r: String) {
 @Composable
 private fun IncidentRow(i: Incident) {
     val pal = LocalUltraTheme.current.palette
-    val text = "${i.kind.icon} ${i.player}" + (i.assist?.takeIf { i.kind == IncidentKind.GOAL || i.kind == IncidentKind.PENALTY }?.let { "  (Vorlage: $it)" } ?: "")
+    val text = "${i.kind.icon} ${i.player}" + (i.assist?.takeIf { i.kind == IncidentKind.GOAL || i.kind == IncidentKind.PENALTY }?.let { trf("  (Vorlage: {0})", it) } ?: "")
     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         if (i.home) {
             Text(text, color = pal.text, fontSize = 15.sp, modifier = Modifier.weight(1f))
@@ -364,10 +367,10 @@ private fun Lineups(m: MatchCenter) {
         listOfNotNull(home, away).forEach { l ->
             Column(Modifier.weight(1f)) {
                 Card("${l.team}${l.formation?.let { " · $it" } ?: ""}") {
-                    l.starters.forEach { p -> PlayerLine(p.jersey, p.name, p.pos, if (p.subbedOut) "🔻 ausgewechselt" else null) }
+                    l.starters.forEach { p -> PlayerLine(p.jersey, p.name, p.pos, if (p.subbedOut) tr("🔻 ausgewechselt") else null) }
                     if (l.bench.isNotEmpty()) {
-                        Text("Bank", color = pal.textDim, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
-                        l.bench.forEach { p -> PlayerLine(p.jersey, p.name, p.pos, if (p.subbedIn) "🔺 eingewechselt" else null) }
+                        Text(tr("Bank"), color = pal.textDim, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
+                        l.bench.forEach { p -> PlayerLine(p.jersey, p.name, p.pos, if (p.subbedIn) tr("🔺 eingewechselt") else null) }
                     }
                 }
             }
@@ -437,7 +440,7 @@ private fun Players(m: MatchCenter) {
     m.players.forEach { t ->
         Card(t.team) {
             Row {
-                Text("Spieler", color = pal.textDim, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(180.dp))
+                Text(tr("Spieler"), color = pal.textDim, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(180.dp))
                 t.labels.forEach { Text(it, color = pal.textDim, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center) }
             }
             t.rows.forEach { (n, v) ->
@@ -457,7 +460,7 @@ private fun Table(m: MatchCenter) {
     val ids = setOfNotNull(m.home?.id, m.away?.id)
     Card(st.title ?: "Tabelle") {
         Row(Modifier.padding(bottom = 4.dp)) {
-            Text("Team", color = pal.textDim, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text(tr("Team"), color = pal.textDim, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             st.columns.forEach { Text(it, color = pal.textDim, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(70.dp), textAlign = TextAlign.Center) }
         }
         st.rows.forEach { r ->
@@ -477,7 +480,7 @@ private fun FormTab(m: MatchCenter) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         m.form.forEach { f ->
             Column(Modifier.weight(1f)) {
-                Card("Letzte Spiele · ${f.team}") {
+                Card(trf("Letzte Spiele · {0}", f.team)) {
                     f.games.forEach { g ->
                         Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             FormDot(g.result)

@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.sysupdate
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -93,24 +96,24 @@ class XtreamSyncManager(
         val f = sync.downloadCatalog(part, dir)
         onProgress(0.7f)
         val hash = HashVerifier.sha256(*f.toTypedArray())
-        val installed = versions.installedLabel(id) ?: "Stand der letzten Synchronisation"
+        val installed = versions.installedLabel(id) ?: tr("Stand der letzten Synchronisation")
         if (hash == versions.installedHash(id)) { discardStaged(); return CheckResult.Current(installed) }
         val diff = sync.diffCatalog(part, f)
         onProgress(1f)
         if (diff.empty) {
             // Inhaltlich identisch (z. B. nur andere Reihenfolge): als aktuell merken, nichts installieren
-            versions.markInstalled(id, hash, "Stand ${VersionManager.stamp()} · ${VersionManager.short(hash)}")
+            versions.markInstalled(id, hash, trf("Stand {0} · {1}", (VersionManager.stamp()), (VersionManager.short(hash))))
             discardStaged()
             return CheckResult.Current(versions.installedLabel(id)!!)
         }
-        return CheckResult.Available(installed, "Stand ${VersionManager.stamp()} · ${VersionManager.short(hash)}", f.sumOf { it.length() },
+        return CheckResult.Available(installed, trf("Stand {0} · {1}", (VersionManager.stamp()), (VersionManager.short(hash))), f.sumOf { it.length() },
             diff.text(), hash, if (diff.removed + diff.added > 50) UpdatePriority.HIGH else UpdatePriority.NORMAL)
     }
 
     override suspend fun install(item: UpdateItem, onProgress: (Float) -> Unit): String {
         val f = files()
-        if (f.any { !it.exists() }) error("Bereitliegende Daten fehlen – bitte erneut nach Updates suchen")
-        if (HashVerifier.sha256(*f.toTypedArray()) != item.stagedHash) error("Prüfsumme stimmt nicht – Daten verworfen")
+        if (f.any { !it.exists() }) error(tr("Bereitliegende Daten fehlen – bitte erneut nach Updates suchen"))
+        if (HashVerifier.sha256(*f.toTypedArray()) != item.stagedHash) error(tr("Prüfsumme stimmt nicht – Daten verworfen"))
         onProgress(0.3f)
         val d = sync.applyCatalog(part, f)
         versions.markInstalled(id, item.stagedHash!!, item.available)
@@ -128,14 +131,14 @@ class EpgUpdateManager(
     private val versions: VersionManager,
 ) : SystemComponent {
     override val id = "epg"
-    override val name = "TV-Programm (XMLTV): Sendungen, Zeiten, Zuordnungen"
+    override val name = tr("TV-Programm (XMLTV): Sendungen, Zeiten, Zuordnungen")
     override val group = "EPG"
     override val heavyCheck = true
     private val file get() = File(downloader.stagingFor(id), "epg.xml")
 
     override suspend fun check(onProgress: (Float) -> Unit): CheckResult {
-        val url = sync.epgSourceUrl() ?: return CheckResult.NotApplicable("Keine EPG-Quelle eingerichtet")
-        val installed = versions.installedLabel(id) ?: "Stand der letzten Synchronisation"
+        val url = sync.epgSourceUrl() ?: return CheckResult.NotApplicable(tr("Keine EPG-Quelle eingerichtet"))
+        val installed = versions.installedLabel(id) ?: tr("Stand der letzten Synchronisation")
         val haveInstalled = versions.installedHash(id) != null
         val r = downloader.download(url, file,
             etag = if (haveInstalled) versions.extra(id, "etag") else null,
@@ -150,10 +153,10 @@ class EpgUpdateManager(
             f.delete(); return CheckResult.Current(installed)
         }
         val programmes = countProgrammes(f)
-        if (programmes == 0) { f.delete(); error("EPG-Datei enthält keine Sendungen – verworfen") }
+        if (programmes == 0) { f.delete(); error(tr("EPG-Datei enthält keine Sendungen – verworfen")) }
         onProgress(1f)
-        return CheckResult.Available(installed, "Stand ${VersionManager.stamp()} · ${VersionManager.short(hash)}", f.length(),
-            "Neue Fassung mit $programmes Sendungen (Datei gesamt)" + if (!url.startsWith("https", true)) " · Quelle ohne HTTPS (vom Anbieter vorgegeben)" else "",
+        return CheckResult.Available(installed, trf("Stand {0} · {1}", (VersionManager.stamp()), (VersionManager.short(hash))), f.length(),
+            trf("Neue Fassung mit {0} Sendungen (Datei gesamt)", programmes) + if (!url.startsWith("https", true)) tr(" · Quelle ohne HTTPS (vom Anbieter vorgegeben)") else "",
             hash, UpdatePriority.NORMAL)
     }
 
@@ -169,14 +172,14 @@ class EpgUpdateManager(
 
     override suspend fun install(item: UpdateItem, onProgress: (Float) -> Unit): String {
         val f = file
-        if (!f.exists()) error("Bereitliegende EPG-Datei fehlt – bitte erneut nach Updates suchen")
-        if (!HashVerifier.matches(f, item.stagedHash ?: "")) error("Prüfsumme stimmt nicht – Daten verworfen")
+        if (!f.exists()) error(tr("Bereitliegende EPG-Datei fehlt – bitte erneut nach Updates suchen"))
+        if (!HashVerifier.matches(f, item.stagedHash ?: "")) error(tr("Prüfsumme stimmt nicht – Daten verworfen"))
         onProgress(0.2f)
         val n = sync.importEpgFile(f)
         versions.markInstalled(id, item.stagedHash!!, item.available)
         versions.setExtra(id, "etag", versions.extra(id, "pending_etag")); versions.setExtra(id, "lm", versions.extra(id, "pending_lm"))
         f.delete()
-        return "$n Sendungen übernommen"
+        return trf("{0} Sendungen übernommen", n)
     }
 
     override fun discardStaged() { file.delete() }
@@ -185,7 +188,7 @@ class EpgUpdateManager(
 /** Werbeblocker-Filterlisten des integrierten Browsers (EasyList, EasyPrivacy, EasyList Germany, URLhaus). */
 class AssetUpdateManager(private val adblock: AdblockManager, private val versions: VersionManager) : SystemComponent {
     override val id = "adblock-lists"
-    override val name = "Werbeblocker-Filterlisten (Browser)"
+    override val name = tr("Werbeblocker-Filterlisten (Browser)")
     override val group = "App-Ressourcen"
 
     private fun installedLabel(): String {
@@ -199,17 +202,17 @@ class AssetUpdateManager(private val adblock: AdblockManager, private val versio
         val staged = adblock.stagedFiles()
         if (changed.isEmpty() || staged.isEmpty()) return@withContext CheckResult.Current(installedLabel())
         val hash = HashVerifier.sha256(*staged.sortedBy { it.name }.toTypedArray())
-        CheckResult.Available(installedLabel(), "Stand ${VersionManager.stamp()} · ${VersionManager.short(hash)}", staged.sumOf { it.length() },
-            "Neue Fassung: " + changed.joinToString(", "), hash, UpdatePriority.LOW)
+        CheckResult.Available(installedLabel(), trf("Stand {0} · {1}", (VersionManager.stamp()), (VersionManager.short(hash))), staged.sumOf { it.length() },
+            tr("Neue Fassung: ") + changed.joinToString(", "), hash, UpdatePriority.LOW)
     }
 
     override suspend fun install(item: UpdateItem, onProgress: (Float) -> Unit): String {
         val staged = adblock.stagedFiles()
-        if (staged.isEmpty()) error("Bereitliegende Listen fehlen – bitte erneut nach Updates suchen")
-        if (HashVerifier.sha256(*staged.sortedBy { it.name }.toTypedArray()) != item.stagedHash) error("Prüfsumme stimmt nicht – Daten verworfen")
+        if (staged.isEmpty()) error(tr("Bereitliegende Listen fehlen – bitte erneut nach Updates suchen"))
+        if (HashVerifier.sha256(*staged.sortedBy { it.name }.toTypedArray()) != item.stagedHash) error(tr("Prüfsumme stimmt nicht – Daten verworfen"))
         val n = adblock.installStaged()
         versions.markInstalled(id, item.stagedHash!!, item.available)
-        return "$n Liste(n) übernommen, Filter neu aufgebaut"
+        return trf("{0} Liste(n) übernommen, Filter neu aufgebaut", n)
     }
 
     override fun discardStaged() = adblock.discardStaged()
@@ -224,45 +227,45 @@ class RemotePlayerConfigManager(
     private val versions: VersionManager,
 ) : SystemComponent {
     override val id = "player-config"
-    override val name = "Player- und Streaming-Konfiguration"
-    override val group = "Player & Streaming"
+    override val name = tr("Player- und Streaming-Konfiguration")
+    override val group = tr("Player & Streaming")
     private val file get() = File(downloader.stagingFor(id), "player-config.json")
 
     override suspend fun check(onProgress: (Float) -> Unit): CheckResult {
         val m = manifest.fetch(settings.serverUrl)
-        val e = m.components.firstOrNull { it.id == id } ?: return CheckResult.NotApplicable("Im Manifest nicht enthalten")
+        val e = m.components.firstOrNull { it.id == id } ?: return CheckResult.NotApplicable(tr("Im Manifest nicht enthalten"))
         val cur = RemotePlayerConfig.current.version
         val installed = if (cur == 0) "eingebaute Werte" else "Version $cur"
         if (e.version <= cur) return CheckResult.Current(installed)
-        if (e.minAppVersion > BuildConfig.VERSION_CODE) return CheckResult.NotApplicable("Version ${e.version} benötigt eine neuere App (ab Build ${e.minAppVersion})")
+        if (e.minAppVersion > BuildConfig.VERSION_CODE) return CheckResult.NotApplicable(trf("Version {0} benötigt eine neuere App (ab Build {1})", e.version, e.minAppVersion))
         val r = downloader.download(e.url, file, maxBytes = 200_000, onProgress = onProgress)
-        val f = r.file ?: error("Download fehlgeschlagen")
-        if (e.size > 0 && f.length() != e.size) { f.delete(); error("Größe stimmt nicht mit dem Manifest überein") }
+        val f = r.file ?: error(tr("Download fehlgeschlagen"))
+        if (e.size > 0 && f.length() != e.size) { f.delete(); error(tr("Größe stimmt nicht mit dem Manifest überein")) }
         if (!HashVerifier.matches(f, e.sha256)) { f.delete(); error("SHA-256 stimmt nicht mit dem Manifest überein") }
-        val cfg = runCatching { RemotePlayerConfig.parse(f.readText()) }.getOrElse { f.delete(); error("Konfiguration nicht lesbar") }
-        cfg.validate()?.let { f.delete(); error("Konfiguration abgelehnt: $it") }
-        if (cfg.version != e.version) { f.delete(); error("Versionsangabe widersprüchlich") }
-        return CheckResult.Available(installed, "Version ${e.version}", f.length(), e.changes.ifBlank { "Neue Konfiguration" }, e.sha256.lowercase(),
+        val cfg = runCatching { RemotePlayerConfig.parse(f.readText()) }.getOrElse { f.delete(); error(tr("Konfiguration nicht lesbar")) }
+        cfg.validate()?.let { f.delete(); error(trf("Konfiguration abgelehnt: {0}", it)) }
+        if (cfg.version != e.version) { f.delete(); error(tr("Versionsangabe widersprüchlich")) }
+        return CheckResult.Available(installed, "Version ${e.version}", f.length(), e.changes.ifBlank { tr("Neue Konfiguration") }, e.sha256.lowercase(),
             when (e.priority) { "high" -> UpdatePriority.HIGH; "low" -> UpdatePriority.LOW; else -> UpdatePriority.NORMAL })
     }
 
     override suspend fun install(item: UpdateItem, onProgress: (Float) -> Unit): String {
         val f = file
-        if (!f.exists() || !HashVerifier.matches(f, item.stagedHash ?: "")) error("Bereitliegende Datei fehlt oder ist verändert – bitte erneut suchen")
+        if (!f.exists() || !HashVerifier.matches(f, item.stagedHash ?: "")) error(tr("Bereitliegende Datei fehlt oder ist verändert – bitte erneut suchen"))
         val cfg = RemotePlayerConfig.parse(f.readText())
-        cfg.validate()?.let { error("Konfiguration abgelehnt: $it") }
+        cfg.validate()?.let { error(trf("Konfiguration abgelehnt: {0}", it)) }
         val target = RemotePlayerConfig.file(context); val bak = RemotePlayerConfig.backup(context)
         target.parentFile?.mkdirs()
         // Sicherung der bisherigen Fassung (für Rollback), dann atomar ersetzen
         bak.delete(); if (target.exists()) target.copyTo(bak, overwrite = true)
         val tmp = File(target.parentFile, "player-config.json.new")
         f.copyTo(tmp, overwrite = true)
-        if (!tmp.renameTo(target)) { target.delete(); if (!tmp.renameTo(target)) error("Speichern fehlgeschlagen") }
+        if (!tmp.renameTo(target)) { target.delete(); if (!tmp.renameTo(target)) error(tr("Speichern fehlgeschlagen")) }
         RemotePlayerConfig.load(context)
-        if (RemotePlayerConfig.current.version != cfg.version) { RollbackManager.restorePlayerConfig(context); error("Konfiguration ließ sich nicht laden – zurückgesetzt") }
+        if (RemotePlayerConfig.current.version != cfg.version) { RollbackManager.restorePlayerConfig(context); error(tr("Konfiguration ließ sich nicht laden – zurückgesetzt")) }
         versions.markInstalled(id, item.stagedHash!!, item.available)
         f.delete()
-        return "Aktiv ab dem nächsten Senderstart"
+        return tr("Aktiv ab dem nächsten Senderstart")
     }
 
     override fun discardStaged() { file.delete() }
@@ -275,7 +278,7 @@ object RollbackManager {
     /** Stellt die gesicherte Konfiguration wieder her (ohne Sicherung: eingebaute Werte). */
     fun restorePlayerConfig(ctx: Context): String {
         val bak = RemotePlayerConfig.backup(ctx); val f = RemotePlayerConfig.file(ctx)
-        val msg = if (bak.exists()) { f.delete(); bak.renameTo(f); "Vorherige Fassung wiederhergestellt" } else { f.delete(); "Eingebaute Werte wiederhergestellt" }
+        val msg = if (bak.exists()) { f.delete(); bak.renameTo(f); tr("Vorherige Fassung wiederhergestellt") } else { f.delete(); tr("Eingebaute Werte wiederhergestellt") }
         RemotePlayerConfig.load(ctx)
         return msg
     }
@@ -330,7 +333,7 @@ class AutoUpdateManager @Inject constructor(
 
     /** Prüft alle Komponenten. manual = vom Nutzer ausgelöst (dann immer vollständig, unabhängig von Automatik-Schaltern). */
     suspend fun scan(manual: Boolean): Int = mutex.withLock {
-        _busy.value = "Suche nach Updates …"
+        _busy.value = tr("Suche nach Updates …")
         var found = 0
         try {
             val comps = components()
@@ -341,7 +344,7 @@ class AutoUpdateManager @Inject constructor(
                 val lastChecked = queue.get(c.id)?.checkedAt ?: 0L
                 if (!manual && c.heavyCheck && System.currentTimeMillis() - lastChecked < 6 * 3_600_000L && queue.get(c.id)?.status != UpdateStatus.FAILED) continue
                 if (!manual && c.heavyCheck && (!settings.autoDownload || !networkAllowed())) {
-                    note("${c.name}: automatische Prüfung übersprungen (" + (if (!settings.autoDownload) "automatisches Herunterladen aus" else "kein WLAN") + ")")
+                    note(trf("{0}: automatische Prüfung übersprungen (", c.name) + (if (!settings.autoDownload) "automatisches Herunterladen aus" else "kein WLAN") + ")")
                     continue
                 }
                 if (checkOne(c, manual)) found++
@@ -370,7 +373,7 @@ class AutoUpdateManager @Inject constructor(
                             else if (settings.autoQueue || manual) UpdateStatus.WAITING else UpdateStatus.AVAILABLE
                         queue.put(base(c, prev).copy(installed = r.installed, available = r.available, sizeBytes = r.sizeBytes, changes = r.changes,
                             priority = r.priority, status = st, progress = 0f, checkedAt = now, stagedHash = r.hash, attempts = 0))
-                        if (prev?.stagedHash != r.hash) note("${c.name}: Update gefunden (${r.changes})")
+                        if (prev?.stagedHash != r.hash) note(trf("{0}: Update gefunden ({1})", c.name, r.changes))
                         return true
                     }
                 }
@@ -378,10 +381,10 @@ class AutoUpdateManager @Inject constructor(
             } catch (e: Exception) {
                 val msg = de.ostlertekker.ultraiptv.core.network.SafeLog.redact(e.message ?: e.javaClass.simpleName)
                 attempt++
-                if (settings.autoRetry && attempt < 3) { note("${c.name}: Prüfung fehlgeschlagen ($msg) – neuer Versuch"); delay(4_000L * attempt); continue }
+                if (settings.autoRetry && attempt < 3) { note(trf("{0}: Prüfung fehlgeschlagen ({1}) – neuer Versuch", c.name, msg)); delay(4_000L * attempt); continue }
                 c.discardStaged()
                 queue.put(base(c, prev).copy(status = UpdateStatus.FAILED, error = "Prüfung: $msg", checkedAt = System.currentTimeMillis(), stagedHash = null, attempts = attempt))
-                note("${c.name}: Prüfung fehlgeschlagen – $msg")
+                note(trf("{0}: Prüfung fehlgeschlagen – {1}", c.name, msg))
                 return false
             }
         }
@@ -400,22 +403,22 @@ class AutoUpdateManager @Inject constructor(
         val item = queue.get(id) ?: return false
         if (item.stagedHash == null) return false
         val c = components().firstOrNull { it.id == id } ?: return false
-        _busy.value = "Installiere ${c.name} …"
+        _busy.value = trf("Installiere {0} …", c.name)
         queue.patch(id) { it.copy(status = UpdateStatus.INSTALLING, progress = 0f, error = null) }
         return try {
             val res = c.install(item) { p -> queue.patch(id) { it.copy(progress = p) } }
             val now = System.currentTimeMillis()
             queue.patch(id) { it.copy(status = UpdateStatus.DONE, installed = it.available, progress = 1f, lastUpdated = now, stagedHash = null, error = null, changes = res) }
             settings.lastSuccess = now; settings.installedCount = settings.installedCount + 1
-            note("${c.name}: installiert – $res")
+            note(trf("{0}: installiert – {1}", c.name, res))
             true
         } catch (e: kotlinx.coroutines.CancellationException) { throw e
         } catch (e: Exception) {
             val msg = de.ostlertekker.ultraiptv.core.network.SafeLog.redact(e.message ?: e.javaClass.simpleName)
             val stagedGone = msg.contains("fehlt") || msg.contains("Prüfsumme")
             if (stagedGone) c.discardStaged()
-            queue.patch(id) { it.copy(status = UpdateStatus.FAILED, error = "Installation: $msg", attempts = it.attempts + 1, stagedHash = if (stagedGone) null else it.stagedHash) }
-            note("${c.name}: Installation fehlgeschlagen – $msg (bisherige Daten unverändert)")
+            queue.patch(id) { it.copy(status = UpdateStatus.FAILED, error = trf("Installation: {0}", msg), attempts = it.attempts + 1, stagedHash = if (stagedGone) null else it.stagedHash) }
+            note(trf("{0}: Installation fehlgeschlagen – {1} (bisherige Daten unverändert)", c.name, msg))
             false
         } finally { _busy.value = null }
     }
@@ -430,7 +433,7 @@ class AutoUpdateManager @Inject constructor(
     fun rollbackPlayerConfig(): String {
         val m = RollbackManager.restorePlayerConfig(context)
         queue.patch("player-config") { it.copy(installed = if (RemotePlayerConfig.current.version == 0) "eingebaute Werte" else "Version ${RemotePlayerConfig.current.version}", status = UpdateStatus.CURRENT, changes = m) }
-        note("Player-Konfiguration: $m")
+        note(trf("Player-Konfiguration: {0}", m))
         return m
     }
 
@@ -439,7 +442,7 @@ class AutoUpdateManager @Inject constructor(
     /** Automatischer Ablauf (App-Start, Hintergrund): prüfen → bei Bedarf installieren, je nach Einstellungen. */
     suspend fun runAutomatic(reason: String) {
         if (!settings.autoCheck) return
-        note("Automatische Prüfung ($reason)")
+        note(trf("Automatische Prüfung ({0})", reason))
         scan(manual = false)
         if (settings.autoInstall && networkAllowed()) installAll()
     }

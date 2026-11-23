@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.security
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
@@ -198,14 +201,14 @@ class CredentialStore @Inject constructor(@ApplicationContext private val contex
 class StreamResolver @Inject constructor(private val creds: CredentialStore) {
     fun resolve(raw: String, liveFormat: String): String {
         if (!raw.startsWith(SCHEME)) return raw
-        val cfg = creds.config.value ?: creds.load() ?: error("Keine Zugangsdaten gespeichert")
+        val cfg = creds.config.value ?: creds.load() ?: error(tr("Keine Zugangsdaten gespeichert"))
         val rest = raw.removePrefix(SCHEME)
         val type = rest.substringBefore('/')
         val file = rest.substringAfter('/')
         val id = file.substringBeforeLast('.')
         if (type == "timeshift") {
             // Archiv des Anbieters (Catch-up/Timeshift) – nur Xtream-Archiv-URL, keine lokale Aufnahme
-            val r = de.ostlertekker.ultraiptv.core.catchup.Catchup.parseXtreamRef(file) ?: error("Ungültige Archiv-Referenz")
+            val r = de.ostlertekker.ultraiptv.core.catchup.Catchup.parseXtreamRef(file) ?: error(tr("Ungültige Archiv-Referenz"))
             return de.ostlertekker.ultraiptv.core.catchup.Catchup.xtreamPath(XtreamUrls.normalizeServer(cfg.server), cfg.username, cfg.password, r.streamId, r.startMs, r.durationMin, r.tz)
         }
         var ext = if ('.' in file) file.substringAfterLast('.') else ""

@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.diagnostics
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import android.content.Context
 import android.os.Build
 import android.os.Handler
@@ -33,7 +36,7 @@ object StabilityGuard {
         dir = context.filesDir
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
-            runCatching { write(CRASH, "Absturz in Thread „${thread.name}“\n\n" + stack(error)) }
+            runCatching { write(CRASH, trf("Absturz in Thread „{0}“\n\n", thread.name) + stack(error)) }
             previous?.uncaughtException(thread, error)
         }
         startFreezeWatchdog()
@@ -50,7 +53,7 @@ object StabilityGuard {
                 if (stalled > FREEZE_MS && !reportedThisFreeze) {
                     reportedThisFreeze = true
                     val trace = Looper.getMainLooper().thread.stackTrace.joinToString("\n") { "    at $it" }
-                    runCatching { write(FREEZE, "UI-Thread reagiert seit ${stalled / 1000} s nicht.\nHängt hier:\n$trace") }
+                    runCatching { write(FREEZE, trf("UI-Thread reagiert seit {0} s nicht.\nHängt hier:\n{1}", (stalled / 1000), trace)) }
                 }
             }
         }, "ultra-freeze-watchdog").apply { isDaemon = true; priority = Thread.MIN_PRIORITY }.start()
@@ -60,7 +63,7 @@ object StabilityGuard {
 
     private fun write(name: String, body: String) {
         val d = dir ?: return
-        val header = "ULTRA IPTV ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · Android ${Build.VERSION.RELEASE} · ${Build.MANUFACTURER} ${Build.MODEL}\n" +
+        val header = trf("ULTRA IPTV {0} ({1}) · Android {2} · {3} {4}\n", BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, Build.VERSION.RELEASE, Build.MANUFACTURER, Build.MODEL) +
             SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date()) + "\n\n"
         File(d, name).writeText((header + body).take(60_000))
     }

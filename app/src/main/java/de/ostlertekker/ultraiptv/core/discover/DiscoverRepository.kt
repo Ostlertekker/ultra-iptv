@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.discover
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import de.ostlertekker.ultraiptv.core.catchup.Catchup
 import de.ostlertekker.ultraiptv.core.data.SettingsRepository
 import de.ostlertekker.ultraiptv.core.data.UserRepository
@@ -50,7 +53,7 @@ data class ListRules(
     fun describe(): String = buildList {
         if (categories.isNotEmpty()) add("${categories.size} Kategorien")
         if (groups.isNotEmpty()) add(groups.joinToString { it.label })
-        if (keywords.isNotEmpty()) add("Name: " + keywords.joinToString())
+        if (keywords.isNotEmpty()) add(tr("Name: ") + keywords.joinToString())
         if (epgTopic.isNotBlank()) add("läuft gerade: $epgTopic")
         if (favoritesOnly) add("nur Favoriten")
     }.joinToString(" · ").ifEmpty { "alle Sender" }
@@ -139,7 +142,7 @@ class DiscoverRepository @Inject constructor(
     // ------------------------------------------------------------------ Eigene Senderlisten (AI Channel Cloning)
     fun lists(): Flow<List<VirtualListEntity>> = user.filter.map { it.profileId }.flatMapLatest { dao.lists(it) }
     suspend fun saveList(id: Long, name: String, rules: ListRules): Long =
-        dao.saveList(VirtualListEntity(id = id, profileId = profileId(), name = name.ifBlank { "Meine Liste" }, rulesJson = rules.toJson(), createdAt = System.currentTimeMillis()))
+        dao.saveList(VirtualListEntity(id = id, profileId = profileId(), name = name.ifBlank { tr("Meine Liste") }, rulesJson = rules.toJson(), createdAt = System.currentTimeMillis()))
     suspend fun list(id: Long) = dao.list(id)
 
     /** Wendet die Regeln auf die echten Sender an. */

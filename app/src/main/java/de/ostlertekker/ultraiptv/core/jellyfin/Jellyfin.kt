@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.jellyfin
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import android.content.Context
 import android.content.SharedPreferences
 import android.media.MediaCodecList
@@ -87,11 +90,11 @@ object JfOptions {
     val bitrateNames = listOf("Automatisch (max. 120 Mbit/s)", "60 Mbit/s", "40 Mbit/s", "20 Mbit/s", "10 Mbit/s", "8 Mbit/s", "4 Mbit/s", "2 Mbit/s")
     private val bitrates = listOf(120_000_000, 60_000_000, 40_000_000, 20_000_000, 10_000_000, 8_000_000, 4_000_000, 2_000_000)
     fun bitrate(i: Int) = bitrates.getOrElse(i) { bitrates[0] }
-    val channelNames = listOf("Stereo (2.0)", "Surround (5.1)", "Surround (7.1)")
+    val channelNames = listOf(tr("Stereo (2.0)"), tr("Surround (5.1)"), tr("Surround (7.1)"))
     fun channels(i: Int) = listOf(2, 6, 8).getOrElse(i) { 6 }
-    val subtitleNames = listOf("Wie Wiedergabe-Einstellungen", "Aus", "Immer einblenden")
+    val subtitleNames = listOf(tr("Wie Wiedergabe-Einstellungen"), "Aus", tr("Immer einblenden"))
     /** Reihen der Jellyfin-Übersicht, die man ausblenden kann. */
-    val rows = listOf("Bibliotheken", "Weiterschauen", "Nächste Folgen", "Zuletzt hinzugefügt", "Zuletzt angesehen", "Meine Favoriten", "Filme", "Serien")
+    val rows = listOf("Bibliotheken", "Weiterschauen", tr("Nächste Folgen"), tr("Zuletzt hinzugefügt"), tr("Zuletzt angesehen"), tr("Meine Favoriten"), "Filme", "Serien")
 }
 
 data class JfSubtitle(val url: String, val language: String?, val label: String, val format: String)
@@ -158,7 +161,7 @@ class JellyfinRepository @Inject constructor(
 
     private fun authHeader(token: String?): String = buildString {
         append("MediaBrowser Client=\"ULTRA IPTV\", Device=\"")
-        append((android.os.Build.MODEL ?: "Android TV").replace("\"", ""))
+        append((android.os.Build.MODEL ?: tr("Android TV")).replace("\"", ""))
         append("\", DeviceId=\"").append(deviceId).append("\", Version=\"").append(BuildConfig.VERSION_NAME).append('"')
         if (token != null) append(", Token=\"").append(token).append('"')
     }
@@ -188,9 +191,9 @@ class JellyfinRepository @Inject constructor(
             http.newCall(req).execute().use { resp ->
                 val text = resp.body?.string().orEmpty()
                 when {
-                    resp.code == 401 -> throw JellyfinException("Anmeldung abgelaufen oder ungültig", 401)
-                    resp.code == 403 -> throw JellyfinException("Keine Berechtigung für diesen Inhalt", 403)
-                    resp.code == 404 -> throw JellyfinException("Nicht gefunden (Server-Adresse prüfen)", 404)
+                    resp.code == 401 -> throw JellyfinException(tr("Anmeldung abgelaufen oder ungültig"), 401)
+                    resp.code == 403 -> throw JellyfinException(tr("Keine Berechtigung für diesen Inhalt"), 403)
+                    resp.code == 404 -> throw JellyfinException(tr("Nicht gefunden (Server-Adresse prüfen)"), 404)
                     !resp.isSuccessful -> throw JellyfinException("Serverfehler ${resp.code}", resp.code)
                     text.isBlank() -> null
                     else -> runCatching { json.parseToJsonElement(text) }.getOrNull()
@@ -200,7 +203,7 @@ class JellyfinRepository @Inject constructor(
 
     /** Aufruf mit Sitzung; bei abgelaufenem Token automatisch neu anmelden (gespeichertes Passwort). */
     private suspend fun authed(method: String, path: String, body: JsonElement? = null): JsonElement? {
-        val s = restore() ?: throw JellyfinException("Nicht mit Jellyfin verbunden", 401)
+        val s = restore() ?: throw JellyfinException(tr("Nicht mit Jellyfin verbunden"), 401)
         return try {
             call(method, s.server + path, body, s.token)
         } catch (e: JellyfinException) {
@@ -222,11 +225,11 @@ class JellyfinRepository @Inject constructor(
     }
 
     private fun friendly(e: Throwable): String = when (e) {
-        is java.net.SocketTimeoutException -> "Jellyfin antwortet nicht (Zeitüberschreitung)"
-        is java.net.UnknownHostException -> "Serveradresse unbekannt – Schreibweise prüfen"
-        is java.net.ConnectException -> "Verbindung zum Jellyfin-Server abgelehnt"
-        is javax.net.ssl.SSLException -> "Sichere Verbindung (HTTPS) fehlgeschlagen"
-        else -> e.message ?: "Jellyfin nicht erreichbar"
+        is java.net.SocketTimeoutException -> tr("Jellyfin antwortet nicht (Zeitüberschreitung)")
+        is java.net.UnknownHostException -> tr("Serveradresse unbekannt – Schreibweise prüfen")
+        is java.net.ConnectException -> tr("Verbindung zum Jellyfin-Server abgelehnt")
+        is javax.net.ssl.SSLException -> tr("Sichere Verbindung (HTTPS) fehlgeschlagen")
+        else -> e.message ?: tr("Jellyfin nicht erreichbar")
     }
 
     // ------------------------------------------------------------------ Cache (Metadaten)
@@ -340,9 +343,9 @@ class JellyfinRepository @Inject constructor(
                 .getOrElse { "nicht auflösbar" }
         }
         throw JellyfinException(
-            "Server nicht erreichbar ($host → $dns). Geprüft: ${candidates(input).joinToString(", ") { it.substringBefore("://") + ":" + (it.substringAfter("://").substringBefore('/').substringAfter(':', "").ifBlank { "Standard" }) }} und die Suche im Heimnetz. " +
+            trf("Server nicht erreichbar ({0} → {1}). Geprüft: {2} und die Suche im Heimnetz. ", host, dns, (candidates(input).joinToString(", ") { it.substringBefore("://") + ":" + (it.substringAfter("://").substringBefore('/').substringAfter(':', "").ifBlank { "Standard" }) })) +
                 "Steht der Server bei dir zu Hause, trage seine lokale Adresse ein (z. B. http://192.168.1.x:8096) oder nutze „Im Heimnetz suchen“. " +
-                "Von außen muss der Port im Router freigegeben sein.")
+                tr("Von außen muss der Port im Router freigegeben sein."))
     }
 
     suspend fun login(serverInput: String, user: String, password: String): JfSession {
@@ -351,9 +354,9 @@ class JellyfinRepository @Inject constructor(
         val res = try {
             call("POST", "$server/Users/AuthenticateByName", body, token = null)?.jsonObject
         } catch (e: JellyfinException) {
-            throw if (e.code == 401) JellyfinException("Benutzername oder Passwort falsch", 401) else e
-        } ?: throw JellyfinException("Leere Antwort vom Server")
-        val token = res["AccessToken"]?.str() ?: throw JellyfinException("Kein Zugangstoken erhalten")
+            throw if (e.code == 401) JellyfinException(tr("Benutzername oder Passwort falsch"), 401) else e
+        } ?: throw JellyfinException(tr("Leere Antwort vom Server"))
+        val token = res["AccessToken"]?.str() ?: throw JellyfinException(tr("Kein Zugangstoken erhalten"))
         val u = res["User"]?.jsonObject
         val session = JfSession(server, u?.get("Id")?.str() ?: "", u?.get("Name")?.str() ?: user, token, name)
         prefs.edit().putString("server", server).putString("server_input", serverInput.trim()).putString("user_id", session.userId)
@@ -394,7 +397,7 @@ class JellyfinRepository @Inject constructor(
     // ------------------------------------------------------------------ Abfragen
 
     private val fields = "Overview,Genres,ProductionYear,CommunityRating,OfficialRating,RunTimeTicks,ChildCount,ParentId"
-    private fun uid() = restore()?.userId ?: throw JellyfinException("Nicht mit Jellyfin verbunden", 401)
+    private fun uid() = restore()?.userId ?: throw JellyfinException(tr("Nicht mit Jellyfin verbunden"), 401)
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
 
     private fun itemsOf(el: JsonElement?): List<JfItem> = when (el) {
@@ -515,7 +518,7 @@ class JellyfinRepository @Inject constructor(
         // Beim Umwandeln nur Formate verlangen, die sicher abspielbar sind (AAC zuerst)
         val transAudio = listOf("aac", "ac3", "eac3", "mp3").filter { it in audio }.joinToString(",")
         return buildJsonObject {
-            put("Name", "ULTRA IPTV")
+            put("Name", tr("ULTRA IPTV"))
             put("MaxStreamingBitrate", maxBitrate)
             put("MaxStaticBitrate", 200_000_000)
             put("DirectPlayProfiles", buildJsonArray {
@@ -540,7 +543,7 @@ class JellyfinRepository @Inject constructor(
 
     /** Fragt den Server, wie der Titel auf diesem Gerät abgespielt werden kann (Direct Play, sonst Transkodierung). */
     suspend fun playback(id: String, startMs: Long, forceTranscode: Boolean = false): JfPlayback {
-        val s = restore() ?: throw JellyfinException("Nicht mit Jellyfin verbunden", 401)
+        val s = restore() ?: throw JellyfinException(tr("Nicht mit Jellyfin verbunden"), 401)
         val cfg = settingsRepo.current()
         val forceTranscode = forceTranscode || cfg.jfForceTranscode
         val maxBitrate = JfOptions.bitrate(cfg.jfMaxBitrate)
@@ -552,8 +555,8 @@ class JellyfinRepository @Inject constructor(
             put("AutoOpenLiveStream", true)
             if (forceTranscode) { put("EnableDirectPlay", false); put("EnableDirectStream", false) }
         }
-        val res = authed("POST", "/Items/$id/PlaybackInfo?userId=${s.userId}", body)?.jsonObject ?: throw JellyfinException("Keine Wiedergabe-Infos")
-        val src = (res["MediaSources"] as? JsonArray)?.firstOrNull()?.jsonObject ?: throw JellyfinException("Keine abspielbare Quelle")
+        val res = authed("POST", "/Items/$id/PlaybackInfo?userId=${s.userId}", body)?.jsonObject ?: throw JellyfinException(tr("Keine Wiedergabe-Infos"))
+        val src = (res["MediaSources"] as? JsonArray)?.firstOrNull()?.jsonObject ?: throw JellyfinException(tr("Keine abspielbare Quelle"))
         val msid = src["Id"]?.str() ?: id
         val psid = res["PlaySessionId"]?.str()
         val container = src["Container"]?.str()?.split(',')?.firstOrNull()?.trim()?.ifBlank { null } ?: "mkv"
@@ -572,7 +575,7 @@ class JellyfinRepository @Inject constructor(
         return when {
             canDirect -> JfPlayback(direct, "DirectPlay", transcode, msid, psid, subs)
             transcode != null -> JfPlayback(transcode, "Transcode", null, msid, psid, subs)
-            else -> throw JellyfinException("Dieser Titel kann auf diesem Gerät nicht abgespielt werden")
+            else -> throw JellyfinException(tr("Dieser Titel kann auf diesem Gerät nicht abgespielt werden"))
         }
     }
 

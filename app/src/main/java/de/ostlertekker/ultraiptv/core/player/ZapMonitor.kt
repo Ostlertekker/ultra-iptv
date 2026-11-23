@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.player
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import android.content.Context
 import android.os.Process
 import android.os.SystemClock
@@ -130,14 +133,14 @@ object ZapMonitor {
     }
 
     val METRICS: List<Pair<String, (Record) -> Long>> = listOf(
-        "Bis zur Anfrage" to { r -> r.request },
-        "Bis Server antwortet" to { r -> r.connect },
-        "Bis erste Daten" to { r -> r.data },
-        "Bis Format erkannt" to { r -> r.format },
+        tr("Bis zur Anfrage") to { r -> r.request },
+        tr("Bis Server antwortet") to { r -> r.connect },
+        tr("Bis erste Daten") to { r -> r.data },
+        tr("Bis Format erkannt") to { r -> r.format },
         "Decoder-Start" to { r -> r.decoderInitMs },
-        "Bis erstes Bild" to { r -> r.frame },
-        "Bis Ton hörbar" to { r -> r.audio },
-        "Umschaltzeit gesamt" to { r -> r.total },
+        tr("Bis erstes Bild") to { r -> r.frame },
+        tr("Bis Ton hörbar") to { r -> r.audio },
+        tr("Umschaltzeit gesamt") to { r -> r.total },
     )
 
     // ----------------------------------------------------------------------------- Speicher

@@ -2,6 +2,9 @@
 
 package de.ostlertekker.ultraiptv.feature.livetv
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
 
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedH
@@ -276,7 +279,7 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
         // Anteilige Breiten: die Senderliste behält auf jedem Bildschirm genug Platz für die Sendernamen
         LazyColumn(Modifier.weight(0.25f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             item {
-                Text("Live-TV", color = p.text, fontSize = 24.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily,
+                Text(tr("Live-TV"), color = p.text, fontSize = 24.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily,
                     modifier = Modifier.padding(bottom = 10.dp))
             }
             items(cats, key = { it }) { c -> CategoryItem(c, c == current) { vm.selected.value = c } }
@@ -288,18 +291,18 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
                 Text("${channels.size} Sender", color = p.textDim, fontSize = 13.sp)
             }
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 8.dp + FocusBleedV, bottom = 8.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
-                item { TvChip(if (sortByName) "↕ A–Z" else "↕ Nummer", false, { vm.sortByName.value = !sortByName }) }
+                item { TvChip(if (sortByName) "↕ A–Z" else tr("↕ Nummer"), false, { vm.sortByName.value = !sortByName }) }
                 item { TvChip("TV-Programm", false, { nav.navigate(Routes.epg(current.takeIf { !isVirtualCategory(it) })) }) }
                 if (current == CAT_FAVORITES && channels.size > 1) item {
-                    TvChip(if (editMode) "✓ Fertig" else "✎ Bearbeiten", editMode, { editMode = !editMode; moving = null })
+                    TvChip(if (editMode) tr("✓ Fertig") else tr("✎ Bearbeiten"), editMode, { editMode = !editMode; moving = null })
                 }
             }
             if (channels.isEmpty()) {
-                Text(if (current == CAT_FAVORITES) "Noch keine Lieblingssender. Sender auswählen und „☆ Favorit“ drücken." else "Keine Sender in dieser Kategorie.",
+                Text(if (current == CAT_FAVORITES) tr("Noch keine Lieblingssender. Sender auswählen und „☆ Favorit“ drücken.") else tr("Keine Sender in dieser Kategorie."),
                     color = p.textDim, fontSize = 15.sp)
             }
-            if (editMode) Text(if (moving != null) "↕ ▲ ▼ verschieben · OK: ablegen · Zurück: fertig"
-                else "✎ Bearbeiten · OK: Sender aufnehmen · Zurück: fertig", color = p.primary, fontSize = 13.sp,
+            if (editMode) Text(if (moving != null) tr("↕ ▲ ▼ verschieben · OK: ablegen · Zurück: fertig")
+                else tr("✎ Bearbeiten · OK: Sender aufnehmen · Zurück: fertig"), color = p.primary, fontSize = 13.sp,
                 fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
             // Beim Verschieben folgt die Liste dem Sender (sonst verschwindet er oben/unten aus dem Bild)
             val chList = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -363,7 +366,7 @@ private fun RightPanel(vm: LiveTvViewModel, favs: Set<String>, modifier: Modifie
         PreviewBox(vm, ch)
         Spacer(Modifier.height(12.dp))
         if (ch != null) FocusedInfo(vm, ch, favs, context)
-        else Text("Sender mit den Pfeiltasten auswählen – Infos und Vorschau erscheinen sofort.", color = p.textDim, fontSize = 14.sp)
+        else Text(tr("Sender mit den Pfeiltasten auswählen – Infos und Vorschau erscheinen sofort."), color = p.textDim, fontSize = 14.sp)
     }
 }
 
@@ -396,9 +399,9 @@ private fun PreviewBox(vm: LiveTvViewModel, ch: ChannelEntity?) {
         }
         val msg: String? = when {
             ch == null -> "Vorschau"
-            mini != null -> "Vorschau pausiert – Mini-Player aktiv"
+            mini != null -> tr("Vorschau pausiert – Mini-Player aktiv")
             live && err != null -> err
-            live && state == Player.STATE_BUFFERING -> "Lädt …"
+            live && state == Player.STATE_BUFFERING -> tr("Lädt …")
             else -> null
         }
         if (msg != null) {
@@ -452,7 +455,7 @@ private fun FocusedInfo(vm: LiveTvViewModel, ch: ChannelEntity, favs: Set<String
             }
         }
         val nn = vm.nowNext(ch)
-        if (nn.isEmpty()) Text("Keine Programminformationen (EPG)", color = p.textDim, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
+        if (nn.isEmpty()) Text(tr("Keine Programminformationen (EPG)"), color = p.textDim, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
         Column(Modifier.height(170.dp)) {
             nn.forEach { prog ->
                 val running = prog.startMs <= now

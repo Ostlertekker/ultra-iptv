@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.data
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import de.ostlertekker.ultraiptv.core.database.ChannelEntity
 import de.ostlertekker.ultraiptv.core.database.ContentDao
 import de.ostlertekker.ultraiptv.core.database.EpgDao
@@ -54,8 +57,8 @@ class UserRepository @Inject constructor(
         val active = all.firstOrNull { it.id == activeId }
         if (active != null) return active
         val p = all.firstOrNull() ?: run {
-            val id = dao.insertProfile(ProfileEntity(name = "Standard", colorIndex = 0))
-            ProfileEntity(id = id, name = "Standard", colorIndex = 0)
+            val id = dao.insertProfile(ProfileEntity(name = tr("Standard"), colorIndex = 0))
+            ProfileEntity(id = id, name = tr("Standard"), colorIndex = 0)
         }
         settings.set(Keys.ACTIVE_PROFILE, p.id)
         return p

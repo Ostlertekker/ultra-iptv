@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.sysupdate
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import android.content.Context
 import android.util.Base64
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -27,11 +30,11 @@ import javax.inject.Singleton
 /** Status eines Eintrags der Update-Warteschlange. */
 enum class UpdateStatus(val label: String) {
     CURRENT("Aktuell"),
-    AVAILABLE("Update verfügbar"),
-    WAITING("Wartet auf Installation"),
-    DOWNLOADING("Wird heruntergeladen"),
-    INSTALLING("Wird installiert"),
-    DONE("Erfolgreich aktualisiert"),
+    AVAILABLE(tr("Update verfügbar")),
+    WAITING(tr("Wartet auf Installation")),
+    DOWNLOADING(tr("Wird heruntergeladen")),
+    INSTALLING(tr("Wird installiert")),
+    DONE(tr("Erfolgreich aktualisiert")),
     FAILED("Fehlgeschlagen"),
 }
 
@@ -130,7 +133,7 @@ class UpdateDownloader @Inject constructor(@ApplicationContext private val conte
 
     suspend fun download(url: String, dest: File, etag: String? = null, lastModified: String? = null, maxBytes: Long = 2_000_000_000L,
                          requireHttps: Boolean = true, onProgress: (Float) -> Unit = {}): Result = withContext(Dispatchers.IO) {
-        if (requireHttps && !url.startsWith("https://", true)) error("Nur HTTPS erlaubt")
+        if (requireHttps && !url.startsWith("https://", true)) error(tr("Nur HTTPS erlaubt"))
         val req = Request.Builder().url(url).apply {
             etag?.let { header("If-None-Match", it) }
             lastModified?.let { header("If-Modified-Since", it) }
@@ -138,7 +141,7 @@ class UpdateDownloader @Inject constructor(@ApplicationContext private val conte
         http.newCall(req).execute().use { r ->
             if (r.code == 304) return@withContext Result(null, true, etag, lastModified)
             if (!r.isSuccessful) error("HTTP ${r.code}")
-            val body = r.body ?: error("Leere Antwort")
+            val body = r.body ?: error(tr("Leere Antwort"))
             val total = body.contentLength()
             val part = File(dest.parentFile, dest.name + ".part")
             var done = 0L
@@ -148,14 +151,14 @@ class UpdateDownloader @Inject constructor(@ApplicationContext private val conte
                     while (true) {
                         val n = input.read(buf); if (n <= 0) break
                         out.write(buf, 0, n); done += n
-                        if (done > maxBytes) error("Datei zu groß")
+                        if (done > maxBytes) error(tr("Datei zu groß"))
                         if (total > 0) onProgress((done.toFloat() / total).coerceIn(0f, 1f))
                     }
                 }
             }
-            if (done == 0L) { part.delete(); error("Leere Datei") }
+            if (done == 0L) { part.delete(); error(tr("Leere Datei")) }
             dest.delete()
-            if (!part.renameTo(dest)) error("Zwischenspeichern fehlgeschlagen")
+            if (!part.renameTo(dest)) error(tr("Zwischenspeichern fehlgeschlagen"))
             Result(dest, false, r.header("ETag"), r.header("Last-Modified"))
         }
     }
@@ -251,12 +254,12 @@ class ManifestRepository @Inject constructor(private val downloader: UpdateDownl
 
     suspend fun fetch(baseUrl: String): SystemManifest {
         val base = baseUrl.trim().trimEnd('/')
-        if (!base.startsWith("https://", true)) error("Update-Server muss HTTPS verwenden")
+        if (!base.startsWith("https://", true)) error(tr("Update-Server muss HTTPS verwenden"))
         val dir = downloader.stagingFor("_manifest")
-        val m = downloader.download("$base/system-manifest.json", File(dir, "system-manifest.json"), maxBytes = 1_000_000).file ?: error("Manifest fehlt")
-        val s = downloader.download("$base/system-manifest.json.sig", File(dir, "system-manifest.json.sig"), maxBytes = 10_000).file ?: error("Signatur fehlt")
+        val m = downloader.download("$base/system-manifest.json", File(dir, "system-manifest.json"), maxBytes = 1_000_000).file ?: error(tr("Manifest fehlt"))
+        val s = downloader.download("$base/system-manifest.json.sig", File(dir, "system-manifest.json.sig"), maxBytes = 10_000).file ?: error(tr("Signatur fehlt"))
         val bytes = m.readBytes()
-        if (!SignatureVerifier.verify(bytes, s.readText())) error("Signatur des Manifests ungültig – Update verworfen")
+        if (!SignatureVerifier.verify(bytes, s.readText())) error(tr("Signatur des Manifests ungültig – Update verworfen"))
         return json.decodeFromString<SystemManifest>(bytes.decodeToString()).also { last = it }
     }
 }

@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.discover
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -135,7 +138,7 @@ internal object MatchCenterParser {
         val group = groups.firstOrNull { g -> g.o("standings")?.a("entries").orEmpty().any { it.t("id") in ids } } ?: groups.firstOrNull()
         val standings = group?.o("standings")?.a("entries")?.takeIf { it.isNotEmpty() }?.let { entries ->
             val pref = listOf("gamesPlayed" to "Sp", "wins" to "S", "ties" to "U", "losses" to "N", "pointDifferential" to "Diff", "points" to "Pkt",
-                "winPercent" to "Quote", "gamesBehind" to "Rückst.", "streak" to "Serie")
+                "winPercent" to "Quote", "gamesBehind" to tr("Rückst."), "streak" to "Serie")
             val avail = entries.first().a("stats").mapNotNull { it.t("name") }.toSet()
             val cols = pref.filter { it.first in avail }
             val rows = entries.mapIndexed { i, en ->
@@ -193,16 +196,16 @@ internal object MatchCenterParser {
 /** Deutsche Bezeichnungen der häufigsten Statistikwerte. */
 internal object StatNames {
     private val map = mapOf(
-        "possession" to "Ballbesitz", "ball possession" to "Ballbesitz", "shots" to "Schüsse", "shot attempts" to "Schüsse", "on goal" to "Schüsse aufs Tor",
-        "shots on target" to "Schüsse aufs Tor", "on target" to "Schüsse aufs Tor", "corner kicks" to "Ecken", "corners" to "Ecken", "fouls" to "Fouls",
-        "offsides" to "Abseits", "yellow cards" to "Gelbe Karten", "red cards" to "Rote Karten", "saves" to "Paraden", "passes" to "Pässe",
-        "accurate passes" to "Angekommene Pässe", "pass completion %" to "Passquote", "passing %" to "Passquote", "tackles" to "Zweikämpfe (Tackles)",
-        "effective tackles" to "Gewonnene Tackles", "crosses" to "Flanken", "accurate crosses" to "Angekommene Flanken", "interceptions" to "Abgefangene Bälle",
-        "clearances" to "Klärungen", "blocked shots" to "Geblockte Schüsse", "long balls" to "Lange Bälle", "goal difference" to "Tordifferenz",
+        "possession" to "Ballbesitz", "ball possession" to "Ballbesitz", "shots" to tr("Schüsse"), "shot attempts" to tr("Schüsse"), "on goal" to tr("Schüsse aufs Tor"),
+        "shots on target" to tr("Schüsse aufs Tor"), "on target" to tr("Schüsse aufs Tor"), "corner kicks" to "Ecken", "corners" to "Ecken", "fouls" to "Fouls",
+        "offsides" to "Abseits", "yellow cards" to tr("Gelbe Karten"), "red cards" to tr("Rote Karten"), "saves" to "Paraden", "passes" to tr("Pässe"),
+        "accurate passes" to tr("Angekommene Pässe"), "pass completion %" to "Passquote", "passing %" to "Passquote", "tackles" to tr("Zweikämpfe (Tackles)"),
+        "effective tackles" to tr("Gewonnene Tackles"), "crosses" to "Flanken", "accurate crosses" to tr("Angekommene Flanken"), "interceptions" to tr("Abgefangene Bälle"),
+        "clearances" to tr("Klärungen"), "blocked shots" to tr("Geblockte Schüsse"), "long balls" to tr("Lange Bälle"), "goal difference" to "Tordifferenz",
         "total goals" to "Tore", "assists" to "Vorlagen", "goals against" to "Gegentore",
         "field goal %" to "Wurfquote", "three point %" to "Dreierquote", "free throw %" to "Freiwurfquote", "rebounds" to "Rebounds",
         "offensive rebounds" to "Offensiv-Rebounds", "defensive rebounds" to "Defensiv-Rebounds", "steals" to "Steals", "blocks" to "Blocks",
-        "turnovers" to "Ballverluste", "fast break points" to "Fastbreak-Punkte", "points in paint" to "Punkte in der Zone", "largest lead" to "Größte Führung",
+        "turnovers" to "Ballverluste", "fast break points" to "Fastbreak-Punkte", "points in paint" to tr("Punkte in der Zone"), "largest lead" to tr("Größte Führung"),
     )
     fun de(label: String) = map[label.lowercase().trim()] ?: label
 }

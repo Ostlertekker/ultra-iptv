@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.search
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import androidx.sqlite.db.SimpleSQLiteQuery
@@ -69,14 +72,14 @@ class SearchRepository @Inject constructor(
     private fun likeClause(columns: List<String>, terms: List<String>, args: MutableList<Any>): String {
         if (terms.isEmpty()) return "1"
         return terms.joinToString(" OR ", "(", ")") { t ->
-            columns.joinToString(" OR ") { c -> args += "%$t%"; "$c LIKE ?" }
+            columns.joinToString(" OR ") { c -> args += "%$t%"; trf("{0} LIKE ?", c) }
         }
     }
 
     private fun genreClause(q: ParsedQuery, columns: List<String>, args: MutableList<Any>): String {
         if (q.genres.isEmpty()) return "1"
         return q.genres.values.joinToString(" AND ", "(", ")") { syns ->
-            syns.joinToString(" OR ", "(", ")") { s -> columns.joinToString(" OR ") { c -> args += "%$s%"; "$c LIKE ?" } }
+            syns.joinToString(" OR ", "(", ")") { s -> columns.joinToString(" OR ") { c -> args += "%$s%"; trf("{0} LIKE ?", c) } }
         }
     }
 
@@ -85,7 +88,7 @@ class SearchRepository @Inject constructor(
         val tags = Countries.all.filter { it.language == lang }.map { it.code }
         val sb = StringBuilder("($langColumn = ?")
         args += lang
-        tags.forEach { code -> textColumns.forEach { c -> sb.append(" OR $c LIKE ?"); args += "$code:%"; sb.append(" OR $c LIKE ?"); args += "%|$code|%" } }
+        tags.forEach { code -> textColumns.forEach { c -> sb.append(trf(" OR {0} LIKE ?", c)); args += "$code:%"; sb.append(trf(" OR {0} LIKE ?", c)); args += "%|$code|%" } }
         return sb.append(")").toString()
     }
 
@@ -95,8 +98,8 @@ class SearchRepository @Inject constructor(
             add(likeClause(listOf("name"), terms, args))
             add(genreClause(q, listOf("genre", "category"), args))
             add(langClause(q, "language", listOf("category", "name"), args))
-            q.actor?.let { a -> add("(actors LIKE ? OR director LIKE ?)"); args += "%$a%"; args += "%$a%" }
-            if (q.yearFrom != null && q.yearTo != null) { add("(CAST(year AS INTEGER) BETWEEN ? AND ?)"); args += q.yearFrom; args += q.yearTo }
+            q.actor?.let { a -> add(tr("(actors LIKE ? OR director LIKE ?)")); args += "%$a%"; args += "%$a%" }
+            if (q.yearFrom != null && q.yearTo != null) { add(tr("(CAST(year AS INTEGER) BETWEEN ? AND ?)")); args += q.yearFrom; args += q.yearTo }
             if (!adult) add("adult = 0")
         }.joinToString(" AND ")
         val order = if (q.terms.isEmpty()) "rating DESC, addedAt DESC" else "addedAt DESC"
@@ -109,8 +112,8 @@ class SearchRepository @Inject constructor(
             add(likeClause(listOf("name"), terms, args))
             add(genreClause(q, listOf("genre", "category"), args))
             add(langClause(q, "language", listOf("category", "name"), args))
-            q.actor?.let { a -> add("(actors LIKE ?)"); args += "%$a%" }
-            if (q.yearFrom != null && q.yearTo != null) { add("(CAST(year AS INTEGER) BETWEEN ? AND ?)"); args += q.yearFrom; args += q.yearTo }
+            q.actor?.let { a -> add(tr("(actors LIKE ?)")); args += "%$a%" }
+            if (q.yearFrom != null && q.yearTo != null) { add(tr("(CAST(year AS INTEGER) BETWEEN ? AND ?)")); args += q.yearFrom; args += q.yearTo }
             if (!adult) add("adult = 0")
         }.joinToString(" AND ")
         val order = if (q.terms.isEmpty()) "rating DESC, addedAt DESC" else "addedAt DESC"
@@ -135,12 +138,12 @@ class SearchRepository @Inject constructor(
     private fun describe(q: ParsedQuery): String {
         val parts = ArrayList<String>()
         if (q.kinds.isNotEmpty()) parts += q.kinds.joinToString("/") { when (it) { SearchKind.LIVE -> "Sender"; SearchKind.MOVIE -> "Filme"; SearchKind.SERIES -> "Serien"; SearchKind.EPISODE -> "Episoden" } }
-        if (q.genres.isNotEmpty()) parts += "Genre: " + q.genres.keys.joinToString(", ")
-        q.language?.let { parts += "Sprache: " + (Countries.languageNames[it] ?: it) }
+        if (q.genres.isNotEmpty()) parts += tr("Genre: ") + q.genres.keys.joinToString(", ")
+        q.language?.let { parts += tr("Sprache: ") + (Countries.languageNames[it] ?: it) }
         if (q.yearFrom != null) parts += if (q.yearFrom == q.yearTo) "Jahr ${q.yearFrom}" else "${q.yearFrom}–${q.yearTo}"
         q.actor?.let { parts += "mit „$it“" }
         if (q.terms.isNotEmpty()) parts += "„${q.terms.joinToString(" ")}“"
-        return if (parts.isEmpty()) "" else "Verstanden: " + parts.joinToString(" · ")
+        return if (parts.isEmpty()) "" else tr("Verstanden: ") + parts.joinToString(" · ")
     }
 
     /** Vorschläge während der Eingabe: passende Titel, Genres, Sprachen und Verlauf. */
@@ -153,7 +156,7 @@ class SearchRepository @Inject constructor(
         if (text.length >= 2) {
             val norm = SmartSearch.normalize(text)
             SmartSearch.genreSynonyms.keys.filter { SmartSearch.normalize(it).startsWith(norm) }.take(2).forEach {
-                out["g$it"] = Suggestion("Genre: $it", "$it filme")
+                out["g$it"] = Suggestion(trf("Genre: {0}", it), "$it filme")
             }
             Countries.languageNames.entries.filter { SmartSearch.normalize(it.value).startsWith(norm) }.take(2).forEach { (_, name) ->
                 out["l$name"] = Suggestion("$name Sender", "$name sender")
@@ -164,8 +167,8 @@ class SearchRepository @Inject constructor(
             titles.sortedByDescending { SmartSearch.score(it, SmartSearch.normalize(text).split(' ')) }.take(6)
                 .forEach { out[it.lowercase()] = Suggestion(it, it) }
         } else if (text.isBlank()) {
-            listOf("Neue Actionfilme" to "action filme", "Deutsche Sender" to "deutsche sender", "Komödien" to "komödie filme",
-                "Dokus" to "doku", "Kinder & Familie" to "kinder", "Sport live" to "sport sender").forEach { (l, qq) -> out[l] = Suggestion(l, qq) }
+            listOf(tr("Neue Actionfilme") to "action filme", tr("Deutsche Sender") to "deutsche sender", tr("Komödien") to "komödie filme",
+                "Dokus" to "doku", tr("Kinder & Familie") to "kinder", tr("Sport live") to "sport sender").forEach { (l, qq) -> out[l] = Suggestion(l, qq) }
         }
         return out.values.take(10)
     }

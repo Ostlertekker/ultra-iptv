@@ -2,6 +2,9 @@
 
 package de.ostlertekker.ultraiptv.feature.player
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import androidx.compose.foundation.layout.PaddingValues
 
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
@@ -97,8 +100,8 @@ import kotlinx.coroutines.delay
 private enum class Panel { AUDIO, SUBTITLES, ASPECT, SPEED, CHANNELS, CINEMA, SYNC }
 
 private val subtitleColors = listOf(android.graphics.Color.WHITE, android.graphics.Color.YELLOW, android.graphics.Color.CYAN)
-private val subtitleColorNames = listOf("Weiß", "Gelb", "Cyan")
-private val subtitleBgNames = listOf("Kein Hintergrund", "Halbtransparent", "Schwarz")
+private val subtitleColorNames = listOf(tr("Weiß"), "Gelb", "Cyan")
+private val subtitleBgNames = listOf(tr("Kein Hintergrund"), "Halbtransparent", "Schwarz")
 
 private fun fmt(ms: Long): String {
     if (ms <= 0) return "0:00"
@@ -304,7 +307,7 @@ fun PlayerScreen(
         }
         // Spul-Vorschau (während Tasten gedrückt werden)
         ui.seekPreviewMs?.let { b ->
-            if (!inPip) Text(if (b <= 0) "● LIVE" else "⏪ −%d:%02d".format(b / 60_000, (b / 1000) % 60), color = Color.White, fontSize = 40.sp,
+            if (!inPip) Text(if (b <= 0) tr("● LIVE") else "⏪ −%d:%02d".format(b / 60_000, (b / 1000) % 60), color = Color.White, fontSize = 40.sp,
                 fontWeight = FontWeight.Black, modifier = Modifier.align(Alignment.Center).background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(16.dp))
                     .padding(horizontal = 26.dp, vertical = 10.dp))
         }
@@ -322,8 +325,8 @@ fun PlayerScreen(
                 Text(err, color = Color.White, fontSize = 17.sp)
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    TvButton("Erneut versuchen", onClick = { vm.retry() }, primary = true)
-                    TvButton("Schließen", onClick = onExit)
+                    TvButton(tr("Erneut versuchen"), onClick = { vm.retry() }, primary = true)
+                    TvButton(tr("Schließen"), onClick = onExit)
                 }
             }
         }
@@ -370,14 +373,14 @@ fun PlayerScreen(
                     if (moreOpen) {
                         androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth().padding(bottom = 10.dp),
                             horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            if (isLive) PlayerCtl("Letzter Sender", onClick = { vm.lastChannel() })
+                            if (isLive) PlayerCtl(tr("Letzter Sender"), onClick = { vm.lastChannel() })
                             PlayerCtl("Bildformat", onClick = { panel = Panel.ASPECT })
-                            if (!isLive || ui.shiftBehindMs > 0) PlayerCtl("Tempo ${ui.speed}×", onClick = { panel = Panel.SPEED })
+                            if (!isLive || ui.shiftBehindMs > 0) PlayerCtl(trf("Tempo {0}×", ui.speed), onClick = { panel = Panel.SPEED })
                             PlayerCtl("Sync", onClick = { panel = Panel.SYNC })
-                            PlayerCtl(if (health) "Zustand aus" else "Stream-Zustand", onClick = { health = !health }, active = health)
+                            PlayerCtl(if (health) tr("Zustand aus") else "Stream-Zustand", onClick = { health = !health }, active = health)
                             val left = if (ui.sleepAt > 0) ((ui.sleepAt - System.currentTimeMillis()) / 60_000L + 1).coerceAtLeast(1) else 0
-                            PlayerCtl(if (left > 0) "Sleep $left min" else "Sleep-Timer", onClick = { vm.cycleSleep() }, active = left > 0)
-                            PlayerCtl(if (ui.showStats) "Statistik aus" else "Statistik", onClick = { vm.toggleStats() }, active = ui.showStats)
+                            PlayerCtl(if (left > 0) trf("Sleep {0} min", left) else "Sleep-Timer", onClick = { vm.cycleSleep() }, active = left > 0)
+                            PlayerCtl(if (ui.showStats) tr("Statistik aus") else "Statistik", onClick = { vm.toggleStats() }, active = ui.showStats)
                             PlayerCtl("Mini-Player", onClick = onMini)
                             if (pipSupported) PlayerCtl("Bild-in-Bild", onClick = { if (!onPip()) onMini() })
                         }
@@ -392,20 +395,20 @@ fun PlayerScreen(
                             }
                             if (offer != null) item { PlayerCtl("${offer.segment.type.label} überspringen", onClick = { vm.acceptSkip() }, primary = true) }
                             if (!isLive) {
-                                item { TmIcon("10 s zurück", { vm.seekBy(-10_000) }, lbl("10 s zurück")) { c -> TmText("−10", c) } }
-                                item { TmIcon("30 s vor", { vm.seekBy(30_000) }, lbl("30 s vor")) { c -> TmText("+30", c) } }
-                                if (ui.kind == ContentKind.EPISODE && ui.hasNext) item { TmIcon("Nächste Folge", { vm.playNext() }, lbl("Nächste Folge")) { c -> NextGlyph(c) } }
+                                item { TmIcon(tr("10 s zurück"), { vm.seekBy(-10_000) }, lbl(tr("10 s zurück"))) { c -> TmText("−10", c) } }
+                                item { TmIcon(tr("30 s vor"), { vm.seekBy(30_000) }, lbl(tr("30 s vor"))) { c -> TmText("+30", c) } }
+                                if (ui.kind == ContentKind.EPISODE && ui.hasNext) item { TmIcon(tr("Nächste Folge"), { vm.playNext() }, lbl(tr("Nächste Folge"))) { c -> NextGlyph(c) } }
                             } else {
-                                if (ui.shiftBehindMs > 0) item { PlayerCtl("● LIVE", onClick = { vm.goLive() }, primary = true) }
-                                item { TmIcon("Sender hoch", { vm.switchChannel(-1) }, lbl("Sender hoch")) { c -> Icon(Icons.Default.KeyboardArrowUp, null, tint = c, modifier = Modifier.size(26.dp)) } }
-                                item { TmIcon("Sender runter", { vm.switchChannel(1) }, lbl("Sender runter")) { c -> Icon(Icons.Default.KeyboardArrowDown, null, tint = c, modifier = Modifier.size(26.dp)) } }
+                                if (ui.shiftBehindMs > 0) item { PlayerCtl(tr("● LIVE"), onClick = { vm.goLive() }, primary = true) }
+                                item { TmIcon(tr("Sender hoch"), { vm.switchChannel(-1) }, lbl(tr("Sender hoch"))) { c -> Icon(Icons.Default.KeyboardArrowUp, null, tint = c, modifier = Modifier.size(26.dp)) } }
+                                item { TmIcon(tr("Sender runter"), { vm.switchChannel(1) }, lbl(tr("Sender runter"))) { c -> Icon(Icons.Default.KeyboardArrowDown, null, tint = c, modifier = Modifier.size(26.dp)) } }
                                 item { TmIcon("Senderliste", { panel = Panel.CHANNELS }, lbl("Senderliste")) { c -> Icon(Icons.AutoMirrored.Filled.List, null, tint = c, modifier = Modifier.size(22.dp)) } }
                             }
                         }
                         Row(Modifier.padding(start = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             TmIcon("Audiospur", { panel = Panel.AUDIO }, lbl("Audiospur")) { c -> TmText("♫\uFE0E", c, 18) }
                             TmIcon("Untertitel", { panel = Panel.SUBTITLES }, lbl("Untertitel")) { c -> CcGlyph(c) }
-                            TmIcon(if (moreOpen) "Weniger" else "Weitere Optionen", { moreOpen = !moreOpen }, lbl(if (moreOpen) "Weniger" else "Weitere Optionen"), active = moreOpen) { c ->
+                            TmIcon(if (moreOpen) "Weniger" else tr("Weitere Optionen"), { moreOpen = !moreOpen }, lbl(if (moreOpen) "Weniger" else tr("Weitere Optionen")), active = moreOpen) { c ->
                                 Icon(Icons.Default.MoreVert, null, tint = c, modifier = Modifier.size(22.dp))
                             }
                         }
@@ -418,11 +421,11 @@ fun PlayerScreen(
 
         ui.countdown?.let { sec ->
             Column(Modifier.align(Alignment.BottomEnd).padding(48.dp).width(380.dp).background(Color.Black.copy(alpha = 0.85f), RoundedCornerShape(16.dp)).padding(20.dp)) {
-                Text("Nächste Folge in $sec s", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(trf("Nächste Folge in {0} s", sec), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    TvButton("Jetzt abspielen", onClick = { vm.playNext() }, primary = true, focusRequester = countdownFocus)
-                    TvButton("Abbrechen", onClick = { vm.cancelCountdown() })
+                    TvButton(tr("Jetzt abspielen"), onClick = { vm.playNext() }, primary = true, focusRequester = countdownFocus)
+                    TvButton(tr("Abbrechen"), onClick = { vm.cancelCountdown() })
                 }
             }
         }
@@ -455,56 +458,56 @@ private fun PanelContent(panel: Panel, vm: PlayerViewModel, ui: PlayerUi, settin
     val options: List<Opt>
     when (panel) {
         Panel.AUDIO -> {
-            title = "Tonspur"
+            title = tr("Tonspur")
             options = vm.engine.options(C.TRACK_TYPE_AUDIO).map { o: TrackOption -> Opt(o.label, o.selected) { vm.engine.select(o); close() } }
-                .ifEmpty { listOf(Opt("Keine Auswahl verfügbar", false) { close() }) }
+                .ifEmpty { listOf(Opt(tr("Keine Auswahl verfügbar"), false) { close() }) }
         }
         Panel.SUBTITLES -> {
-            title = "Untertitel"
+            title = tr("Untertitel")
             val off = vm.engine.isTypeDisabled(C.TRACK_TYPE_TEXT)
-            options = listOf(Opt("Aus", off) { vm.engine.disableTrackType(C.TRACK_TYPE_TEXT); close() }) +
+            options = listOf(Opt(tr("Aus"), off) { vm.engine.disableTrackType(C.TRACK_TYPE_TEXT); close() }) +
                 vm.engine.options(C.TRACK_TYPE_TEXT).map { o -> Opt(o.label, o.selected && !off) { vm.engine.select(o); close() } } +
                 listOf(
-                    Opt("Schriftgröße: ${(settings.subtitleScale * 100).toInt()} %", false) { vm.cycleSubtitleScale(settings.subtitleScale) },
-                    Opt("Farbe: ${subtitleColorNames[settings.subtitleColor.coerceIn(0, 2)]}", false) { vm.cycleSubtitleColor(settings.subtitleColor) },
-                    Opt("Hintergrund: ${subtitleBgNames[settings.subtitleBackground.coerceIn(0, 2)]}", false) { vm.cycleSubtitleBg(settings.subtitleBackground) },
+                    Opt(trf("Schriftgröße: {0} %", ((settings.subtitleScale * 100).toInt())), false) { vm.cycleSubtitleScale(settings.subtitleScale) },
+                    Opt(trf("Farbe: {0}", (subtitleColorNames[settings.subtitleColor.coerceIn(0, 2)])), false) { vm.cycleSubtitleColor(settings.subtitleColor) },
+                    Opt(trf("Hintergrund: {0}", (subtitleBgNames[settings.subtitleBackground.coerceIn(0, 2)])), false) { vm.cycleSubtitleBg(settings.subtitleBackground) },
                 )
         }
         Panel.ASPECT -> {
-            title = "Bildformat"
+            title = tr("Bildformat")
             options = listOf(
-                "Einpassen" to AspectRatioFrameLayout.RESIZE_MODE_FIT, "Füllen (zuschneiden)" to AspectRatioFrameLayout.RESIZE_MODE_ZOOM,
-                "Strecken" to AspectRatioFrameLayout.RESIZE_MODE_FILL, "Volle Breite" to AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH,
-                "Volle Höhe" to AspectRatioFrameLayout.RESIZE_MODE_FIXED_HEIGHT,
+                "Einpassen" to AspectRatioFrameLayout.RESIZE_MODE_FIT, tr("Füllen (zuschneiden)") to AspectRatioFrameLayout.RESIZE_MODE_ZOOM,
+                "Strecken" to AspectRatioFrameLayout.RESIZE_MODE_FILL, tr("Volle Breite") to AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH,
+                tr("Volle Höhe") to AspectRatioFrameLayout.RESIZE_MODE_FIXED_HEIGHT,
             ).map { (l, m) -> Opt(l, ui.resizeMode == m) { vm.setResize(m); close() } }
         }
         Panel.SPEED -> {
-            title = "Wiedergabetempo"
+            title = tr("Wiedergabetempo")
             options = listOf(0.25f, 0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f, 3f, 4f).map { s -> Opt("$s×", ui.speed == s) { vm.setSpeed(s); close() } }
         }
         Panel.CINEMA -> {
-            title = "Kinomodus"
-            val soundNames = listOf("Normal", "Nachtmodus (leise Szenen lauter, laute leiser)", "Dialog klar", "Bass+")
+            title = tr("Kinomodus")
+            val soundNames = listOf("Normal", tr("Nachtmodus (leise Szenen lauter, laute leiser)"), tr("Dialog klar"), "Bass+")
             options = listOf(
-                Opt(if (settings.cinemaMode) "Kinomodus ausschalten" else "Kinomodus einschalten", settings.cinemaMode) { vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.CINEMA_MODE, !settings.cinemaMode) },
-                Opt("Kinoklang: ${soundNames[settings.cinemaSound.coerceIn(0, 3)]}", settings.cinemaSound > 0) { vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.CINEMA_SOUND, (settings.cinemaSound + 1) % 4) },
-                Opt("Helligkeit: ${settings.picBrightness} %", settings.picBrightness != 100) { vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.PIC_BRIGHTNESS, cyclePct(settings.picBrightness)) },
-                Opt("Kontrast: ${settings.picContrast} %", settings.picContrast != 100) { vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.PIC_CONTRAST, cyclePct(settings.picContrast)) },
-                Opt("Farbsättigung: ${settings.picSaturation} %", settings.picSaturation != 100) { vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.PIC_SATURATION, cyclePct(settings.picSaturation)) },
-                Opt("Bildregler zurücksetzen", false) {
+                Opt(if (settings.cinemaMode) tr("Kinomodus ausschalten") else tr("Kinomodus einschalten"), settings.cinemaMode) { vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.CINEMA_MODE, !settings.cinemaMode) },
+                Opt(trf("Kinoklang: {0}", (soundNames[settings.cinemaSound.coerceIn(0, 3)])), settings.cinemaSound > 0) { vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.CINEMA_SOUND, (settings.cinemaSound + 1) % 4) },
+                Opt(trf("Helligkeit: {0} %", settings.picBrightness), settings.picBrightness != 100) { vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.PIC_BRIGHTNESS, cyclePct(settings.picBrightness)) },
+                Opt(trf("Kontrast: {0} %", settings.picContrast), settings.picContrast != 100) { vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.PIC_CONTRAST, cyclePct(settings.picContrast)) },
+                Opt(trf("Farbsättigung: {0} %", settings.picSaturation), settings.picSaturation != 100) { vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.PIC_SATURATION, cyclePct(settings.picSaturation)) },
+                Opt(tr("Bildregler zurücksetzen"), false) {
                     vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.PIC_BRIGHTNESS, 100); vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.PIC_CONTRAST, 100)
                     vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.PIC_SATURATION, 100)
                 },
             )
         }
         Panel.SYNC -> {
-            title = "Synchronisation"
+            title = tr("Synchronisation")
             options = listOf(0, 250, 500, 1000, 1500, 2000, 3000, 5000).map { d ->
-                Opt(if (d == 0) "Untertitel: ohne Verzögerung" else "Untertitel: +${d} ms später", settings.subDelayMs == d) { vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.SUB_DELAY, d); close() }
-            } + listOf(Opt("Ton-Verschiebung: vom Player (Media3) auf diesem Gerät nicht unterstützt", false) { })
+                Opt(if (d == 0) tr("Untertitel: ohne Verzögerung") else trf("Untertitel: +{0} ms später", d), settings.subDelayMs == d) { vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.SUB_DELAY, d); close() }
+            } + listOf(Opt(tr("Ton-Verschiebung: vom Player (Media3) auf diesem Gerät nicht unterstützt"), false) { })
         }
         Panel.CHANNELS -> {
-            title = "Senderliste"
+            title = tr("Senderliste")
             options = vm.channelList().mapIndexed { i, c -> Opt((if (c.number > 0) "${c.number}  " else "") + c.name, c.name == ui.title) { vm.playChannelAt(i); close() } }
         }
     }
@@ -522,20 +525,20 @@ private fun PanelContent(panel: Panel, vm: PlayerViewModel, ui: PlayerUi, settin
 @Composable
 private fun StatsOverlay(st: de.ostlertekker.ultraiptv.core.player.PlaybackStats, ui: PlayerUi, modifier: Modifier) {
     val lines = buildList {
-        add("Quelle:     " + if (st.sourceWidth > 0) UltraQualityEngine.resolutionLabel(st.sourceWidth, st.sourceHeight) else "–")
-        add("Dekodiert:  " + if (st.decodedWidth > 0) "${st.decodedWidth}×${st.decodedHeight}" else "–")
-        add("FPS Quelle: " + if (st.sourceFps > 0) "%.3f".format(st.sourceFps) else "unbekannt")
-        add("Codec:      " + (st.videoMime ?: "–") + (st.videoCodecs?.let { " ($it)" } ?: ""))
-        add("Decoder:    " + (st.videoDecoder ?: "–"))
-        add("HDR:        " + (st.hdr ?: "SDR"))
-        add("Audio:      " + (st.audioMime ?: "–") + if (st.audioChannels > 0) " · ${st.audioChannels} ch" else "")
-        add("Puffer:     ${ui.bufferedMs / 1000} s")
-        add("Dropped:    ${st.droppedFrames}")
-        add("Netz:       " + if (st.bandwidthBps > 0) "%.1f Mbit/s (geschätzt)".format(st.bandwidthBps / 1e6) else "–")
-        add("Fehler:     ${st.errors} · Wiederhergestellt: ${st.recoveries}" + if (st.httpCode > 0) " · HTTP ${st.httpCode}" else "")
-        add("FPS real:   " + if (st.measuredFps > 0) "%.1f (gemessen)".format(st.measuredFps) else "–")
-        add("Nachladen:  ${st.rebuffers}× · ${st.stallMs / 1000.0} s Stillstand")
-        add("Bitrate:    " + if (st.videoBitrate > 0) "${st.videoBitrate / 1000} kbit/s (Manifest)" else "–")
+        add(tr("Quelle:     ") + if (st.sourceWidth > 0) UltraQualityEngine.resolutionLabel(st.sourceWidth, st.sourceHeight) else "–")
+        add(tr("Dekodiert:  ") + if (st.decodedWidth > 0) "${st.decodedWidth}×${st.decodedHeight}" else "–")
+        add(tr("FPS Quelle: ") + if (st.sourceFps > 0) "%.3f".format(st.sourceFps) else "unbekannt")
+        add(tr("Codec:      ") + (st.videoMime ?: "–") + (st.videoCodecs?.let { " ($it)" } ?: ""))
+        add(tr("Decoder:    ") + (st.videoDecoder ?: "–"))
+        add(tr("HDR:        ") + (st.hdr ?: "SDR"))
+        add(tr("Audio:      ") + (st.audioMime ?: "–") + if (st.audioChannels > 0) " · ${st.audioChannels} ch" else "")
+        add(trf("Puffer:     {0} s", (ui.bufferedMs / 1000)))
+        add(trf("Dropped:    {0}", st.droppedFrames))
+        add(tr("Netz:       ") + if (st.bandwidthBps > 0) "%.1f Mbit/s (geschätzt)".format(st.bandwidthBps / 1e6) else "–")
+        add(trf("Fehler:     {0} · Wiederhergestellt: {1}", st.errors, st.recoveries) + if (st.httpCode > 0) trf(" · HTTP {0}", st.httpCode) else "")
+        add(tr("FPS real:   ") + if (st.measuredFps > 0) tr("%.1f (gemessen)").format(st.measuredFps) else "–")
+        add(trf("Nachladen:  {0}× · {1} s Stillstand", st.rebuffers, (st.stallMs / 1000.0)))
+        add(tr("Bitrate:    ") + if (st.videoBitrate > 0) "${st.videoBitrate / 1000} kbit/s (Manifest)" else "–")
     }
     Column(modifier.background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(10.dp)).padding(14.dp)) {
         lines.forEach { Text(it, color = Color(0xFF9CFFB0), fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
@@ -608,8 +611,8 @@ private fun InfoPanel(ui: PlayerUi, stats: de.ostlertekker.ultraiptv.core.player
                         Text(ui.nowTitle, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     ProgressBar(ui.programProgress ?: 0f, null)
-                    ui.nextTitle?.let { Text("Danach:  $it", color = Color.White.copy(alpha = 0.55f), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                } else Text("Keine Programminformationen", color = Color.White.copy(alpha = 0.55f), fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+                    ui.nextTitle?.let { Text(trf("Danach:  {0}", it), color = Color.White.copy(alpha = 0.55f), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                } else Text(tr("Keine Programminformationen"), color = Color.White.copy(alpha = 0.55f), fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
             } else if (ui.durationMs > 0) {
                 Spacer(Modifier.height(8.dp))
                 if (onSeekTo != null) SeekBar(ui, seekFocus, onSeekTo)
@@ -632,7 +635,7 @@ private fun InfoPanel(ui: PlayerUi, stats: de.ostlertekker.ultraiptv.core.player
                     stats.decodedHeight >= 2100 -> "4K"; stats.decodedHeight >= 1060 -> "FHD"; stats.decodedHeight >= 700 -> "HD"; else -> "SD"
                 })
                 if (stats.decodedHeight > 0) add("${stats.decodedWidth}×${stats.decodedHeight}")
-                if (stats.measuredFps > 0) add("%.0f fps".format(stats.measuredFps)) else if (stats.sourceFps > 0) add("%.0f fps".format(stats.sourceFps))
+                if (stats.measuredFps > 0) add(tr("%.0f fps").format(stats.measuredFps)) else if (stats.sourceFps > 0) add(tr("%.0f fps").format(stats.sourceFps))
                 stats.hdr?.let { add(it.substringBefore(" (")) }
             }
             if (badges.isNotEmpty()) Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {

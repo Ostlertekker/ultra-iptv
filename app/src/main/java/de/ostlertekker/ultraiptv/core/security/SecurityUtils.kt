@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.security
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import java.net.URI
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -29,13 +32,13 @@ object InputValidator {
     /** Liefert eine Fehlermeldung oder null, wenn gültig. */
     fun url(value: String): String? {
         val t = value.trim()
-        if (t.isEmpty()) return "Adresse fehlt"
-        if (t.any { it.isWhitespace() }) return "Adresse enthält Leerzeichen"
+        if (t.isEmpty()) return tr("Adresse fehlt")
+        if (t.any { it.isWhitespace() }) return tr("Adresse enthält Leerzeichen")
         val withScheme = if ("://" in t) t else "http://$t"
-        val uri = try { URI(withScheme) } catch (e: Exception) { return "Ungültige Adresse" }
+        val uri = try { URI(withScheme) } catch (e: Exception) { return tr("Ungültige Adresse") }
         val scheme = uri.scheme?.lowercase()
         if (scheme != "http" && scheme != "https") return "Nur http:// oder https:// erlaubt"
-        if (uri.host.isNullOrBlank()) return "Servername fehlt"
+        if (uri.host.isNullOrBlank()) return tr("Servername fehlt")
         return null
     }
 
@@ -46,11 +49,11 @@ object InputValidator {
         else -> null
     }
 
-    fun pin(value: String): String? = if (value.length == 4 && value.all { it.isDigit() }) null else "PIN muss aus 4 Ziffern bestehen"
+    fun pin(value: String): String? = if (value.length == 4 && value.all { it.isDigit() }) null else tr("PIN muss aus 4 Ziffern bestehen")
 
     fun profileName(value: String): String? = when {
-        value.isBlank() -> "Name fehlt"
-        value.length > 24 -> "Name ist zu lang (max. 24 Zeichen)"
+        value.isBlank() -> tr("Name fehlt")
+        value.length > 24 -> tr("Name ist zu lang (max. 24 Zeichen)")
         else -> null
     }
 }

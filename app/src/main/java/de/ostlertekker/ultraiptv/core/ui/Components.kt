@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.ui
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.onKeyEvent
@@ -696,7 +699,7 @@ fun NavRail(items: List<NavItem>, selectedRoute: String, onSelect: (String) -> U
         ToxicPlanetLogo(Modifier.padding(start = 4.dp).size(58.dp), running = theme.anim.backgroundMotion,
             detail = theme.anim.profile != AnimationProfile.ECONOMY)
         Text("OSTLERTEKKER", color = p.textDim, fontSize = 11.sp, letterSpacing = 4.sp, modifier = Modifier.padding(start = 10.dp))
-        Text("ULTRA IPTV", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, fontFamily = theme.spec.fontFamily,
+        Text(tr("ULTRA IPTV"), fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, fontFamily = theme.spec.fontFamily,
             style = TextStyle(brush = Brush.linearGradient(listOf(p.primary, Color.White, p.secondary))), letterSpacing = 2.sp,
             modifier = Modifier.padding(start = 10.dp, bottom = if (de.ostlertekker.ultraiptv.core.design.LocalUiPrefs.current.menuClock) 2.dp else 12.dp))
         if (de.ostlertekker.ultraiptv.core.design.LocalUiPrefs.current.menuClock) RailClock(Modifier.padding(start = 10.dp, bottom = 10.dp))
@@ -886,7 +889,7 @@ fun ActionDialog(title: String, actions: List<Pair<String, () -> Unit>>, onDismi
             actions.forEachIndexed { i, (label, act) ->
                 TvButton(label, onClick = { act(); onDismiss() }, modifier = Modifier.fillMaxWidth(), focusRequester = if (i == 0) focus else null)
             }
-            TvButton("Abbrechen", onClick = onDismiss, modifier = Modifier.fillMaxWidth())
+            TvButton(tr("Abbrechen"), onClick = onDismiss, modifier = Modifier.fillMaxWidth())
         }
     }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
@@ -903,12 +906,12 @@ fun PinDialog(title: String, onSubmit: (String) -> Boolean, onDismiss: () -> Uni
         Column(Modifier.width(420.dp).background(p.bgBottom, RoundedCornerShape(20.dp)).padding(28.dp)) {
             Text(title, color = p.text, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(16.dp))
-            TvTextField(pin, { v -> pin = v.filter { it.isDigit() }.take(4); error = null }, "PIN (4 Ziffern)", password = true, number = true,
+            TvTextField(pin, { v -> pin = v.filter { it.isDigit() }.take(4); error = null }, tr("PIN (4 Ziffern)"), password = true, number = true,
                 error = error, focusRequester = focus)
             Spacer(Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                TvButton("Bestätigen", onClick = { if (!onSubmit(pin)) { error = "Falsche PIN"; pin = "" } }, primary = true)
-                TvButton("Abbrechen", onClick = onDismiss)
+                TvButton(tr("Bestätigen"), onClick = { if (!onSubmit(pin)) { error = tr("Falsche PIN"); pin = "" } }, primary = true)
+                TvButton(tr("Abbrechen"), onClick = onDismiss)
             }
         }
     }
@@ -976,7 +979,7 @@ fun TopNavBar(items: List<NavItem>, utility: List<NavItem>, selectedRoute: Strin
             Text("$weatherTemp°", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false,
                 modifier = Modifier.padding(start = 4.dp, end = 12.dp))
         }
-        Text("ULTRA IPTV", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp,
+        Text(tr("ULTRA IPTV"), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp,
             fontFamily = de.ostlertekker.ultraiptv.core.design.AppFonts.Inter, maxLines = 1)
         ProBadge(Modifier.padding(start = 3.dp))
         Spacer(Modifier.weight(1f))

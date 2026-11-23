@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.jellyfin
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedH
 import de.ostlertekker.ultraiptv.core.ui.focusBleed
@@ -161,12 +164,12 @@ fun JellyfinSearchScreen(nav: NavController, vm: JellyfinSearchViewModel = hiltV
 
     Column(Modifier.fillMaxSize().padding(start = 40.dp, end = 40.dp, top = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Jellyfin-Suche", color = p.text, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+            Text(tr("Jellyfin-Suche"), color = p.text, fontSize = 26.sp, fontWeight = FontWeight.Bold)
             if (total >= 0) Text("$total Treffer", color = p.textDim, fontSize = 14.sp)
         }
         val voice = de.ostlertekker.ultraiptv.core.ui.rememberVoiceSearch { spoken -> vm.update { it.copy(query = spoken) } }
         Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            TvTextField(f.query, { q -> vm.update { it.copy(query = q) } }, "Titel, Schauspieler oder Stichwort …",
+            TvTextField(f.query, { q -> vm.update { it.copy(query = q) } }, tr("Titel, Schauspieler oder Stichwort …"),
                 modifier = Modifier.weight(1f))
             de.ostlertekker.ultraiptv.core.ui.VoiceSearchButton(voice)
         }
@@ -174,9 +177,9 @@ fun JellyfinSearchScreen(nav: NavController, vm: JellyfinSearchViewModel = hiltV
 
         error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp)) }
         // Seerr (optional): nicht vorhandene Titel direkt anfragen
-        if (seerrHits.isNotEmpty()) SeerrRow("Nicht in deiner Bibliothek? Bei Seerr anfragen", seerrHits) { requestItem = it }
-        if (total < 0) UltraLoader(Modifier.padding(top = 24.dp), "Suche läuft …")
-        else if (total == 0 && error == null) Text("Nichts gefunden – anderen Begriff probieren.",
+        if (seerrHits.isNotEmpty()) SeerrRow(tr("Nicht in deiner Bibliothek? Bei Seerr anfragen"), seerrHits) { requestItem = it }
+        if (total < 0) UltraLoader(Modifier.padding(top = 24.dp), tr("Suche läuft …"))
+        else if (total == 0 && error == null) Text(tr("Nichts gefunden – anderen Begriff probieren."),
             color = p.textDim, fontSize = 15.sp, modifier = Modifier.padding(top = 20.dp))
 
         LazyVerticalGrid(GridCells.Adaptive(160.dp), state = grid, horizontalArrangement = Arrangement.spacedBy(20.dp),

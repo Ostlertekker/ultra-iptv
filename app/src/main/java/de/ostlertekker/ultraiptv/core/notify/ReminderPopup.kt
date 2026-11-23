@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.notify
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -108,10 +111,10 @@ fun ReminderPopup(r: ReminderEntity?, modifier: Modifier, onDismiss: () -> Unit,
     BackHandler { onDismiss() }
     val time = java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMAN).format(java.util.Date(rem.startMs))
     val mins = ((rem.startMs - System.currentTimeMillis()) / 60_000L).coerceAtLeast(0)
-    PopupCard(AlarmVec, "Erinnerung · " + (if (mins > 0) "in $mins Min." else "jetzt") + " · $time",
+    PopupCard(AlarmVec, tr("Erinnerung · ") + (if (mins > 0) "in $mins Min." else "jetzt") + " · $time",
         rem.title, rem.channelName, modifier, progress = left / 30f) {
-        TvButton("Zum Sender", onClick = { onOpen(rem) }, primary = true, focusRequester = focus)
-        TvButton("Schließen", onClick = onDismiss)
+        TvButton(tr("Zum Sender"), onClick = { onOpen(rem) }, primary = true, focusRequester = focus)
+        TvButton(tr("Schließen"), onClick = onDismiss)
         Spacer(Modifier.weight(1f))
         Text("${left}s", color = LocalUltraTheme.current.palette.textDim, fontSize = 13.sp)
     }
@@ -129,10 +132,10 @@ fun SeerrAvailablePopup(item: de.ostlertekker.ultraiptv.core.seerr.SeerrItem?, m
         onDismiss()
     }
     BackHandler { onDismiss() }
-    PopupCard(StarVec, "Seerr · Deine Anfrage ist da", it.title,
+    PopupCard(StarVec, tr("Seerr · Deine Anfrage ist da"), it.title,
         listOfNotNull(if (it.isTv) "Serie" else "Film", it.year, "jetzt in Jellyfin verfügbar").joinToString(" · "), modifier, progress = left / 30f) {
-        TvButton("In Jellyfin ansehen", onClick = onOpen, primary = true, focusRequester = focus)
-        TvButton("Schließen", onClick = onDismiss)
+        TvButton(tr("In Jellyfin ansehen"), onClick = onOpen, primary = true, focusRequester = focus)
+        TvButton(tr("Schließen"), onClick = onDismiss)
         Spacer(Modifier.weight(1f))
         Text("${left}s", color = LocalUltraTheme.current.palette.textDim, fontSize = 13.sp)
     }
@@ -155,30 +158,30 @@ fun UpdatePopup(center: NotificationCenter, modifier: Modifier) {
     val note = upd.notes.lineSequence().map { it.trim().removePrefix("- ").removePrefix("* ") }
         .firstOrNull { it.isNotBlank() && !it.startsWith("#") }?.take(120)
     val s = st
-    PopupCard(UpdateVec, "App-Update verfügbar", "ULTRA IPTV ${upd.version}",
+    PopupCard(UpdateVec, tr("App-Update verfügbar"), trf("ULTRA IPTV {0}", upd.version),
         when (s) {
-            is UpdateState.Downloading -> "Wird geladen … ${(s.progress * 100).toInt()} %"
-            is UpdateState.ReadyToInstall -> "Bereit zur Installation"
+            is UpdateState.Downloading -> trf("Wird geladen … {0} %", ((s.progress * 100).toInt()))
+            is UpdateState.ReadyToInstall -> tr("Bereit zur Installation")
             is UpdateState.Error -> "⚠ ${s.message}"
             else -> note ?: (if (upd.sizeBytes > 0) "${upd.sizeBytes / 1_000_000} MB" else null)
         },
         modifier,
         progress = (s as? UpdateState.Downloading)?.progress,
-        footer = "Einstellungen, Profile und Favoriten bleiben erhalten.") {
+        footer = tr("Einstellungen, Profile und Favoriten bleiben erhalten.")) {
         when (s) {
-            is UpdateState.Downloading -> TvButton("Im Hintergrund", onClick = { center.laterUpdate() }, focusRequester = focus)
+            is UpdateState.Downloading -> TvButton(tr("Im Hintergrund"), onClick = { center.laterUpdate() }, focusRequester = focus)
             is UpdateState.ReadyToInstall -> {
-                if (!center.canInstallUpdate()) TvButton("Installieren erlauben", onClick = { center.openInstallPermission() }, primary = true, focusRequester = focus)
-                TvButton("Jetzt installieren", onClick = { center.installUpdate(s.file) }, primary = center.canInstallUpdate(),
+                if (!center.canInstallUpdate()) TvButton(tr("Installieren erlauben"), onClick = { center.openInstallPermission() }, primary = true, focusRequester = focus)
+                TvButton(tr("Jetzt installieren"), onClick = { center.installUpdate(s.file) }, primary = center.canInstallUpdate(),
                     focusRequester = if (center.canInstallUpdate()) focus else null)
             }
             is UpdateState.Error -> {
-                TvButton("Erneut versuchen", onClick = { scope.launch { center.downloadUpdate(upd) } }, primary = true, focusRequester = focus)
-                TvButton("Später", onClick = { center.laterUpdate() })
+                TvButton(tr("Erneut versuchen"), onClick = { scope.launch { center.downloadUpdate(upd) } }, primary = true, focusRequester = focus)
+                TvButton(tr("Später"), onClick = { center.laterUpdate() })
             }
             else -> {
-                TvButton("Jetzt aktualisieren", onClick = { scope.launch { center.downloadUpdate(upd) } }, primary = true, focusRequester = focus)
-                TvButton("Später", onClick = { center.laterUpdate() })
+                TvButton(tr("Jetzt aktualisieren"), onClick = { scope.launch { center.downloadUpdate(upd) } }, primary = true, focusRequester = focus)
+                TvButton(tr("Später"), onClick = { center.laterUpdate() })
             }
         }
     }

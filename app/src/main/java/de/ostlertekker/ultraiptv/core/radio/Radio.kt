@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.radio
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import android.content.Context
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -83,7 +86,7 @@ class RadioRepository @Inject constructor(@ApplicationContext private val ctx: C
 
     suspend fun countries(): List<RadioCountry> = withContext(Dispatchers.IO) {
         countries?.let { return@withContext it }
-        val arr = get("/json/countries?hidebroken=true") ?: error("Radio-Datenbank nicht erreichbar")
+        val arr = get("/json/countries?hidebroken=true") ?: error(tr("Radio-Datenbank nicht erreichbar"))
         val de = Locale.GERMAN
         arr.mapNotNull { it as? JsonObject }.mapNotNull { o ->
             val code = o.s("iso_3166_1")?.uppercase() ?: return@mapNotNull null
@@ -97,7 +100,7 @@ class RadioRepository @Inject constructor(@ApplicationContext private val ctx: C
     suspend fun top(code: String): List<RadioStation> = withContext(Dispatchers.IO) {
         topCache[code]?.takeIf { System.currentTimeMillis() - it.first < 30 * 60_000L }?.let { return@withContext it.second }
         val arr = get("/json/stations/search?countrycode=$code&order=clickcount&reverse=true&limit=60&hidebroken=true")
-            ?: error("Radio-Datenbank nicht erreichbar")
+            ?: error(tr("Radio-Datenbank nicht erreichbar"))
         arr.mapNotNull { it as? JsonObject }.mapNotNull { o -> o.toStation() }
             .distinctBy { it.name.lowercase().replace(Regex("[^a-z0-9]"), "") }
             .take(20).also { topCache[code] = System.currentTimeMillis() to it }
@@ -108,7 +111,7 @@ class RadioRepository @Inject constructor(@ApplicationContext private val ctx: C
         val t = q.trim()
         if (t.length < 2) return@withContext emptyList()
         val arr = get("/json/stations/search?name=" + java.net.URLEncoder.encode(t, "UTF-8").replace("+", "%20") +
-            "&order=clickcount&reverse=true&limit=80&hidebroken=true") ?: error("Radio-Datenbank nicht erreichbar")
+            "&order=clickcount&reverse=true&limit=80&hidebroken=true") ?: error(tr("Radio-Datenbank nicht erreichbar"))
         arr.mapNotNull { it as? JsonObject }.mapNotNull { o -> o.toStation() }
             .distinctBy { it.name.lowercase().replace(Regex("[^a-z0-9]"), "") + it.country }
             .take(50)
@@ -175,7 +178,7 @@ class RadioPlayer @Inject constructor(@ApplicationContext private val ctx: Conte
                 val t = listOfNotNull(m.artist?.toString(), m.title?.toString()).filter { it.isNotBlank() }.joinToString(" – ")
                 _nowTitle.value = t.takeIf { it.isNotBlank() && !it.equals(_current.value?.name, true) }
             }
-            override fun onPlayerError(error: PlaybackException) { _error.value = "Sender nicht erreichbar"; _playing.value = false }
+            override fun onPlayerError(error: PlaybackException) { _error.value = tr("Sender nicht erreichbar"); _playing.value = false }
         })
         exo = p
     }

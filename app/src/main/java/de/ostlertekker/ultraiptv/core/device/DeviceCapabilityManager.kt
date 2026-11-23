@@ -2,6 +2,9 @@
 
 package de.ostlertekker.ultraiptv.core.device
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import android.app.ActivityManager
 import android.content.Context
 import android.hardware.display.DisplayManager
@@ -56,7 +59,7 @@ class DeviceCapabilityManager @Inject constructor(@ApplicationContext private va
         val caps = display()?.hdrCapabilities ?: return emptyList()
         return caps.supportedHdrTypes.map {
             when (it) {
-                Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION -> "Dolby Vision"
+                Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION -> tr("Dolby Vision")
                 Display.HdrCapabilities.HDR_TYPE_HDR10 -> "HDR10"
                 Display.HdrCapabilities.HDR_TYPE_HLG -> "HLG"
                 4 -> "HDR10+"
@@ -134,21 +137,21 @@ class DeviceCapabilityManager @Inject constructor(@ApplicationContext private va
         val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
         val label = when (pm.currentThermalStatus) {
             PowerManager.THERMAL_STATUS_NONE -> "Normal"
-            PowerManager.THERMAL_STATUS_LIGHT -> "Leicht erhöht"
-            PowerManager.THERMAL_STATUS_MODERATE -> "Mäßig (Drosselung möglich)"
-            PowerManager.THERMAL_STATUS_SEVERE -> "Hoch (Drosselung aktiv)"
+            PowerManager.THERMAL_STATUS_LIGHT -> tr("Leicht erhöht")
+            PowerManager.THERMAL_STATUS_MODERATE -> tr("Mäßig (Drosselung möglich)")
+            PowerManager.THERMAL_STATUS_SEVERE -> tr("Hoch (Drosselung aktiv)")
             else -> "Kritisch"
         }
         return label to Accuracy.MEASURED
     }
 
     fun fireOsLabel(): Pair<String, Accuracy> {
-        if (!isFireTv) return "Kein Fire-TV-Gerät" to Accuracy.MEASURED
+        if (!isFireTv) return tr("Kein Fire-TV-Gerät") to Accuracy.MEASURED
         val v = when (Build.VERSION.SDK_INT) {
-            25 -> "Fire OS 6"
-            28 -> "Fire OS 7"
-            30 -> "Fire OS 8"
-            else -> "Fire OS (API ${Build.VERSION.SDK_INT})"
+            25 -> tr("Fire OS 6")
+            28 -> tr("Fire OS 7")
+            30 -> tr("Fire OS 8")
+            else -> trf("Fire OS (API {0})", Build.VERSION.SDK_INT)
         }
         return v to Accuracy.ESTIMATED
     }
@@ -159,27 +162,27 @@ class DeviceCapabilityManager @Inject constructor(@ApplicationContext private va
         e += InfoEntry("Hersteller", manufacturer, Accuracy.MEASURED)
         e += InfoEntry("Modell", model, Accuracy.MEASURED)
         e += InfoEntry("Gerät / Board", "${Build.DEVICE} / ${Build.BOARD}", Accuracy.MEASURED)
-        e += InfoEntry("Android", "${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})", Accuracy.MEASURED)
-        val (fos, fosAcc) = fireOsLabel(); e += InfoEntry("Fire OS", fos, fosAcc)
-        e += InfoEntry("Android-TV-Oberfläche", if (isAndroidTv) "Ja" else "Nein", Accuracy.MEASURED)
-        e += InfoEntry("Arbeitsspeicher gesamt", "%.2f GB".format(totalMemBytes / (1024.0 * 1024 * 1024)), Accuracy.MEASURED)
-        e += InfoEntry("Low-RAM-Gerät", if (isLowRam) "Ja" else "Nein", Accuracy.MEASURED)
+        e += InfoEntry("Android", trf("{0} (API {1})", Build.VERSION.RELEASE, Build.VERSION.SDK_INT), Accuracy.MEASURED)
+        val (fos, fosAcc) = fireOsLabel(); e += InfoEntry(tr("Fire OS"), fos, fosAcc)
+        e += InfoEntry(tr("Android-TV-Oberfläche"), if (isAndroidTv) "Ja" else "Nein", Accuracy.MEASURED)
+        e += InfoEntry(tr("Arbeitsspeicher gesamt"), "%.2f GB".format(totalMemBytes / (1024.0 * 1024 * 1024)), Accuracy.MEASURED)
+        e += InfoEntry(tr("Low-RAM-Gerät"), if (isLowRam) "Ja" else "Nein", Accuracy.MEASURED)
         e += InfoEntry("App-Speicherlimit", "${activityManager.memoryClass} MB", Accuracy.MEASURED)
         e += InfoEntry("Leistungsprofil", tier.label, Accuracy.ESTIMATED)
         val cur = currentDisplayMode()
-        e += InfoEntry("Aktueller Anzeigemodus", cur?.let { "${it.width}×${it.height} @ ${"%.2f".format(it.refreshRate)} Hz" } ?: "unbekannt",
+        e += InfoEntry(tr("Aktueller Anzeigemodus"), cur?.let { "${it.width}×${it.height} @ ${"%.2f".format(it.refreshRate)} Hz" } ?: "unbekannt",
             if (cur != null) Accuracy.MEASURED else Accuracy.UNAVAILABLE)
         val modes = displayModes()
-        e += InfoEntry("Verfügbare Anzeigemodi", if (modes.isEmpty()) "keine gemeldet" else modes.joinToString(", ") { "${it.height}p${"%.0f".format(it.refreshRate)}" },
+        e += InfoEntry(tr("Verfügbare Anzeigemodi"), if (modes.isEmpty()) "keine gemeldet" else modes.joinToString(", ") { "${it.height}p${"%.0f".format(it.refreshRate)}" },
             if (modes.isEmpty()) Accuracy.UNAVAILABLE else Accuracy.MEASURED)
         val maxHz = modes.maxOfOrNull { it.refreshRate } ?: 0f
-        e += InfoEntry("120-Hz-Ausgabe", if (maxHz >= 119f) "Vom Display-Pfad gemeldet" else "Nicht verfügbar (max. ${"%.0f".format(maxHz)} Hz gemeldet)", Accuracy.MEASURED)
+        e += InfoEntry("120-Hz-Ausgabe", if (maxHz >= 119f) tr("Vom Display-Pfad gemeldet") else trf("Nicht verfügbar (max. {0} Hz gemeldet)", ("%.0f".format(maxHz))), Accuracy.MEASURED)
         val hdr = hdrTypes()
-        e += InfoEntry("HDR (Display/HDMI)", if (hdr.isEmpty()) "Kein HDR gemeldet" else hdr.joinToString(", "), Accuracy.MEASURED)
-        listOf("video/avc" to "H.264", "video/hevc" to "HEVC", "video/av01" to "AV1", "video/x-vnd.on2.vp9" to "VP9", "video/dolby-vision" to "Dolby Vision").forEach { (mime, label) ->
+        e += InfoEntry("HDR (Display/HDMI)", if (hdr.isEmpty()) tr("Kein HDR gemeldet") else hdr.joinToString(", "), Accuracy.MEASURED)
+        listOf("video/avc" to "H.264", "video/hevc" to "HEVC", "video/av01" to "AV1", "video/x-vnd.on2.vp9" to "VP9", "video/dolby-vision" to tr("Dolby Vision")).forEach { (mime, label) ->
             val list = decoders.filter { it.mime == mime }
-            val value = if (list.isEmpty()) "Kein Decoder" else list.joinToString("; ") { d ->
-                "${d.name} (${if (d.hardware) "HW" else "SW"}, bis ${d.maxHeight}p${if (d.supports4k120) ", 4K120" else ""})"
+            val value = if (list.isEmpty()) tr("Kein Decoder") else list.joinToString("; ") { d ->
+                trf("{0} ({1}, bis {2}p{3})", d.name, (if (d.hardware) "HW" else "SW"), d.maxHeight, (if (d.supports4k120) ", 4K120" else ""))
             }
             val acc = when {
                 list.isEmpty() -> Accuracy.MEASURED
@@ -189,12 +192,12 @@ class DeviceCapabilityManager @Inject constructor(@ApplicationContext private va
             e += InfoEntry("Decoder $label", value, acc)
         }
         val a = audioCaps
-        e += InfoEntry("Audio-Passthrough (HDMI-Kette)", buildList {
-            if (a.ac3) add("Dolby Digital"); if (a.eac3) add("Dolby Digital Plus"); if (a.eac3Joc) add("DD+ Atmos (JOC)")
+        e += InfoEntry(tr("Audio-Passthrough (HDMI-Kette)"), buildList {
+            if (a.ac3) add(tr("Dolby Digital")); if (a.eac3) add(tr("Dolby Digital Plus")); if (a.eac3Joc) add(tr("DD+ Atmos (JOC)"))
             if (a.dts) add("DTS"); if (a.trueHd) add("TrueHD")
-        }.ifEmpty { listOf("Nur PCM") }.joinToString(", "), Accuracy.MEASURED)
-        e += InfoEntry("Max. Audiokanäle", a.maxChannels.toString(), Accuracy.MEASURED)
-        val (th, thAcc) = thermalStatus(); e += InfoEntry("Thermischer Zustand", th, thAcc)
+        }.ifEmpty { listOf(tr("Nur PCM")) }.joinToString(", "), Accuracy.MEASURED)
+        e += InfoEntry(tr("Max. Audiokanäle"), a.maxChannels.toString(), Accuracy.MEASURED)
+        val (th, thAcc) = thermalStatus(); e += InfoEntry(tr("Thermischer Zustand"), th, thAcc)
         return e
     }
 }

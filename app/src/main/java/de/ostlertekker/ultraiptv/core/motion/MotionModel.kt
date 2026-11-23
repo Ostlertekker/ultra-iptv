@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.motion
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -34,28 +37,28 @@ enum class EntranceAnim(override val label: String, val baseMs: Int, override va
     GRAVITY_DROP("Schwerkraft-Fall", 900),
     EXPLOSION("Explosions-Auftritt", 650, true),
     HOLOGRAM("Hologramm-Erscheinen", 700),
-    FLIP_3D("3D Flip", 600),
-    CYBER_GLITCH("Cyber-Störung", 650, true),
-    LIQUID_MORPH("Flüssige Verwandlung", 800),
-    BLACK_HOLE("Schwarzes Loch", 850, true),
+    FLIP_3D(tr("3D Flip"), 600),
+    CYBER_GLITCH(tr("Cyber-Störung"), 650, true),
+    LIQUID_MORPH(tr("Flüssige Verwandlung"), 800),
+    BLACK_HOLE(tr("Schwarzes Loch"), 850, true),
     METEOR_SHOWER("Meteoritenschauer", 750, true),
     DOMINO("Domino-Effekt", 550),
-    MAGNETIC_PULL("Magnetischer Sog", 700),
-    SHATTER_GLASS("Zerspringendes Glas", 800, true),
+    MAGNETIC_PULL(tr("Magnetischer Sog"), 700),
+    SHATTER_GLASS(tr("Zerspringendes Glas"), 800, true),
     PORTAL("Portal-Auftritt", 650),
     MATRIX_RAIN("Matrix-Regen", 850, true),
-    ELASTIC_BOUNCE("Elastisches Federn", 750);
+    ELASTIC_BOUNCE(tr("Elastisches Federn"), 750);
 
     override val id: String get() = "in_$name"
 }
 
 enum class FocusEffect(override val label: String, override val heavy: Boolean = false) : MotionAnim {
-    MAGNETIC("Magnetischer Fokus"),
-    TILT_3D("3D Tilt"),
+    MAGNETIC(tr("Magnetischer Fokus")),
+    TILT_3D(tr("3D Tilt")),
     HOVER_EXPLOSION("Schwebe-Explosion", true),
-    ELASTIC("Elastischer Fokus"),
+    ELASTIC(tr("Elastischer Fokus")),
     DEPTH_SHIFT("Tiefenverschiebung"),
-    PULSE_GLOW("Pulsierendes Leuchten"),
+    PULSE_GLOW(tr("Pulsierendes Leuchten")),
     PERSPECTIVE_ZOOM("Perspektiv-Zoom"),
     TRAIL("Leuchtspur", true);
 
@@ -63,21 +66,21 @@ enum class FocusEffect(override val label: String, override val heavy: Boolean =
 }
 
 enum class PageTransition(override val label: String, val baseMs: Int, override val heavy: Boolean = false) : MotionAnim {
-    PORTAL("Portal-Übergang", 650),
-    SHATTER("Splitter-Übergang", 750, true),
+    PORTAL(tr("Portal-Übergang"), 650),
+    SHATTER(tr("Splitter-Übergang"), 750, true),
     WARP_SPEED("Warp-Sprung", 700, true),
-    LIQUID("Flüssiger Übergang", 750),
-    GLITCH("Störungs-Übergang", 450),
+    LIQUID(tr("Flüssiger Übergang"), 750),
+    GLITCH(tr("Störungs-Übergang"), 450),
     ZOOM_TUNNEL("Zoom-Tunnel", 650),
-    CINEMATIC("Kino-Enthüllung", 800);
+    CINEMATIC(tr("Kino-Enthüllung"), 800);
 
     override val id: String get() = "page_$name"
 }
 
 /** Ausgangsanimationen der verlassenen Seite (GPU-Transformationen der Navigation). */
 enum class ExitAnim(val label: String) {
-    FADE("Ausblenden"), SHRINK("Schrumpfen"), ZOOM_OUT("Wegzoomen"), SLIDE_LEFT("Nach links gleiten"),
-    GRAVITY_FALL("Herunterfallen"), DISSOLVE("Langsam auflösen"), NONE("Keine"),
+    FADE("Ausblenden"), SHRINK("Schrumpfen"), ZOOM_OUT("Wegzoomen"), SLIDE_LEFT(tr("Nach links gleiten")),
+    GRAVITY_FALL("Herunterfallen"), DISSOLVE(tr("Langsam auflösen")), NONE("Keine"),
 }
 
 /** Gespeicherte Konfiguration der Engine. */

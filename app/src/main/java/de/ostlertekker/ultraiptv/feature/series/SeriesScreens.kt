@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.series
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedH
 import de.ostlertekker.ultraiptv.core.ui.focusBleed
@@ -91,7 +94,7 @@ class SeriesViewModel @Inject constructor(content: ContentRepository, user: de.o
             listOfNotNull(year, genre?.split(',')?.firstOrNull()?.trim(), rating?.takeIf { it > 0 }?.let { de.ostlertekker.ultraiptv.core.ui.ratingLabel(it) }).joinToString(" · ").ifBlank { null },
             backdrop = backdrop, plot = plot, kind = "SERIES")
         fun de.ostlertekker.ultraiptv.core.database.ProgressEntity.tile(resume: Boolean) = de.ostlertekker.ultraiptv.feature.common.CinemaTile(itemId, title, image,
-            if (positionMs == 0L) "Nächste Folge" else if (durationMs > 0) "Noch ${((durationMs - positionMs) / 60000).coerceAtLeast(1)} Min." else null,
+            if (positionMs == 0L) tr("Nächste Folge") else if (durationMs > 0) trf("Noch {0} Min.", (((durationMs - positionMs) / 60000).coerceAtLeast(1))) else null,
             progress = if (durationMs > 0) positionMs.toFloat() / durationMs else null, positionMs = positionMs, resume = resume, kind = "EPISODE")
         val ep = de.ostlertekker.ultraiptv.core.model.ContentKind.EPISODE.name
         val catRows = content.seriesCategories().flatMapLatest { cs ->
@@ -108,10 +111,10 @@ class SeriesViewModel @Inject constructor(content: ContentRepository, user: de.o
         ) { cw, watch, newest, popular, (recent, cats) ->
             listOf(
                 de.ostlertekker.ultraiptv.feature.common.CinemaRow("Fortsetzen", cw.map { it.tile(true) }, landscape = true),
-                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Meine Merkliste", watch.map { it.tile() }),
-                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Neue Serien", newest.map { it.tile() }, pageKey = "new"),
-                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Beliebte Serien", if (popular.any { (it.rating ?: 0.0) > 0 }) popular.map { it.tile() } else emptyList(), pageKey = "pop"),
-                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Zuletzt angesehen", recent.map { it.tile(true) }, landscape = true),
+                de.ostlertekker.ultraiptv.feature.common.CinemaRow(tr("Meine Merkliste"), watch.map { it.tile() }),
+                de.ostlertekker.ultraiptv.feature.common.CinemaRow(tr("Neue Serien"), newest.map { it.tile() }, pageKey = "new"),
+                de.ostlertekker.ultraiptv.feature.common.CinemaRow(tr("Beliebte Serien"), if (popular.any { (it.rating ?: 0.0) > 0 }) popular.map { it.tile() } else emptyList(), pageKey = "pop"),
+                de.ostlertekker.ultraiptv.feature.common.CinemaRow(tr("Zuletzt angesehen"), recent.map { it.tile(true) }, landscape = true),
             ) + cats.map { (c, l) -> de.ostlertekker.ultraiptv.feature.common.CinemaRow(c, l.map { it.tile() }, pageKey = "c:$c") }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     }
@@ -145,13 +148,13 @@ fun SeriesScreen(nav: NavController, vm: SeriesViewModel = hiltViewModel()) {
     val context = androidx.compose.ui.platform.LocalContext.current
     if (overviewMode) {
         val rows by vm.overview.collectAsStateWithLifecycle()
-        val hero = rows.firstOrNull { it.title == "Neue Serien" }?.tiles?.firstOrNull { !it.backdrop.isNullOrBlank() }
-            ?: rows.firstOrNull { it.title == "Neue Serien" }?.tiles?.firstOrNull()
+        val hero = rows.firstOrNull { it.title == tr("Neue Serien") }?.tiles?.firstOrNull { !it.backdrop.isNullOrBlank() }
+            ?: rows.firstOrNull { it.title == tr("Neue Serien") }?.tiles?.firstOrNull()
         de.ostlertekker.ultraiptv.feature.common.CinemaOverview(hero, rows, onMore = vm.pager::more,
             header = {
                 androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TvChip("Übersicht", true, { })
-                    TvChip("Alle Serien", false, { overviewMode = false })
+                    TvChip(tr("Übersicht"), true, { })
+                    TvChip(tr("Alle Serien"), false, { overviewMode = false })
                 }
             },
             onOpen = { t -> if (t.kind == "EPISODE") context.openPlayer(de.ostlertekker.ultraiptv.core.model.ContentKind.EPISODE, t.id, t.positionMs) else nav.navigate(Routes.seriesDetail(t.id)) },
@@ -165,10 +168,10 @@ fun SeriesScreen(nav: NavController, vm: SeriesViewModel = hiltViewModel()) {
     Row(Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
     LazyColumn(Modifier.weight(0.25f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         item {
-            Text("Serien", color = p.text, fontSize = 24.sp, fontWeight = LocalUltraTheme.current.spec.titleWeight, fontFamily = LocalUltraTheme.current.spec.fontFamily,
+            Text(tr("Serien"), color = p.text, fontSize = 24.sp, fontWeight = LocalUltraTheme.current.spec.titleWeight, fontFamily = LocalUltraTheme.current.spec.fontFamily,
                 modifier = Modifier.padding(bottom = 10.dp))
         }
-        item(key = "__overview") { de.ostlertekker.ultraiptv.feature.livetv.CategoryItem("Übersicht", false) { overviewMode = true } }
+        item(key = "__overview") { de.ostlertekker.ultraiptv.feature.livetv.CategoryItem(tr("Übersicht"), false) { overviewMode = true } }
         item(key = "__all") { de.ostlertekker.ultraiptv.feature.livetv.CategoryItem("Alle", cat == null) { vm.category.value = null } }
         items(cats, key = { it }) { c -> de.ostlertekker.ultraiptv.feature.livetv.CategoryItem(c, c == cat) { vm.category.value = c } }
     }
@@ -177,7 +180,7 @@ fun SeriesScreen(nav: NavController, vm: SeriesViewModel = hiltViewModel()) {
             items(SortOrder.entries, key = { it.name }) { s -> TvChip("↕ ${s.label}", s == sort, { vm.sort.value = s }) }
         }
         Spacer(Modifier.height(12.dp))
-        if (list.isEmpty()) Text("Keine Serien gefunden.", color = p.textDim)
+        if (list.isEmpty()) Text(tr("Keine Serien gefunden."), color = p.textDim)
         LazyVerticalGrid(
             columns = GridCells.Adaptive(de.ostlertekker.ultraiptv.core.design.LocalUiPrefs.current.posterWidth), state = grid,
             horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(18.dp),
@@ -265,26 +268,26 @@ fun SeriesDetailScreen(nav: NavController, vm: SeriesDetailViewModel = hiltViewM
         Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 24.dp)) {
             Text(series.name, color = p.text, fontSize = 34.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily)
             Text(listOfNotNull(series.year, series.genre, series.rating?.takeIf { it > 0 }?.let { de.ostlertekker.ultraiptv.core.ui.ratingLabel(it) },
-                seasons.size.takeIf { it > 0 }?.let { if (it == 1) "1 Staffel" else "$it Staffeln" }).joinToString("  ·  "),
+                seasons.size.takeIf { it > 0 }?.let { if (it == 1) tr("1 Staffel") else "$it Staffeln" }).joinToString("  ·  "),
                 color = p.primary, fontSize = 14.sp, modifier = Modifier.padding(vertical = 6.dp))
             Text(series.plot ?: "", color = p.textDim, fontSize = 14.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(760.dp))
-            if (!series.actors.isNullOrBlank()) Text("Mit: ${series.actors}", color = p.text, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            if (!series.actors.isNullOrBlank()) Text(trf("Mit: {0}", series.actors), color = p.text, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.width(760.dp).padding(top = 4.dp))
             Spacer(Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (resume != null) {
                     val pr = progress[resume.id]
-                    TvButton(if (pr != null && pr.positionMs > 30_000) "▶ Weiter: S${resume.season} E${resume.episode}" else "▶ S${resume.season} E${resume.episode} abspielen",
+                    TvButton(if (pr != null && pr.positionMs > 30_000) trf("▶ Weiter: S{0} E{1}", resume.season, resume.episode) else trf("▶ S{0} E{1} abspielen", resume.season, resume.episode),
                         onClick = { context.openPlayer(ContentKind.EPISODE, resume.id, pr?.positionMs ?: 0) }, primary = true)
                 }
-                val tr by vm.trailer.collectAsStateWithLifecycle()
-                TvButton("Trailer", onClick = { de.ostlertekker.ultraiptv.feature.web.WebAppActivity.openTrailer(context, tr, series.name) })
-                TvButton(if (fav) "✓ Auf Merkliste" else "+ Merkliste", onClick = { vm.toggleFavorite() })
-                Text("Lange OK auf einer Folge: als gesehen markieren", color = p.textDim, fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterVertically))
+                val trailerState by vm.trailer.collectAsStateWithLifecycle()
+                TvButton(tr("Trailer"), onClick = { de.ostlertekker.ultraiptv.feature.web.WebAppActivity.openTrailer(context, trailerState, series.name) })
+                TvButton(if (fav) tr("✓ Auf Merkliste") else tr("+ Merkliste"), onClick = { vm.toggleFavorite() })
+                Text(tr("Lange OK auf einer Folge: als gesehen markieren"), color = p.textDim, fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterVertically))
             }
             Spacer(Modifier.height(14.dp))
-            if (loading && eps.isEmpty()) UltraLoader(label = "Episoden werden geladen …")
-            if (!loading && eps.isEmpty()) Text(if (failed) "Episoden konnten nicht geladen werden." else "Keine Episoden vorhanden.", color = p.textDim)
+            if (loading && eps.isEmpty()) UltraLoader(label = tr("Episoden werden geladen …"))
+            if (!loading && eps.isEmpty()) Text(if (failed) tr("Episoden konnten nicht geladen werden.") else tr("Keine Episoden vorhanden."), color = p.textDim)
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
                 items(seasons, key = { it }) { n -> TvChip("Staffel $n", n == season, { vm.season.value = n }) }
             }
@@ -299,7 +302,7 @@ fun SeriesDetailScreen(nav: NavController, vm: SeriesDetailViewModel = hiltViewM
                     }
                 }
                 if (similar.isNotEmpty()) item {
-                    Text("Ähnliche Serien", color = p.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp, bottom = 6.dp))
+                    Text(tr("Ähnliche Serien"), color = p.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp, bottom = 6.dp))
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
                         items(similar, key = { it.id }) { sm -> FocusCard(sm.name, sm.poster, 110.dp, 162.dp, onClick = { nav.navigate(Routes.seriesDetail(sm.id)) }) }
                     }
@@ -331,7 +334,7 @@ private fun EpisodeRow(ep: EpisodeEntity, progress: Float?, watched: Boolean = f
         Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
             Text((if (watched) "✓ " else "") + "S${ep.season} · E${ep.episode} · ${ep.title}", color = p.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (ep.durationSec != null && ep.durationSec > 0) Text("${ep.durationSec / 60} Min.", color = p.textDim, fontSize = 12.sp)
+            if (ep.durationSec != null && ep.durationSec > 0) Text(trf("{0} Min.", (ep.durationSec / 60)), color = p.textDim, fontSize = 12.sp)
             if (ep.plot != null) Text(ep.plot, color = p.textDim, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }

@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.discover
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -23,17 +26,17 @@ import javax.inject.Singleton
 /** Ligen mit frei zugänglichen Live-Daten (öffentliche ESPN-Schnittstelle, ohne Schlüssel). */
 enum class League(val sport: Sport, val path: String, val label: String) {
     BUNDESLIGA(Sport.FOOTBALL, "soccer/ger.1", "Bundesliga"),
-    BUNDESLIGA2(Sport.FOOTBALL, "soccer/ger.2", "2. Bundesliga"),
+    BUNDESLIGA2(Sport.FOOTBALL, "soccer/ger.2", tr("2. Bundesliga")),
     DFB_POKAL(Sport.FOOTBALL, "soccer/ger.dfb_pokal", "DFB-Pokal"),
-    CHAMPIONS(Sport.CHAMPIONS, "soccer/uefa.champions", "Champions League"),
-    EUROPA(Sport.FOOTBALL, "soccer/uefa.europa", "Europa League"),
-    PREMIER(Sport.FOOTBALL, "soccer/eng.1", "Premier League"),
+    CHAMPIONS(Sport.CHAMPIONS, "soccer/uefa.champions", tr("Champions League")),
+    EUROPA(Sport.FOOTBALL, "soccer/uefa.europa", tr("Europa League")),
+    PREMIER(Sport.FOOTBALL, "soccer/eng.1", tr("Premier League")),
     LALIGA(Sport.FOOTBALL, "soccer/esp.1", "LaLiga"),
-    SERIE_A(Sport.FOOTBALL, "soccer/ita.1", "Serie A"),
-    NATIONS(Sport.FOOTBALL, "soccer/uefa.nations", "Nations League"),
-    F1(Sport.F1, "racing/f1", "Formel 1"),
-    ATP(Sport.TENNIS, "tennis/atp", "Tennis ATP"),
-    WTA(Sport.TENNIS, "tennis/wta", "Tennis WTA"),
+    SERIE_A(Sport.FOOTBALL, "soccer/ita.1", tr("Serie A")),
+    NATIONS(Sport.FOOTBALL, "soccer/uefa.nations", tr("Nations League")),
+    F1(Sport.F1, "racing/f1", tr("Formel 1")),
+    ATP(Sport.TENNIS, "tennis/atp", tr("Tennis ATP")),
+    WTA(Sport.TENNIS, "tennis/wta", tr("Tennis WTA")),
     NBA(Sport.BASKETBALL, "basketball/nba", "NBA");
 
     companion object {

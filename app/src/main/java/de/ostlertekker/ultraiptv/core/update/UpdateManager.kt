@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.update
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -57,21 +60,21 @@ class UpdateManager @Inject constructor(
             val req = Request.Builder().url("https://api.github.com/repos/${BuildConfig.UPDATE_REPO}/releases/latest")
                 .header("Accept", "application/vnd.github+json").build()
             http.newCall(req).execute().use { resp ->
-                if (!resp.isSuccessful) error("GitHub antwortet mit HTTP ${resp.code}")
+                if (!resp.isSuccessful) error(trf("GitHub antwortet mit HTTP {0}", resp.code))
                 val o = Json.parseToJsonElement(resp.body?.string() ?: "").let { it as JsonObject }
-                val tag = (o["tag_name"] as? JsonPrimitive)?.contentOrNull ?: error("Kein Release gefunden")
+                val tag = (o["tag_name"] as? JsonPrimitive)?.contentOrNull ?: error(tr("Kein Release gefunden"))
                 val code = tag.substringAfterLast('.').filter { it.isDigit() }.toIntOrNull() ?: 0
                 val notes = (o["body"] as? JsonPrimitive)?.contentOrNull.orEmpty()
                 val asset = (o["assets"] as? JsonArray)?.mapNotNull { it as? JsonObject }
                     ?.firstOrNull { (it["name"] as? JsonPrimitive)?.contentOrNull == assetName }
-                    ?: error("Release $tag enthält keine $assetName")
+                    ?: error(trf("Release {0} enthält keine {1}", tag, assetName))
                 val url = (asset["browser_download_url"] as JsonPrimitive).content
                 val size = (asset["size"] as? JsonPrimitive)?.longOrNull ?: 0L
                 if (code > BuildConfig.VERSION_CODE) UpdateState.Available(tag.removePrefix("v"), code, notes, url, size)
                 else UpdateState.UpToDate(BuildConfig.VERSION_NAME)
             }
         } catch (e: Exception) {
-            UpdateState.Error(e.message ?: "Update-Prüfung fehlgeschlagen")
+            UpdateState.Error(e.message ?: tr("Update-Prüfung fehlgeschlagen"))
         }
         _state.value = result
         result
@@ -84,8 +87,8 @@ class UpdateManager @Inject constructor(
             dir.listFiles()?.forEach { it.delete() }
             val target = File(dir, "UltraIPTV-${update.version}.apk")
             http.newCall(Request.Builder().url(update.url).build()).execute().use { resp ->
-                if (!resp.isSuccessful) error("Download: HTTP ${resp.code}")
-                val body = resp.body ?: error("Download: leere Antwort")
+                if (!resp.isSuccessful) error(trf("Download: HTTP {0}", resp.code))
+                val body = resp.body ?: error(tr("Download: leere Antwort"))
                 val total = body.contentLength().takeIf { it > 0 } ?: update.sizeBytes
                 body.byteStream().use { input ->
                     target.outputStream().use { out ->
@@ -107,7 +110,7 @@ class UpdateManager @Inject constructor(
             }
             _state.value = UpdateState.ReadyToInstall(update.version, target)
         } catch (e: Exception) {
-            _state.value = UpdateState.Error("Download fehlgeschlagen: ${e.message}")
+            _state.value = UpdateState.Error(trf("Download fehlgeschlagen: {0}", e.message))
         }
     }
 
@@ -131,7 +134,7 @@ class UpdateManager @Inject constructor(
         })
         true
     } catch (e: Exception) {
-        _state.value = UpdateState.Error("Installation konnte nicht gestartet werden: ${e.message}")
+        _state.value = UpdateState.Error(trf("Installation konnte nicht gestartet werden: {0}", e.message))
         false
     }
 }

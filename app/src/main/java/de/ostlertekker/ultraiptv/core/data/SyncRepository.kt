@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.data
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import android.util.Xml
 import androidx.room.withTransaction
 import de.ostlertekker.ultraiptv.core.database.ChannelEntity
@@ -101,7 +104,7 @@ class SyncRepository @Inject constructor(
         withContext(Dispatchers.IO) {
             val cfg = creds.load()
             if (cfg == null) {
-                _state.value = SyncState(false, "Keine Quelle konfiguriert", "Bitte zuerst eine Quelle einrichten")
+                _state.value = SyncState(false, tr("Keine Quelle konfiguriert"), tr("Bitte zuerst eine Quelle einrichten"))
                 return@withContext false
             }
             try {
@@ -113,7 +116,7 @@ class SyncRepository @Inject constructor(
                 runCatching { db.openHelper.writableDatabase.let { w -> de.ostlertekker.ultraiptv.core.database.Migrations.SANITIZE.forEach { w.execSQL(it) } } }
                 settings.set(Keys.LAST_SYNC, System.currentTimeMillis())
                 if (includeEpg) syncEpgInternal(cfg, m3uEpg)
-                _state.value = SyncState(false, "Synchronisation abgeschlossen")
+                _state.value = SyncState(false, tr("Synchronisation abgeschlossen"))
                 true
             } catch (e: CancellationException) {
                 throw e
@@ -129,7 +132,7 @@ class SyncRepository @Inject constructor(
             val cfg = creds.load() ?: return@withContext false
             try {
                 syncEpgInternal(cfg, null)
-                _state.value = SyncState(false, "EPG aktualisiert")
+                _state.value = SyncState(false, tr("EPG aktualisiert"))
                 true
             } catch (e: CancellationException) {
                 throw e
@@ -143,20 +146,20 @@ class SyncRepository @Inject constructor(
     // ------------------------------------------------------------------ M3U
 
     private suspend fun syncM3u(cfg: ProviderConfig): String? {
-        status("Playlist wird geladen …")
+        status(tr("Playlist wird geladen …"))
         val request = Request.Builder().url(cfg.m3uUrl.trim()).build()
         val result = http.newCall(request).execute().use { resp ->
-            if (!resp.isSuccessful) error("Playlist: HTTP ${resp.code}")
-            val body = resp.body ?: error("Playlist: leere Antwort")
+            if (!resp.isSuccessful) error(trf("Playlist: HTTP {0}", resp.code))
+            val body = resp.body ?: error(tr("Playlist: leere Antwort"))
             body.charStream().buffered().useLines { M3uParser.parse(it) }
         }
-        if (result.entries.isEmpty()) error("Playlist enthält keine Einträge")
+        if (result.entries.isEmpty()) error(tr("Playlist enthält keine Einträge"))
         result.epgUrl?.let { settings.set(Keys.M3U_HEADER_EPG, it) }
-        status("${result.entries.size} Einträge werden verarbeitet …")
+        status(trf("{0} Einträge werden verarbeitet …", result.entries.size))
 
         val cat = m3uCatalog(result.entries)
         val channels = cat.channels; val movies = cat.movies; val series = cat.series; val episodes = cat.episodes
-        status("Datenbank wird aktualisiert …")
+        status(tr("Datenbank wird aktualisiert …"))
         db.withTransaction {
             val dao = db.content()
             dao.clearChannels(); dao.clearMovies(); dao.clearSeries(); dao.clearEpisodes()
@@ -221,10 +224,10 @@ class SyncRepository @Inject constructor(
     // nachgeladene Details (Beschreibung, Hintergrund, Laufzeit, Episoden) bleiben erhalten. Bei Fehlern bleibt alles wie vorher.
 
     enum class CatalogPart(val id: String, val label: String) {
-        LIVE("iptv-live", "Live-TV: Sender, Kategorien, Catch-up"),
-        VOD("iptv-vod", "Filme: Katalog, Kategorien, Metadaten"),
-        SERIES("iptv-series", "Serien: Katalog, Kategorien, Metadaten"),
-        PLAYLIST("iptv-m3u", "Playlist (M3U): Sender, Filme, Serien, Episoden"),
+        LIVE("iptv-live", tr("Live-TV: Sender, Kategorien, Catch-up")),
+        VOD("iptv-vod", tr("Filme: Katalog, Kategorien, Metadaten")),
+        SERIES("iptv-series", tr("Serien: Katalog, Kategorien, Metadaten")),
+        PLAYLIST("iptv-m3u", tr("Playlist (M3U): Sender, Filme, Serien, Episoden")),
     }
 
     data class CatalogDiff(val added: Int, val changed: Int, val removed: Int, val total: Int) {
@@ -241,17 +244,17 @@ class SyncRepository @Inject constructor(
 
     /** Lädt die Rohdaten eines Katalogteils in [dir] (Kategorien + Liste bzw. Playlist). Gibt die Dateien zurück. */
     suspend fun downloadCatalog(part: CatalogPart, dir: java.io.File): List<java.io.File> = withContext(Dispatchers.IO) {
-        val cfg = creds.load() ?: error("Keine Quelle eingerichtet")
+        val cfg = creds.load() ?: error(tr("Keine Quelle eingerichtet"))
         dir.mkdirs()
         fun save(url: String, name: String): java.io.File {
             val out = java.io.File(dir, name); val part2 = java.io.File(dir, "$name.part")
             http.newCall(Request.Builder().url(url).build()).execute().use { r ->
                 if (!r.isSuccessful) throw java.io.IOException("HTTP ${r.code}")
-                val body = r.body ?: throw java.io.IOException("Leere Antwort")
+                val body = r.body ?: throw java.io.IOException(tr("Leere Antwort"))
                 body.byteStream().use { i -> part2.outputStream().use { o -> i.copyTo(o, 64 * 1024) } }
             }
-            if (part2.length() == 0L) throw java.io.IOException("Leere Antwort")
-            out.delete(); if (!part2.renameTo(out)) throw java.io.IOException("Zwischenspeichern fehlgeschlagen")
+            if (part2.length() == 0L) throw java.io.IOException(tr("Leere Antwort"))
+            out.delete(); if (!part2.renameTo(out)) throw java.io.IOException(tr("Zwischenspeichern fehlgeschlagen"))
             return out
         }
         when (part) {
@@ -316,7 +319,7 @@ class SyncRepository @Inject constructor(
             CatalogPart.SERIES -> { val c = catsFile(files[0]); FullPlan(null, null, plan(readArrayFile(files[1]) { mapSeries(it, c) }, dao.allSeries().filter { it.id.startsWith("x:") }, { it.id }) { n, o -> mergeSeries(n, o, false) }, null) }
             CatalogPart.PLAYLIST -> {
                 val res = files[0].bufferedReader().useLines { M3uParser.parse(it) }
-                if (res.entries.isEmpty()) error("Playlist enthält keine Einträge")
+                if (res.entries.isEmpty()) error(tr("Playlist enthält keine Einträge"))
                 res.epgUrl?.let { settings.set(Keys.M3U_HEADER_EPG, it) }
                 val cat = m3uCatalog(res.entries)
                 FullPlan(
@@ -386,7 +389,7 @@ class SyncRepository @Inject constructor(
                     st.executeInsert(); count++
                 }
             }
-            if (count == 0) throw IllegalStateException("EPG-Datei enthält keine Sendungen im Zeitraum – bisheriges EPG bleibt")
+            if (count == 0) throw IllegalStateException(tr("EPG-Datei enthält keine Sendungen im Zeitraum – bisheriges EPG bleibt"))
         }
         settings.set(Keys.LAST_EPG_SYNC, System.currentTimeMillis())
         count
@@ -398,7 +401,7 @@ class SyncRepository @Inject constructor(
     private suspend fun fetch(url: String): okhttp3.ResponseBody = withContext(Dispatchers.IO) {
         val resp = http.newCall(Request.Builder().url(url).build()).execute()
         if (!resp.isSuccessful) { val c = resp.code; resp.close(); throw java.io.IOException("HTTP $c") }
-        resp.body ?: run { resp.close(); throw java.io.IOException("Leere Antwort") }
+        resp.body ?: run { resp.close(); throw java.io.IOException(tr("Leere Antwort")) }
     }
 
     @OptIn(ExperimentalSerializationApi::class)
@@ -426,31 +429,31 @@ class SyncRepository @Inject constructor(
 
     private suspend fun syncXtream(cfg: ProviderConfig) {
         val base = XtreamUrls.normalizeServer(cfg.server)
-        status("Anmeldung beim Anbieter …")
+        status(tr("Anmeldung beim Anbieter …"))
         val auth = readObject(XtreamUrls.api(base, cfg.username, cfg.password, null))
-            ?: error("Server antwortet nicht im Xtream-Format")
+            ?: error(tr("Server antwortet nicht im Xtream-Format"))
         val userInfo = auth.obj("user_info")
-        if (userInfo == null || userInfo.str("auth") == "0") error("Anmeldung abgelehnt – Zugangsdaten prüfen")
+        if (userInfo == null || userInfo.str("auth") == "0") error(tr("Anmeldung abgelehnt – Zugangsdaten prüfen"))
         _accountInfo.value = parseAccountInfo(auth)
         _accountInfo.value?.serverTimezone?.let { tz -> runCatching { settings.set(Keys.SERVER_TZ, tz) } }
-        userInfo.str("status")?.let { if (!it.equals("Active", true)) error("Konto-Status: $it") }
+        userInfo.str("status")?.let { if (!it.equals("Active", true)) error(trf("Konto-Status: {0}", it)) }
 
-        status("Live-TV-Kategorien …")
+        status(tr("Live-TV-Kategorien …"))
         val liveCats = categories(base, cfg, "get_live_categories")
-        status("Live-Sender …")
+        status(tr("Live-Sender …"))
         val channels = readArray(XtreamUrls.api(base, cfg.username, cfg.password, "get_live_streams")) { o -> mapLive(o, liveCats) }
 
-        status("Film-Kategorien …")
+        status(tr("Film-Kategorien …"))
         val vodCats = categories(base, cfg, "get_vod_categories")
-        status("Filme …")
+        status(tr("Filme …"))
         val movies = readArray(XtreamUrls.api(base, cfg.username, cfg.password, "get_vod_streams")) { o -> mapVod(o, vodCats) }
 
-        status("Serien-Kategorien …")
+        status(tr("Serien-Kategorien …"))
         val seriesCats = categories(base, cfg, "get_series_categories")
-        status("Serien …")
+        status(tr("Serien …"))
         val series = readArray(XtreamUrls.api(base, cfg.username, cfg.password, "get_series")) { o -> mapSeries(o, seriesCats) }
 
-        status("Datenbank wird aktualisiert …")
+        status(tr("Datenbank wird aktualisiert …"))
         db.withTransaction {
             val dao = db.content()
             dao.clearChannels(); dao.clearMovies(); dao.clearSeries(); dao.clearEpisodes()
@@ -621,18 +624,18 @@ class SyncRepository @Inject constructor(
             ?: m3uHeaderEpg
             ?: if (cfg.type == ProviderType.XTREAM) XtreamUrls.xmltv(XtreamUrls.normalizeServer(cfg.server), cfg.username, cfg.password) else null
         if (url == null) return
-        status("TV-Programm (EPG) wird geladen …")
+        status(tr("TV-Programm (EPG) wird geladen …"))
         // Erst vollständig in eine Datei laden, dann atomar übernehmen – ein abgebrochener Download löscht nie das bisherige EPG
         val tmp = java.io.File(epgTempDir, "epg-sync.xml")
         val part = java.io.File(epgTempDir, "epg-sync.xml.part")
         try {
             http.newCall(Request.Builder().url(url).build()).execute().use { resp ->
-                if (!resp.isSuccessful) error("EPG: HTTP ${resp.code}")
-                val body = resp.body ?: error("EPG: leere Antwort")
+                if (!resp.isSuccessful) error(trf("EPG: HTTP {0}", resp.code))
+                val body = resp.body ?: error(tr("EPG: leere Antwort"))
                 body.byteStream().use { i2 -> part.outputStream().use { o -> i2.copyTo(o, 64 * 1024) } }
             }
-            tmp.delete(); if (!part.renameTo(tmp)) error("EPG: Zwischenspeichern fehlgeschlagen")
-            status("TV-Programm (EPG) wird übernommen …")
+            tmp.delete(); if (!part.renameTo(tmp)) error(tr("EPG: Zwischenspeichern fehlgeschlagen"))
+            status(tr("TV-Programm (EPG) wird übernommen …"))
             importEpgFile(tmp)
         } finally { part.delete(); tmp.delete() }
     }

@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.radio
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import androidx.compose.ui.graphics.graphicsLayer
 import de.ostlertekker.ultraiptv.core.ui.outlineButton
 import android.widget.Toast
@@ -147,17 +150,17 @@ fun RadioScreen(vm: RadioViewModel = hiltViewModel()) {
 
     Column(Modifier.fillMaxSize().padding(24.dp).then(toBar)) {
         val cName = countries?.firstOrNull { it.code == selected }?.name
-        ScreenTitle("Radio", subtitle = if (selected == RADIO_FAVS) "Deine Lieblingssender" else if (selected == RADIO_SEARCH)
-            "Alle Sender weltweit durchsuchen – Name eingeben oder Mikrofon nutzen" else
-            "Top 20 ${cName?.let { "· $it " } ?: ""}· meistgehört laut Radio Browser" +
+        ScreenTitle("Radio", subtitle = if (selected == RADIO_FAVS) tr("Deine Lieblingssender") else if (selected == RADIO_SEARCH)
+            tr("Alle Sender weltweit durchsuchen – Name eingeben oder Mikrofon nutzen") else
+            trf("Top 20 {0}· meistgehört laut Radio Browser", (cName?.let { "· $it " } ?: "")) +
                 (if (current != null) " · Pfeil rechts = Wiedergabe-Leiste" else ""))
         Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             // Länder (wie die Kategorien bei Live TV)
             val list = countries
             val listState = rememberLazyListState()
             LazyColumn(Modifier.width(260.dp).fillMaxHeight(), state = listState, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                item(key = "search") { CategoryItem("Sender suchen", selected == RADIO_SEARCH) { vm.select(RADIO_SEARCH) } }
-                item(key = "fav") { CategoryItem("★ Favoriten (${favs.size})", selected == RADIO_FAVS) { vm.select(RADIO_FAVS) } }
+                item(key = "search") { CategoryItem(tr("Sender suchen"), selected == RADIO_SEARCH) { vm.select(RADIO_SEARCH) } }
+                item(key = "fav") { CategoryItem(trf("★ Favoriten ({0})", favs.size), selected == RADIO_FAVS) { vm.select(RADIO_FAVS) } }
                 if (list == null) item { if (failed == null) UltraLoader() }
                 else {
                     val pinned = list.filter { it.code == home }
@@ -174,17 +177,17 @@ fun RadioScreen(vm: RadioViewModel = hiltViewModel()) {
                     val q by vm.query.collectAsStateWithLifecycle()
                     val voice = de.ostlertekker.ultraiptv.core.ui.rememberVoiceSearch { vm.search(it, immediate = true) }
                     Row(Modifier.padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        de.ostlertekker.ultraiptv.core.ui.TvTextField(q, { vm.search(it) }, "Sendername, z. B. „1Live“ oder „Radio Paradise“", modifier = Modifier.weight(1f))
+                        de.ostlertekker.ultraiptv.core.ui.TvTextField(q, { vm.search(it) }, tr("Sendername, z. B. „1Live“ oder „Radio Paradise“"), modifier = Modifier.weight(1f))
                         de.ostlertekker.ultraiptv.core.ui.VoiceSearchButton(voice)
                     }
                 }
                 when {
                     selected == RADIO_SEARCH && st != null && st.isEmpty() -> Text(
-                        if (vm.query.collectAsStateWithLifecycle().value.trim().length < 2) "Mindestens 2 Zeichen eingeben." else "Keine Sender gefunden.",
+                        if (vm.query.collectAsStateWithLifecycle().value.trim().length < 2) tr("Mindestens 2 Zeichen eingeben.") else tr("Keine Sender gefunden."),
                         color = pal.textDim, fontSize = 14.sp)
-                    failed != null && st == null -> Text("Radio-Datenbank gerade nicht erreichbar. Bitte später erneut versuchen.", color = pal.textDim, fontSize = 14.sp)
+                    failed != null && st == null -> Text(tr("Radio-Datenbank gerade nicht erreichbar. Bitte später erneut versuchen."), color = pal.textDim, fontSize = 14.sp)
                     st == null -> UltraLoader()
-                    st.isEmpty() -> Text(if (selected == RADIO_FAVS) "Noch keine Favoriten – bei einem Sender lange OK drücken." else "Für dieses Land sind keine funktionierenden Sender eingetragen.",
+                    st.isEmpty() -> Text(if (selected == RADIO_FAVS) tr("Noch keine Favoriten – bei einem Sender lange OK drücken.") else tr("Für dieses Land sind keine funktionierenden Sender eingetragen."),
                         color = pal.textDim, fontSize = 14.sp)
                     else -> LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         items(st, key = { it.id }) { s ->
@@ -204,7 +207,7 @@ fun RadioScreen(vm: RadioViewModel = hiltViewModel()) {
                                 onClick = { if (current?.id == s.id) vm.player.toggle() else vm.player.play(s, st) },
                                 onLong = {
                                     val on = vm.toggleFavorite(s)
-                                    Toast.makeText(ctx, if (on) "★ ${s.name} zu Favoriten hinzugefügt" else "${s.name} aus Favoriten entfernt", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(ctx, if (on) trf("★ {0} zu Favoriten hinzugefügt", s.name) else "${s.name} aus Favoriten entfernt", Toast.LENGTH_SHORT).show()
                                 })
                         }
                     }
@@ -255,7 +258,7 @@ private fun StationRow(s: RadioStation, modifier: Modifier = Modifier, showCount
                 androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.scaleOut()) {
             Text("★", color = pal.primary, fontSize = 16.sp, modifier = Modifier.padding(start = 8.dp))
         }
-        if (isCurrent) Text(if (playing) "● LÄUFT" else "❚❚", color = if (focused) Color.Black else pal.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+        if (isCurrent) Text(if (playing) tr("● LÄUFT") else "❚❚", color = if (focused) Color.Black else pal.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(start = 10.dp).background(if (focused) pal.primary else pal.primary.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
                 .padding(horizontal = 8.dp, vertical = 3.dp))
     }
@@ -276,7 +279,7 @@ private fun RadioBar(s: RadioStation, playing: Boolean, buffering: Boolean, titl
                     modifier = Modifier.weight(1f, fill = false))
                 SoundWaves(active = playing && !buffering && error == null, color = pal.primary, modifier = Modifier.padding(start = 12.dp))
             }
-            Text(error ?: title ?: if (buffering) "Verbinde …" else if (playing) "Live" else "Pausiert",
+            Text(error ?: title ?: if (buffering) tr("Verbinde …") else if (playing) "Live" else "Pausiert",
                 color = if (error != null) Color(0xFFFF6B6B) else pal.textDim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         RoundIcon("⏮", onPrev); RoundIcon(if (playing) "❚❚" else "▶", onToggle, primary = true, focus = focus); RoundIcon("⏭", onNext)

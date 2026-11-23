@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.player
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import de.ostlertekker.ultraiptv.core.model.QualityMode
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -69,19 +72,19 @@ object UltraQualityEngine {
     fun highFrameRateStatus(sourceFps: Float, decoderSupports: Boolean, modes: List<DisplayModeInfo>): String {
         val displayMax = modes.maxOfOrNull { it.refreshRate } ?: 0f
         return when {
-            sourceFps in 1f..100f -> "Quelle hat ${"%.2f".format(sourceFps)} fps – 120 FPS nicht relevant"
-            sourceFps <= 0f -> "Quell-Bildrate unbekannt"
-            !decoderSupports -> "Decoder meldet keine 120-fps-Unterstützung"
+            sourceFps in 1f..100f -> trf("Quelle hat {0} fps – 120 FPS nicht relevant", ("%.2f".format(sourceFps)))
+            sourceFps <= 0f -> tr("Quell-Bildrate unbekannt")
+            !decoderSupports -> tr("Decoder meldet keine 120-fps-Unterstützung")
             displayMax < 119f -> "Display/HDMI meldet max. ${"%.0f".format(displayMax)} Hz – 120 FPS nicht möglich"
-            else -> "120 FPS: Quelle, Decoder und Display unterstützen es"
+            else -> tr("120 FPS: Quelle, Decoder und Display unterstützen es")
         }
     }
 
     fun resolutionLabel(width: Int, height: Int): String = when {
         width <= 0 || height <= 0 -> "unbekannt"
-        height >= 2100 || width >= 3800 -> "${width}×$height (4K UHD)"
-        height >= 1400 -> "${width}×$height (QHD)"
-        height >= 1060 || width >= 1900 -> "${width}×$height (Full HD)"
+        height >= 2100 || width >= 3800 -> trf("{0}×{1} (4K UHD)", width, height)
+        height >= 1400 -> trf("{0}×{1} (QHD)", width, height)
+        height >= 1060 || width >= 1900 -> trf("{0}×{1} (Full HD)", width, height)
         height >= 700 || width >= 1260 -> "${width}×$height (HD)"
         else -> "${width}×$height (SD)"
     }

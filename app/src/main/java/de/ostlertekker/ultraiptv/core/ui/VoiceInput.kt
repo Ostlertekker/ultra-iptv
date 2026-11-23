@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.ui
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import android.Manifest
 import android.app.Activity
 import android.content.Context
@@ -92,7 +95,7 @@ fun rememberVoiceSearch(onResultIn: (String) -> Unit): VoiceSearchState {
         putExtra(RecognizerIntent.EXTRA_LANGUAGE, lang)
         putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-        putExtra(RecognizerIntent.EXTRA_PROMPT, "Was möchtest du suchen?")
+        putExtra(RecognizerIntent.EXTRA_PROMPT, tr("Was möchtest du suchen?"))
     }
 
     fun startInApp() {
@@ -107,9 +110,9 @@ fun rememberVoiceSearch(onResultIn: (String) -> Unit): VoiceSearchState {
             override fun onEndOfSpeech() {}
             override fun onError(error: Int) {
                 val msg = when (error) {
-                    SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Nichts verstanden – bitte noch einmal"
-                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Mikrofon-Berechtigung fehlt"
-                    SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Spracherkennung: keine Verbindung"
+                    SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> tr("Nichts verstanden – bitte noch einmal")
+                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> tr("Mikrofon-Berechtigung fehlt")
+                    SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> tr("Spracherkennung: keine Verbindung")
                     else -> null
                 }
                 stop()
@@ -141,9 +144,9 @@ fun rememberVoiceSearch(onResultIn: (String) -> Unit): VoiceSearchState {
                 contentAlignment = Alignment.Center) {
                 Icon(MicIcon, null, tint = Color.White, modifier = Modifier.size(40.dp))
             }
-            Text(if (partial.isBlank()) "Ich höre zu …" else partial, color = Color.White, fontSize = 20.sp,
+            Text(if (partial.isBlank()) tr("Ich höre zu …") else partial, color = Color.White, fontSize = 20.sp,
                 fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
-            Text("Sprich jetzt deinen Suchbegriff · Zurück bricht ab", color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp)
+            Text(tr("Sprich jetzt deinen Suchbegriff · Zurück bricht ab"), color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp)
         }
     }
 
@@ -162,7 +165,7 @@ fun rememberVoiceSearch(onResultIn: (String) -> Unit): VoiceSearchState {
 private fun fallback(context: Context, launch: (Intent) -> Unit, intent: () -> Intent) {
     val i = intent()
     if (i.resolveActivity(context.packageManager) != null && runCatching { launch(i) }.isSuccess) return
-    Toast.makeText(context, "Kein Spracherkenner auf diesem Gerät. Tipp: Suchfeld mit OK öffnen und die Mikrofontaste der Fernbedienung gedrückt halten.",
+    Toast.makeText(context, tr("Kein Spracherkenner auf diesem Gerät. Tipp: Suchfeld mit OK öffnen und die Mikrofontaste der Fernbedienung gedrückt halten."),
         Toast.LENGTH_LONG).show()
 }
 

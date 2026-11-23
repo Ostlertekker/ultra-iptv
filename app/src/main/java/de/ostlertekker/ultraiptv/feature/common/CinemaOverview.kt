@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.common
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import kotlinx.coroutines.launch
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedH
@@ -110,8 +113,8 @@ fun CinemaOverview(
                     // Fokus im Titelbild → ganz nach oben scrollen, damit die Kopfzeile (Suchen …) sichtbar und per Pfeil hoch erreichbar ist
                     Row(Modifier.padding(top = 14.dp).onFocusChanged { if (it.hasFocus) scope.launch { listState.animateScrollToItem(0) } },
                         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        PillButton("▶  Abspielen", primary = true) { onPlay(hero) }
-                        PillButton("Weitere Informationen") { onOpen(hero) }
+                        PillButton(tr("▶  Abspielen"), primary = true) { onPlay(hero) }
+                        PillButton(tr("Weitere Informationen")) { onOpen(hero) }
                     }
                 }
             }
@@ -134,7 +137,7 @@ fun CinemaOverview(
             }
         }
         if (rows.all { it.tiles.isEmpty() } && hero == null) item(key = "empty") {
-            Text("Noch keine Inhalte – Quelle in den Einstellungen synchronisieren.", color = p.textDim, modifier = Modifier.padding(24.dp))
+            Text(tr("Noch keine Inhalte – Quelle in den Einstellungen synchronisieren."), color = p.textDim, modifier = Modifier.padding(24.dp))
         }
     }
 }

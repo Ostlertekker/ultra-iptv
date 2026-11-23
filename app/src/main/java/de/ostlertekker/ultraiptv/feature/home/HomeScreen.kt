@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.home
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedH
 import de.ostlertekker.ultraiptv.core.ui.focusBleed
@@ -168,25 +171,25 @@ class HomeViewModel @Inject constructor(
         fun cq(where: String, vararg args: Any) = SimpleSQLiteQuery("SELECT * FROM channels WHERE ($where)$a ORDER BY number, name LIMIT 30", args)
         val rows = ArrayList<DynamicRow>()
         val weekAgo = System.currentTimeMillis() - 7 * 86_400_000L
-        dao.rawMovies(mq("addedAt > ?", "addedAt DESC", weekAgo)).takeIf { it.size >= 3 }?.let { rows += DynamicRow("Neu diese Woche", movies = it) }
+        dao.rawMovies(mq("addedAt > ?", "addedAt DESC", weekAgo)).takeIf { it.size >= 3 }?.let { rows += DynamicRow(tr("Neu diese Woche"), movies = it) }
         dao.rawMovies(mq("name LIKE '%4K%' OR name LIKE '%UHD%' OR category LIKE '%4K%' OR category LIKE '%UHD%'", "addedAt DESC"))
             .takeIf { it.size >= 3 }?.let { rows += DynamicRow("4K / UHD", movies = it) }
         dao.rawChannels(cq("category LIKE '%sport%' OR name LIKE '%sport%' OR name LIKE '%dazn%'")).takeIf { it.size >= 3 }
-            ?.let { rows += DynamicRow("Sport live", channels = it) }
+            ?.let { rows += DynamicRow(tr("Sport live"), channels = it) }
         dao.rawMovies(mq("genre LIKE '%anim%' OR genre LIKE '%famil%' OR genre LIKE '%kinder%' OR category LIKE '%kids%' OR category LIKE '%kinder%' OR category LIKE '%family%'", "rating DESC"))
-            .takeIf { it.size >= 3 }?.let { rows += DynamicRow("Kinder & Familie", movies = it) }
+            .takeIf { it.size >= 3 }?.let { rows += DynamicRow(tr("Kinder & Familie"), movies = it) }
         dao.rawMovies(mq("year != '' AND CAST(year AS INTEGER) BETWEEN 1950 AND 1999", "rating DESC")).takeIf { it.size >= 3 }
             ?.let { rows += DynamicRow("Klassiker", movies = it) }
         val country = java.util.Locale.getDefault().country.uppercase()
         Countries.byCode(country)?.let { c ->
-            dao.rawChannels(cq("country = ?", c.code)).takeIf { it.size >= 3 }?.let { rows += DynamicRow("Sender aus ${c.name} ${c.flag}", channels = it) }
+            dao.rawChannels(cq("country = ?", c.code)).takeIf { it.size >= 3 }?.let { rows += DynamicRow(trf("Sender aus {0} {1}", c.name, c.flag), channels = it) }
         }
         // Lieblingsgenre aus dem Verlauf
         val recent = user.recentlyWatched.first().filter { it.kind == ContentKind.MOVIE.name }.take(20)
         val genre = recent.mapNotNull { dao.movie(it.itemId)?.genre?.split(',', '/')?.firstOrNull()?.trim() }
             .filter { it.isNotBlank() }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
         if (genre != null) dao.rawMovies(mq("genre LIKE ?", "rating DESC", "%$genre%")).takeIf { it.size >= 3 }
-            ?.let { rows += DynamicRow("Dein Lieblingsgenre: $genre", movies = it) }
+            ?.let { rows += DynamicRow(trf("Dein Lieblingsgenre: {0}", genre), movies = it) }
         return rows
     }
     private fun <T> StateFlowOf(flow: kotlinx.coroutines.flow.Flow<List<T>>): StateFlow<List<T>> =
@@ -249,10 +252,10 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 if (sync.running) UltraLoader(label = sync.message)
                 else {
-                    Text("Noch keine Inhalte", color = p.text, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                    Text(sync.lastError ?: "Richte in den Einstellungen eine autorisierte M3U- oder Xtream-Quelle ein.",
+                    Text(tr("Noch keine Inhalte"), color = p.text, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                    Text(sync.lastError ?: tr("Richte in den Einstellungen eine autorisierte M3U- oder Xtream-Quelle ein."),
                         color = p.textDim, fontSize = 15.sp, modifier = Modifier.padding(vertical = 12.dp))
-                    TvButton("Quelle einrichten", onClick = { nav.navigate(Routes.SETUP) }, primary = true)
+                    TvButton(tr("Quelle einrichten"), onClick = { nav.navigate(Routes.SETUP) }, primary = true)
                 }
             }
         }
@@ -300,7 +303,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
                             scope.launch { listState.animateScrollToItem(0) }
                     }, horizontalArrangement = Arrangement.spacedBy(14.dp),
                         verticalAlignment = Alignment.CenterVertically) {
-                        HeroButton("▶  Abspielen", primary = true, modifier = Modifier.contentEntry()) { context.openPlayer(ContentKind.MOVIE, hero.id) }
+                        HeroButton(tr("▶  Abspielen"), primary = true, modifier = Modifier.contentEntry()) { context.openPlayer(ContentKind.MOVIE, hero.id) }
                         HeroButton("Details") { nav.navigate(Routes.movie(hero.id)) }
                         if (heroes.size > 1) Row(Modifier.padding(start = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             heroes.indices.forEach { i ->
@@ -325,7 +328,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
                 verticalAlignment = Alignment.CenterVertically) {
                 Text("🔔 ${if (unread > 1) "$unread neue · " else ""}${note.title}", color = p.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                TvButton("Öffnen", onClick = { nav.navigate(Routes.SETTINGS) })
+                TvButton(tr("Öffnen"), onClick = { nav.navigate(Routes.SETTINGS) })
             }
         }
         if (cw.isNotEmpty()) item(key = "cw") {
@@ -339,29 +342,29 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
                                 context.openPlayer(kind, pr.itemId, pr.positionMs)
                             },
                             progress = if (pr.durationMs > 0) pr.positionMs.toFloat() / pr.durationMs else null,
-                            subtitle = if (pr.positionMs == 0L) "Nächste Folge" else if (pr.durationMs > 0) "Noch ${((pr.durationMs - pr.positionMs) / 60000).coerceAtLeast(1)} Min." else null)
+                            subtitle = if (pr.positionMs == 0L) tr("Nächste Folge") else if (pr.durationMs > 0) trf("Noch {0} Min.", (((pr.durationMs - pr.positionMs) / 60000).coerceAtLeast(1))) else null)
                     }
                 }
             }
         }
         // Reihenfolge laut Designkonzept: ruhig, große Bilder, nur Reihen mit echten Inhalten
         if (recentCh.isNotEmpty()) item(key = "recent") { Column(pad) { ChannelRow("Zuletzt gesehen", recentCh) { context.openPlayer(ContentKind.LIVE, it.id, category = it.category) } } }
-        if (popular.isNotEmpty() && popular.any { (it.rating ?: 0.0) > 0 }) item(key = "pop") { Column(pad) { MovieRow("Beliebte Filme", popular, onMore = { vm.pager.more("pop", it) }) { nav.navigate(Routes.movie(it.id)) } } }
-        if (popularSeries.isNotEmpty() && popularSeries.any { (it.rating ?: 0.0) > 0 }) item(key = "popS") { Column(pad) { SeriesRow("Beliebte Serien", popularSeries, onMore = { vm.pager.more("popS", it) }) { nav.navigate(Routes.seriesDetail(it.id)) } } }
-        if (newMovies.isNotEmpty()) item(key = "new") { Column(pad) { MovieRow("Neu hinzugefügt", newMovies, onMore = { vm.pager.more("new", it) }) { nav.navigate(Routes.movie(it.id)) } } }
-        if (series.isNotEmpty()) item(key = "series") { Column(pad) { SeriesRow("Neue Serien", series, onMore = { vm.pager.more("series", it) }) { nav.navigate(Routes.seriesDetail(it.id)) } } }
+        if (popular.isNotEmpty() && popular.any { (it.rating ?: 0.0) > 0 }) item(key = "pop") { Column(pad) { MovieRow(tr("Beliebte Filme"), popular, onMore = { vm.pager.more("pop", it) }) { nav.navigate(Routes.movie(it.id)) } } }
+        if (popularSeries.isNotEmpty() && popularSeries.any { (it.rating ?: 0.0) > 0 }) item(key = "popS") { Column(pad) { SeriesRow(tr("Beliebte Serien"), popularSeries, onMore = { vm.pager.more("popS", it) }) { nav.navigate(Routes.seriesDetail(it.id)) } } }
+        if (newMovies.isNotEmpty()) item(key = "new") { Column(pad) { MovieRow(tr("Neu hinzugefügt"), newMovies, onMore = { vm.pager.more("new", it) }) { nav.navigate(Routes.movie(it.id)) } } }
+        if (series.isNotEmpty()) item(key = "series") { Column(pad) { SeriesRow(tr("Neue Serien"), series, onMore = { vm.pager.more("series", it) }) { nav.navigate(Routes.seriesDetail(it.id)) } } }
         if (favCh.isNotEmpty()) item(key = "fav") { Column(pad) { ChannelRow("Lieblingssender", favCh) { context.openPlayer(ContentKind.LIVE, it.id, category = it.category) } } }
         if (favMovies.isNotEmpty() || favSeries.isNotEmpty()) item(key = "favVod") {
             Column(pad) {
-                SectionHeader("Meine Merkliste")
+                SectionHeader(tr("Meine Merkliste"))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 8.dp + FocusBleedV, bottom = 8.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
                     items(favMovies, key = { "m" + it.id }) { m -> FocusCard(m.name, m.poster, 150.dp, 222.dp, onClick = { nav.navigate(Routes.movie(m.id)) }, subtitle = m.year) }
                     items(favSeries, key = { "s" + it.id }) { se -> FocusCard(se.name, se.poster, 150.dp, 222.dp, onClick = { nav.navigate(Routes.seriesDetail(se.id)) }, subtitle = se.year) }
                 }
             }
         }
-        if (recommended.isNotEmpty()) item(key = "rec") { Column(pad) { MovieRow("Empfehlungen für dich", recommended, onMore = { vm.pager.more("rec", it) }) { nav.navigate(Routes.movie(it.id)) } } }
-        dynamicRows.filter { it.title != "Sport live" }.take(3).forEach { row ->
+        if (recommended.isNotEmpty()) item(key = "rec") { Column(pad) { MovieRow(tr("Empfehlungen für dich"), recommended, onMore = { vm.pager.more("rec", it) }) { nav.navigate(Routes.movie(it.id)) } } }
+        dynamicRows.filter { it.title != tr("Sport live") }.take(3).forEach { row ->
             item(key = "dyn_" + row.title) {
                 Column(pad) {
                     if (row.movies.isNotEmpty()) MovieRow(row.title, row.movies) { nav.navigate(Routes.movie(it.id)) }
@@ -395,7 +398,7 @@ private fun ProgramRow(title: String, list: List<de.ostlertekker.ultraiptv.core.
             val live = pr.startMs <= now && now < pr.endMs
             FocusCard(pr.title, pr.logo, 260.dp, 146.dp, onClick = { onClick(pr) }, contentScale = ContentScale.Fit,
                 progress = if (live && pr.endMs > pr.startMs) (now - pr.startMs).toFloat() / (pr.endMs - pr.startMs) else null,
-                subtitle = (if (live) "● Live · " else "") + pr.channelName + " · " + fmt.format(java.util.Date(pr.startMs)) + "–" + fmt.format(java.util.Date(pr.endMs)))
+                subtitle = (if (live) tr("● Live · ") else "") + pr.channelName + " · " + fmt.format(java.util.Date(pr.startMs)) + "–" + fmt.format(java.util.Date(pr.endMs)))
         }
     }
 }
@@ -513,7 +516,7 @@ private fun SportTicker(events: List<de.ostlertekker.ultraiptv.core.discover.Sco
         verticalAlignment = Alignment.CenterVertically) {
         NewsBadge(green, "SPORT")
         if (events.isEmpty())
-            Text("Gerade keine Live-Events", color = p.textDim, fontSize = 14.sp, maxLines = 1, modifier = Modifier.padding(start = 12.dp))
+            Text(tr("Gerade keine Live-Events"), color = p.textDim, fontSize = 14.sp, maxLines = 1, modifier = Modifier.padding(start = 12.dp))
         else SmoothMarquee(text, Modifier.weight(1f).padding(start = 12.dp, end = 8.dp))
     }
 }
@@ -583,7 +586,7 @@ private fun WeatherStrip(w: de.ostlertekker.ultraiptv.core.weather.Weather) {
         Column {
             Text("${w.place} · ${w.text}", color = p.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
             Text(listOfNotNull(w.feels?.let { "gefühlt $it°" }, if (w.todayMax != null && w.todayMin != null) "heute ${w.todayMax}° / ${w.todayMin}°" else null,
-                w.rainPct?.let { "Regen $it %" }, w.wind?.let { "Wind $it km/h" }, w.humidity?.let { "Luftfeuchte $it %" }).joinToString("  ·  "),
+                w.rainPct?.let { trf("Regen {0} %", it) }, w.wind?.let { "Wind $it km/h" }, w.humidity?.let { trf("Luftfeuchte {0} %", it) }).joinToString("  ·  "),
                 color = p.textDim, fontSize = 12.sp, maxLines = 1)
         }
         Spacer(Modifier.weight(1f))

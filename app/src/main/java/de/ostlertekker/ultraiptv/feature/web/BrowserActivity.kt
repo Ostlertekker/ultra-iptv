@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.web
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import de.ostlertekker.ultraiptv.feature.web.adblock.FilterEngine.Type as AdType
@@ -62,7 +65,7 @@ class BrowserActivity : ComponentActivity() {
         private const val START = "https://ultra.start/"
         private const val SEARCH = "https://duckduckgo.com/?q="
         private val DEFAULTS = listOf(
-            "ARD Mediathek" to "https://www.ardmediathek.de/",
+            tr("ARD Mediathek") to "https://www.ardmediathek.de/",
             "ZDF" to "https://www.zdf.de/",
             "Arte" to "https://www.arte.tv/de/",
             "Tagesschau" to "https://www.tagesschau.de/",
@@ -113,7 +116,7 @@ class BrowserActivity : ComponentActivity() {
         }
         lifecycleScope.launch { adblocker.engine.collect { e -> registerGenericCss(e) } }
         if (savedInstanceState != null) web.restoreState(savedInstanceState) else showStart()
-        Toast.makeText(this, "Pfeiltasten: Zeiger · OK: Klick · Zurück lang: ULTRA IPTV", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, tr("Pfeiltasten: Zeiger · OK: Klick · Zurück lang: ULTRA IPTV"), Toast.LENGTH_LONG).show()
     }
 
     // ------------------------------------------------------------------ Aufbau
@@ -138,7 +141,7 @@ class BrowserActivity : ComponentActivity() {
         add(pill("⌂") { showStart() })
         url = EditText(this@BrowserActivity).apply {
             setSingleLine(); textSize = 15f; setTextColor(Color.WHITE); setHintTextColor(Color.GRAY)
-            hint = "Adresse oder Suchbegriff"
+            hint = tr("Adresse oder Suchbegriff")
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
             imeOptions = EditorInfo.IME_ACTION_GO
             setPadding((16 * dp).toInt(), 0, (16 * dp).toInt(), 0)
@@ -153,7 +156,7 @@ class BrowserActivity : ComponentActivity() {
         adBtn = pill("") {
             prefs.edit().putBoolean("adblock", !adblock()).apply(); adOn = adblock(); updateAdBtn()
             registerGenericCss(adblocker.engine.value)
-            Toast.makeText(this@BrowserActivity, if (adOn) "Werbeblocker an · ${adblocker.status}" else "Werbeblocker aus", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this@BrowserActivity, if (adOn) trf("Werbeblocker an · {0}", adblocker.status) else tr("Werbeblocker aus"), Toast.LENGTH_SHORT).show()
             web.reload()
         }
         add(adBtn)
@@ -180,13 +183,13 @@ class BrowserActivity : ComponentActivity() {
         settings.userAgentString = settings.userAgentString.replace("; wv", "").replace("Mobile ", "")
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
-        setDownloadListener { _, _, _, _, _ -> Toast.makeText(this@BrowserActivity, "Downloads sind im Browser deaktiviert", Toast.LENGTH_SHORT).show() }
+        setDownloadListener { _, _, _, _, _ -> Toast.makeText(this@BrowserActivity, tr("Downloads sind im Browser deaktiviert"), Toast.LENGTH_SHORT).show() }
         webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val u = request.url
                 if (u.scheme == "ultra") { handleUltra(u); return true }
                 if (u.host?.endsWith("accounts.google.com") == true) {
-                    Toast.makeText(this@BrowserActivity, "Google erlaubt die Anmeldung nicht in eingebetteten Browsern", Toast.LENGTH_LONG).show(); return true
+                    Toast.makeText(this@BrowserActivity, tr("Google erlaubt die Anmeldung nicht in eingebetteten Browsern"), Toast.LENGTH_LONG).show(); return true
                 }
                 if (u.scheme != "http" && u.scheme != "https") return true   // keine App-Links (intent:// usw.)
                 // Werbe-Weiterleitungen und Schadseiten gar nicht erst laden
@@ -213,7 +216,7 @@ class BrowserActivity : ComponentActivity() {
         settings.javaScriptCanOpenWindowsAutomatically = false
         webChromeClient = object : WebChromeClient() {
             override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: android.os.Message): Boolean {
-                if (!isUserGesture && adOn) { toastOnce("Pop-up blockiert"); return false }
+                if (!isUserGesture && adOn) { toastOnce(tr("Pop-up blockiert")); return false }
                 val catcher = WebView(this@BrowserActivity)
                 catcher.webViewClient = object : WebViewClient() {
                     private var done = false
@@ -224,7 +227,7 @@ class BrowserActivity : ComponentActivity() {
                                 val h = android.net.Uri.parse(target).host?.lowercase() ?: ""
                                 e.shouldBlock(target, h, de.ostlertekker.ultraiptv.feature.web.adblock.FilterEngine.Type.POPUP, pageHost) ||
                                     e.shouldBlock(target, h, de.ostlertekker.ultraiptv.feature.web.adblock.FilterEngine.Type.OTHER, pageHost)
-                            } ?: BrowserAdBlock.isAd(android.net.Uri.parse(target)) }.getOrDefault(false)) toastOnce("Werbe-Pop-up blockiert")
+                            } ?: BrowserAdBlock.isAd(android.net.Uri.parse(target)) }.getOrDefault(false)) toastOnce(tr("Werbe-Pop-up blockiert"))
                         else web.loadUrl(target)
                     }
                     override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest): Boolean { take(v, r.url.toString()); return true }
@@ -327,10 +330,10 @@ class BrowserActivity : ComponentActivity() {
         val list = bookmarks()
         if (list.any { it.second == u }) {
             saveBookmarks(list.filterNot { it.second == u }); star.text = "☆"
-            Toast.makeText(this, "Lesezeichen entfernt", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, tr("Lesezeichen entfernt"), Toast.LENGTH_SHORT).show()
         } else {
             saveBookmarks(list + ((web.title?.takeIf { it.isNotBlank() } ?: u) to u)); star.text = "★"
-            Toast.makeText(this, "Lesezeichen gespeichert", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, tr("Lesezeichen gespeichert"), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -359,7 +362,7 @@ class BrowserActivity : ComponentActivity() {
             return WebResourceResponse("application/javascript", "utf-8", 200, "OK", mapOf("Access-Control-Allow-Origin" to "*"),
                 java.io.ByteArrayInputStream(js.toByteArray()))
         }
-        return WebResourceResponse("text/plain", "utf-8", 204, "No Content", mapOf("Access-Control-Allow-Origin" to "*"),
+        return WebResourceResponse("text/plain", "utf-8", 204, tr("No Content"), mapOf("Access-Control-Allow-Origin" to "*"),
             java.io.ByteArrayInputStream(ByteArray(0)))
     }
 
@@ -391,7 +394,7 @@ class BrowserActivity : ComponentActivity() {
             e.shouldBlock(target, host, AdType.DOCUMENT, pageHost) ||
                 ((isRedirect || !gesture) && host != pageHost && e.shouldBlock(target, host, AdType.POPUP, pageHost))
         }.getOrDefault(false)
-        if (bad) toastOnce("Werbe- bzw. Schadseite blockiert")
+        if (bad) toastOnce(tr("Werbe- bzw. Schadseite blockiert"))
         return bad
     }
 
@@ -425,12 +428,12 @@ class BrowserActivity : ComponentActivity() {
     }
 
     private fun adblock() = prefs.getBoolean("adblock", true)
-    private fun updateAdBtn() { adBtn.text = if (adblock()) "Werbeblocker an" else "Werbeblocker aus" }
+    private fun updateAdBtn() { adBtn.text = if (adblock()) tr("Werbeblocker an") else tr("Werbeblocker aus") }
 
     private fun zoom(delta: Int) {
         val z = (web.settings.textZoom + delta).coerceIn(60, 250)
         web.settings.textZoom = z; prefs.edit().putInt("zoom", z).apply()
-        Toast.makeText(this, "Schriftgröße $z %", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, trf("Schriftgröße {0} %", z), Toast.LENGTH_SHORT).show()
     }
 
     private fun showKeyboard(v: View) {

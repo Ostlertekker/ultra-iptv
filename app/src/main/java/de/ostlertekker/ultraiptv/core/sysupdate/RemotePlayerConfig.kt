@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.sysupdate
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import android.content.Context
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -28,9 +31,9 @@ data class PlayerConfig(
     fun validate(): String? = when {
         connectTimeoutMs !in 2_000..60_000 -> "connectTimeoutMs außerhalb 2–60 s"
         readTimeoutMs !in 2_000..120_000 -> "readTimeoutMs außerhalb 2–120 s"
-        liveStartMinMs !in 200..5_000 || liveStartMaxMs !in 500..10_000 || liveStartDefaultMs !in liveStartMinMs..liveStartMaxMs -> "Start-Vorrat unplausibel"
+        liveStartMinMs !in 200..5_000 || liveStartMaxMs !in 500..10_000 || liveStartDefaultMs !in liveStartMinMs..liveStartMaxMs -> tr("Start-Vorrat unplausibel")
         firstConnectGraceMs !in 3_000..60_000 -> "firstConnectGraceMs außerhalb 3–60 s"
-        userAgent.length > 300 || userAgent.any { it == '\n' || it == '\r' } -> "User-Agent ungültig"
+        userAgent.length > 300 || userAgent.any { it == '\n' || it == '\r' } -> tr("User-Agent ungültig")
         else -> null
     }
 }

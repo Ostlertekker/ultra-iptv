@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.web
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
@@ -103,7 +106,7 @@ class WebAppActivity : ComponentActivity() {
                 // Werbeblocker (YouTube): Anfragen an Werbe-/Tracking-Server gar nicht erst laden
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): android.webkit.WebResourceResponse? {
                     if (app != WebApp.YOUTUBE) return null
-                    return if (AdBlock.isAd(request.url)) android.webkit.WebResourceResponse("text/plain", "utf-8", 204, "No Content",
+                    return if (AdBlock.isAd(request.url)) android.webkit.WebResourceResponse("text/plain", "utf-8", 204, tr("No Content"),
                         emptyMap(), java.io.ByteArrayInputStream(ByteArray(0))) else null
                 }
             }
@@ -120,7 +123,7 @@ class WebAppActivity : ComponentActivity() {
         val root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         root.addView(web, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         hint = TextView(this).apply {
-            text = "${app.title} · Zurück lang drücken: zurück zu ULTRA IPTV"
+            text = trf("{0} · Zurück lang drücken: zurück zu ULTRA IPTV", app.title)
             setTextColor(Color.WHITE); textSize = 13f
             setBackgroundColor(Color.argb(170, 0, 0, 0)); setPadding(28, 12, 28, 12)
         }
@@ -138,8 +141,8 @@ class WebAppActivity : ComponentActivity() {
         // Diagnose direkt im Bild: zeigt, ob 4K angeboten werden kann und woran es ggf. scheitert
         // Ausschlaggebend ist der Decoder: viele Google-TV-Fernseher zeichnen die Oberfläche in 1080p,
         // obwohl das Panel 4K hat – deshalb blockiert ein 1080p-Bildmodus 4K nicht mehr.
-        if (app == WebApp.YOUTUBE) hint.text = hint.text.toString() + "\n" + (if (dec.first >= 3840) "4K aktiv" else "4K aus") +
-            " · Decoder: " + (decoderInfo.joinToString(", ").ifBlank { "kein VP9/AV1" }) + " · Bildmodus max. ${dispH}p"
+        if (app == WebApp.YOUTUBE) hint.text = hint.text.toString() + "\n" + (if (dec.first >= 3840) tr("4K aktiv") else tr("4K aus")) +
+            tr(" · Decoder: ") + (decoderInfo.joinToString(", ").ifBlank { "kein VP9/AV1" }) + trf(" · Bildmodus max. {0}p", dispH)
         if (app == WebApp.YOUTUBE && dec.first >= 3840 &&
             androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
             val js = """
@@ -192,7 +195,7 @@ class WebAppActivity : ComponentActivity() {
         val root = web.parent as? FrameLayout ?: return
         helpView = TextView(this).apply {
             text =
-                "Google erlaubt die Anmeldung nicht in eingebetteten Apps.\n\nSo geht es: In YouTube „Anmelden“ → „Mit dem Telefon anmelden“ wählen.\n" +
+                tr("Google erlaubt die Anmeldung nicht in eingebetteten Apps.\n\nSo geht es: In YouTube „Anmelden“ → „Mit dem Telefon anmelden“ wählen.\n") +
                     "Dann am Handy yt.be/activate öffnen und den Code vom Fernseher eingeben.\n\n(OK oder Zurück schließt diesen Hinweis)"
             setTextColor(Color.WHITE); textSize = 18f; gravity = Gravity.CENTER
             setBackgroundColor(Color.argb(235, 10, 12, 16)); setPadding(80, 60, 80, 60)
@@ -378,8 +381,8 @@ internal class SponsorBlock(
                     .execute().use { r -> when { r.isSuccessful -> r.body?.string() ?: "[]"; r.code == 404 -> "[]"; else -> null } }
             }.getOrNull()
             val n = json?.let { Regex("\"segment\"").findAll(it).count() }
-            onMessage(when { json == null -> "SponsorBlock: Server nicht erreichbar"; n == 0 -> "SponsorBlock: keine Abschnitte in diesem Video"
-                else -> "SponsorBlock: $n Abschnitt(e) werden übersprungen" })
+            onMessage(when { json == null -> tr("SponsorBlock: Server nicht erreichbar"); n == 0 -> tr("SponsorBlock: keine Abschnitte in diesem Video")
+                else -> trf("SponsorBlock: {0} Abschnitt(e) werden übersprungen", n) })
             val payload = org.json.JSONObject.quote(json ?: "[]")
             web.post { web.evaluateJavascript("window.__ultraSBSet && window.__ultraSBSet('$videoId', $payload)", null) }
         }
@@ -388,10 +391,10 @@ internal class SponsorBlock(
     @android.webkit.JavascriptInterface
     fun skipped(category: String) {
         onMessage(when (category) {
-            "sponsor" -> "Sponsor übersprungen"; "selfpromo" -> "Eigenwerbung übersprungen"
-            "interaction" -> "Abo-Aufforderung übersprungen"; "intro" -> "Intro übersprungen"; "outro" -> "Abspann übersprungen"
-            "music_offtopic" -> "Nicht-Musik-Teil übersprungen"
-            else -> "Abschnitt übersprungen"
+            "sponsor" -> tr("Sponsor übersprungen"); "selfpromo" -> tr("Eigenwerbung übersprungen")
+            "interaction" -> tr("Abo-Aufforderung übersprungen"); "intro" -> tr("Intro übersprungen"); "outro" -> tr("Abspann übersprungen")
+            "music_offtopic" -> tr("Nicht-Musik-Teil übersprungen")
+            else -> tr("Abschnitt übersprungen")
         })
     }
 

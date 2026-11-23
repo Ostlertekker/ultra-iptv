@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.settings
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -85,15 +88,15 @@ fun ProviderSetupScreen(onDone: () -> Unit, firstRun: Boolean, newAccount: Boole
             Modifier.widthIn(max = 720.dp).fillMaxWidth().background(p.bgBottom.copy(alpha = 0.88f), RoundedCornerShape(theme.spec.corner.coerceAtMost(24.dp)))
                 .padding(24.dp).verticalScroll(rememberScrollState()),
         ) {
-            if (firstRun) Text("OSTLERTEKKER & HORSTYHAZE PRESENTS", color = p.textDim, fontSize = 12.sp, letterSpacing = 4.sp)
-            Text(if (newAccount) "Weiteres Konto hinzufügen" else "Quelle einrichten", color = p.text, fontSize = 28.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily)
-            Text("Nur legal lizenzierte, eigene oder vom Anbieter autorisierte Quellen verwenden. Zugangsdaten werden verschlüsselt gespeichert.",
+            if (firstRun) Text(tr("OSTLERTEKKER & HORSTYHAZE PRESENTS"), color = p.textDim, fontSize = 12.sp, letterSpacing = 4.sp)
+            Text(if (newAccount) tr("Weiteres Konto hinzufügen") else tr("Quelle einrichten"), color = p.text, fontSize = 28.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily)
+            Text(tr("Nur legal lizenzierte, eigene oder vom Anbieter autorisierte Quellen verwenden. Zugangsdaten werden verschlüsselt gespeichert."),
                 color = p.textDim, fontSize = 13.sp, modifier = Modifier.padding(vertical = 8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-                Box(Modifier) { TvButton("Xtream Codes API", onClick = { type = ProviderType.XTREAM }, primary = type == ProviderType.XTREAM, focusRequester = first) }
+                Box(Modifier) { TvButton(tr("Xtream Codes API"), onClick = { type = ProviderType.XTREAM }, primary = type == ProviderType.XTREAM, focusRequester = first) }
                 TvChip("M3U-Playlist", type == ProviderType.M3U, { type = ProviderType.M3U })
             }
-            TvTextField(name, { name = it }, "Name (optional)")
+            TvTextField(name, { name = it }, tr("Name (optional)"))
             Spacer(Modifier.height(8.dp))
             if (type == ProviderType.XTREAM) {
                 TvTextField(server, { server = it }, "Server (z. B. http://anbieter.tld:8080)", error = errors["server"])
@@ -105,13 +108,13 @@ fun ProviderSetupScreen(onDone: () -> Unit, firstRun: Boolean, newAccount: Boole
                 TvTextField(m3u, { m3u = it }, "M3U-Adresse (http/https)", error = errors["m3u"])
             }
             Spacer(Modifier.height(8.dp))
-            TvTextField(epg, { epg = it }, "XMLTV-EPG-Adresse (optional)", error = errors["epg"])
+            TvTextField(epg, { epg = it }, tr("XMLTV-EPG-Adresse (optional)"), error = errors["epg"])
             Spacer(Modifier.height(18.dp))
             if (sync.running) UltraLoader(label = sync.message)
             else {
                 sync.lastError?.let { Text("⚠ ${sync.message}: $it", color = Color(0xFFFF8A80), fontSize = 13.sp, modifier = Modifier.padding(bottom = 10.dp)) }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    TvButton("Speichern & synchronisieren", primary = true, onClick = {
+                    TvButton(tr("Speichern & synchronisieren"), primary = true, onClick = {
                         val e = HashMap<String, String>()
                         if (type == ProviderType.XTREAM) {
                             InputValidator.url(server)?.let { e["server"] = it }
@@ -128,10 +131,10 @@ fun ProviderSetupScreen(onDone: () -> Unit, firstRun: Boolean, newAccount: Boole
                             vm.saveAndSync(ProviderConfig(type, name.trim(), m3uFixed, epgFixed, server.trim(), user.trim(), pass), newAccount, onDone)
                         }
                     })
-                    if (!firstRun) TvButton("Abbrechen", onClick = onDone)
+                    if (!firstRun) TvButton(tr("Abbrechen"), onClick = onDone)
                 }
             }
-            Text("Hinweis: Die App enthält keine Inhalte und umgeht keine DRM- oder Zugangsbeschränkungen.",
+            Text(tr("Hinweis: Die App enthält keine Inhalte und umgeht keine DRM- oder Zugangsbeschränkungen."),
                 color = p.textDim.copy(alpha = 0.7f), fontSize = 11.sp, fontWeight = FontWeight.Light, modifier = Modifier.padding(top = 16.dp))
         }
     }

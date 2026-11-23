@@ -2,6 +2,9 @@
 
 package de.ostlertekker.ultraiptv.feature.player
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -143,7 +146,7 @@ fun HealthMonitor(vm: PlayerViewModel, modifier: Modifier) {
     Column(modifier.background(Color.Black.copy(alpha = 0.82f), RoundedCornerShape(16.dp)).padding(18.dp)) {
         Text2("STREAM-ZUSTAND", p.primary, 14, true)
         Spacer(Modifier.height(8.dp))
-        if (s == null) Text2("Messung läuft …", p.textDim, 13, false) else HealthBody(s)
+        if (s == null) Text2(tr("Messung läuft …"), p.textDim, 13, false) else HealthBody(s)
     }
 }
 
@@ -154,9 +157,9 @@ private fun HealthBody(s: HealthSnapshot) {
         val st = s.stats
         val score = stability(st)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Tile("Stabilität", "$score / 100", if (score >= 80) Color(0xFF2EE59D) else if (score >= 50) Color(0xFFFFC94D) else Color(0xFFFF5A5A))
+            Tile(tr("Stabilität"), "$score / 100", if (score >= 80) Color(0xFF2EE59D) else if (score >= 50) Color(0xFFFFC94D) else Color(0xFFFF5A5A))
             Tile("Verbindung", when (s.state) { Player.STATE_READY -> if (s.playing) "Wiedergabe" else "Bereit"; Player.STATE_BUFFERING -> "Puffert"; Player.STATE_ENDED -> "Beendet"; else -> "Getrennt" }, Color.White)
-            Tile("Auflösung", if (st.decodedWidth > 0) "${st.decodedWidth}×${st.decodedHeight}" else "–", Color.White)
+            Tile(tr("Auflösung"), if (st.decodedWidth > 0) "${st.decodedWidth}×${st.decodedHeight}" else "–", Color.White)
             Tile("FPS", buildString { if (st.measuredFps > 0) append("%.1f".format(st.measuredFps)) else append("–"); if (st.sourceFps > 0) append(" / Quelle %.0f".format(st.sourceFps)) }, Color.White)
         }
         Spacer(Modifier.height(10.dp))
@@ -164,26 +167,26 @@ private fun HealthBody(s: HealthSnapshot) {
             Tile("Video-Codec", listOfNotNull(st.videoMime?.substringAfter('/'), st.videoCodecs).joinToString(" · ").ifEmpty { "–" }, Color.White)
             Tile("Audio-Codec", listOfNotNull(st.audioMime?.substringAfter('/'), st.audioChannels.takeIf { it > 0 }?.let { "$it ch" }, st.audioSampleRate.takeIf { it > 0 }?.let { "${it / 1000} kHz" }).joinToString(" · ").ifEmpty { "–" }, Color.White)
             Tile("Bitrate", buildString {
-                if (st.videoBitrate > 0) append("Video ${st.videoBitrate / 1000} kbit/s") else append("Video –")
+                if (st.videoBitrate > 0) append("Video ${st.videoBitrate / 1000} kbit/s") else append(tr("Video –"))
                 if (st.bandwidthBps > 0) append(" · Netz %.1f Mbit/s".format(st.bandwidthBps / 1_000_000f))
             }, Color.White)
-            Tile("Latenz", s.liveOffset?.let { "%.1f s hinter Live".format(it / 1000f) } ?: "nicht messbar", Color.White)
+            Tile("Latenz", s.liveOffset?.let { tr("%.1f s hinter Live").format(it / 1000f) } ?: "nicht messbar", Color.White)
         }
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Tile("Puffer", "%.1f s".format(s.bufferMs / 1000f), if (s.bufferMs < 2000) Color(0xFFFFC94D) else Color.White)
             Tile("Nachladen", "${st.rebuffers}× · ${st.stallMs / 1000} s", Color.White)
-            Tile("Verworfene Bilder", "${st.droppedFrames}", Color.White)
+            Tile(tr("Verworfene Bilder"), "${st.droppedFrames}", Color.White)
             Tile("Paketverlust", "nicht messbar (HTTP/TCP)", p.textDim)
         }
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) { Text2("Puffer (s), letzte 90 s", p.textDim, 11, false); Spark(s.bufferHist, p.primary) }
+            Column(Modifier.weight(1f)) { Text2(tr("Puffer (s), letzte 90 s"), p.textDim, 11, false); Spark(s.bufferHist, p.primary) }
             Column(Modifier.weight(1f)) { Text2("Netzdurchsatz (Mbit/s)", p.textDim, 11, false); Spark(s.rateHist, p.secondary) }
         }
         Spacer(Modifier.height(6.dp))
-        Text2(listOfNotNull("Fehler: ${st.errors}", "Wiederherstellungen: ${st.recoveries}", st.httpCode.takeIf { it > 0 }?.let { "HTTP $it" }, st.lastError?.let { "Letzter: $it" }, s.notice).joinToString("  ·  "), p.textDim, 11, false)
-        Text2("Zuschauerzahl: keine Nutzungsdaten verfügbar – IPTV-Anbieter liefern sie nicht", p.textDim, 11, false)
+        Text2(listOfNotNull(trf("Fehler: {0}", st.errors), trf("Wiederherstellungen: {0}", st.recoveries), st.httpCode.takeIf { it > 0 }?.let { "HTTP $it" }, st.lastError?.let { trf("Letzter: {0}", it) }, s.notice).joinToString("  ·  "), p.textDim, 11, false)
+        Text2(tr("Zuschauerzahl: keine Nutzungsdaten verfügbar – IPTV-Anbieter liefern sie nicht"), p.textDim, 11, false)
     }
 }
 
@@ -240,7 +243,7 @@ fun ScoreChip(ui: PlayerUi, modifier: Modifier) {
             androidx.compose.material3.Text(ev.scoreLine, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             androidx.compose.material3.Text("  ${ev.clock?.takeIf { ev.live } ?: ev.detail}", color = p.textDim, fontSize = 12.sp)
         }
-        androidx.compose.material3.Text("Daten: ESPN", color = Color.White.copy(alpha = 0.4f), fontSize = 9.sp, modifier = Modifier.padding(start = 6.dp, top = 2.dp))
+        androidx.compose.material3.Text(tr("Daten: ESPN"), color = Color.White.copy(alpha = 0.4f), fontSize = 9.sp, modifier = Modifier.padding(start = 6.dp, top = 2.dp))
         ui.scoreFlash?.let {
             androidx.compose.material3.Text(it, color = Color.Black, fontSize = 22.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.SansSerif,
                 modifier = Modifier.padding(top = 8.dp).background(p.primary, RoundedCornerShape(12.dp)).padding(horizontal = 16.dp, vertical = 8.dp))

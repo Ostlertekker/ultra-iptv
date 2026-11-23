@@ -2,6 +2,9 @@
 
 package de.ostlertekker.ultraiptv.feature.player
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -94,7 +97,7 @@ data class PlayerUi(
 )
 
 val aspectModes = listOf(AspectRatioFrameLayout.RESIZE_MODE_FIT, AspectRatioFrameLayout.RESIZE_MODE_FILL, AspectRatioFrameLayout.RESIZE_MODE_ZOOM, AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH)
-val aspectNames = listOf("Original (Einpassen)", "Strecken", "Zoom (Füllen)", "Volle Breite")
+val aspectNames = listOf(tr("Original (Einpassen)"), "Strecken", tr("Zoom (Füllen)"), tr("Volle Breite"))
 
 /** Bis zu diesem Abstand gilt die Wiedergabe als „live“ (Puffer-Vorlauf). */
 private const val LIVE_TOLERANCE_MS = 9_000L
@@ -200,24 +203,24 @@ class PlayerViewModel @Inject constructor(
         if (itemId.startsWith(JF)) { loadJellyfin(start); return }
         when (kind) {
             ContentKind.LIVE -> {
-                val ch = content.channel(itemId) ?: return fail("Sender nicht gefunden")
+                val ch = content.channel(itemId) ?: return fail(tr("Sender nicht gefunden"))
                 channels = (category?.let { content.channelsInOnce(it) } ?: emptyList()).ifEmpty { listOf(ch) }
                 channelIndex = channels.indexOfFirst { it.id == ch.id }.coerceAtLeast(0)
                 playChannel(ch)
                 if (catchupStart > 0) startCatchup(catchupStart, catchupEnd.takeIf { it > catchupStart })
             }
             ContentKind.MOVIE -> {
-                val m = content.movieOnce(itemId) ?: return fail("Film nicht gefunden")
+                val m = content.movieOnce(itemId) ?: return fail(tr("Film nicht gefunden"))
                 movie = m; image = m.poster
                 logName = m.name; logCategory = m.genre ?: m.category
                 _ui.update { it.copy(title = m.name, artwork = m.poster, subtitle = listOfNotNull(m.year, m.genre).joinToString(" · ")) }
                 play(m.streamUrl, start)
             }
             ContentKind.EPISODE -> {
-                val ep = content.episode(itemId) ?: return fail("Episode nicht gefunden")
+                val ep = content.episode(itemId) ?: return fail(tr("Episode nicht gefunden"))
                 playEpisode(ep, start)
             }
-            ContentKind.SERIES -> fail("Bitte eine Episode wählen")
+            ContentKind.SERIES -> fail(tr("Bitte eine Episode wählen"))
         }
     }
 
@@ -225,7 +228,7 @@ class PlayerViewModel @Inject constructor(
 
     private suspend fun loadJellyfin(start: Long) {
         val id = itemId.removePrefix(JF)
-        val it = try { jellyfin.item(id) } catch (e: Exception) { return fail(e.message ?: "Jellyfin nicht erreichbar") } ?: return fail("Titel nicht gefunden")
+        val it = try { jellyfin.item(id) } catch (e: Exception) { return fail(e.message ?: tr("Jellyfin nicht erreichbar")) } ?: return fail(tr("Titel nicht gefunden"))
         val poster = jellyfin.image(it)
         if (it.isEpisode && it.seriesId != null) {
             val all = runCatching { jellyfin.episodes(it.seriesId) }.getOrDefault(listOf(it))
@@ -283,7 +286,7 @@ class PlayerViewModel @Inject constructor(
         if (prev != null && prevId != null && prevId != id) jellyfin.reportStopped(prevId, prev, engine.player?.currentPosition ?: 0L)
         val pb = try { jellyfin.playback(id, 0, forceTranscode) } catch (e: Exception) {
             android.util.Log.w("UltraJellyfin", "Jellyfin-Wiedergabe fehlgeschlagen: ${e.message}")
-            return fail(e.message ?: "Wiedergabe nicht möglich")
+            return fail(e.message ?: tr("Wiedergabe nicht möglich"))
         }
         android.util.Log.i("UltraJellyfin", "Jellyfin-Wiedergabe: ${pb.method}, Untertitel ${pb.subtitles.size}")
         jfPlayback = pb; jfId = id
@@ -291,7 +294,7 @@ class PlayerViewModel @Inject constructor(
         engine.play(pb.url, start, settings.bufferProfile, isLive = false,
             subtitles = pb.subtitles.map { de.ostlertekker.ultraiptv.core.player.ExternalSubtitle(it.url, it.language, it.label, it.format) })
         viewModelScope.launch { applyQuality() }
-        if (pb.method == "Transcode") _ui.update { it.copy(qualityNote = "Jellyfin transkodiert für dieses Gerät") }
+        if (pb.method == "Transcode") _ui.update { it.copy(qualityNote = tr("Jellyfin transkodiert für dieses Gerät")) }
         jellyfin.reportStart(id, pb, start)
     }
 
@@ -314,7 +317,7 @@ class PlayerViewModel @Inject constructor(
 
     private fun play(raw: String, start: Long, live: Boolean = kind == ContentKind.LIVE) {
         currentStreamUrl = raw
-        val url = try { resolver.resolve(raw, settings.liveFormat) } catch (e: Exception) { return fail(e.message ?: "Stream nicht verfügbar") }
+        val url = try { resolver.resolve(raw, settings.liveFormat) } catch (e: Exception) { return fail(e.message ?: tr("Stream nicht verfügbar")) }
         engine.play(url, start, settings.bufferProfile, isLive = live)
         viewModelScope.launch { applyQuality() }
     }
@@ -554,11 +557,11 @@ class PlayerViewModel @Inject constructor(
             val now = System.currentTimeMillis()
             val end = endWall ?: now
             val raw = discover.catchupUrl(ch.id, startWall, end, now)
-            if (raw == null) { toast("Archiv für diese Zeit nicht verfügbar (Anbieter: ${ch.archiveDays} Tage)"); return@launch }
+            if (raw == null) { toast(trf("Archiv für diese Zeit nicht verfügbar (Anbieter: {0} Tage)", ch.archiveDays)); return@launch }
             shiftStartWall = startWall
             play(raw, 0, live = false)
             _ui.update { it.copy(shiftBehindMs = now - startWall, livePaused = false) }
-            toast("⏪ Zeitversetzt ab ${de.ostlertekker.ultraiptv.feature.livetv.formatTime(startWall)}")
+            toast(trf("⏪ Zeitversetzt ab {0}", (de.ostlertekker.ultraiptv.feature.livetv.formatTime(startWall))))
         }
     }
 
@@ -577,7 +580,7 @@ class PlayerViewModel @Inject constructor(
     /** Ein Bild vor/zurück (exakte Suche auf Bildlänge laut Stream-FPS). */
     fun stepFrames(n: Int) {
         val p = engine.player ?: return
-        if (!p.isCurrentMediaItemSeekable) { toast("Einzelbild nur bei Filmen, Serien und Archiv möglich"); return }
+        if (!p.isCurrentMediaItemSeekable) { toast(tr("Einzelbild nur bei Filmen, Serien und Archiv möglich")); return }
         val st = engine.stats.value
         val fps = if (st.sourceFps > 1f) st.sourceFps else if (st.measuredFps > 1f) st.measuredFps else 25f
         p.pause()
@@ -702,7 +705,7 @@ class PlayerViewModel @Inject constructor(
             delay(minutes * 60_000L)
             engine.player?.pause()
             saveProgress()
-            toast("Sleep-Timer: Wiedergabe beendet")
+            toast(tr("Sleep-Timer: Wiedergabe beendet"))
             delay(1500)
             _ui.update { it.copy(ended = true, sleepAt = 0) }
         }
@@ -713,7 +716,7 @@ class PlayerViewModel @Inject constructor(
         val left = if (cur > 0) ((cur - System.currentTimeMillis()) / 60_000L).toInt() else 0
         val next = opts.firstOrNull { it > left + 1 } ?: 0
         setSleep(next)
-        toast(if (next == 0) "Sleep-Timer aus" else "Sleep-Timer: $next min")
+        toast(if (next == 0) tr("Sleep-Timer aus") else trf("Sleep-Timer: {0} min", next))
     }
 
     // ------------------------------------------------ Zifferntasten-Direktwahl
@@ -731,7 +734,7 @@ class PlayerViewModel @Inject constructor(
             if (idx >= 0) playChannelAt(idx)
             else {
                 val ch = runCatching { content.channelByNumber(n) }.getOrNull()
-                if (ch != null) { channels = channels + ch; playChannelAt(channels.lastIndex) } else toast("Sender $n nicht gefunden")
+                if (ch != null) { channels = channels + ch; playChannelAt(channels.lastIndex) } else toast(trf("Sender {0} nicht gefunden", n))
             }
         }
     }
@@ -868,8 +871,8 @@ class PlayerViewModel @Inject constructor(
             applyQuality()
             rebufferWindowStart = now; rebufferBase = st.rebuffers
             val reason = if (recent >= 3) "häufiges Nachladen" else "Bildaussetzer"
-            _ui.update { it.copy(qualityNote = "Qualität automatisch auf max. ${next}p gesenkt ($reason)") }
-            toast("Qualität angepasst: max. ${next}p")
+            _ui.update { it.copy(qualityNote = trf("Qualität automatisch auf max. {0}p gesenkt ({1})", next, reason)) }
+            toast(trf("Qualität angepasst: max. {0}p", next))
         }
     }
 
@@ -886,7 +889,7 @@ class PlayerViewModel @Inject constructor(
         val pb = jfPlayback; val id = jfId
         if (pb != null && id != null && pb.method != "Transcode") {
             val pos = engine.player?.currentPosition ?: 0L
-            toast("Format nicht direkt abspielbar – Jellyfin transkodiert")
+            toast(tr("Format nicht direkt abspielbar – Jellyfin transkodiert"))
             viewModelScope.launch { playJf(id, pos, forceTranscode = true) }
             return
         }
@@ -899,7 +902,7 @@ class PlayerViewModel @Inject constructor(
             val alt = content.channelsNamed(core.split(' ').first())
                 .firstOrNull { it.id !in triedChannels && coreName(it.name) == core }
             if (alt != null) {
-                toast("Sender gestört – weiche auf „${alt.name}“ aus")
+                toast(trf("Sender gestört – weiche auf „{0}“ aus", alt.name))
                 val idx = channels.indexOfFirst { it.id == alt.id }
                 if (idx >= 0) channelIndex = idx else { channels = channels + alt; channelIndex = channels.lastIndex }
                 playChannel(alt)

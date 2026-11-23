@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.jellyfin
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import de.ostlertekker.ultraiptv.core.ui.dialogEnter
 import androidx.compose.foundation.layout.PaddingValues
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
@@ -109,13 +112,13 @@ fun SeerrRequestDialog(item: SeerrItem, repo: SeerrRepository, onDismiss: () -> 
                     modifier = Modifier.padding(top = 10.dp)) }
                 if (item.isTv && !done) {
                     val list = seasons
-                    if (list == null) Text("Staffeln werden geladen …", color = p.textDim, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
+                    if (list == null) Text(tr("Staffeln werden geladen …"), color = p.textDim, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
                     else if (list.isNotEmpty()) {
-                        Text("Staffeln", color = p.textDim, fontSize = 13.sp, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp))
+                        Text(tr("Staffeln"), color = p.textDim, fontSize = 13.sp, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp))
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
-                            item { TvChip("Alle fehlenden", chosen.isEmpty(), { chosen = emptySet() }) }
+                            item { TvChip(tr("Alle fehlenden"), chosen.isEmpty(), { chosen = emptySet() }) }
                             items(list, key = { it.number }) { s ->
-                                val label = "S${s.number}" + (if (s.episodes > 0) " · ${s.episodes} Folge" + (if (s.episodes == 1) "" else "n") else "") +
+                                val label = "S${s.number}" + (if (s.episodes > 0) trf(" · {0} Folge", s.episodes) + (if (s.episodes == 1) "" else "n") else "") +
                                     (SeerrStatus.media(s.status)?.let { " · $it" } ?: "")
                                 TvChip(label, s.number in chosen, {
                                     if (s.status == SeerrStatus.UNKNOWN) chosen = if (s.number in chosen) chosen - s.number else chosen + s.number
@@ -128,20 +131,20 @@ fun SeerrRequestDialog(item: SeerrItem, repo: SeerrRepository, onDismiss: () -> 
                 Spacer(Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     val canRequest = !done && !busy && (if (item.isTv) seasons != null && (requestable.isNotEmpty() || seasons!!.isEmpty()) else !alreadyAll)
-                    if (canRequest) TvButton(if (busy) "Wird angefragt …" else "Anfragen", focusRequester = focus, primary = true, onClick = {
+                    if (canRequest) TvButton(if (busy) tr("Wird angefragt …") else "Anfragen", focusRequester = focus, primary = true, onClick = {
                         busy = true
                         scope.launch {
                             message = runCatching {
                                 repo.request(item, if (item.isTv) chosen.sorted().ifEmpty { null } else null)
                                 done = true
-                                "Angefragt – du bekommst einen Hinweis, sobald es verfügbar ist."
-                            }.getOrElse { it.message ?: "Anfrage fehlgeschlagen" }
+                                tr("Angefragt – du bekommst einen Hinweis, sobald es verfügbar ist.")
+                            }.getOrElse { it.message ?: tr("Anfrage fehlgeschlagen") }
                             busy = false
                         }
                     })
-                    else if (!done) Text(SeerrStatus.media(item.status) ?: "Nichts mehr anzufragen", color = p.textDim, fontSize = 15.sp,
+                    else if (!done) Text(SeerrStatus.media(item.status) ?: tr("Nichts mehr anzufragen"), color = p.textDim, fontSize = 15.sp,
                         modifier = Modifier.padding(vertical = 10.dp))
-                    TvButton(if (done) "Fertig" else "Schließen", focusRequester = if (canRequest) null else focus, onClick = onDismiss)
+                    TvButton(if (done) "Fertig" else tr("Schließen"), focusRequester = if (canRequest) null else focus, onClick = onDismiss)
                 }
             }
         }
@@ -162,11 +165,11 @@ object SeerrColors {
 fun SeerrRequest.badge(): Pair<String, Color> = when {
     status == SeerrStatus.REQ_DECLINED -> "Abgelehnt" to SeerrColors.red
     status == SeerrStatus.REQ_FAILED -> "Fehlgeschlagen" to SeerrColors.red
-    item.status == SeerrStatus.AVAILABLE -> "Verfügbar" to SeerrColors.green
-    item.status == SeerrStatus.PARTIAL && !downloading -> "Teilweise verfügbar" to SeerrColors.green
-    downloading -> "Lädt · ${Math.round((progress ?: 0f) * 100)} %" to SeerrColors.indigo
+    item.status == SeerrStatus.AVAILABLE -> tr("Verfügbar") to SeerrColors.green
+    item.status == SeerrStatus.PARTIAL && !downloading -> tr("Teilweise verfügbar") to SeerrColors.green
+    downloading -> trf("Lädt · {0} %", (Math.round((progress ?: 0f) * 100))) to SeerrColors.indigo
     status == SeerrStatus.REQ_PENDING -> "Ausstehend" to SeerrColors.yellow
-    item.status == SeerrStatus.PROCESSING || item.status == SeerrStatus.PARTIAL -> "Wird bearbeitet" to SeerrColors.indigo
+    item.status == SeerrStatus.PROCESSING || item.status == SeerrStatus.PARTIAL -> tr("Wird bearbeitet") to SeerrColors.indigo
     else -> "Angefragt" to SeerrColors.indigo
 }
 
@@ -207,7 +210,7 @@ private fun SeerrDownloadBlock(d: SeerrDownload, fallbackTitle: String) {
             Text(SeerrStatus.download(d.status), color = Color.White, fontSize = 12.sp,
                 modifier = Modifier.background(SeerrColors.indigo.copy(alpha = 0.8f), RoundedCornerShape(50)).padding(horizontal = 8.dp, vertical = 1.dp))
             Spacer(Modifier.weight(1f))
-            SeerrStatus.remaining(d.eta)?.let { Text("Fertig in $it", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp) }
+            SeerrStatus.remaining(d.eta)?.let { Text(trf("Fertig in {0}", it), color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp) }
         }
     }
 }
@@ -260,15 +263,15 @@ fun SeerrRequestDetail(
                         SeerrBadge(label, color)
                         if (r.is4k) SeerrBadge("4K", SeerrColors.yellow)
                     }
-                    val who = listOfNotNull(r.requestedBy?.let { "Angefragt von $it" },
+                    val who = listOfNotNull(r.requestedBy?.let { trf("Angefragt von {0}", it) },
                         r.createdAt?.let { "am " + java.text.SimpleDateFormat("dd.MM.yyyy, HH:mm", java.util.Locale.GERMANY).format(java.util.Date(it)) + " Uhr" })
                     if (who.isNotEmpty()) Text(who.joinToString(" "), color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
                     if (r.item.isTv && r.seasons.isNotEmpty())
-                        Text("Angefragt: " + r.seasons.joinToString(", ") { "Staffel $it" }, color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
+                        Text(tr("Angefragt: ") + r.seasons.joinToString(", ") { "Staffel $it" }, color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
 
                     if (r.downloads.isNotEmpty()) {
                         r.downloads.take(3).forEach { SeerrDownloadBlock(it, r.item.title) }
-                        if (r.downloads.size > 3) Text("+ ${r.downloads.size - 3} weitere Downloads", color = Color.White.copy(alpha = 0.6f),
+                        if (r.downloads.size > 3) Text(trf("+ {0} weitere Downloads", (r.downloads.size - 3)), color = Color.White.copy(alpha = 0.6f),
                             fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
                     } else if (r.status == SeerrStatus.REQ_APPROVED && r.item.status != SeerrStatus.AVAILABLE) {
                         Text("Noch kein Download aktiv – Radarr/Sonarr sucht nach dem Titel.", color = Color.White.copy(alpha = 0.6f),
@@ -279,20 +282,20 @@ fun SeerrRequestDetail(
                     }
 
                     if (seasons.isNotEmpty()) {
-                        Text("Staffeln", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
+                        Text(tr("Staffeln"), color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.focusBleed(), contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
                             items(seasons, key = { it.number }) { s ->
                                 val c = seasonColor(s.status)
-                                Text("S${s.number}" + (if (s.episodes > 0) " (${s.episodes})" else "") + " · " + (SeerrStatus.media(s.status) ?: "Nicht angefragt"), color = Color.White, fontSize = 12.sp,
+                                Text("S${s.number}" + (if (s.episodes > 0) " (${s.episodes})" else "") + " · " + (SeerrStatus.media(s.status) ?: tr("Nicht angefragt")), color = Color.White, fontSize = 12.sp,
                                     modifier = Modifier.background(c.copy(alpha = 0.7f), RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 3.dp))
                             }
                         }
                     }
                     Spacer(Modifier.height(18.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        if (canOpen) TvButton("In Jellyfin ansehen", primary = true, focusRequester = focus, onClick = { onOpenJellyfin(r.item) })
-                        if (more) TvButton("Weitere Staffeln anfragen", focusRequester = if (canOpen) null else focus, onClick = { onRequestMore(r.item) })
-                        TvButton("Schließen", focusRequester = if (canOpen || more) null else focus, onClick = onDismiss)
+                        if (canOpen) TvButton(tr("In Jellyfin ansehen"), primary = true, focusRequester = focus, onClick = { onOpenJellyfin(r.item) })
+                        if (more) TvButton(tr("Weitere Staffeln anfragen"), focusRequester = if (canOpen) null else focus, onClick = { onRequestMore(r.item) })
+                        TvButton(tr("Schließen"), focusRequester = if (canOpen || more) null else focus, onClick = onDismiss)
                     }
                 }
             }

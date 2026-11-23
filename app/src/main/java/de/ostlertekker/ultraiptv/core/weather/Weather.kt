@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.weather
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import de.ostlertekker.ultraiptv.core.data.Keys
 import de.ostlertekker.ultraiptv.core.data.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
@@ -46,10 +49,10 @@ object WeatherCodes {
         71, 73, 75, 77, 85, 86 -> "🌨️"; 95, 96, 99 -> "⛈️"; else -> "🌡️"
     }
     fun text(c: Int) = when (c) {
-        0 -> "Klar"; 1 -> "Überwiegend klar"; 2 -> "Teilweise bewölkt"; 3 -> "Bedeckt"; 45, 48 -> "Nebel"
-        51, 53, 55 -> "Nieselregen"; 56, 57 -> "Gefrierender Niesel"; 61, 63 -> "Regen"; 65 -> "Starker Regen"
-        66, 67 -> "Gefrierender Regen"; 71, 73 -> "Schneefall"; 75 -> "Starker Schneefall"; 77 -> "Schneegriesel"
-        80, 81 -> "Regenschauer"; 82 -> "Heftige Schauer"; 85, 86 -> "Schneeschauer"; 95 -> "Gewitter"; 96, 99 -> "Gewitter mit Hagel"
+        0 -> "Klar"; 1 -> tr("Überwiegend klar"); 2 -> tr("Teilweise bewölkt"); 3 -> "Bedeckt"; 45, 48 -> "Nebel"
+        51, 53, 55 -> "Nieselregen"; 56, 57 -> tr("Gefrierender Niesel"); 61, 63 -> "Regen"; 65 -> tr("Starker Regen")
+        66, 67 -> tr("Gefrierender Regen"); 71, 73 -> "Schneefall"; 75 -> tr("Starker Schneefall"); 77 -> "Schneegriesel"
+        80, 81 -> "Regenschauer"; 82 -> tr("Heftige Schauer"); 85, 86 -> "Schneeschauer"; 95 -> "Gewitter"; 96, 99 -> tr("Gewitter mit Hagel")
         else -> "–"
     }
 }
@@ -99,7 +102,7 @@ class WeatherRepository @Inject constructor(private val http: OkHttpClient, priv
                 return@runCatching ""
             }
             val o = get("https://geocoding-api.open-meteo.com/v1/search?count=1&language=de&format=json&name=" + URLEncoder.encode(q, "UTF-8"))
-            val r = (o["results"] as? JsonArray)?.firstOrNull() as? JsonObject ?: error("Ort „$q“ nicht gefunden")
+            val r = (o["results"] as? JsonArray)?.firstOrNull() as? JsonObject ?: error(trf("Ort „{0}“ nicht gefunden", q))
             val name = listOfNotNull((r["name"] as? JsonPrimitive)?.contentOrNull, (r["country_code"] as? JsonPrimitive)?.contentOrNull).joinToString(", ")
             settings.set(Keys.WEATHER_PLACE, name)
             settings.set(Keys.WEATHER_LAT, (r["latitude"] as JsonPrimitive).content)

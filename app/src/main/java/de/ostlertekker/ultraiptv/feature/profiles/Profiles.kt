@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.feature.profiles
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -93,7 +96,7 @@ fun ProfilePickerScreen(onPicked: () -> Unit, vm: ProfilesViewModel = hiltViewMo
 
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("WER SCHAUT?", color = p.text, fontSize = 34.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily, letterSpacing = 4.sp)
+            Text(tr("WER SCHAUT?"), color = p.text, fontSize = 34.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily, letterSpacing = 4.sp)
             Spacer(Modifier.height(36.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                 profiles.forEachIndexed { i, prof ->
@@ -105,7 +108,7 @@ fun ProfilePickerScreen(onPicked: () -> Unit, vm: ProfilesViewModel = hiltViewMo
                             ProfileAvatar(prof, 120)
                         }
                         Text(prof.name, color = if (focused) p.text else p.textDim, fontSize = 18.sp, modifier = Modifier.padding(top = 10.dp))
-                        if (prof.pinHash != null) Text("🔒 PIN", color = p.textDim, fontSize = 12.sp)
+                        if (prof.pinHash != null) Text(tr("🔒 PIN"), color = p.textDim, fontSize = 12.sp)
                         if (prof.maxAge > 0) Text("ab ${prof.maxAge}", color = p.textDim, fontSize = 12.sp)
                     }
                 }
@@ -113,7 +116,7 @@ fun ProfilePickerScreen(onPicked: () -> Unit, vm: ProfilesViewModel = hiltViewMo
         }
         val target = pinFor
         if (target != null) {
-            PinDialog("PIN für ${target.name}", onSubmit = { pin ->
+            PinDialog(trf("PIN für {0}", target.name), onSubmit = { pin ->
                 val ok = vm.checkPin(target, pin)
                 if (ok) { pinFor = null; scope.launch { vm.select(target, onPicked) } }
                 ok
