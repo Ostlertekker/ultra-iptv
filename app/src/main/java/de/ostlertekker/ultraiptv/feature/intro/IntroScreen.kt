@@ -108,6 +108,14 @@ fun IntroScreen(full: Boolean, soundEnabled: Boolean, sounds: AudioExperienceEng
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            // Maskottchen Ulli springt herein (Federeffekt), schaltet sich mit kurzem Rauschen ein und winkt
+            Ulli(Mood.WAVE, switchKey = 1, modifier = Modifier.size(150.dp, 170.dp).graphicsLayer {
+                val a = clamp01(time.floatValue / 0.55f)
+                val s = easeOutBack(a)
+                scaleX = s; scaleY = s; alpha = clamp01(a * 3f)
+                translationY = (1f - easeOutCubic(a)) * 60f
+            })
+            Spacer(Modifier.height(6.dp))
             Text("OstlerTekker&HorstyHaze Presents", color = Color.White.copy(alpha = 0.55f), fontSize = 13.sp, letterSpacing = 6.sp,
                 fontFamily = AppFonts.Inter, fontWeight = FontWeight.Medium,
                 modifier = Modifier.graphicsLayer {

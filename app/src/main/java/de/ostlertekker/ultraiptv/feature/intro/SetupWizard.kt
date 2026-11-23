@@ -90,7 +90,7 @@ import kotlin.math.abs
 import kotlin.math.sin
 
 /** Wie sich Ulli (das Fernseher-Maskottchen) in einem Schritt verhält. */
-private enum class Mood { WAVE, TALK, POINT, THINK, CHEER }
+internal enum class Mood { WAVE, TALK, POINT, THINK, CHEER }
 
 private enum class WStep { WELCOME, IPTV, JELLYFIN, SEERR, WEATHER, NEWS, DONE }
 
@@ -475,7 +475,7 @@ private val talking = mutableFloatStateOf(0f)
  * Wippt, blinzelt, bewegt beim Sprechen den Mund, winkt/zeigt/denkt je nach [mood]; beim Schrittwechsel kurzes „Rauschen“.
  */
 @Composable
-private fun Ulli(mood: Mood, switchKey: Int, modifier: Modifier = Modifier) {
+internal fun Ulli(mood: Mood, switchKey: Int, modifier: Modifier = Modifier) {
     val p = LocalUltraTheme.current.palette
     val anim = motionOk()
     var t by remember { mutableFloatStateOf(0f) }
