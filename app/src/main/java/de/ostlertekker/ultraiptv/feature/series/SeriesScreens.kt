@@ -82,6 +82,9 @@ private const val PAGE = 240
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class SeriesViewModel @Inject constructor(content: ContentRepository, user: de.ostlertekker.ultraiptv.core.data.UserRepository) : ViewModel() {
+    /** Endlose Reihen der Übersicht. */
+    val pager = de.ostlertekker.ultraiptv.feature.common.RowPager()
+
     /** Serien-Übersicht: Fortsetzen, Merkliste, Neu, Beliebt, Empfehlungen, Zuletzt angesehen, Kategorie-Reihen. */
     val overview: StateFlow<List<de.ostlertekker.ultraiptv.feature.common.CinemaRow>> = run {
         fun SeriesEntity.tile() = de.ostlertekker.ultraiptv.feature.common.CinemaTile(id, name, poster,
@@ -94,22 +97,22 @@ class SeriesViewModel @Inject constructor(content: ContentRepository, user: de.o
         val catRows = content.seriesCategories().flatMapLatest { cs ->
             val top = cs.take(5)
             if (top.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyList())
-            else combine(top.map { c -> content.series(c, SortOrder.RATING, 24).map { l -> c to l } }) { it.toList() }
+            else combine(top.map { c -> pager.paged("c:$c", 24) { n -> content.series(c, SortOrder.RATING, n) }.map { l -> c to l } }) { it.toList() }
         }
         combine(
             user.continueWatching.map { l -> l.filter { it.kind == ep && !it.itemId.startsWith("jf:") } },
             user.favoriteIds(de.ostlertekker.ultraiptv.core.model.ContentKind.SERIES).flatMapLatest { content.seriesByIds(it) },
-            content.series(null, SortOrder.NEWEST, 30),
-            content.series(null, SortOrder.RATING, 30),
+            pager.paged("new", 30) { n -> content.series(null, SortOrder.NEWEST, n) },
+            pager.paged("pop", 30) { n -> content.series(null, SortOrder.RATING, n) },
             combine(user.recentlyWatched.map { l -> l.filter { it.kind == ep && !it.itemId.startsWith("jf:") } }, catRows) { a, b -> a to b },
         ) { cw, watch, newest, popular, (recent, cats) ->
             listOf(
                 de.ostlertekker.ultraiptv.feature.common.CinemaRow("Fortsetzen", cw.map { it.tile(true) }, landscape = true),
                 de.ostlertekker.ultraiptv.feature.common.CinemaRow("Meine Merkliste", watch.map { it.tile() }),
-                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Neue Serien", newest.map { it.tile() }),
-                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Beliebte Serien", if (popular.any { (it.rating ?: 0.0) > 0 }) popular.map { it.tile() } else emptyList()),
+                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Neue Serien", newest.map { it.tile() }, pageKey = "new"),
+                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Beliebte Serien", if (popular.any { (it.rating ?: 0.0) > 0 }) popular.map { it.tile() } else emptyList(), pageKey = "pop"),
                 de.ostlertekker.ultraiptv.feature.common.CinemaRow("Zuletzt angesehen", recent.map { it.tile(true) }, landscape = true),
-            ) + cats.map { (c, l) -> de.ostlertekker.ultraiptv.feature.common.CinemaRow(c, l.map { it.tile() }) }
+            ) + cats.map { (c, l) -> de.ostlertekker.ultraiptv.feature.common.CinemaRow(c, l.map { it.tile() }, pageKey = "c:$c") }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     }
 
@@ -144,7 +147,7 @@ fun SeriesScreen(nav: NavController, vm: SeriesViewModel = hiltViewModel()) {
         val rows by vm.overview.collectAsStateWithLifecycle()
         val hero = rows.firstOrNull { it.title == "Neue Serien" }?.tiles?.firstOrNull { !it.backdrop.isNullOrBlank() }
             ?: rows.firstOrNull { it.title == "Neue Serien" }?.tiles?.firstOrNull()
-        de.ostlertekker.ultraiptv.feature.common.CinemaOverview(hero, rows,
+        de.ostlertekker.ultraiptv.feature.common.CinemaOverview(hero, rows, onMore = vm.pager::more,
             header = {
                 androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TvChip("Übersicht", true, { })

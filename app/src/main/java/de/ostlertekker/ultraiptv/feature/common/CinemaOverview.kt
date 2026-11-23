@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -68,7 +69,8 @@ data class CinemaTile(
     val badgePulse: Boolean = false,
 )
 
-data class CinemaRow(val title: String, val tiles: List<CinemaTile>, val landscape: Boolean = false)
+/** [pageKey]: Reihe lädt beim Erreichen des Endes weitere Einträge nach (siehe [RowPager]). */
+data class CinemaRow(val title: String, val tiles: List<CinemaTile>, val landscape: Boolean = false, val pageKey: String? = null)
 
 /**
  * Cineastische Übersicht für Filme und Serien: großes Titelbild oben, darunter große Posterreihen.
@@ -81,6 +83,8 @@ fun CinemaOverview(
     header: @Composable () -> Unit,
     onOpen: (CinemaTile) -> Unit,
     onPlay: (CinemaTile) -> Unit,
+    /** Reihe [pageKey] ist kurz vor dem Ende (aktuelle Anzahl) → weitere nachladen. */
+    onMore: (String, Int) -> Unit = { _, _ -> },
 ) {
     val p = LocalUltraTheme.current.palette
     val heroHeight = (LocalConfiguration.current.screenHeightDp * 0.5f).dp
@@ -117,7 +121,9 @@ fun CinemaOverview(
                 Column(Modifier.padding(horizontal = 24.dp)) {
                     SectionHeader(row.title)
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 8.dp + FocusBleedV, bottom = 8.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
-                        items(row.tiles, key = { it.kind + it.id }, contentType = { if (row.landscape) "wide" else "poster" }) { t ->
+                        itemsIndexed(row.tiles, key = { _, it -> it.kind + it.id }, contentType = { _, _ -> if (row.landscape) "wide" else "poster" }) { i, t ->
+                            // Kurz vor dem Ende: die nächsten Einträge nachladen (endlos, solange es mehr gibt)
+                            row.pageKey?.let { k -> if (i >= row.tiles.size - 4) androidx.compose.runtime.LaunchedEffect(k, row.tiles.size) { onMore(k, row.tiles.size) } }
                             if (row.landscape) FocusCard(t.title, t.backdrop ?: t.image, 280.dp, 158.dp, onClick = { if (t.resume) onPlay(t) else onOpen(t) },
                                 subtitle = t.subtitle, progress = t.progress, badge = t.badge, progressColor = t.progressColor, badgePulse = t.badgePulse)
                             else FocusCard(t.title, t.image, 150.dp, 222.dp, onClick = { if (t.resume) onPlay(t) else onOpen(t) },

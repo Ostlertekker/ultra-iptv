@@ -141,7 +141,9 @@ class HomeViewModel @Inject constructor(
 
     val weather = weatherRepo.weather
     val news = newsRepo.items
-    val popularSeries: StateFlow<List<SeriesEntity>> by lazy { StateFlowOf(content.series(null, SortOrder.RATING, 30)) }
+    /** Endlose Reihen der Startseite. */
+    val pager = de.ostlertekker.ultraiptv.feature.common.RowPager()
+    val popularSeries: StateFlow<List<SeriesEntity>> by lazy { StateFlowOf(pager.paged("popS", 30) { n -> content.series(null, SortOrder.RATING, n) }) }
     val favMovies: StateFlow<List<MovieEntity>> by lazy { StateFlowOf(user.favoriteIds(ContentKind.MOVIE).flatMapLatest { content.moviesByIds(it) }) }
     val favSeries: StateFlow<List<SeriesEntity>> by lazy { StateFlowOf(user.favoriteIds(ContentKind.SERIES).flatMapLatest { content.seriesByIds(it) }) }
     val unread = notifications.unread.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
@@ -198,9 +200,9 @@ class HomeViewModel @Inject constructor(
         StateFlowOf(user.recentChannels.flatMapLatest { list -> content.channelsByIds(list.map { it.itemId }) })
     val favoriteChannels: StateFlow<List<ChannelEntity>> =
         StateFlowOf(user.favoriteIds(ContentKind.LIVE).flatMapLatest { content.channelsByIds(it) })
-    val newMovies: StateFlow<List<MovieEntity>> = StateFlowOf(content.movies(null, null, SortOrder.NEWEST, 30))
-    val popularMovies: StateFlow<List<MovieEntity>> = StateFlowOf(content.movies(null, null, SortOrder.RATING, 30))
-    val newSeries: StateFlow<List<SeriesEntity>> = StateFlowOf(content.series(null, SortOrder.NEWEST, 30))
+    val newMovies: StateFlow<List<MovieEntity>> = StateFlowOf(pager.paged("new", 30) { n -> content.movies(null, null, SortOrder.NEWEST, n) })
+    val popularMovies: StateFlow<List<MovieEntity>> = StateFlowOf(pager.paged("pop", 30) { n -> content.movies(null, null, SortOrder.RATING, n) })
+    val newSeries: StateFlow<List<SeriesEntity>> = StateFlowOf(pager.paged("series", 30) { n -> content.series(null, SortOrder.NEWEST, n) })
 
     /** Empfehlungen: gleiche Genres wie zuletzt gesehene Filme (nur wenn Daten vorhanden sind). */
     val recommended: StateFlow<List<MovieEntity>> = StateFlowOf(
@@ -210,7 +212,7 @@ class HomeViewModel @Inject constructor(
             else content.movie(lastMovie.itemId).flatMapLatest { m ->
                 val genre = m?.genre?.split(',', '/')?.firstOrNull()?.trim()
                 if (genre.isNullOrBlank()) flowOf(emptyList())
-                else content.movies(null, genre, SortOrder.RATING, 24).map { list -> list.filter { it.id != m?.id } }
+                else pager.paged("rec", 24) { n -> content.movies(null, genre, SortOrder.RATING, n) }.map { list -> list.filter { it.id != m?.id } }
             }
         },
     )
@@ -344,10 +346,10 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
         }
         // Reihenfolge laut Designkonzept: ruhig, große Bilder, nur Reihen mit echten Inhalten
         if (recentCh.isNotEmpty()) item(key = "recent") { Column(pad) { ChannelRow("Zuletzt gesehen", recentCh) { context.openPlayer(ContentKind.LIVE, it.id, category = it.category) } } }
-        if (popular.isNotEmpty() && popular.any { (it.rating ?: 0.0) > 0 }) item(key = "pop") { Column(pad) { MovieRow("Beliebte Filme", popular) { nav.navigate(Routes.movie(it.id)) } } }
-        if (popularSeries.isNotEmpty() && popularSeries.any { (it.rating ?: 0.0) > 0 }) item(key = "popS") { Column(pad) { SeriesRow("Beliebte Serien", popularSeries) { nav.navigate(Routes.seriesDetail(it.id)) } } }
-        if (newMovies.isNotEmpty()) item(key = "new") { Column(pad) { MovieRow("Neu hinzugefügt", newMovies) { nav.navigate(Routes.movie(it.id)) } } }
-        if (series.isNotEmpty()) item(key = "series") { Column(pad) { SeriesRow("Neue Serien", series) { nav.navigate(Routes.seriesDetail(it.id)) } } }
+        if (popular.isNotEmpty() && popular.any { (it.rating ?: 0.0) > 0 }) item(key = "pop") { Column(pad) { MovieRow("Beliebte Filme", popular, onMore = { vm.pager.more("pop", it) }) { nav.navigate(Routes.movie(it.id)) } } }
+        if (popularSeries.isNotEmpty() && popularSeries.any { (it.rating ?: 0.0) > 0 }) item(key = "popS") { Column(pad) { SeriesRow("Beliebte Serien", popularSeries, onMore = { vm.pager.more("popS", it) }) { nav.navigate(Routes.seriesDetail(it.id)) } } }
+        if (newMovies.isNotEmpty()) item(key = "new") { Column(pad) { MovieRow("Neu hinzugefügt", newMovies, onMore = { vm.pager.more("new", it) }) { nav.navigate(Routes.movie(it.id)) } } }
+        if (series.isNotEmpty()) item(key = "series") { Column(pad) { SeriesRow("Neue Serien", series, onMore = { vm.pager.more("series", it) }) { nav.navigate(Routes.seriesDetail(it.id)) } } }
         if (favCh.isNotEmpty()) item(key = "fav") { Column(pad) { ChannelRow("Lieblingssender", favCh) { context.openPlayer(ContentKind.LIVE, it.id, category = it.category) } } }
         if (favMovies.isNotEmpty() || favSeries.isNotEmpty()) item(key = "favVod") {
             Column(pad) {
@@ -358,7 +360,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
                 }
             }
         }
-        if (recommended.isNotEmpty()) item(key = "rec") { Column(pad) { MovieRow("Empfehlungen für dich", recommended) { nav.navigate(Routes.movie(it.id)) } } }
+        if (recommended.isNotEmpty()) item(key = "rec") { Column(pad) { MovieRow("Empfehlungen für dich", recommended, onMore = { vm.pager.more("rec", it) }) { nav.navigate(Routes.movie(it.id)) } } }
         dynamicRows.filter { it.title != "Sport live" }.take(3).forEach { row ->
             item(key = "dyn_" + row.title) {
                 Column(pad) {
@@ -371,10 +373,11 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun SeriesRow(title: String, list: List<SeriesEntity>, onClick: (SeriesEntity) -> Unit) {
+private fun SeriesRow(title: String, list: List<SeriesEntity>, onMore: ((Int) -> Unit)? = null, onClick: (SeriesEntity) -> Unit) {
     SectionHeader(title)
     LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 8.dp + FocusBleedV, bottom = 8.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
         itemsIndexed(list, key = { _, s -> s.id }, contentType = { _, _ -> "poster" }) { i, s ->
+            if (onMore != null && i >= list.size - 4) androidx.compose.runtime.LaunchedEffect(list.size) { onMore(list.size) }
             FocusCard(s.name, s.poster, 150.dp, 222.dp, onClick = { onClick(s) }, entranceIndex = i,
                 subtitle = listOfNotNull(s.year, s.rating?.takeIf { it > 0 }?.let { de.ostlertekker.ultraiptv.core.ui.ratingLabel(it) }).joinToString(" · ").ifBlank { null })
         }
@@ -419,10 +422,11 @@ private fun HeroButton(label: String, primary: Boolean = false, modifier: Modifi
 }
 
 @Composable
-private fun MovieRow(title: String, movies: List<MovieEntity>, onClick: (MovieEntity) -> Unit) {
+private fun MovieRow(title: String, movies: List<MovieEntity>, onMore: ((Int) -> Unit)? = null, onClick: (MovieEntity) -> Unit) {
     SectionHeader(title)
     LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 8.dp + FocusBleedV, bottom = 8.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
         itemsIndexed(movies, key = { _, m -> m.id }, contentType = { _, _ -> "poster" }) { i, m ->
+            if (onMore != null && i >= movies.size - 4) androidx.compose.runtime.LaunchedEffect(movies.size) { onMore(movies.size) }
             FocusCard(m.name, m.poster, 150.dp, 222.dp, onClick = { onClick(m) }, entranceIndex = i,
                 subtitle = listOfNotNull(m.year, m.rating?.takeIf { it > 0 }?.let { de.ostlertekker.ultraiptv.core.ui.ratingLabel(it) }).joinToString(" · ").ifBlank { null })
         }

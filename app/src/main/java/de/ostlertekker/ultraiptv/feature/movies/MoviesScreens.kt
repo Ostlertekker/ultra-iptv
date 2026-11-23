@@ -85,6 +85,8 @@ private const val PAGE = 240
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class MoviesViewModel @Inject constructor(content: ContentRepository, user: UserRepository) : ViewModel() {
+    /** Endlose Reihen der Übersicht. */
+    val pager = de.ostlertekker.ultraiptv.feature.common.RowPager()
     /** Kino-Übersicht: Weiterschauen, Merkliste, Neu, Beliebt, Empfehlungen, Zuletzt angesehen, Genre-Reihen – alles aus echten Daten. */
     val overview: StateFlow<List<de.ostlertekker.ultraiptv.feature.common.CinemaRow>> = run {
         fun MovieEntity.tile() = de.ostlertekker.ultraiptv.feature.common.CinemaTile(id, name, poster,
@@ -97,30 +99,30 @@ class MoviesViewModel @Inject constructor(content: ContentRepository, user: User
         val genreRows = content.movieGenres().flatMapLatest { gs ->
             val top = gs.take(5)
             if (top.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyList())
-            else combine(top.map { g -> content.movies(null, g, SortOrder.RATING, 24).map { l -> g to l } }) { it.toList() }
+            else combine(top.map { g -> pager.paged("g:$g", 24) { n -> content.movies(null, g, SortOrder.RATING, n) }.map { l -> g to l } }) { it.toList() }
         }
         val recommended = user.recentlyWatched.flatMapLatest { recent ->
             val last = recent.firstOrNull { it.kind == ContentKind.MOVIE.name && !it.itemId.startsWith("jf:") }
             if (last == null) kotlinx.coroutines.flow.flowOf(emptyList())
             else content.movie(last.itemId).flatMapLatest { m ->
                 val g = m?.genre?.split(',', '/')?.firstOrNull()?.trim()
-                if (g.isNullOrBlank()) kotlinx.coroutines.flow.flowOf(emptyList()) else content.movies(null, g, SortOrder.RATING, 24).map { l -> l.filter { it.id != m.id } }
+                if (g.isNullOrBlank()) kotlinx.coroutines.flow.flowOf(emptyList()) else pager.paged("rec", 24) { n -> content.movies(null, g, SortOrder.RATING, n) }.map { l -> l.filter { it.id != m.id } }
             }
         }
         combine(
             user.continueWatching.map { l -> l.filter { it.kind == ContentKind.MOVIE.name && !it.itemId.startsWith("jf:") } },
             user.favoriteIds(ContentKind.MOVIE).flatMapLatest { content.moviesByIds(it) },
-            content.movies(null, null, SortOrder.NEWEST, 30),
-            content.movies(null, null, SortOrder.RATING, 30),
+            pager.paged("new", 30) { n -> content.movies(null, null, SortOrder.NEWEST, n) },
+            pager.paged("pop", 30) { n -> content.movies(null, null, SortOrder.RATING, n) },
             combine(recommended, user.recentlyWatched.map { l -> l.filter { it.kind == ContentKind.MOVIE.name && !it.itemId.startsWith("jf:") } }, genreRows) { a, b, c -> Triple(a, b, c) },
         ) { cw, watch, newest, popular, (rec, recent, genres) ->
             listOf(
                 de.ostlertekker.ultraiptv.feature.common.CinemaRow("Weiterschauen", cw.map { it.tile(true) }, landscape = true),
                 de.ostlertekker.ultraiptv.feature.common.CinemaRow("Meine Merkliste", watch.map { it.tile() }),
-                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Neu hinzugefügt", newest.map { it.tile() }),
-                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Beliebte Filme", if (popular.any { (it.rating ?: 0.0) > 0 }) popular.map { it.tile() } else emptyList()),
-                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Empfehlungen für dich", rec.map { it.tile() }),
-            ) + genres.map { (g, l) -> de.ostlertekker.ultraiptv.feature.common.CinemaRow(g, l.map { it.tile() }) }
+                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Neu hinzugefügt", newest.map { it.tile() }, pageKey = "new"),
+                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Beliebte Filme", if (popular.any { (it.rating ?: 0.0) > 0 }) popular.map { it.tile() } else emptyList(), pageKey = "pop"),
+                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Empfehlungen für dich", rec.map { it.tile() }, pageKey = "rec"),
+            ) + genres.map { (g, l) -> de.ostlertekker.ultraiptv.feature.common.CinemaRow(g, l.map { it.tile() }, pageKey = "g:$g") }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     }
 
@@ -164,7 +166,7 @@ fun MoviesScreen(nav: NavController, vm: MoviesViewModel = hiltViewModel()) {
         val rows by vm.overview.collectAsStateWithLifecycle()
         val hero = rows.firstOrNull { it.title == "Neu hinzugefügt" }?.tiles?.firstOrNull { !it.backdrop.isNullOrBlank() }
             ?: rows.firstOrNull { it.title == "Neu hinzugefügt" }?.tiles?.firstOrNull()
-        de.ostlertekker.ultraiptv.feature.common.CinemaOverview(hero, rows,
+        de.ostlertekker.ultraiptv.feature.common.CinemaOverview(hero, rows, onMore = vm.pager::more,
             header = {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TvChip("Übersicht", true, { })
