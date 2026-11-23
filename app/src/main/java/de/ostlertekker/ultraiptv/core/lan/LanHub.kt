@@ -184,7 +184,7 @@ class LanHub @Inject constructor(
 <style>body{font-family:system-ui,sans-serif;background:#070a1f;color:#f4f1ff;max-width:560px;margin:40px auto;padding:0 16px}
 h1{letter-spacing:3px}small{color:#a9a6c9}input,button{font-size:17px;padding:10px;border-radius:8px;border:1px solid #444;margin:6px 0}
 button{background:#a77bff;color:#000;border:0;font-weight:700}a{color:#5bc8ff}.card{background:#141a3a;padding:16px;border-radius:12px;margin:14px 0}</style></head><body>
-<small>OSTLERTEKKER PRESENTS</small><h1>ULTRA IPTV</h1>
+<small>OSTLERTEKKER &amp; HORSTYHAZE PRESENTS</small><h1>ULTRA IPTV</h1>
 ${if (!authorized) """<div class="card"><form action="/panel"><p>Kopplungscode vom Fernseher eingeben:</p>
 <input name="code" inputmode="numeric" maxlength="6" autofocus> <button>Verbinden</button></form></div>""" else """
 <div class="card"><h3>Backup herunterladen</h3><p><a href="/backup?code=$code">Ohne Zugangsdaten</a> · <a href="/backup?code=$code&accounts=1">Mit Anbieter-Konten</a></p>

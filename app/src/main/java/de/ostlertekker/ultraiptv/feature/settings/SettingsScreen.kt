@@ -638,7 +638,7 @@ private fun LazyListScope.aboutSection(vm: SettingsViewModel) {
     item {
         val p = LocalUltraTheme.current.palette
         Column {
-            Text("OSTLERTEKKER PRESENTS", color = p.textDim, fontSize = 12.sp, letterSpacing = 4.sp)
+            Text("OSTLERTEKKER & HORSTYHAZE PRESENTS", color = p.textDim, fontSize = 12.sp, letterSpacing = 4.sp)
             Text("ULTRA IPTV", color = p.text, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
             Text("DAS ULTIMATIVE STREAMING-ERLEBNIS", color = p.primary, fontSize = 13.sp, letterSpacing = 2.sp)
             Spacer(Modifier.height(10.dp))

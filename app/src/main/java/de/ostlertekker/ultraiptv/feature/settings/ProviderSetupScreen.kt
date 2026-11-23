@@ -85,7 +85,7 @@ fun ProviderSetupScreen(onDone: () -> Unit, firstRun: Boolean, newAccount: Boole
             Modifier.widthIn(max = 720.dp).fillMaxWidth().background(p.bgBottom.copy(alpha = 0.88f), RoundedCornerShape(theme.spec.corner.coerceAtMost(24.dp)))
                 .padding(24.dp).verticalScroll(rememberScrollState()),
         ) {
-            if (firstRun) Text("OSTLERTEKKER PRESENTS", color = p.textDim, fontSize = 12.sp, letterSpacing = 4.sp)
+            if (firstRun) Text("OSTLERTEKKER & HORSTYHAZE PRESENTS", color = p.textDim, fontSize = 12.sp, letterSpacing = 4.sp)
             Text(if (newAccount) "Weiteres Konto hinzufügen" else "Quelle einrichten", color = p.text, fontSize = 28.sp, fontWeight = theme.spec.titleWeight, fontFamily = theme.spec.fontFamily)
             Text("Nur legal lizenzierte, eigene oder vom Anbieter autorisierte Quellen verwenden. Zugangsdaten werden verschlüsselt gespeichert.",
                 color = p.textDim, fontSize = 13.sp, modifier = Modifier.padding(vertical = 8.dp))
