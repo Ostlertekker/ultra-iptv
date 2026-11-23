@@ -228,6 +228,17 @@ fun SetupWizard(hasProvider: Boolean, onDone: () -> Unit, vm: SetupWizardViewMod
     }
 }
 
+/** Fokus zuverlässig setzen: wiederholt anfordern, bis er im Bild angekommen ist (Übergänge/Intro können den ersten Versuch schlucken). */
+@Composable
+private fun AutoFocus(f: FocusRequester) {
+    LaunchedEffect(f) {
+        repeat(12) {
+            delay(if (it == 0) 120 else 200)
+            if (runCatching { f.requestFocus() }.isSuccess && it >= 2) return@LaunchedEffect
+        }
+    }
+}
+
 @Composable
 private fun PaneTitle(icon: String, title: String, sub: String) {
     val theme = LocalUltraTheme.current
@@ -262,7 +273,7 @@ private fun WelcomePane(onStart: () -> Unit, onSkip: () -> Unit) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
     val f = remember { FocusRequester() }
-    LaunchedEffect(Unit) { delay(120); runCatching { f.requestFocus() } }
+    AutoFocus(f)
     Column {
         Text("WILLKOMMEN BEI", color = p.textDim, fontSize = 13.sp, letterSpacing = 4.sp)
         Text("ULTRA IPTV", color = p.text, fontSize = 52.sp, fontWeight = FontWeight.ExtraBold, fontFamily = theme.spec.fontFamily)
@@ -289,7 +300,7 @@ private fun WelcomePane(onStart: () -> Unit, onSkip: () -> Unit) {
 private fun IptvPane(hasProvider: Boolean, onSaved: () -> Unit, onNext: () -> Unit, onBack: () -> Unit) {
     if (hasProvider) {
         val f = remember { FocusRequester() }
-        LaunchedEffect(Unit) { delay(120); runCatching { f.requestFocus() } }
+        AutoFocus(f)
         Column {
             PaneTitle("📺", "IPTV-Anbieter", "Deine Quelle ist bereits eingerichtet. Ändern kannst du sie später unter Einstellungen.")
             Text("✓ Eingerichtet", color = Color(0xFF4ADE80), fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
@@ -316,7 +327,7 @@ private fun JellyfinPane(vm: SetupWizardViewModel, onNext: () -> Unit, onBack: (
     val ok by vm.ok.collectAsStateWithLifecycle()
     val found by vm.found.collectAsStateWithLifecycle()
     val f = remember { FocusRequester() }; val next = remember { FocusRequester() }
-    LaunchedEffect(Unit) { delay(120); runCatching { f.requestFocus() } }
+    AutoFocus(f)
     LaunchedEffect(ok) { if (ok) { delay(100); runCatching { next.requestFocus() } } }
     Column(Modifier.verticalScroll(rememberScrollState())) {
         PaneTitle("🟣", "Jellyfin verbinden", "Deine eigene Mediathek direkt in der App. Gleiche Adresse und Anmeldung wie in der Jellyfin-App.")
@@ -346,7 +357,7 @@ private fun SeerrPane(vm: SetupWizardViewModel, onNext: () -> Unit, onBack: () -
     val busy by vm.busy.collectAsStateWithLifecycle()
     val ok by vm.ok.collectAsStateWithLifecycle()
     val f = remember { FocusRequester() }; val next = remember { FocusRequester() }
-    LaunchedEffect(Unit) { delay(120); runCatching { f.requestFocus() } }
+    AutoFocus(f)
     LaunchedEffect(ok) { if (ok) { delay(100); runCatching { next.requestFocus() } } }
     Column(Modifier.verticalScroll(rememberScrollState())) {
         PaneTitle("🎟", "Seerr anmelden", "Optional: Filme und Serien anfragen (Jellyseerr/Overseerr). Anmeldung mit deinem Jellyfin-Konto – das Passwort wird nicht gespeichert.")
@@ -370,7 +381,7 @@ private fun WeatherPane(vm: SetupWizardViewModel, onNext: () -> Unit, onBack: ()
     val busy by vm.busy.collectAsStateWithLifecycle()
     val ok by vm.ok.collectAsStateWithLifecycle()
     val f = remember { FocusRequester() }; val next = remember { FocusRequester() }
-    LaunchedEffect(Unit) { delay(120); runCatching { f.requestFocus() } }
+    AutoFocus(f)
     LaunchedEffect(ok) { if (ok) { delay(100); runCatching { next.requestFocus() } } }
     Column {
         PaneTitle("⛅", "Wetter", "Das Wetter erscheint oben neben „ULTRA IPTV“. Der Ort bestimmt auch die passenden Nachrichten.")
@@ -389,7 +400,7 @@ private fun NewsPane(vm: SetupWizardViewModel, onNext: () -> Unit, onBack: () ->
     val s by vm.settings.collectAsStateWithLifecycle()
     val st = s ?: return
     val f = remember { FocusRequester() }
-    LaunchedEffect(Unit) { delay(120); runCatching { f.requestFocus() } }
+    AutoFocus(f)
     Column(Modifier.verticalScroll(rememberScrollState())) {
         PaneTitle("📰", "Nachrichten-Laufschrift", "Eine Zeile mit aktuellen Schlagzeilen am unteren Rand. Quelle wählen oder ausschalten.")
         val on = st.newsEnabled
@@ -409,7 +420,7 @@ private fun DonePane(hasProvider: Boolean, onDone: () -> Unit) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
     val f = remember { FocusRequester() }
-    LaunchedEffect(Unit) { delay(150); runCatching { f.requestFocus() } }
+    AutoFocus(f)
     Column {
         Text("🎉", fontSize = 48.sp)
         Text("Alles eingerichtet!", color = p.text, fontSize = 42.sp, fontWeight = FontWeight.ExtraBold, fontFamily = theme.spec.fontFamily)

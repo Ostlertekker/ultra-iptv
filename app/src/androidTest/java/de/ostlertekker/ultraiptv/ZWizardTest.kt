@@ -34,7 +34,7 @@ class ZWizardTest {
             Thread.sleep(14_000) // Intro abwarten
             val D = KeyEvent.KEYCODE_DPAD_DOWN; val U = KeyEvent.KEYCODE_DPAD_UP; val R = KeyEvent.KEYCODE_DPAD_RIGHT; val OK = KeyEvent.KEYCODE_DPAD_CENTER
             fun keys(vararg c: Int) { for (k in c) { key(k); Thread.sleep(250) } }
-            shot("0_willkommen"); keys(OK); Thread.sleep(2500)
+            Thread.sleep(1500); shot("0_willkommen"); keys(OK); Thread.sleep(2500)
             shot("1_iptv"); keys(U, R, OK); Thread.sleep(2500)
             shot("2_jellyfin"); keys(D, D, D, D, R, R, OK); Thread.sleep(2500)
             shot("3_seerr"); keys(D, D, D, R, R, OK); Thread.sleep(2500)
