@@ -158,7 +158,7 @@ private fun HealthBody(s: HealthSnapshot) {
         val score = stability(st)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Tile(tr("Stabilität"), "$score / 100", if (score >= 80) Color(0xFF2EE59D) else if (score >= 50) Color(0xFFFFC94D) else Color(0xFFFF5A5A))
-            Tile("Verbindung", when (s.state) { Player.STATE_READY -> if (s.playing) "Wiedergabe" else "Bereit"; Player.STATE_BUFFERING -> "Puffert"; Player.STATE_ENDED -> "Beendet"; else -> "Getrennt" }, Color.White)
+            Tile(tr("Verbindung"), when (s.state) { Player.STATE_READY -> if (s.playing) tr("Wiedergabe") else tr("Bereit"); Player.STATE_BUFFERING -> tr("Puffert"); Player.STATE_ENDED -> tr("Beendet"); else -> tr("Getrennt") }, Color.White)
             Tile(tr("Auflösung"), if (st.decodedWidth > 0) "${st.decodedWidth}×${st.decodedHeight}" else "–", Color.White)
             Tile("FPS", buildString { if (st.measuredFps > 0) append("%.1f".format(st.measuredFps)) else append("–"); if (st.sourceFps > 0) append(" / Quelle %.0f".format(st.sourceFps)) }, Color.White)
         }

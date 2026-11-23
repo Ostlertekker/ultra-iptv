@@ -133,7 +133,7 @@ fun SeerrAvailablePopup(item: de.ostlertekker.ultraiptv.core.seerr.SeerrItem?, m
     }
     BackHandler { onDismiss() }
     PopupCard(StarVec, tr("Seerr · Deine Anfrage ist da"), it.title,
-        listOfNotNull(if (it.isTv) "Serie" else "Film", it.year, "jetzt in Jellyfin verfügbar").joinToString(" · "), modifier, progress = left / 30f) {
+        listOfNotNull(if (it.isTv) tr("Serie") else tr("Film"), it.year, "jetzt in Jellyfin verfügbar").joinToString(" · "), modifier, progress = left / 30f) {
         TvButton(tr("In Jellyfin ansehen"), onClick = onOpen, primary = true, focusRequester = focus)
         TvButton(tr("Schließen"), onClick = onDismiss)
         Spacer(Modifier.weight(1f))

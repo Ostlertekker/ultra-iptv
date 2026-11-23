@@ -120,7 +120,7 @@ class MoviesViewModel @Inject constructor(content: ContentRepository, user: User
             combine(recommended, user.recentlyWatched.map { l -> l.filter { it.kind == ContentKind.MOVIE.name && !it.itemId.startsWith("jf:") } }, genreRows) { a, b, c -> Triple(a, b, c) },
         ) { cw, watch, newest, popular, (rec, recent, genres) ->
             listOf(
-                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Weiterschauen", cw.map { it.tile(true) }, landscape = true),
+                de.ostlertekker.ultraiptv.feature.common.CinemaRow(tr("Weiterschauen"), cw.map { it.tile(true) }, landscape = true),
                 de.ostlertekker.ultraiptv.feature.common.CinemaRow(tr("Meine Merkliste"), watch.map { it.tile() }),
                 de.ostlertekker.ultraiptv.feature.common.CinemaRow(tr("Neu hinzugefügt"), newest.map { it.tile() }, pageKey = "new"),
                 de.ostlertekker.ultraiptv.feature.common.CinemaRow(tr("Beliebte Filme"), if (popular.any { (it.rating ?: 0.0) > 0 }) popular.map { it.tile() } else emptyList(), pageKey = "pop"),
@@ -188,7 +188,7 @@ fun MoviesScreen(nav: NavController, vm: MoviesViewModel = hiltViewModel()) {
                 modifier = Modifier.padding(bottom = 10.dp))
         }
         item(key = "__overview") { de.ostlertekker.ultraiptv.feature.livetv.CategoryItem(tr("Übersicht"), false) { overviewMode = true } }
-        item(key = "__all") { de.ostlertekker.ultraiptv.feature.livetv.CategoryItem("Alle", cat == null) { vm.category.value = null; vm.resetPaging() } }
+        item(key = "__all") { de.ostlertekker.ultraiptv.feature.livetv.CategoryItem(tr("Alle"), cat == null) { vm.category.value = null; vm.resetPaging() } }
         items(cats, key = { it }) { c -> de.ostlertekker.ultraiptv.feature.livetv.CategoryItem(c, c == cat) { vm.category.value = c; vm.resetPaging() } }
     }
     Column(Modifier.weight(0.75f).fillMaxHeight()) {

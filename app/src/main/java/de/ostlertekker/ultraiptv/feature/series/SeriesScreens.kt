@@ -110,7 +110,7 @@ class SeriesViewModel @Inject constructor(content: ContentRepository, user: de.o
             combine(user.recentlyWatched.map { l -> l.filter { it.kind == ep && !it.itemId.startsWith("jf:") } }, catRows) { a, b -> a to b },
         ) { cw, watch, newest, popular, (recent, cats) ->
             listOf(
-                de.ostlertekker.ultraiptv.feature.common.CinemaRow("Fortsetzen", cw.map { it.tile(true) }, landscape = true),
+                de.ostlertekker.ultraiptv.feature.common.CinemaRow(tr("Fortsetzen"), cw.map { it.tile(true) }, landscape = true),
                 de.ostlertekker.ultraiptv.feature.common.CinemaRow(tr("Meine Merkliste"), watch.map { it.tile() }),
                 de.ostlertekker.ultraiptv.feature.common.CinemaRow(tr("Neue Serien"), newest.map { it.tile() }, pageKey = "new"),
                 de.ostlertekker.ultraiptv.feature.common.CinemaRow(tr("Beliebte Serien"), if (popular.any { (it.rating ?: 0.0) > 0 }) popular.map { it.tile() } else emptyList(), pageKey = "pop"),
@@ -172,7 +172,7 @@ fun SeriesScreen(nav: NavController, vm: SeriesViewModel = hiltViewModel()) {
                 modifier = Modifier.padding(bottom = 10.dp))
         }
         item(key = "__overview") { de.ostlertekker.ultraiptv.feature.livetv.CategoryItem(tr("Übersicht"), false) { overviewMode = true } }
-        item(key = "__all") { de.ostlertekker.ultraiptv.feature.livetv.CategoryItem("Alle", cat == null) { vm.category.value = null } }
+        item(key = "__all") { de.ostlertekker.ultraiptv.feature.livetv.CategoryItem(tr("Alle"), cat == null) { vm.category.value = null } }
         items(cats, key = { it }) { c -> de.ostlertekker.ultraiptv.feature.livetv.CategoryItem(c, c == cat) { vm.category.value = c } }
     }
     Column(Modifier.weight(0.75f).fillMaxHeight()) {

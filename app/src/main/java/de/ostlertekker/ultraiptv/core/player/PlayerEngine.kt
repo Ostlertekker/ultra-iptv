@@ -631,7 +631,7 @@ class PlayerEngine @Inject constructor(
         }
     }
 
-    private fun channelLabel(c: Int) = when (c) { 1 -> "Mono"; 2 -> "Stereo"; 6 -> "5.1"; 8 -> "7.1"; else -> trf("{0} Kanäle", c) }
+    private fun channelLabel(c: Int) = when (c) { 1 -> tr("Mono"); 2 -> tr("Stereo"); 6 -> "5.1"; 8 -> "7.1"; else -> trf("{0} Kanäle", c) }
 
     private fun codecName(mime: String?): String? = when (mime) {
         MimeTypes.AUDIO_AC3 -> tr("Dolby Digital")
@@ -641,7 +641,7 @@ class PlayerEngine @Inject constructor(
         MimeTypes.AUDIO_DTS -> "DTS"
         MimeTypes.AUDIO_AAC -> "AAC"
         MimeTypes.AUDIO_MPEG -> "MP3"
-        MimeTypes.AUDIO_OPUS -> "Opus"
+        MimeTypes.AUDIO_OPUS -> tr("Opus")
         null -> null
         else -> mime.substringAfter('/')
     }

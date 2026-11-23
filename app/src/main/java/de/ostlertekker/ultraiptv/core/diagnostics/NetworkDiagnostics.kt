@@ -105,13 +105,13 @@ class NetworkDiagnostics @Inject constructor(
             caps == null -> tr("Keine Verbindung")
             caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> tr("Ethernet (LAN)")
             caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "WLAN"
-            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "Mobilfunk"
-            else -> "Andere"
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> tr("Mobilfunk")
+            else -> tr("Andere")
         }
         out += InfoEntry("Verbindungsart", type, Accuracy.MEASURED)
         if (caps != null) {
             out += InfoEntry(tr("Bandbreite laut System"), "↓ ${caps.linkDownstreamBandwidthKbps / 1000} Mbit/s · ↑ ${caps.linkUpstreamBandwidthKbps / 1000} Mbit/s", Accuracy.ESTIMATED)
-            out += InfoEntry(tr("Internet bestätigt"), if (caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) "Ja" else "Nein", Accuracy.MEASURED)
+            out += InfoEntry(tr("Internet bestätigt"), if (caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) "Ja" else tr("Nein"), Accuracy.MEASURED)
         }
         out += InfoEntry(tr("Lokale IP-Adresse"), localIpv4() ?: "unbekannt", if (localIpv4() != null) Accuracy.MEASURED else Accuracy.UNAVAILABLE)
         // Internet + Standort (Cloudflare-Trace)

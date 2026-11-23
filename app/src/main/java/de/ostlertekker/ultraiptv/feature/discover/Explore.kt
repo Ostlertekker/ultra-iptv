@@ -270,19 +270,19 @@ private fun MatchPanel(e: ScoreEvent, d: de.ostlertekker.ultraiptv.core.discover
         }
         if (d == null) item { Text(if (failed) tr("Für dieses Spiel liefert die Datenquelle keine weiteren Details.") else tr("Lade Spieldetails …"), color = pal.textDim, fontSize = 12.sp) }
         else {
-            item { SectionHeader("Ereignisse") }
+            item { SectionHeader(tr("Ereignisse")) }
             if (d.keyEvents.isEmpty()) item { Text(tr("Keine Ereignisdaten von der Quelle."), color = pal.textDim, fontSize = 12.sp) }
             items(d.keyEvents.takeLast(40).reversed()) { k ->
                 Text("${k.clock ?: ""}  ${k.text}", color = pal.text, fontSize = 12.sp, maxLines = 2)
             }
             if (d.stats.isNotEmpty()) {
-                item { SectionHeader("Statistik") }
+                item { SectionHeader(tr("Statistik")) }
                 items(d.stats.take(16)) { s ->
                     Row { Text(s.home, color = pal.text, fontSize = 12.sp, modifier = Modifier.width(60.dp)); Text(s.label, color = pal.textDim, fontSize = 12.sp, modifier = Modifier.weight(1f)); Text(s.away, color = pal.text, fontSize = 12.sp) }
                 }
             }
             if (d.rosters.isNotEmpty()) {
-                item { SectionHeader("Aufstellungen") }
+                item { SectionHeader(tr("Aufstellungen")) }
                 items(d.rosters) { r ->
                     Text(r.team + (r.formation?.let { " ($it)" } ?: ""), color = pal.primary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     Text(r.players.filter { it.starter }.ifEmpty { r.players }.take(11).joinToString(" · ") { p -> listOfNotNull(p.jersey, p.name).joinToString(" ") },

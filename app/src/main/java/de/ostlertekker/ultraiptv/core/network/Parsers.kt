@@ -1,5 +1,8 @@
 package de.ostlertekker.ultraiptv.core.network
 
+import de.ostlertekker.ultraiptv.core.i18n.tr
+import de.ostlertekker.ultraiptv.core.i18n.trf
+
 import org.xmlpull.v1.XmlPullParser
 import java.io.InputStream
 import java.net.URLEncoder
@@ -55,7 +58,7 @@ object M3uParser {
                 else -> {
                     val attrs = pendingAttrs ?: emptyMap()
                     val name = pendingName?.takeIf { it.isNotBlank() } ?: attrs["tvg-name"] ?: line.substringAfterLast('/')
-                    val group = attrs["group-title"]?.takeIf { it.isNotBlank() } ?: pendingGroup ?: "Allgemein"
+                    val group = attrs["group-title"]?.takeIf { it.isNotBlank() } ?: pendingGroup ?: tr("Allgemein")
                     out += M3uEntry(
                         name = name.trim(),
                         url = line,

@@ -106,8 +106,8 @@ object SeerrStatus {
 
     /** Radarr/Sonarr-Download-Status auf Deutsch. */
     fun download(s: String): String = when (s.lowercase()) {
-        "downloading" -> tr("Lädt"); "queued" -> tr("In Warteschlange"); "paused" -> "Pausiert"
-        "completed" -> tr("Fertig – wird importiert"); "delay" -> tr("Verzögert"); "warning" -> "Warnung"; "failed" -> "Fehler"
+        "downloading" -> tr("Lädt"); "queued" -> tr("In Warteschlange"); "paused" -> tr("Pausiert")
+        "completed" -> tr("Fertig – wird importiert"); "delay" -> tr("Verzögert"); "warning" -> tr("Warnung"); "failed" -> tr("Fehler")
         else -> s.replaceFirstChar { it.uppercase() }
     }
 
@@ -124,16 +124,16 @@ object SeerrStatus {
     }
 
     fun media(s: Int): String? = when (s) {
-        PENDING -> "Angefragt"; PROCESSING -> tr("Wird bearbeitet"); PARTIAL -> tr("Teilweise verfügbar"); AVAILABLE -> tr("Verfügbar")
-        6 -> "Gesperrt"; else -> null
+        PENDING -> tr("Angefragt"); PROCESSING -> tr("Wird bearbeitet"); PARTIAL -> tr("Teilweise verfügbar"); AVAILABLE -> tr("Verfügbar")
+        6 -> tr("Gesperrt"); else -> null
     }
 
     /** Text für „Anfragen“: zuerst Ablehnung/Fehler, sonst der Medien-Status. */
     fun request(req: Int, media: Int): String = when {
-        req == REQ_DECLINED -> "Abgelehnt"
-        req == REQ_FAILED -> "Fehlgeschlagen"
+        req == REQ_DECLINED -> tr("Abgelehnt")
+        req == REQ_FAILED -> tr("Fehlgeschlagen")
         req == REQ_PENDING -> tr("Wartet auf Freigabe")
-        else -> media(media) ?: "Freigegeben"
+        else -> media(media) ?: tr("Freigegeben")
     }
 }
 

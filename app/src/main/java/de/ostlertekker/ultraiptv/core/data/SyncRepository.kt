@@ -467,7 +467,7 @@ class SyncRepository @Inject constructor(
     // Abbildung der Xtream-Antworten auf Datenbank-Einträge (gemeinsam für Voll-Sync und System-Updates)
     private fun mapLive(o: JsonObject, cats: Map<String, String>): ChannelEntity? {
         val id = o.str("stream_id") ?: return null
-        val cat = cats[o.str("category_id")] ?: "Sonstige"
+        val cat = cats[o.str("category_id")] ?: tr("Sonstige")
         return ChannelEntity(
             id = "x:live:$id", name = o.str("name") ?: "Kanal $id", category = cat,
             logo = o.str("stream_icon"), streamUrl = StreamResolver.ref("live", id, "ts"),
@@ -483,7 +483,7 @@ class SyncRepository @Inject constructor(
 
     private fun mapVod(o: JsonObject, cats: Map<String, String>): MovieEntity? {
         val id = o.str("stream_id") ?: return null
-        val cat = cats[o.str("category_id")] ?: "Sonstige"
+        val cat = cats[o.str("category_id")] ?: tr("Sonstige")
         return MovieEntity(
             id = "x:vod:$id", name = o.str("name") ?: "Film $id", category = cat,
             poster = o.str("stream_icon"), backdrop = null, plot = o.str("plot"), genre = o.str("genre"),
@@ -498,7 +498,7 @@ class SyncRepository @Inject constructor(
 
     private fun mapSeries(o: JsonObject, cats: Map<String, String>): SeriesEntity? {
         val id = o.str("series_id") ?: return null
-        val cat = cats[o.str("category_id")] ?: "Sonstige"
+        val cat = cats[o.str("category_id")] ?: tr("Sonstige")
         return SeriesEntity(
             id = "x:series:$id", name = o.str("name") ?: "Serie $id", category = cat,
             poster = o.str("cover"), backdrop = o.firstStr("backdrop_path"), plot = o.str("plot"),
@@ -527,7 +527,7 @@ class SyncRepository @Inject constructor(
                     id = "x:ep:$id", seriesId = seriesId,
                     season = o.str("season")?.toIntOrNull() ?: seasonHint,
                     episode = o.str("episode_num")?.toIntOrNull() ?: (list.size + 1),
-                    title = o.str("title") ?: "Episode",
+                    title = o.str("title") ?: tr("Episode"),
                     plot = info?.str("plot"), image = info?.str("movie_image"),
                     durationSec = info?.str("duration_secs")?.toLongOrNull(),
                     streamUrl = StreamResolver.ref("series", id, o.str("container_extension") ?: "mp4"),

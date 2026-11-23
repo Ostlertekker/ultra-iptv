@@ -198,7 +198,7 @@ class SportsRepository @Inject constructor(http: OkHttpClient) {
         }
         val rosters = root.arr("rosters").mapNotNull { r ->
             val o = r as? JsonObject ?: return@mapNotNull null
-            TeamRoster(o.obj("team")?.s("displayName") ?: "Team", o.s("formation"),
+            TeamRoster(o.obj("team")?.s("displayName") ?: tr("Team"), o.s("formation"),
                 o.arr("roster").mapNotNull { p ->
                     val po = p as? JsonObject ?: return@mapNotNull null
                     val name = po.obj("athlete")?.s("displayName") ?: return@mapNotNull null

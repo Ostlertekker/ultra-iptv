@@ -115,8 +115,8 @@ object Routes {
 
 /** Abschaltbare Bereiche der Menüzeile (Route/Kennung → Name). */
 val MENU_SECTIONS = listOf(
-    Routes.LIVE to "Live-TV", Routes.MOVIES to "Filme", Routes.SERIES to "Serien", Routes.RADIO to "Radio",
-    Routes.JELLYFIN to "Jellyfin", "app:YOUTUBE" to "YouTube", "app:BROWSER" to "Browser", Routes.EXPLORE to "Tools",
+    Routes.LIVE to tr("Live-TV"), Routes.MOVIES to tr("Filme"), Routes.SERIES to tr("Serien"), Routes.RADIO to tr("Radio"),
+    Routes.JELLYFIN to tr("Jellyfin"), "app:YOUTUBE" to tr("YouTube"), "app:BROWSER" to tr("Browser"), Routes.EXPLORE to tr("Tools"),
 )
 
 private enum class Phase { INTRO, WIZARD, SETUP, PROFILES, MAIN }

@@ -377,10 +377,10 @@ fun PlayerScreen(
                             PlayerCtl("Bildformat", onClick = { panel = Panel.ASPECT })
                             if (!isLive || ui.shiftBehindMs > 0) PlayerCtl(trf("Tempo {0}×", ui.speed), onClick = { panel = Panel.SPEED })
                             PlayerCtl("Sync", onClick = { panel = Panel.SYNC })
-                            PlayerCtl(if (health) tr("Zustand aus") else "Stream-Zustand", onClick = { health = !health }, active = health)
+                            PlayerCtl(if (health) tr("Zustand aus") else tr("Stream-Zustand"), onClick = { health = !health }, active = health)
                             val left = if (ui.sleepAt > 0) ((ui.sleepAt - System.currentTimeMillis()) / 60_000L + 1).coerceAtLeast(1) else 0
-                            PlayerCtl(if (left > 0) trf("Sleep {0} min", left) else "Sleep-Timer", onClick = { vm.cycleSleep() }, active = left > 0)
-                            PlayerCtl(if (ui.showStats) tr("Statistik aus") else "Statistik", onClick = { vm.toggleStats() }, active = ui.showStats)
+                            PlayerCtl(if (left > 0) trf("Sleep {0} min", left) else tr("Sleep-Timer"), onClick = { vm.cycleSleep() }, active = left > 0)
+                            PlayerCtl(if (ui.showStats) tr("Statistik aus") else tr("Statistik"), onClick = { vm.toggleStats() }, active = ui.showStats)
                             PlayerCtl("Mini-Player", onClick = onMini)
                             if (pipSupported) PlayerCtl("Bild-in-Bild", onClick = { if (!onPip()) onMini() })
                         }
@@ -389,7 +389,7 @@ fun PlayerScreen(
                     Row(Modifier.fillMaxWidth().crazyEntrance(1, overlayShown), verticalAlignment = Alignment.CenterVertically) {
                         LazyRow(Modifier.weight(1f).focusBleed(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically, contentPadding = PaddingValues(horizontal = FocusBleedH, vertical = FocusBleedV)) {
                             item {
-                                TmIcon(if (ui.isPlaying) "Pause" else "Wiedergabe", { vm.togglePlay() }, lbl(if (ui.isPlaying) "Pause" else "Wiedergabe"), playFocus) { c ->
+                                TmIcon(if (ui.isPlaying) tr("Pause") else tr("Wiedergabe"), { vm.togglePlay() }, lbl(if (ui.isPlaying) tr("Pause") else tr("Wiedergabe")), playFocus) { c ->
                                     if (ui.isPlaying) PauseGlyph(c) else Icon(Icons.Default.PlayArrow, null, tint = c, modifier = Modifier.size(24.dp))
                                 }
                             }
@@ -487,7 +487,7 @@ private fun PanelContent(panel: Panel, vm: PlayerViewModel, ui: PlayerUi, settin
         }
         Panel.CINEMA -> {
             title = tr("Kinomodus")
-            val soundNames = listOf("Normal", tr("Nachtmodus (leise Szenen lauter, laute leiser)"), tr("Dialog klar"), "Bass+")
+            val soundNames = listOf(tr("Normal"), tr("Nachtmodus (leise Szenen lauter, laute leiser)"), tr("Dialog klar"), "Bass+")
             options = listOf(
                 Opt(if (settings.cinemaMode) tr("Kinomodus ausschalten") else tr("Kinomodus einschalten"), settings.cinemaMode) { vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.CINEMA_MODE, !settings.cinemaMode) },
                 Opt(trf("Kinoklang: {0}", (soundNames[settings.cinemaSound.coerceIn(0, 3)])), settings.cinemaSound > 0) { vm.setPref(de.ostlertekker.ultraiptv.core.data.Keys.CINEMA_SOUND, (settings.cinemaSound + 1) % 4) },

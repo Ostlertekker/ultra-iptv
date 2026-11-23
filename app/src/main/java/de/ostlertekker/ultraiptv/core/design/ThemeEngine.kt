@@ -94,14 +94,14 @@ data class UiPrefs(
 val LocalUiPrefs = staticCompositionLocalOf { UiPrefs() }
 
 object DesignOptions {
-    val proStyleNames = listOf("Aus", "Verlauf", "Akzentfarbe", tr("Weiß"), tr("Nur Rahmen"), tr("Nur Schrift"),
+    val proStyleNames = listOf(tr("Aus"), tr("Verlauf"), tr("Akzentfarbe"), tr("Weiß"), tr("Nur Rahmen"), tr("Nur Schrift"),
         "Gold", "Chrom", "Neon", "Glas", "Regenbogen", "Carbon", "Feuer")
-    val proAnimNames = listOf("Aus", "Glanz", "Pulsieren", "Leuchten", "Farbwechsel", "Rahmenlauf", "Funkeln")
+    val proAnimNames = listOf(tr("Aus"), tr("Glanz"), tr("Pulsieren"), tr("Leuchten"), tr("Farbwechsel"), tr("Rahmenlauf"), tr("Funkeln"))
     val proSizeNames = listOf(tr("Sehr klein"), "Klein", "Mittel")
-    val proPositionNames = listOf("Hochgestellt", "Mittig")
-    val cornerNames = listOf("Theme-Standard", "Eckig", tr("Leicht gerundet"), "Rund", tr("Extra rund"))
+    val proPositionNames = listOf(tr("Hochgestellt"), tr("Mittig"))
+    val cornerNames = listOf(tr("Theme-Standard"), tr("Eckig"), tr("Leicht gerundet"), tr("Rund"), tr("Extra rund"))
     val cornerValues = listOf<Dp?>(null, 0.dp, 8.dp, 18.dp, 28.dp)
-    val zoomNames = listOf("Theme-Standard", tr("Kein Zoom"), "Dezent", "Normal", "Stark")
+    val zoomNames = listOf(tr("Theme-Standard"), tr("Kein Zoom"), tr("Dezent"), tr("Normal"), tr("Stark"))
     val zoomValues = listOf<Float?>(null, 1f, 1.03f, 1.07f, 1.12f)
     // Reihenfolge der ersten fünf nicht ändern (gespeicherte Auswahl bleibt gültig); neue Schriften hinten anhängen
     val fontNames = listOf(tr("Standard (Inter)"), tr("System modern"), tr("System klassisch"), tr("System technisch"), tr("System verspielt")) +
@@ -109,8 +109,8 @@ object DesignOptions {
     val fontValues = listOf<FontFamily?>(null, FontFamily.SansSerif, FontFamily.Serif, FontFamily.Monospace, FontFamily.Cursive) +
         AppFonts.catalog.map { it.third }
     val scaleValues = listOf(0.85f, 0.9f, 1f, 1.1f, 1.2f)
-    val densityNames = listOf("Kompakt", "Normal", tr("Groß"))
-    val posterNames = listOf("Klein", "Mittel", tr("Groß"), "Riesig")
+    val densityNames = listOf(tr("Kompakt"), tr("Normal"), tr("Groß"))
+    val posterNames = listOf(tr("Klein"), tr("Mittel"), tr("Groß"), tr("Riesig"))
 }
 
 /** Es gibt nur noch ein Design: komplett schwarzer Hintergrund; Akzentfarbe und Schriftart bleiben wählbar. */

@@ -101,9 +101,9 @@ fun ProviderSetupScreen(onDone: () -> Unit, firstRun: Boolean, newAccount: Boole
             if (type == ProviderType.XTREAM) {
                 TvTextField(server, { server = it }, "Server (z. B. http://anbieter.tld:8080)", error = errors["server"])
                 Spacer(Modifier.height(8.dp))
-                TvTextField(user, { user = it }, "Benutzername", error = errors["user"])
+                TvTextField(user, { user = it }, tr("Benutzername"), error = errors["user"])
                 Spacer(Modifier.height(8.dp))
-                TvTextField(pass, { pass = it }, "Passwort", password = true, error = errors["pass"])
+                TvTextField(pass, { pass = it }, tr("Passwort"), password = true, error = errors["pass"])
             } else {
                 TvTextField(m3u, { m3u = it }, "M3U-Adresse (http/https)", error = errors["m3u"])
             }
@@ -118,8 +118,8 @@ fun ProviderSetupScreen(onDone: () -> Unit, firstRun: Boolean, newAccount: Boole
                         val e = HashMap<String, String>()
                         if (type == ProviderType.XTREAM) {
                             InputValidator.url(server)?.let { e["server"] = it }
-                            InputValidator.credential(user, "Benutzername")?.let { e["user"] = it }
-                            InputValidator.credential(pass, "Passwort")?.let { e["pass"] = it }
+                            InputValidator.credential(user, tr("Benutzername"))?.let { e["user"] = it }
+                            InputValidator.credential(pass, tr("Passwort"))?.let { e["pass"] = it }
                         } else {
                             InputValidator.url(m3u)?.let { e["m3u"] = it }
                         }

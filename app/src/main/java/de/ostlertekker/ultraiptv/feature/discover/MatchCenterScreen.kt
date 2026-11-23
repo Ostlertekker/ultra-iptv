@@ -249,10 +249,10 @@ private fun Overview(m: MatchCenter, e: ScoreEvent) {
     val pal = LocalUltraTheme.current.palette
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(Modifier.weight(1.3f)) {
-            if (m.incidents.isNotEmpty()) Card("Spielverlauf") {
+            if (m.incidents.isNotEmpty()) Card(tr("Spielverlauf")) {
                 m.incidents.forEach { i -> IncidentRow(i) }
             }
-            if (e.competitors.size > 2) Card("Rangliste") {
+            if (e.competitors.size > 2) Card(tr("Rangliste")) {
                 e.competitors.forEachIndexed { i, c ->
                     Row(Modifier.padding(vertical = 3.dp)) {
                         Text("${c.order ?: (i + 1)}.", color = pal.textDim, fontSize = 15.sp, modifier = Modifier.width(40.dp))
@@ -263,10 +263,10 @@ private fun Overview(m: MatchCenter, e: ScoreEvent) {
             }
             if (m.stats.isNotEmpty()) Card(tr("Wichtigste Werte")) { m.stats.take(5).forEach { StatBar(it) } }
             if (m.incidents.isEmpty() && m.stats.isEmpty() && e.competitors.size <= 2)
-                Card("Spielverlauf") { Text(if (e.state == "pre") tr("Das Spiel hat noch nicht begonnen.") else tr("Die Quelle liefert für dieses Spiel keinen Verlauf."), color = pal.textDim, fontSize = 14.sp) }
+                Card(tr("Spielverlauf")) { Text(if (e.state == "pre") tr("Das Spiel hat noch nicht begonnen.") else tr("Die Quelle liefert für dieses Spiel keinen Verlauf."), color = pal.textDim, fontSize = 14.sp) }
         }
         Column(Modifier.weight(1f)) {
-            if (m.info.isNotEmpty()) Card("Spielinfo") {
+            if (m.info.isNotEmpty()) Card(tr("Spielinfo")) {
                 m.info.forEach { (k, v) ->
                     Row(Modifier.padding(vertical = 3.dp)) {
                         Text(k, color = pal.textDim, fontSize = 14.sp, modifier = Modifier.width(150.dp))
@@ -281,7 +281,7 @@ private fun Overview(m: MatchCenter, e: ScoreEvent) {
                     f.forEach { r -> FormDot(r.toString()) }
                 } }
             }
-            m.series?.let { Card("Direktvergleich") { Text(it, color = pal.text, fontSize = 14.sp) } }
+            m.series?.let { Card(tr("Direktvergleich")) { Text(it, color = pal.text, fontSize = 14.sp) } }
         }
     }
 }
@@ -348,10 +348,10 @@ private fun StatBar(s: StatRow) {
 @Composable
 private fun Stats(m: MatchCenter) {
     val pal = LocalUltraTheme.current.palette
-    Card("Teamstatistik") {
+    Card(tr("Teamstatistik")) {
         Row(Modifier.padding(bottom = 6.dp)) {
-            Text(m.home?.name ?: "Heim", color = pal.primary, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Text(m.away?.name ?: "Gast", color = Color(0xFFE5484D), fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), textAlign = TextAlign.End)
+            Text(m.home?.name ?: tr("Heim"), color = pal.primary, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text(m.away?.name ?: tr("Gast"), color = Color(0xFFE5484D), fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), textAlign = TextAlign.End)
         }
         m.stats.forEach { StatBar(it) }
     }
@@ -458,7 +458,7 @@ private fun Table(m: MatchCenter) {
     val pal = LocalUltraTheme.current.palette
     val st = m.standings ?: return
     val ids = setOfNotNull(m.home?.id, m.away?.id)
-    Card(st.title ?: "Tabelle") {
+    Card(st.title ?: tr("Tabelle")) {
         Row(Modifier.padding(bottom = 4.dp)) {
             Text(tr("Team"), color = pal.textDim, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             st.columns.forEach { Text(it, color = pal.textDim, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(70.dp), textAlign = TextAlign.Center) }
@@ -476,7 +476,7 @@ private fun Table(m: MatchCenter) {
 @Composable
 private fun FormTab(m: MatchCenter) {
     val pal = LocalUltraTheme.current.palette
-    m.series?.let { Card("Direktvergleich") { Text(it, color = pal.text, fontSize = 15.sp) } }
+    m.series?.let { Card(tr("Direktvergleich")) { Text(it, color = pal.text, fontSize = 15.sp) } }
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         m.form.forEach { f ->
             Column(Modifier.weight(1f)) {

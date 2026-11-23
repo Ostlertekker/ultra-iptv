@@ -9,7 +9,7 @@ import de.ostlertekker.ultraiptv.core.model.OutroMode
 enum class SegmentType(val label: String) { INTRO("Intro"), RECAP(tr("Rückblick")), OUTRO("Abspann"), CREDITS("Credits") }
 
 enum class MarkerSource(val label: String) {
-    PROVIDER("Anbieter"), USER(tr("Eigene Markierung")), VERIFIED(tr("Bestätigt")), TEMPLATE("Staffel-Vorschlag")
+    PROVIDER(tr("Anbieter")), USER(tr("Eigene Markierung")), VERIFIED(tr("Bestätigt")), TEMPLATE(tr("Staffel-Vorschlag"))
 }
 
 data class SkipSegment(

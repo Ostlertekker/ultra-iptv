@@ -94,7 +94,7 @@ object JfOptions {
     fun channels(i: Int) = listOf(2, 6, 8).getOrElse(i) { 6 }
     val subtitleNames = listOf(tr("Wie Wiedergabe-Einstellungen"), "Aus", tr("Immer einblenden"))
     /** Reihen der Jellyfin-Übersicht, die man ausblenden kann. */
-    val rows = listOf("Bibliotheken", "Weiterschauen", tr("Nächste Folgen"), tr("Zuletzt hinzugefügt"), tr("Zuletzt angesehen"), tr("Meine Favoriten"), "Filme", "Serien")
+    val rows = listOf(tr("Bibliotheken"), tr("Weiterschauen"), tr("Nächste Folgen"), tr("Zuletzt hinzugefügt"), tr("Zuletzt angesehen"), tr("Meine Favoriten"), tr("Filme"), tr("Serien"))
 }
 
 data class JfSubtitle(val url: String, val language: String?, val label: String, val format: String)
@@ -150,7 +150,7 @@ class JellyfinRepository @Inject constructor(
             loaded = true
             val server = prefs.getString("server", null); val uid = prefs.getString("user_id", null); val token = prefs.getString("token", null)
             if (server != null && uid != null && token != null) {
-                _session.value = JfSession(server, uid, prefs.getString("user_name", "") ?: "", token, prefs.getString("server_name", "Jellyfin") ?: "Jellyfin")
+                _session.value = JfSession(server, uid, prefs.getString("user_name", "") ?: "", token, prefs.getString("server_name", tr("Jellyfin")) ?: tr("Jellyfin"))
             }
         }
         return _session.value
@@ -253,7 +253,7 @@ class JellyfinRepository @Inject constructor(
 
     suspend fun serverName(server: String): String {
         val info = call("GET", normalizeServer(server) + "/System/Info/Public", token = null)?.jsonObject
-        return info?.get("ServerName")?.str() ?: "Jellyfin"
+        return info?.get("ServerName")?.str() ?: tr("Jellyfin")
     }
 
     /** Schneller Erreichbarkeits-Test einer Adresse (4 s) – liefert den Servernamen oder null. */
@@ -264,7 +264,7 @@ class JellyfinRepository @Inject constructor(
                 if (!r.isSuccessful) return@runCatching null
                 val o = runCatching { json.parseToJsonElement(r.body?.string().orEmpty()).jsonObject }.getOrNull() ?: return@runCatching null
                 // Nur echte Jellyfin-Server akzeptieren (die Antwort enthält Name/Version/Id)
-                if (o["Id"] == null && o["Version"] == null) null else o["ServerName"]?.str() ?: "Jellyfin"
+                if (o["Id"] == null && o["Version"] == null) null else o["ServerName"]?.str() ?: tr("Jellyfin")
             }
         }.getOrNull()
     }
@@ -300,7 +300,7 @@ class JellyfinRepository @Inject constructor(
                     try { sock.receive(pkt) } catch (e: java.net.SocketTimeoutException) { continue }
                     val o = runCatching { json.parseToJsonElement(String(pkt.data, 0, pkt.length)).jsonObject }.getOrNull() ?: continue
                     val addr = o["Address"]?.str()?.trimEnd('/') ?: "http://${pkt.address.hostAddress}:8096"
-                    found[addr] = o["Name"]?.str() ?: "Jellyfin"
+                    found[addr] = o["Name"]?.str() ?: tr("Jellyfin")
                 }
             }
         } catch (e: Exception) {
@@ -569,7 +569,7 @@ class JellyfinRepository @Inject constructor(
             .mapNotNull { st ->
                 val du = st["DeliveryUrl"]?.str() ?: return@mapNotNull null
                 val url = s.server + du + (if ("api_key=" in du) "" else (if ('?' in du) "&" else "?") + "api_key=${s.token}")
-                JfSubtitle(url, st["Language"]?.str(), st["DisplayTitle"]?.str() ?: st["Language"]?.str() ?: "Untertitel",
+                JfSubtitle(url, st["Language"]?.str(), st["DisplayTitle"]?.str() ?: st["Language"]?.str() ?: tr("Untertitel"),
                     if (du.substringBefore('?').endsWith(".vtt")) "vtt" else "srt")
             }
         return when {

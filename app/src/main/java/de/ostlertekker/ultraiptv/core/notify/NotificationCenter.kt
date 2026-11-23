@@ -176,7 +176,7 @@ class NotificationCenter @Inject constructor(
             content.seriesStamps(before.keys.toList()).forEach { s ->
                 val old = before[s.id] ?: return@forEach
                 if (s.addedAt > old && old > 0) {
-                    val name = content.series(s.id)?.name ?: "Serie"
+                    val name = content.series(s.id)?.name ?: tr("Serie")
                     post("series", trf("Neue Folgen: {0}", name), tr("Bei einer deiner Lieblingsserien gibt es Neuigkeiten."), ContentKind.SERIES.name, s.id)
                 }
             }

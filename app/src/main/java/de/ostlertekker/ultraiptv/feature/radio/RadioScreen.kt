@@ -92,7 +92,7 @@ class RadioViewModel @Inject constructor(private val repo: RadioRepository, val 
             if (!immediate) kotlinx.coroutines.delay(450)
             stations.value = null; failed.value = null
             runCatching { repo.search(q) }.onSuccess { if (query.value == q) stations.value = it }
-                .onFailure { if (query.value == q) failed.value = it.message ?: "Fehler" }
+                .onFailure { if (query.value == q) failed.value = it.message ?: tr("Fehler") }
         }
     }
 
@@ -111,7 +111,7 @@ class RadioViewModel @Inject constructor(private val repo: RadioRepository, val 
         if (code == RADIO_SEARCH) { stations.value = emptyList(); search(query.value, immediate = true); return }
         viewModelScope.launch {
             runCatching { repo.top(code) }.onSuccess { if (selected.value == code) stations.value = it }
-                .onFailure { if (selected.value == code) failed.value = it.message ?: "Fehler" }
+                .onFailure { if (selected.value == code) failed.value = it.message ?: tr("Fehler") }
         }
     }
 
@@ -150,7 +150,7 @@ fun RadioScreen(vm: RadioViewModel = hiltViewModel()) {
 
     Column(Modifier.fillMaxSize().padding(24.dp).then(toBar)) {
         val cName = countries?.firstOrNull { it.code == selected }?.name
-        ScreenTitle("Radio", subtitle = if (selected == RADIO_FAVS) tr("Deine Lieblingssender") else if (selected == RADIO_SEARCH)
+        ScreenTitle(tr("Radio"), subtitle = if (selected == RADIO_FAVS) tr("Deine Lieblingssender") else if (selected == RADIO_SEARCH)
             tr("Alle Sender weltweit durchsuchen – Name eingeben oder Mikrofon nutzen") else
             trf("Top 20 {0}· meistgehört laut Radio Browser", (cName?.let { "· $it " } ?: "")) +
                 (if (current != null) " · Pfeil rechts = Wiedergabe-Leiste" else ""))
@@ -279,7 +279,7 @@ private fun RadioBar(s: RadioStation, playing: Boolean, buffering: Boolean, titl
                     modifier = Modifier.weight(1f, fill = false))
                 SoundWaves(active = playing && !buffering && error == null, color = pal.primary, modifier = Modifier.padding(start = 12.dp))
             }
-            Text(error ?: title ?: if (buffering) tr("Verbinde …") else if (playing) "Live" else "Pausiert",
+            Text(error ?: title ?: if (buffering) tr("Verbinde …") else if (playing) tr("Live") else tr("Pausiert"),
                 color = if (error != null) Color(0xFFFF6B6B) else pal.textDim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         RoundIcon("⏮", onPrev); RoundIcon(if (playing) "❚❚" else "▶", onToggle, primary = true, focus = focus); RoundIcon("⏭", onNext)

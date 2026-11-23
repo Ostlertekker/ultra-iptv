@@ -333,7 +333,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = hiltViewModel()) {
         }
         if (cw.isNotEmpty()) item(key = "cw") {
             Column(pad) {
-                SectionHeader("Weiterschauen")
+                SectionHeader(tr("Weiterschauen"))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 8.dp + FocusBleedV, bottom = 8.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
                     itemsIndexed(cw, key = { _, it -> it.kind + it.itemId }) { i, pr ->
                         FocusCard(pr.title, pr.image, 300.dp, 169.dp, entranceIndex = i,

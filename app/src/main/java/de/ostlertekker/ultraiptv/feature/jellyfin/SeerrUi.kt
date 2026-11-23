@@ -61,7 +61,7 @@ import kotlinx.coroutines.launch
 /** Seerr-Eintrag als Kachel für die Jellyfin-Übersicht (kind „seerr“, id = „movie:123“ / „tv:456“). */
 fun SeerrItem.tile(subtitle: String? = null) = CinemaTile(
     id = key, title = title, image = poster, backdrop = backdrop, plot = overview, kind = "seerr",
-    subtitle = subtitle ?: listOfNotNull(if (isTv) "Serie" else "Film", year, SeerrStatus.media(status)).joinToString(" · "),
+    subtitle = subtitle ?: listOfNotNull(if (isTv) tr("Serie") else tr("Film"), year, SeerrStatus.media(status)).joinToString(" · "),
 )
 
 /** Reihe mit Seerr-Treffern (z. B. in der Jellyfin-Suche). */
@@ -106,7 +106,7 @@ fun SeerrRequestDialog(item: SeerrItem, repo: SeerrRepository, onDismiss: () -> 
             Column(Modifier.weight(1f)) {
                 Text("SEERR", color = p.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp)
                 Text(item.title, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(listOfNotNull(if (item.isTv) "Serie" else "Film", item.year, SeerrStatus.media(item.status)).joinToString(" · "),
+                Text(listOfNotNull(if (item.isTv) tr("Serie") else tr("Film"), item.year, SeerrStatus.media(item.status)).joinToString(" · "),
                     color = p.textDim, fontSize = 14.sp, modifier = Modifier.padding(top = 2.dp))
                 item.overview?.let { Text(it, color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp, maxLines = 5, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 10.dp)) }
@@ -131,7 +131,7 @@ fun SeerrRequestDialog(item: SeerrItem, repo: SeerrRepository, onDismiss: () -> 
                 Spacer(Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     val canRequest = !done && !busy && (if (item.isTv) seasons != null && (requestable.isNotEmpty() || seasons!!.isEmpty()) else !alreadyAll)
-                    if (canRequest) TvButton(if (busy) tr("Wird angefragt …") else "Anfragen", focusRequester = focus, primary = true, onClick = {
+                    if (canRequest) TvButton(if (busy) tr("Wird angefragt …") else tr("Anfragen"), focusRequester = focus, primary = true, onClick = {
                         busy = true
                         scope.launch {
                             message = runCatching {
@@ -144,7 +144,7 @@ fun SeerrRequestDialog(item: SeerrItem, repo: SeerrRepository, onDismiss: () -> 
                     })
                     else if (!done) Text(SeerrStatus.media(item.status) ?: tr("Nichts mehr anzufragen"), color = p.textDim, fontSize = 15.sp,
                         modifier = Modifier.padding(vertical = 10.dp))
-                    TvButton(if (done) "Fertig" else tr("Schließen"), focusRequester = if (canRequest) null else focus, onClick = onDismiss)
+                    TvButton(if (done) tr("Fertig") else tr("Schließen"), focusRequester = if (canRequest) null else focus, onClick = onDismiss)
                 }
             }
         }
@@ -183,7 +183,7 @@ fun seasonColor(status: Int): Color = when (status) {
 /** Kachel für „Anfragen“: Abzeichen oben links, Download-Balken unten (kind „seerrReq“). */
 fun SeerrRequest.tile() = CinemaTile(
     id = "req:$id", title = item.title, image = item.poster, backdrop = item.backdrop, plot = item.overview, kind = "seerrReq",
-    subtitle = listOfNotNull(if (item.isTv) "Serie" else "Film", item.year).joinToString(" · "),
+    subtitle = listOfNotNull(if (item.isTv) tr("Serie") else tr("Film"), item.year).joinToString(" · "),
     progress = progress?.coerceAtLeast(0.02f), progressColor = SeerrColors.indigo, badge = badge(), badgePulse = downloading,
 )
 

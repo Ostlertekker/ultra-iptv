@@ -201,7 +201,7 @@ class JellyfinViewModel @Inject constructor(
                 CinemaRow("Bibliotheken", libraries.value.map { repo.tile(it) }, landscape = true),
                 CinemaRow("Weiterschauen", resume.await().map { repo.tile(it, resume = true) }, landscape = true),
                 CinemaRow(tr("Nächste Folgen"), nextUp.await().map { repo.tile(it, resume = true) }, landscape = true),
-                CinemaRow("Anfragen", reqs.map { it.tile() }),
+                CinemaRow(tr("Anfragen"), reqs.map { it.tile() }),
                 CinemaRow(tr("Zuletzt hinzugefügt"), latest.await().map { repo.tile(it) }),
                 CinemaRow(tr("Zuletzt angesehen"), recent.await().map { repo.tile(it) }),
                 CinemaRow(tr("Meine Favoriten"), favs.await().map { repo.tile(it) }),
@@ -319,11 +319,11 @@ private fun JellyfinLogin(vm: JellyfinViewModel) {
                     list.forEach { (addr, name) -> TvChip("$name · ${addr.substringAfter("://")}", server == addr, { server = addr }) }
                 }
             }
-            TvTextField(user, { user = it }, "Benutzername", modifier = Modifier.fillMaxWidth())
-            TvTextField(pw, { pw = it }, "Passwort", modifier = Modifier.fillMaxWidth(), password = true)
+            TvTextField(user, { user = it }, tr("Benutzername"), modifier = Modifier.fillMaxWidth())
+            TvTextField(pw, { pw = it }, tr("Passwort"), modifier = Modifier.fillMaxWidth(), password = true)
             error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 14.sp) }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                TvButton(if (busy) tr("Verbinde … (prüfe Adressen)") else "Verbinden", onClick = { if (!busy) vm.login(server, user, pw) }, primary = true)
+                TvButton(if (busy) tr("Verbinde … (prüfe Adressen)") else tr("Verbinden"), onClick = { if (!busy) vm.login(server, user, pw) }, primary = true)
                 Text(tr("Zugangsdaten werden verschlüsselt auf dem Gerät gespeichert."), color = p.textDim, fontSize = 12.sp)
             }
         }
@@ -337,7 +337,7 @@ private fun JellyfinLogin(vm: JellyfinViewModel) {
 @HiltViewModel
 class JellyfinLibraryViewModel @Inject constructor(savedState: SavedStateHandle, val repo: JellyfinRepository) : ViewModel() {
     val libId: String = savedState.get<String>("id") ?: ""
-    val title: String = savedState.get<String>("name") ?: "Bibliothek"
+    val title: String = savedState.get<String>("name") ?: tr("Bibliothek")
     val items = MutableStateFlow<List<JfItem>>(emptyList())
     val total = MutableStateFlow(-1)
     val sort = MutableStateFlow("SortName")
@@ -500,7 +500,7 @@ fun JellyfinMovieScreen(nav: NavController, vm: JellyfinItemViewModel = hiltView
                     val scope = androidx.compose.runtime.rememberCoroutineScope()
                     TvButton(tr("Trailer"), onClick = { scope.launch { openJfTrailer(context, vm.repo, m) } })
                     TvButton(if (m.favorite) tr("♥ Favorit") else tr("♡ Favorit"), onClick = { vm.toggleFavorite() })
-                    TvButton(if (m.played) "Ungesehen" else tr("✓ Gesehen"), onClick = { vm.togglePlayed(m) })
+                    TvButton(if (m.played) tr("Ungesehen") else tr("✓ Gesehen"), onClick = { vm.togglePlayed(m) })
                 }
                 error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)) }
             }
@@ -600,7 +600,7 @@ private fun JfEpisodeRow(ep: JfItem, image: String?, onLongClick: () -> Unit, on
         Column(Modifier.weight(1f)) {
             Text("S${ep.parentIndex ?: 0} · E${ep.index ?: 0} · ${ep.name}", color = if (ep.played) p.textDim else p.text, fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(listOfNotNull(ep.runtimeMs.takeIf { it > 0 }?.let { trf("{0} Min.", (it / 60_000)) }, if (ep.played) "Gesehen" else null,
+            Text(listOfNotNull(ep.runtimeMs.takeIf { it > 0 }?.let { trf("{0} Min.", (it / 60_000)) }, if (ep.played) tr("Gesehen") else null,
                 ep.positionMs.takeIf { it > 0 && !ep.played }?.let { "bei ${it / 60_000} Min." }).joinToString(" · "), color = p.textDim, fontSize = 12.sp)
             ep.overview?.let { Text(it, color = p.textDim, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis) }
         }

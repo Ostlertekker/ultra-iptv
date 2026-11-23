@@ -292,7 +292,7 @@ fun LiveTvScreen(nav: NavController, vm: LiveTvViewModel = hiltViewModel()) {
             }
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(start = FocusBleedH, end = FocusBleedH, top = 8.dp + FocusBleedV, bottom = 8.dp + FocusBleedV), modifier = Modifier.focusBleed()) {
                 item { TvChip(if (sortByName) "↕ A–Z" else tr("↕ Nummer"), false, { vm.sortByName.value = !sortByName }) }
-                item { TvChip("TV-Programm", false, { nav.navigate(Routes.epg(current.takeIf { !isVirtualCategory(it) })) }) }
+                item { TvChip(tr("TV-Programm"), false, { nav.navigate(Routes.epg(current.takeIf { !isVirtualCategory(it) })) }) }
                 if (current == CAT_FAVORITES && channels.size > 1) item {
                     TvChip(if (editMode) tr("✓ Fertig") else tr("✎ Bearbeiten"), editMode, { editMode = !editMode; moving = null })
                 }
@@ -398,7 +398,7 @@ private fun PreviewBox(vm: LiveTvViewModel, ch: ChannelEntity?) {
             AsyncImage(logo, null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(40.dp))
         }
         val msg: String? = when {
-            ch == null -> "Vorschau"
+            ch == null -> tr("Vorschau")
             mini != null -> tr("Vorschau pausiert – Mini-Player aktiv")
             live && err != null -> err
             live && state == Player.STATE_BUFFERING -> tr("Lädt …")
@@ -450,7 +450,7 @@ private fun FocusedInfo(vm: LiveTvViewModel, ch: ChannelEntity, favs: Set<String
             SmallButton("Vollbild", Modifier.weight(1f), PlayIcon, primary = true) { vm.open(context, ch) }
             SmallButton("Favorit", Modifier.weight(1f), if (ch.id in favs) StarFilled else StarOutline) { vm.toggleFavorite(ch) }
             val next = vm.nowNext(ch).firstOrNull { it.startMs > now }
-            SmallButton(if (next != null && next.startMs in reminders) "Aus" else "Erinnern", Modifier.weight(1f), AlarmIcon, enabled = next != null) {
+            SmallButton(if (next != null && next.startMs in reminders) tr("Aus") else tr("Erinnern"), Modifier.weight(1f), AlarmIcon, enabled = next != null) {
                 if (next != null) vm.toggleReminder(ch, next)
             }
         }

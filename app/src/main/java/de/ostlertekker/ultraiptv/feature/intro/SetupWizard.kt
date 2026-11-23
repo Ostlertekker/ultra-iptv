@@ -116,7 +116,7 @@ class SetupWizardViewModel @Inject constructor(
         if (busy.value) return
         busy.value = true; msg.value = null
         viewModelScope.launch {
-            runCatching { block() }.onSuccess { msg.value = it; ok.value = true }.onFailure { msg.value = "⚠ " + (it.message ?: "Fehler"); ok.value = false }
+            runCatching { block() }.onSuccess { msg.value = it; ok.value = true }.onFailure { msg.value = "⚠ " + (it.message ?: tr("Fehler")); ok.value = false }
             busy.value = false
         }
     }
@@ -259,7 +259,7 @@ private fun NavRow(onBack: () -> Unit, onNext: () -> Unit, done: Boolean, extra:
     Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
         TvButton(tr("Zurück"), onClick = onBack)
         extra?.invoke()
-        TvButton(if (done) "Weiter" else tr("Überspringen"), onClick = onNext, primary = done, focusRequester = nextFocus)
+        TvButton(if (done) tr("Weiter") else tr("Überspringen"), onClick = onNext, primary = done, focusRequester = nextFocus)
     }
 }
 
@@ -281,7 +281,7 @@ private fun WelcomePane(onStart: () -> Unit, onSkip: () -> Unit) {
         Text(tr("WILLKOMMEN BEI"), color = p.textDim, fontSize = 13.sp, letterSpacing = 4.sp)
         Text(tr("ULTRA IPTV"), color = p.text, fontSize = 52.sp, fontWeight = FontWeight.ExtraBold, fontFamily = theme.spec.fontFamily)
         Spacer(Modifier.height(10.dp))
-        listOf("📺" to "IPTV-Anbieter", "🟣" to tr("Jellyfin (optional)"), "🎟" to tr("Seerr (optional)"), "⛅" to "Wetter", "📰" to "Nachrichten-Laufschrift")
+        listOf("📺" to tr("IPTV-Anbieter"), "🟣" to tr("Jellyfin (optional)"), "🎟" to tr("Seerr (optional)"), "⛅" to tr("Wetter"), "📰" to tr("Nachrichten-Laufschrift"))
             .forEachIndexed { i, (ic, t) ->
                 val a = remember { Animatable(0f) }
                 LaunchedEffect(Unit) { delay(150L + i * 90L); a.animateTo(1f, tween(260)) }
@@ -342,12 +342,12 @@ private fun JellyfinPane(vm: SetupWizardViewModel, onNext: () -> Unit, onBack: (
                 list.take(3).forEach { (addr, name) -> TvChip("$name · ${addr.substringAfter("://")}", server == addr, { server = addr }) }
             }
         }
-        TvTextField(user, { user = it }, "Benutzername", modifier = Modifier.fillMaxWidth())
+        TvTextField(user, { user = it }, tr("Benutzername"), modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(8.dp))
-        TvTextField(pw, { pw = it }, "Passwort", modifier = Modifier.fillMaxWidth(), password = true)
+        TvTextField(pw, { pw = it }, tr("Passwort"), modifier = Modifier.fillMaxWidth(), password = true)
         Status(vm)
         NavRow(onBack, onNext, done = ok, nextFocus = next, extra = {
-            if (!ok) TvButton(if (busy) tr("Verbinde …") else "Verbinden", primary = true, onClick = { if (!busy && server.isNotBlank()) vm.jfLogin(server, user, pw) })
+            if (!ok) TvButton(if (busy) tr("Verbinde …") else tr("Verbinden"), primary = true, onClick = { if (!busy && server.isNotBlank()) vm.jfLogin(server, user, pw) })
         })
     }
 }
@@ -366,12 +366,12 @@ private fun SeerrPane(vm: SetupWizardViewModel, onNext: () -> Unit, onBack: () -
         PaneTitle("🎟", tr("Seerr anmelden"), "Optional: Filme und Serien anfragen (Jellyseerr/Overseerr). Anmeldung mit deinem Jellyfin-Konto – das Passwort wird nicht gespeichert.")
         TvTextField(server, { server = it }, tr("Seerr-Adresse (z. B. 192.168.1.10:5055)"), modifier = Modifier.fillMaxWidth(), focusRequester = f)
         Spacer(Modifier.height(8.dp))
-        TvTextField(user, { user = it }, "Jellyfin-Benutzername", modifier = Modifier.fillMaxWidth())
+        TvTextField(user, { user = it }, tr("Jellyfin-Benutzername"), modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(8.dp))
-        TvTextField(pw, { pw = it }, "Jellyfin-Passwort", modifier = Modifier.fillMaxWidth(), password = true)
+        TvTextField(pw, { pw = it }, tr("Jellyfin-Passwort"), modifier = Modifier.fillMaxWidth(), password = true)
         Status(vm)
         NavRow(onBack, onNext, done = ok, nextFocus = next, extra = {
-            if (!ok) TvButton(if (busy) tr("Anmelden …") else "Anmelden", primary = true,
+            if (!ok) TvButton(if (busy) tr("Anmelden …") else tr("Anmelden"), primary = true,
                 onClick = { if (!busy && server.isNotBlank() && user.isNotBlank()) vm.seerrLogin(server, user, pw) })
         })
     }

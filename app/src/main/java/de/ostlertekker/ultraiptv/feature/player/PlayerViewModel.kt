@@ -239,7 +239,7 @@ class PlayerViewModel @Inject constructor(
             movie = MovieEntity(itemId, it.name, "Jellyfin", poster, jellyfin.image(it, "Backdrop"), it.overview, it.genres.firstOrNull(),
                 it.year?.toString(), it.rating, it.runtimeMs / 1000, "", 0L, false)
             image = poster
-            logName = it.name; logCategory = it.genres.firstOrNull() ?: "Jellyfin"
+            logName = it.name; logCategory = it.genres.firstOrNull() ?: tr("Jellyfin")
             _ui.update { u -> u.copy(title = it.name, artwork = poster, subtitle = listOfNotNull(it.year?.toString(), it.genres.firstOrNull()).joinToString(" · ")) }
             playJf(id, start)
         }
@@ -870,7 +870,7 @@ class PlayerViewModel @Inject constructor(
             qualityCap = next
             applyQuality()
             rebufferWindowStart = now; rebufferBase = st.rebuffers
-            val reason = if (recent >= 3) "häufiges Nachladen" else "Bildaussetzer"
+            val reason = if (recent >= 3) "häufiges Nachladen" else tr("Bildaussetzer")
             _ui.update { it.copy(qualityNote = trf("Qualität automatisch auf max. {0}p gesenkt ({1})", next, reason)) }
             toast(trf("Qualität angepasst: max. {0}p", next))
         }

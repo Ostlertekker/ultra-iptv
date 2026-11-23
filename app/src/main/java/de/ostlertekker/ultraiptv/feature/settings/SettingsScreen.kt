@@ -105,19 +105,19 @@ import javax.inject.Inject
 
 /** Einstellungs-Kategorien: erst Quellen, dann Bildschirme der App, dann Bedienung/Aussehen, zuletzt System. */
 enum class SettingsCategory(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    PLAYLISTS("Playlists", Icons.AutoMirrored.Filled.List),
+    PLAYLISTS(tr("Playlists"), Icons.AutoMirrored.Filled.List),
     EPG(tr("TV-Programm (EPG)"), Icons.Default.DateRange),
-    HOME("Startseite", Icons.Default.Home),
-    LIVETV("Live-TV", Icons.Default.Star),
-    JELLYFIN("Jellyfin", Icons.Default.PlayArrow),
-    PLAYBACK("Wiedergabe", Icons.Default.PlayArrow),
-    REMOTE("Fernbedienung", Icons.Default.Menu),
-    APPEARANCE("Erscheinungsbild", Icons.Default.Edit),
-    REMINDERS("Erinnerungen", Icons.Default.Notifications),
-    PARENTAL("Kindersicherung", Icons.Default.Lock),
-    BACKUP("Datensicherung", Icons.Default.Done),
-    GENERAL("Allgemein", Icons.Default.Settings),
-    UPDATES("App-Updates", Icons.Default.Refresh),
+    HOME(tr("Startseite"), Icons.Default.Home),
+    LIVETV(tr("Live-TV"), Icons.Default.Star),
+    JELLYFIN(tr("Jellyfin"), Icons.Default.PlayArrow),
+    PLAYBACK(tr("Wiedergabe"), Icons.Default.PlayArrow),
+    REMOTE(tr("Fernbedienung"), Icons.Default.Menu),
+    APPEARANCE(tr("Erscheinungsbild"), Icons.Default.Edit),
+    REMINDERS(tr("Erinnerungen"), Icons.Default.Notifications),
+    PARENTAL(tr("Kindersicherung"), Icons.Default.Lock),
+    BACKUP(tr("Datensicherung"), Icons.Default.Done),
+    GENERAL(tr("Allgemein"), Icons.Default.Settings),
+    UPDATES(tr("App-Updates"), Icons.Default.Refresh),
     ABOUT(tr("Über & Fehler"), Icons.Default.Info),
 }
 
@@ -165,7 +165,7 @@ class SettingsViewModel @Inject constructor(
 
 private fun <T> cycle(list: List<T>, current: T): T = list[(list.indexOf(current) + 1).mod(list.size)]
 
-private val languages = listOf("" to "Automatisch", "de" to "Deutsch", "en" to "Englisch", "fr" to tr("Französisch"), "es" to "Spanisch", "it" to "Italienisch", "tr" to tr("Türkisch"))
+private val languages = listOf("" to tr("Automatisch"), "de" to tr("Deutsch"), "en" to tr("Englisch"), "fr" to tr("Französisch"), "es" to tr("Spanisch"), "it" to tr("Italienisch"), "tr" to tr("Türkisch"))
 
 @Composable
 fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), x: SettingsExtrasViewModel = hiltViewModel()) {
@@ -364,10 +364,10 @@ private fun LazyListScope.epgPage(vm: SettingsViewModel, s: AppSettings) {
                 (if (s.lastEpgSyncMs > 0) trf(" · zuletzt {0}", (deDateTime(s.lastEpgSyncMs))) else "")) { vm.syncEpg() }
             SRow(tr("Aktualisierungsintervall"), trf("Alle {0} Stunden", s.epgRefreshHours)) { vm.set(Keys.EPG_REFRESH, cycle(listOf(6, 12, 24, 48), s.epgRefreshHours)) }
             SRow(tr("Tage im TV-Programm"), "${s.epgDays} Tage") { vm.set(Keys.EPG_DAYS, cycle(listOf(1, 2, 3, 5, 7), s.epgDays)) }
-            SRow("EPG-Zeitverschiebung", "${if (s.epgOffsetHours >= 0) "+" else ""}${s.epgOffsetHours} Stunden") {
+            SRow(tr("EPG-Zeitverschiebung"), "${if (s.epgOffsetHours >= 0) "+" else ""}${s.epgOffsetHours} Stunden") {
                 vm.set(Keys.EPG_OFFSET, cycle((-12..12).toList(), s.epgOffsetHours))
             }
-            SHeader("EPG-Quelle")
+            SHeader(tr("EPG-Quelle"))
             TvTextField(url, { url = it }, "XMLTV-Adresse (leer = EPG der Playlist)", modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
                 error = if (url.isNotBlank()) InputValidator.url(url) else null)
             SRow(tr("EPG-Quelle speichern"), s.epgUrlOverride.ifBlank { tr("EPG der Playlist") }) { if (url.isBlank() || InputValidator.url(url) == null) vm.set(Keys.EPG_URL, url.trim()) }
@@ -377,27 +377,27 @@ private fun LazyListScope.epgPage(vm: SettingsViewModel, s: AppSettings) {
 
 private fun LazyListScope.appearancePage(vm: SettingsViewModel, s: AppSettings) {
     item {
-        val accentName = ThemeEngine.accentPresets.firstOrNull { it.second == s.accentArgb }?.first ?: "Eigene"
+        val accentName = ThemeEngine.accentPresets.firstOrNull { it.second == s.accentArgb }?.first ?: tr("Eigene")
         Column {
             SRow(tr("Akzentfarbe"), accentName) {
                 val vals = ThemeEngine.accentPresets.map { it.second }
                 vm.set(Keys.ACCENT, cycle(vals, if (s.accentArgb in vals) s.accentArgb else 0L))
             }
-            SRow(tr("Schriftart"), DesignOptions.fontNames.getOrElse(s.fontStyle) { "Standard" }) {
+            SRow(tr("Schriftart"), DesignOptions.fontNames.getOrElse(s.fontStyle) { tr("Standard") }) {
                 vm.set(Keys.FONT_STYLE, (s.fontStyle + 1) % DesignOptions.fontNames.size)
             }
-            SHeader("PRO-Abzeichen")
-            SRow(tr("Stil"), DesignOptions.proStyleNames.getOrElse(s.proStyle) { "Verlauf" }) {
+            SHeader(tr("PRO-Abzeichen"))
+            SRow(tr("Stil"), DesignOptions.proStyleNames.getOrElse(s.proStyle) { tr("Verlauf") }) {
                 vm.set(Keys.PRO_STYLE, (s.proStyle + 1) % DesignOptions.proStyleNames.size)
             }
             if (s.proStyle != 0) {
                 SRow(tr("Größe"), DesignOptions.proSizeNames.getOrElse(s.proSize) { tr("Sehr klein") }) {
                     vm.set(Keys.PRO_SIZE, (s.proSize + 1) % DesignOptions.proSizeNames.size)
                 }
-                SRow(tr("Position"), DesignOptions.proPositionNames.getOrElse(s.proPosition) { "Hochgestellt" }) {
+                SRow(tr("Position"), DesignOptions.proPositionNames.getOrElse(s.proPosition) { tr("Hochgestellt") }) {
                     vm.set(Keys.PRO_POSITION, (s.proPosition + 1) % DesignOptions.proPositionNames.size)
                 }
-                SRow(tr("Animation"), DesignOptions.proAnimNames.getOrElse(s.proAnim) { "Aus" }) {
+                SRow(tr("Animation"), DesignOptions.proAnimNames.getOrElse(s.proAnim) { tr("Aus") }) {
                     vm.set(Keys.PRO_ANIM, (s.proAnim + 1) % DesignOptions.proAnimNames.size)
                 }
             }
@@ -474,8 +474,8 @@ private fun SeerrSettings(vm: SettingsViewModel, s: AppSettings) {
             Column(Modifier.padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 TvTextField(server, { server = it }, tr("Seerr-Adresse (z. B. 192.168.1.10:5055 oder seerr.meinedomain.de)"), modifier = Modifier.fillMaxWidth())
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TvTextField(user, { user = it }, "Jellyfin-Benutzername", modifier = Modifier.weight(1f))
-                    TvTextField(pw, { pw = it }, "Jellyfin-Passwort", password = true, modifier = Modifier.weight(1f))
+                    TvTextField(user, { user = it }, tr("Jellyfin-Benutzername"), modifier = Modifier.weight(1f))
+                    TvTextField(pw, { pw = it }, tr("Jellyfin-Passwort"), password = true, modifier = Modifier.weight(1f))
                 }
                 TvButton(if (busy) tr("Anmelden …") else tr("Bei Seerr anmelden"), primary = true, enabled = !busy && server.isNotBlank() && user.isNotBlank(), onClick = {
                     busy = true; msg = null
@@ -488,7 +488,7 @@ private fun SeerrSettings(vm: SettingsViewModel, s: AppSettings) {
         } else {
             SInfo(tr("Server"), st.server.substringAfter("://"))
             SInfo(tr("Angemeldet als"), st.user ?: "")
-            SRow(tr("Verbindung testen")) { scope.launch { msg = runCatching { vm.seerr.test() }.getOrElse { "⚠ " + (it.message ?: "Fehler") } } }
+            SRow(tr("Verbindung testen")) { scope.launch { msg = runCatching { vm.seerr.test() }.getOrElse { "⚠ " + (it.message ?: tr("Fehler")) } } }
             SRow(tr("Bei Seerr abmelden")) { vm.seerr.logout(); msg = null }
             SSwitch(tr("Reihe „Anfragen“"), s.seerrRequestsRow, tr("Alle Anfragen in der Jellyfin-Übersicht, mit Status und Download-Fortschritt")) { vm.set(Keys.SEERR_REQUESTS_ROW, it) }
             SSwitch(tr("Reihe „Entdecken“"), s.seerrDiscoverRow, tr("Angesagte Filme und Serien aus Seerr, direkt anfragbar")) { vm.set(Keys.SEERR_DISCOVER_ROW, it) }
@@ -507,7 +507,7 @@ private fun LazyListScope.liveTvPage(vm: SettingsViewModel, s: AppSettings) {
             SSwitch(tr("Senderlogos anzeigen"), s.showChannelLogos) { vm.set(Keys.SHOW_LOGOS, it) }
             SSwitch(tr("Laufende Sendung anzeigen"), s.showChannelEpg) { vm.set(Keys.SHOW_CH_EPG, it) }
             SSwitch(tr("Sendungsfortschritt anzeigen"), s.showChannelProgress) { vm.set(Keys.SHOW_CH_PROGRESS, it) }
-            SRow(tr("Listendichte"), listOf("Kompakt", "Normal", tr("Groß"))[s.channelDensity.coerceIn(0, 2)]) { vm.set(Keys.CHANNEL_DENSITY, (s.channelDensity + 1) % 3) }
+            SRow(tr("Listendichte"), listOf(tr("Kompakt"), tr("Normal"), tr("Groß"))[s.channelDensity.coerceIn(0, 2)]) { vm.set(Keys.CHANNEL_DENSITY, (s.channelDensity + 1) % 3) }
             SHeader(tr("Vorschau"))
             SSwitch(tr("Vorschau beim Auswählen"), s.livePreview, tr("Auf schwachen Geräten automatisch aus")) { vm.set(Keys.LIVE_PREVIEW, it) }
         }
@@ -524,7 +524,7 @@ private fun LazyListScope.playbackPage(vm: SettingsViewModel, s: AppSettings) {
                 tr("Live-TV startet mit dem pro Sender gelernten Mindestvorrat statt pauschal 2 s, wahrscheinliche nächste Sender werden vorbereitet. Messwerte: Tools › App-Diagnose")) { vm.set(Keys.ZAP_TURBO, it) }
             SSwitch(tr("Bildwiederholrate anpassen (AFR)"), s.matchFrameRate, tr("Schaltet das Display auf die Bildrate des Inhalts, wenn möglich")) { vm.set(Keys.MATCH_FPS, it) }
             SRow(tr("Seitenverhältnis"), de.ostlertekker.ultraiptv.feature.player.aspectNames[s.defaultAspect.coerceIn(0, 3)]) { vm.set(Keys.DEFAULT_ASPECT, (s.defaultAspect + 1) % 4) }
-            SRow(tr("Sleep-Timer"), if (s.sleepTimerMin == 0) "Aus" else "${s.sleepTimerMin} Minuten") {
+            SRow(tr("Sleep-Timer"), if (s.sleepTimerMin == 0) tr("Aus") else "${s.sleepTimerMin} Minuten") {
                 vm.set(Keys.SLEEP_TIMER, cycle(listOf(0, 15, 30, 45, 60, 90, 120), s.sleepTimerMin.takeIf { it in listOf(0, 15, 30, 45, 60, 90, 120) } ?: 0))
             }
             SHeader(tr("Sprache"))
@@ -550,7 +550,7 @@ private fun LazyListScope.playbackPage(vm: SettingsViewModel, s: AppSettings) {
 private fun LazyListScope.remotePage(vm: SettingsViewModel, s: AppSettings) {
     item {
         Column {
-            SRow(tr("OK-Taste im Live-Player"), if (s.okAction == 1) "Senderliste" else "Info-Leiste") { vm.set(Keys.OK_ACTION, (s.okAction + 1) % 2) }
+            SRow(tr("OK-Taste im Live-Player"), if (s.okAction == 1) tr("Senderliste") else tr("Info-Leiste")) { vm.set(Keys.OK_ACTION, (s.okAction + 1) % 2) }
             SRow("Pfeil hoch/runter im Live-Player", if (s.upDownAction == 1) tr("Senderliste öffnen") else tr("Sender wechseln")) { vm.set(Keys.UPDOWN_ACTION, (s.upDownAction + 1) % 2) }
             SSwitch(tr("Kanalwechsel umkehren"), s.invertChannelKeys, "Pfeil hoch = nächster Sender") { vm.set(Keys.INVERT_ZAP, it) }
             SSwitch(tr("Senderwahl über Zifferntasten"), s.numberZap) { vm.set(Keys.NUMBER_ZAP, it) }
@@ -572,7 +572,7 @@ private fun LazyListScope.generalPage(vm: SettingsViewModel, s: AppSettings) {
                     (ctx as? android.app.Activity)?.let { de.ostlertekker.ultraiptv.core.i18n.I18n.restart(it) }
                 }
             }
-            SRow(tr("Beim App-Start"), listOf("Startseite", "Live-TV", tr("Letzten Sender abspielen"), "TV-Programm")[s.startAction.coerceIn(0, 3)]) {
+            SRow(tr("Beim App-Start"), listOf(tr("Startseite"), tr("Live-TV"), tr("Letzten Sender abspielen"), tr("TV-Programm"))[s.startAction.coerceIn(0, 3)]) {
                 vm.set(Keys.START_ACTION, (s.startAction + 1) % 4)
             }
             SSwitch(tr("Startintro anzeigen"), s.introEnabled) { vm.set(Keys.INTRO, it) }
@@ -601,7 +601,7 @@ private fun LazyListScope.homePage(vm: SettingsViewModel, s: AppSettings) {
             SRow(tr("Ort speichern"), msg ?: s.weatherPlace.ifBlank { tr("Kein Ort – Wetter ausgeblendet") }) {
                 msg = tr("Suche …")
                 vm.viewModelScope.launch {
-                    msg = vm.weather.setPlace(place).fold({ if (it.isBlank()) tr("Wetter ausgeblendet") else "✓ $it" }, { it.message ?: "Fehler" })
+                    msg = vm.weather.setPlace(place).fold({ if (it.isBlank()) tr("Wetter ausgeblendet") else "✓ $it" }, { it.message ?: tr("Fehler") })
                 }
             }
             SHeader(tr("Nachrichten-Laufschrift"))
@@ -656,7 +656,7 @@ private fun LazyListScope.aboutSection(vm: SettingsViewModel) {
             Text(tr("ULTRA IPTV"), color = p.text, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
             Text(tr("DAS ULTIMATIVE STREAMING-ERLEBNIS"), color = p.primary, fontSize = 13.sp, letterSpacing = 2.sp)
             Spacer(Modifier.height(10.dp))
-            SInfo("Version", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+            SInfo(tr("Version"), "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
             SInfo(tr("Gerät"), "${vm.device.manufacturer} ${vm.device.model}")
             Text(tr("ULTRA IPTV ist ein Abspieler. Er liefert keine Inhalte. Nutze nur Quellen, für die du eine Berechtigung hast. ") +
                 tr("DRM- und Zugangsbeschränkungen werden nicht umgangen."), color = p.textDim, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp))

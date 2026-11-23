@@ -129,7 +129,7 @@ class BackupManager @Inject constructor(
         fun arr(k: String) = (root[k] as? JsonArray)?.mapNotNull { it as? JsonObject } ?: emptyList()
 
         val profiles = arr("profiles").map {
-            ProfileEntity(it.l("id"), it.s("name") ?: "Profil", it.i("color"), it.s("pinHash"), it.s("pinSalt"), it.i("maxAge"),
+            ProfileEntity(it.l("id"), it.s("name") ?: tr("Profil"), it.i("color"), it.s("pinHash"), it.s("pinSalt"), it.i("maxAge"),
                 it.s("theme"), it.s("anim"), it.s("audio") ?: "", it.s("subs") ?: "", it.s("provider"))
         }
         val favorites = arr("favorites").map { FavoriteEntity(it.l("p"), it.s("k") ?: "", it.s("i") ?: "", it.l("a")) }

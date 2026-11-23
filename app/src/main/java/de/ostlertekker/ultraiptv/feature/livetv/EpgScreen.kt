@@ -149,7 +149,7 @@ fun EpgScreen(vm: EpgViewModel = hiltViewModel()) {
         val dayFmt = remember { java.text.SimpleDateFormat("EEEE, d. MMMM", java.util.Locale.GERMANY) }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Column(Modifier.weight(1f)) {
-                Text("TV-Programm", color = p.text, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                Text(tr("TV-Programm"), color = p.text, fontSize = 26.sp, fontWeight = FontWeight.Bold)
                 Text((vm.category ?: tr("Alle Sender")) + " · " + dayFmt.format(java.util.Date(start)), color = p.textDim, fontSize = 13.sp)
             }
             TvButton(tr("Gestern"), onClick = { vm.jumpDay(-1) })

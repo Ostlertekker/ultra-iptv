@@ -105,7 +105,7 @@ fun SearchScreen(nav: NavController, vm: SearchViewModel = hiltViewModel()) {
     val show = { f: SearchFilter -> filter == SearchFilter.ALL || filter == f }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp)) {
-        item { ScreenTitle("Suche", subtitle = tr("Nach Titel suchen – Sender, Filme, Serien und Episoden")) }
+        item { ScreenTitle(tr("Suche"), subtitle = tr("Nach Titel suchen – Sender, Filme, Serien und Episoden")) }
         item {
             val voice = de.ostlertekker.ultraiptv.core.ui.rememberVoiceSearch { vm.query.value = it; vm.saveQuery() }
             androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,

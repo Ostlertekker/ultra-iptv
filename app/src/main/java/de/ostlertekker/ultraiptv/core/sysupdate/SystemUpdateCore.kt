@@ -29,13 +29,13 @@ import javax.inject.Singleton
 
 /** Status eines Eintrags der Update-Warteschlange. */
 enum class UpdateStatus(val label: String) {
-    CURRENT("Aktuell"),
+    CURRENT(tr("Aktuell")),
     AVAILABLE(tr("Update verfügbar")),
     WAITING(tr("Wartet auf Installation")),
     DOWNLOADING(tr("Wird heruntergeladen")),
     INSTALLING(tr("Wird installiert")),
     DONE(tr("Erfolgreich aktualisiert")),
-    FAILED("Fehlgeschlagen"),
+    FAILED(tr("Fehlgeschlagen")),
 }
 
 enum class UpdatePriority(val label: String) { LOW("niedrig"), NORMAL("normal"), HIGH("hoch") }

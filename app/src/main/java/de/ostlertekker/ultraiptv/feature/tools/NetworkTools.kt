@@ -357,7 +357,7 @@ class NetworkToolsViewModel @Inject constructor(
                 val t0 = System.nanoTime()
                 runCatching { java.net.InetAddress.getByName("example.org") }.fold(
                     { CheckRow(tr("Namensauflösung (DNS)"), true, (System.nanoTime() - t0) / 1_000_000, it.hostAddress ?: "") },
-                    { CheckRow(tr("Namensauflösung (DNS)"), false, detail = it.message ?: "Fehler") })
+                    { CheckRow(tr("Namensauflösung (DNS)"), false, detail = it.message ?: tr("Fehler")) })
             }
             // IPTV-Anbieter (nur Serveradresse, keine Zugangsdaten)
             step("IPTV-Anbieter") {
@@ -487,9 +487,9 @@ class NetworkToolsViewModel @Inject constructor(
                 caps == null -> tr("Keine Verbindung")
                 caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> tr("LAN (Kabel)")
                 caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "WLAN"
-                caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "Mobilfunk"
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> tr("Mobilfunk")
                 caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> "VPN"
-                else -> "Sonstige"
+                else -> tr("Sonstige")
             }
             out += "Verbindung" to type
             if (caps?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true) out += "VPN" to "aktiv"
@@ -542,7 +542,7 @@ private val Bad = Color(0xFFFF6B6B)
 fun ToolsScreen(vm: NetworkToolsViewModel = hiltViewModel()) {
     var tool by remember { mutableStateOf(Tool.SPEED) }
     Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 12.dp)) {
-        ScreenTitle("Tools", subtitle = tr("Netzwerk prüfen und App-Zustand – Geschwindigkeit, Erreichbarkeit, Verbindungsdaten, Diagnose"))
+        ScreenTitle(tr("Tools"), subtitle = tr("Netzwerk prüfen und App-Zustand – Geschwindigkeit, Erreichbarkeit, Verbindungsdaten, Diagnose"))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Tool.entries.forEach { t -> TvChip(t.label, tool == t, { tool = t }) }
         }
@@ -719,7 +719,7 @@ private fun SpeedPane(vm: NetworkToolsViewModel) {
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.CenterVertically) {
             val gaugeVal = when { inDown || inUp -> s.live ?: 0.0; s.running -> 0.0; else -> s.upMbps?.let { s.downMbps } ?: s.downMbps ?: 0.0 }
-            SpeedGauge(gaugeVal, when { inDown -> "Download"; inUp -> "Upload"; s.downMbps != null -> "Download"; else -> "Mbit/s" })
+            SpeedGauge(gaugeVal, when { inDown -> tr("Download"); inUp -> tr("Upload"); s.downMbps != null -> tr("Download"); else -> "Mbit/s" })
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 PhaseSteps(s)
                 if (s.samples.size >= 2 || inDown || inUp) Sparkline(s.samples)
