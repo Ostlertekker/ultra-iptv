@@ -222,6 +222,12 @@ fun PlayerScreen(
                 }
                 // Live-TV: kein Zurück-/Vorspulen
                 if (isLive && (ev.key == Key.MediaRewind || ev.key == Key.MediaFastForward)) return@onPreviewKeyEvent true
+                // Live-TV: ▲ ▼ zappen sofort – auch wenn die Steuerleiste gerade eingeblendet ist
+                if (isLive && overlay && panel == null && !moreOpen && ui.countdown == null && settings.upDownAction != 1 &&
+                    (ev.key == Key.DirectionUp || ev.key == Key.DirectionDown)) {
+                    if (down) { overlay = false; vm.switchChannel((if (ev.key == Key.DirectionUp) -1 else 1) * zapDir) }
+                    return@onPreviewKeyEvent true
+                }
                 if (ui.countdown != null || panel != null || overlay) return@onPreviewKeyEvent false
                 // Overlay ausgeblendet: Schnellsteuerung
                 if (!down) return@onPreviewKeyEvent true
