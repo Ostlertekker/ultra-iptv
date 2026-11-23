@@ -27,6 +27,27 @@ class ZI18nTest {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)).use { Thread.sleep(6000); shot(name) }
     }
 
+    /** Sprachwechsel wie ein Nutzer: Neustart über den Hilfsprozess, App muss danach wieder im Vordergrund sein. */
+    @Test fun restartAfterSwitch() {
+        try {
+            I18n.save(context, "de"); I18n.init(context)
+            ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java).putExtra(MainActivity.EXTRA_ROUTE, Routes.SETTINGS)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)).use { sc ->
+                Thread.sleep(4000)
+                I18n.save(context, "en")
+                context.startActivity(Intent(context, de.ostlertekker.ultraiptv.core.i18n.RestartActivity::class.java)
+                    .putExtra(de.ostlertekker.ultraiptv.core.i18n.RestartActivity.EXTRA_PID, -1).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                Thread.sleep(6000)
+                shot("restart_after")
+                val dump = android.os.ParcelFileDescriptor.AutoCloseInputStream(
+                    instr.uiAutomation.executeShellCommand("dumpsys activity activities")).bufferedReader().readText()
+                check(dump.lines().any { it.contains("mResumedActivity") && it.contains("ultraiptv") }) { "App nach Neustart nicht im Vordergrund" }
+            }
+        } finally {
+            I18n.save(context, "system"); I18n.init(context)
+        }
+    }
+
     @Test fun languages() {
         try {
             for (code in listOf("en", "tr", "pl", "es", "fr")) {

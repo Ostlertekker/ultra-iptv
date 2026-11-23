@@ -46,15 +46,17 @@ object I18n {
         return r
     }
 
-    /** App neu starten, damit die neue Sprache überall greift. */
+    /**
+     * App neu starten, damit die neue Sprache überall greift: ein kleiner Hilfsprozess startet die App neu,
+     * nachdem dieser Prozess beendet ist (Fire TV erlaubt keinen Neustart per Wecker aus dem Hintergrund).
+     */
     fun restart(activity: android.app.Activity) {
-        val i = activity.packageManager.getLaunchIntentForPackage(activity.packageName) ?: return
-        i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
-        val pi = android.app.PendingIntent.getActivity(activity, 4711, i, android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_CANCEL_CURRENT)
-        (activity.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager)
-            .set(android.app.AlarmManager.RTC, System.currentTimeMillis() + 400, pi)
+        val i = android.content.Intent(activity, RestartActivity::class.java)
+            .putExtra(RestartActivity.EXTRA_PID, android.os.Process.myPid())
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        activity.startActivity(i)
+        // Der Hilfsprozess beendet diesen Prozess – hier nur die Oberfläche schließen
         activity.finishAffinity()
-        Runtime.getRuntime().exit(0)
     }
 }
 

@@ -569,7 +569,9 @@ private fun LazyListScope.generalPage(vm: SettingsViewModel, s: AppSettings) {
                 SRow("Sprache / Language", opts.firstOrNull { it.first == cur }?.second ?: tr("Gerätesprache")) {
                     val next = opts[(opts.indexOfFirst { it.first == cur } + 1) % opts.size].first
                     de.ostlertekker.ultraiptv.core.i18n.I18n.save(ctx, next)
-                    (ctx as? android.app.Activity)?.let { de.ostlertekker.ultraiptv.core.i18n.I18n.restart(it) }
+                    var c: android.content.Context? = ctx
+                    while (c is android.content.ContextWrapper && c !is android.app.Activity) c = c.baseContext
+                    (c as? android.app.Activity)?.let { de.ostlertekker.ultraiptv.core.i18n.I18n.restart(it) }
                 }
             }
             SRow(tr("Beim App-Start"), listOf(tr("Startseite"), tr("Live-TV"), tr("Letzten Sender abspielen"), tr("TV-Programm"))[s.startAction.coerceIn(0, 3)]) {

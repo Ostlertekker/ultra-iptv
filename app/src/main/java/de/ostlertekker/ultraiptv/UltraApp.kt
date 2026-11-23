@@ -21,6 +21,8 @@ class UltraApp : Application(), ImageLoaderFactory {
         // Sprache vor allem anderen festlegen (Hilt baut in super.onCreate() schon Objekte mit Texten)
         de.ostlertekker.ultraiptv.core.i18n.I18n.init(this)
         super.onCreate()
+        // Neustart-Hilfsprozess (Sprachwechsel): nichts weiter starten
+        if (de.ostlertekker.ultraiptv.core.i18n.RestartActivity.isRestartProcess()) return
         de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.install(this)
         credentialStore.init()
         // System-Updates: Prüfung beim App-Start (verzögert, damit der Start nicht leidet) und regelmäßig im Hintergrund
