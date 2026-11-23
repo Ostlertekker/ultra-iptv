@@ -450,7 +450,10 @@ private fun PanelContent(panel: Panel, vm: PlayerViewModel, ui: PlayerUi, settin
     when (panel) {
         Panel.AUDIO -> {
             title = "Tonspur"
-            options = vm.engine.options(C.TRACK_TYPE_AUDIO).map { o: TrackOption -> Opt(o.label, o.selected) { vm.engine.select(o); close() } }
+            // Datensparmodus: alle Tonspuren der Quelle anbieten (Auswahl lädt den Stream mit dieser Spur neu)
+            options = if (vm.jfDataSaving && vm.jfAudioTracks().size > 1)
+                vm.jfAudioTracks().map { a -> Opt(a.label, a.index == vm.jfSelectedAudio()) { if (a.index != vm.jfSelectedAudio()) vm.switchJfAudio(a.index); close() } }
+            else vm.engine.options(C.TRACK_TYPE_AUDIO).map { o: TrackOption -> Opt(o.label, o.selected) { vm.engine.select(o); close() } }
                 .ifEmpty { listOf(Opt("Keine Auswahl verfügbar", false) { close() }) }
         }
         Panel.SUBTITLES -> {
@@ -458,6 +461,7 @@ private fun PanelContent(panel: Panel, vm: PlayerViewModel, ui: PlayerUi, settin
             val off = vm.engine.isTypeDisabled(C.TRACK_TYPE_TEXT)
             options = listOf(Opt("Aus", off) { vm.engine.disableTrackType(C.TRACK_TYPE_TEXT); close() }) +
                 vm.engine.options(C.TRACK_TYPE_TEXT).map { o -> Opt(o.label, o.selected && !off) { vm.engine.select(o); close() } } +
+                (if (vm.jfDataSaving) listOf(Opt("Weitere Untertitel (Originaldatei laden)", false) { vm.jfLoadOriginal(); close() }) else emptyList()) +
                 listOf(
                     Opt("Schriftgröße: ${(settings.subtitleScale * 100).toInt()} %", false) { vm.cycleSubtitleScale(settings.subtitleScale) },
                     Opt("Farbe: ${subtitleColorNames[settings.subtitleColor.coerceIn(0, 2)]}", false) { vm.cycleSubtitleColor(settings.subtitleColor) },

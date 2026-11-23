@@ -430,6 +430,10 @@ private fun LazyListScope.jellyfinPage(vm: SettingsViewModel, s: AppSettings, na
             SSwitch("Immer transkodieren", s.jfForceTranscode, "Nur bei Problemen einschalten – sonst spielt die App die Originaldatei direkt ab") {
                 vm.set(Keys.JF_FORCE_TRANSCODE, it)
             }
+            SSwitch("Datensparen: nur gewählte Tonspur übertragen", s.jfDataSaver,
+                "Bei Filmen mit mehreren Tonspuren schickt der Server nur Bild und deine Tonspur – unverändert kopiert, gleiche Qualität, kein Umwandeln. Weitere Tonspuren/eingebettete Untertitel über das Player-Menü") {
+                vm.set(Keys.JF_DATA_SAVER, it)
+            }
             SRow("Max. Audiokanäle", JfOptions.channelNames.getOrElse(s.jfAudioChannels) { JfOptions.channelNames[1] }) {
                 vm.set(Keys.JF_AUDIO_CHANNELS, (s.jfAudioChannels + 1) % JfOptions.channelNames.size)
             }

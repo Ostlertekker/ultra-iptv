@@ -104,7 +104,17 @@ data class JfPlayback(
     val mediaSourceId: String,
     val playSessionId: String?,
     val subtitles: List<JfSubtitle>,
+    /** Tonspuren der Quelle (für die Auswahl im Datensparmodus). */
+    val audioTracks: List<JfAudio> = emptyList(),
+    /** Datensparmodus: übertragene Tonspur (Jellyfin-Index), sonst null. */
+    val audioIndex: Int? = null,
+    /** Datensparmodus: geschätzte Ersparnis (Bitrate der nicht übertragenen Tonspuren, kbit/s). */
+    val savedKbps: Int = 0,
+    /** Quelle hat eingebettete Untertitel, die im Datensparmodus nicht mitkommen. */
+    val hasEmbeddedSubs: Boolean = false,
 )
+
+data class JfAudio(val index: Int, val codec: String, val label: String, val channels: Int?, val kbps: Int?)
 
 class JellyfinException(message: String, val code: Int = 0) : IOException(message)
 
@@ -538,8 +548,19 @@ class JellyfinRepository @Inject constructor(
         }
     }
 
-    /** Fragt den Server, wie der Titel auf diesem Gerät abgespielt werden kann (Direct Play, sonst Transkodierung). */
-    suspend fun playback(id: String, startMs: Long, forceTranscode: Boolean = false): JfPlayback {
+    // Datensparmodus: Tonspur-Codecs, die als HLS-TS unverändert (Kopie) übertragen werden können.
+    // Ein Codec, der auf diesem Gerät im Datensparmodus nicht abspielbar war, wird gemerkt und künftig direkt (Originaldatei) abgespielt.
+    private val remuxPrefs by lazy { context.getSharedPreferences("jf_datasaver", Context.MODE_PRIVATE) }
+    private val REMUX_AUDIO = setOf("aac", "ac3", "eac3", "mp3", "mp2", "dts", "truehd")
+    private val REMUX_VIDEO = setOf("h264", "hevc")
+    fun markRemuxUnsupported(codec: String) { remuxPrefs.edit().putBoolean("bad_" + codec.lowercase(), true).apply() }
+    private fun remuxBad(codec: String) = remuxPrefs.getBoolean("bad_" + codec.lowercase(), false)
+
+    /**
+     * Fragt den Server, wie der Titel auf diesem Gerät abgespielt werden kann (Direct Play, sonst Transkodierung).
+     * [audioIndex]: gewünschte Tonspur (Datensparmodus). [forceDirect]: Datensparmodus für diesen Start überspringen.
+     */
+    suspend fun playback(id: String, startMs: Long, forceTranscode: Boolean = false, audioIndex: Int? = null, forceDirect: Boolean = false): JfPlayback {
         val s = restore() ?: throw JellyfinException("Nicht mit Jellyfin verbunden", 401)
         val cfg = settingsRepo.current()
         val forceTranscode = forceTranscode || cfg.jfForceTranscode
@@ -569,8 +590,31 @@ class JellyfinRepository @Inject constructor(
                 JfSubtitle(url, st["Language"]?.str(), st["DisplayTitle"]?.str() ?: st["Language"]?.str() ?: "Untertitel",
                     if (du.substringBefore('?').endsWith(".vtt")) "vtt" else "srt")
             }
+        // Tonspuren, Video-Codec, eingebettete Untertitel der Quelle
+        val streams = (src["MediaStreams"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
+        val audios = streams.filter { it["Type"]?.str() == "Audio" }.mapNotNull { a ->
+            val idx = a["Index"]?.int() ?: return@mapNotNull null
+            JfAudio(idx, a["Codec"]?.str()?.lowercase() ?: "", a["DisplayTitle"]?.str() ?: a["Language"]?.str() ?: "Tonspur $idx",
+                a["Channels"]?.int(), a["BitRate"]?.int()?.let { it / 1000 })
+        }
+        val vcodec = streams.firstOrNull { it["Type"]?.str() == "Video" }?.get("Codec")?.str()?.lowercase()
+        val embeddedSubs = streams.any { it["Type"]?.str() == "Subtitle" && it["IsExternal"]?.bool() != true }
+        // Datensparmodus: nur Bild + gewählte Tonspur, beides unverändert kopiert (kein Decodieren, keine Qualitätsänderung).
+        // Nur wenn es etwas spart (mehrere Tonspuren) und die Codecs kopierbar sind.
+        val defIdx = src["DefaultAudioStreamIndex"]?.int() ?: streams.firstOrNull { it["Type"]?.str() == "Audio" && it["IsDefault"]?.bool() == true }?.get("Index")?.int()
+        val chosen = audios.firstOrNull { it.index == (audioIndex ?: defIdx) } ?: audios.firstOrNull()
+        val remux = cfg.jfDataSaver && canDirect && !forceDirect && audios.size > 1 && chosen != null && vcodec in REMUX_VIDEO &&
+            chosen.codec in REMUX_AUDIO && !remuxBad(chosen.codec)
+        if (remux && chosen != null) {
+            val ch = (chosen.channels ?: 8).coerceAtLeast(2)
+            val url = "${s.server}/Videos/$id/master.m3u8?$common&VideoCodec=$vcodec&AudioCodec=${chosen.codec}&AudioStreamIndex=${chosen.index}" +
+                "&SegmentContainer=ts&MaxAudioChannels=$ch&TranscodingMaxAudioChannels=$ch&allowVideoStreamCopy=true&allowAudioStreamCopy=true" +
+                "&EnableAutoStreamCopy=true&BreakOnNonKeyFrames=true&RequireAvc=false&MaxStreamingBitrate=${maxBitrate}"
+            val saved = audios.filter { it.index != chosen.index }.sumOf { it.kbps ?: 0 }
+            return JfPlayback(url, "DirectStream", direct, msid, psid, subs, audios, chosen.index, saved, embeddedSubs)
+        }
         return when {
-            canDirect -> JfPlayback(direct, "DirectPlay", transcode, msid, psid, subs)
+            canDirect -> JfPlayback(direct, "DirectPlay", transcode, msid, psid, subs, audios, null, 0, embeddedSubs)
             transcode != null -> JfPlayback(transcode, "Transcode", null, msid, psid, subs)
             else -> throw JellyfinException("Dieser Titel kann auf diesem Gerät nicht abgespielt werden")
         }

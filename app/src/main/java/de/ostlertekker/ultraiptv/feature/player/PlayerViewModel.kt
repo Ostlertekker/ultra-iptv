@@ -277,11 +277,30 @@ class PlayerViewModel @Inject constructor(
         playJf(ep.id.removePrefix(JF), start)
     }
 
-    private suspend fun playJf(id: String, start: Long, forceTranscode: Boolean = false) {
+    /** Datensparmodus aktiv (nur gewählte Tonspur wird übertragen)? */
+    val jfDataSaving: Boolean get() = jfPlayback?.method == "DirectStream"
+    fun jfAudioTracks() = jfPlayback?.audioTracks.orEmpty()
+    fun jfSelectedAudio() = jfPlayback?.audioIndex
+
+    /** Andere Tonspur im Datensparmodus: Stream mit dieser Spur an derselben Stelle neu anfordern. */
+    fun switchJfAudio(index: Int) {
+        val id = jfId ?: return
+        val pos = engine.player?.currentPosition ?: 0L
+        viewModelScope.launch { playJf(id, pos, audioIndex = index) }
+    }
+
+    /** Originaldatei laden (z. B. für eingebettete Untertitel) – an derselben Stelle. */
+    fun jfLoadOriginal() {
+        val id = jfId ?: return
+        val pos = engine.player?.currentPosition ?: 0L
+        viewModelScope.launch { playJf(id, pos, forceDirect = true) }
+    }
+
+    private suspend fun playJf(id: String, start: Long, forceTranscode: Boolean = false, audioIndex: Int? = null, forceDirect: Boolean = false) {
         // Alten Titel beim Server abmelden (Folgenwechsel)
         val prev = jfPlayback; val prevId = jfId
         if (prev != null && prevId != null && prevId != id) jellyfin.reportStopped(prevId, prev, engine.player?.currentPosition ?: 0L)
-        val pb = try { jellyfin.playback(id, 0, forceTranscode) } catch (e: Exception) {
+        val pb = try { jellyfin.playback(id, 0, forceTranscode, audioIndex = audioIndex, forceDirect = forceDirect) } catch (e: Exception) {
             android.util.Log.w("UltraJellyfin", "Jellyfin-Wiedergabe fehlgeschlagen: ${e.message}")
             return fail(e.message ?: "Wiedergabe nicht möglich")
         }
@@ -292,6 +311,21 @@ class PlayerViewModel @Inject constructor(
             subtitles = pb.subtitles.map { de.ostlertekker.ultraiptv.core.player.ExternalSubtitle(it.url, it.language, it.label, it.format) })
         viewModelScope.launch { applyQuality() }
         if (pb.method == "Transcode") _ui.update { it.copy(qualityNote = "Jellyfin transkodiert für dieses Gerät") }
+        if (pb.method == "DirectStream") {
+            android.util.Log.i("UltraJellyfin", "Datensparmodus: Tonspur ${pb.audioIndex}, spart ca. ${pb.savedKbps} kbit/s")
+            // Sicherheitsnetz: Kommt die kopierte Tonspur auf diesem Gerät nicht an, Codec merken und Originaldatei abspielen
+            val chosen = pb.audioTracks.firstOrNull { it.index == pb.audioIndex }
+            viewModelScope.launch {
+                delay(8_000)
+                if (jfPlayback !== pb) return@launch
+                val ready = engine.player?.playbackState == androidx.media3.common.Player.STATE_READY
+                if (ready && engine.options(androidx.media3.common.C.TRACK_TYPE_AUDIO).isEmpty()) {
+                    chosen?.let { jellyfin.markRemuxUnsupported(it.codec) }
+                    toast("Tonspur im Datensparmodus nicht abspielbar – Originaldatei wird geladen")
+                    playJf(id, engine.player?.currentPosition ?: 0L, forceDirect = true)
+                }
+            }
+        }
         jellyfin.reportStart(id, pb, start)
     }
 
@@ -884,6 +918,13 @@ class PlayerViewModel @Inject constructor(
     private fun onFatal() {
         // Jellyfin: Direct Play klappt auf diesem Gerät nicht → automatisch auf Transkodierung (HLS) wechseln
         val pb = jfPlayback; val id = jfId
+        if (pb != null && id != null && pb.method == "DirectStream") {
+            // Datensparmodus scheitert → zuerst die Originaldatei (wie ohne Datensparen), erst danach Transkodierung
+            val pos = engine.player?.currentPosition ?: 0L
+            pb.audioTracks.firstOrNull { it.index == pb.audioIndex }?.let { jellyfin.markRemuxUnsupported(it.codec) }
+            viewModelScope.launch { playJf(id, pos, forceDirect = true) }
+            return
+        }
         if (pb != null && id != null && pb.method != "Transcode") {
             val pos = engine.player?.currentPosition ?: 0L
             toast("Format nicht direkt abspielbar – Jellyfin transkodiert")
