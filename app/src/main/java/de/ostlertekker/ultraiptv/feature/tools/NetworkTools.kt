@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.feature.tools
 
+import de.ostlertekker.ultraiptv.core.ui.fadeOnChange
 import android.annotation.SuppressLint
 import android.content.Context
 import android.net.ConnectivityManager
@@ -466,12 +467,12 @@ fun ToolsScreen(vm: NetworkToolsViewModel = hiltViewModel()) {
             Tool.entries.forEach { t -> TvChip(t.label, tool == t, { tool = t }) }
         }
         Spacer(Modifier.height(18.dp))
-        when (tool) {
+        Box(Modifier.fadeOnChange(tool)) { when (tool) {
             Tool.SPEED -> SpeedPane(vm)
             Tool.CHECK -> CheckPane(vm)
             Tool.INFO -> InfoPane(vm)
             Tool.DIAG -> DiagPane(vm)
-        }
+        } }
     }
 }
 

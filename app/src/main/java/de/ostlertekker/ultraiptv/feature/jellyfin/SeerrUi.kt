@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.feature.jellyfin
 
+import de.ostlertekker.ultraiptv.core.ui.dialogEnter
 import androidx.compose.foundation.layout.PaddingValues
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedV
 import de.ostlertekker.ultraiptv.core.ui.FocusBleedH
@@ -95,7 +96,7 @@ fun SeerrRequestDialog(item: SeerrItem, repo: SeerrRepository, onDismiss: () -> 
     val requestable = seasons?.filter { it.status == SeerrStatus.UNKNOWN }.orEmpty()
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Row(Modifier.width(860.dp).background(Color(0xFF0E1013), RoundedCornerShape(20.dp)).padding(28.dp)) {
+        Row(Modifier.dialogEnter().width(860.dp).background(Color(0xFF0E1013), RoundedCornerShape(20.dp)).padding(28.dp)) {
             AsyncImage(item.poster, null, contentScale = ContentScale.Crop,
                 modifier = Modifier.width(180.dp).height(270.dp).clip(RoundedCornerShape(12.dp)).background(p.surface))
             Spacer(Modifier.width(24.dp))
@@ -241,7 +242,7 @@ fun SeerrRequestDetail(
     val more = r.item.isTv && seasons.any { it.status == SeerrStatus.UNKNOWN }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Box(Modifier.width(940.dp).clip(RoundedCornerShape(20.dp)).background(Color(0xFF111827))) {
+        Box(Modifier.dialogEnter().width(940.dp).clip(RoundedCornerShape(20.dp)).background(Color(0xFF111827))) {
             r.item.backdrop?.let {
                 AsyncImage(it, null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
                 Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.linearGradient(

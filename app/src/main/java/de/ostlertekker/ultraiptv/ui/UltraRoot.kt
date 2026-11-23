@@ -219,10 +219,12 @@ private fun MainScaffold(customBackground: String, vm: RootViewModel, startRoute
     val exit0: ExitTransition = if (reduce) ExitTransition.None else exitTransitionFor(motion)
     // Dezenter Seitenwechsel: neue Seite blendet kurz ein und rutscht dabei ein paar Pixel nach oben
     val gentle = de.ostlertekker.ultraiptv.core.ui.motionOk()
+    val ease = de.ostlertekker.ultraiptv.core.ui.UltraMotion.Ease
     val enter: EnterTransition = if (reduce && gentle)
-        fadeIn(tween(220)) + androidx.compose.animation.slideInVertically(tween(260, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it / 50 }
+        fadeIn(tween(220, delayMillis = 40, easing = ease)) + androidx.compose.animation.slideInVertically(tween(260, easing = ease)) { it / 50 }
         else enter0
-    val exit: ExitTransition = if (reduce && gentle) ExitTransition.None else exit0
+    // Kurzes Ausblenden statt hartem Schnitt; schnell genug, dass die Navigation nicht langsamer wirkt
+    val exit: ExitTransition = if (reduce && gentle) androidx.compose.animation.fadeOut(tween(120, easing = ease)) else exit0
 
     val contentEntry = remember { de.ostlertekker.ultraiptv.core.ui.ContentEntry() }
     androidx.compose.runtime.CompositionLocalProvider(de.ostlertekker.ultraiptv.core.ui.LocalContentEntry provides contentEntry) {

@@ -135,7 +135,7 @@ fun rememberVoiceSearch(onResultIn: (String) -> Unit): VoiceSearchState {
 
     if (listening) Dialog(onDismissRequest = { stop() }) {
         val pulse by rememberInfiniteTransition(label = "mic").animateFloat(1f, 1.15f, infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "micP")
-        Column(Modifier.width(460.dp).background(Color(0xFF0E1013), RoundedCornerShape(20.dp)).padding(28.dp),
+        Column(Modifier.dialogEnter().width(460.dp).background(Color(0xFF0E1013), RoundedCornerShape(20.dp)).padding(28.dp),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Box(Modifier.size(84.dp).scale(pulse + level * 0.25f).background(Color.White.copy(alpha = 0.12f + level * 0.25f), CircleShape),
                 contentAlignment = Alignment.Center) {

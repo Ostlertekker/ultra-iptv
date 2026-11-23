@@ -1,5 +1,6 @@
 package de.ostlertekker.ultraiptv.feature.settings
 
+import de.ostlertekker.ultraiptv.core.ui.fadeOnChange
 import de.ostlertekker.ultraiptv.core.jellyfin.JfOptions
 import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
@@ -206,7 +207,7 @@ fun SettingsScreen(nav: NavController, vm: SettingsViewModel = hiltViewModel(), 
             }
         }
         if (errorsOpen) ErrorLogView(vm) { errorsOpen = false }
-        else LazyColumn(Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(start = 28.dp, end = 32.dp, top = 18.dp, bottom = 60.dp),
+        else LazyColumn(Modifier.weight(1f).fillMaxHeight().fadeOnChange(category), contentPadding = PaddingValues(start = 28.dp, end = 32.dp, top = 18.dp, bottom = 60.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp)) {
             item(key = "title_" + category.name) {
                 Text(category.label, color = p.text, fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))

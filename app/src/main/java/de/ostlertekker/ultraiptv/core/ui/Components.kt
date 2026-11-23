@@ -192,11 +192,68 @@ fun SectionHeader(text: String, modifier: Modifier = Modifier) {
 /** true = Performance-Modus (schlanke Darstellung, keine Dauer-Animationen). */
 val LocalPerfMode = androidx.compose.runtime.staticCompositionLocalOf { true }
 
+/**
+ * Einheitliches Bewegungsverhalten der ganzen App: kurze Dauern, eine weiche Standardkurve.
+ * Alle Werte werden – wo möglich – nur in der Zeichenphase gelesen (GPU-Ebene, keine Neuberechnung des Layouts).
+ */
+object UltraMotion {
+    /** Fokus, Auswahl, Tastenreaktion. */
+    const val FAST = 130
+    /** Seiten-/Inhaltswechsel, Dialoge. */
+    const val MEDIUM = 220
+    /** Weiche Standardkurve (schnell los, sanft auslaufen). */
+    val Ease = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f)
+    fun <T> fast() = tween<T>(FAST, easing = Ease)
+    fun <T> medium() = tween<T>(MEDIUM, easing = Ease)
+}
+
 @Composable
 private fun Modifier.lightFocus(focused: Boolean, scale: Float, scaleOnFocus: Boolean): Modifier {
     // Nur ein Wert, nur in der Zeichenphase gelesen: keine Layout-Messung, keine Neukomposition pro Frame
-    val s by androidx.compose.animation.core.animateFloatAsState(if (focused && scaleOnFocus) scale else 1f, tween(110), label = "f")
-    return this.graphicsLayer { scaleX = s; scaleY = s }
+    val s = androidx.compose.animation.core.animateFloatAsState(if (focused && scaleOnFocus) scale else 1f, UltraMotion.fast(), label = "f")
+    return this.graphicsLayer { scaleX = s.value; scaleY = s.value }
+}
+
+/**
+ * Fokusrahmen, der weich ein- und ausblendet (vorher: hartes Ein/Aus). Gezeichnet wie Modifier.border
+ * (Strich innerhalb der Form) – Endzustand identisch, Wert wird nur beim Zeichnen gelesen.
+ */
+private fun Modifier.focusRing(alpha: androidx.compose.runtime.State<Float>, shape: RoundedCornerShape, width: Dp, color: Color): Modifier =
+    this.drawWithContent {
+        drawContent()
+        val a = alpha.value
+        if (a > 0.004f) {
+            val w = width.toPx(); val inset = w / 2f
+            val r = (shape.topStart.toPx(size, this) - inset).coerceAtLeast(0f)
+            drawRoundRect(color.copy(alpha = color.alpha * a), topLeft = androidx.compose.ui.geometry.Offset(inset, inset),
+                size = androidx.compose.ui.geometry.Size(size.width - w, size.height - w),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(r, r), style = androidx.compose.ui.graphics.drawscope.Stroke(w))
+        }
+    }
+
+/** Dialog-/Overlay-Eingang: weiches Einblenden mit minimalem Heranzoomen (nur Zeichenphase). */
+@Composable
+fun Modifier.dialogEnter(): Modifier {
+    val ok = motionOk()
+    val a = remember { androidx.compose.animation.core.Animatable(if (ok) 0f else 1f) }
+    LaunchedEffect(Unit) { if (ok) a.animateTo(1f, UltraMotion.medium()) }
+    return this.graphicsLayer { alpha = a.value; val sc = 0.96f + 0.04f * a.value; scaleX = sc; scaleY = sc }
+}
+
+/**
+ * Inhaltswechsel (Kategorie, Reiter): neuer Inhalt blendet kurz weich ein statt hart umzuspringen.
+ * Kein zweites Layout, keine Neuberechnung – nur die Deckkraft der Ebene ändert sich.
+ */
+@Composable
+fun Modifier.fadeOnChange(key: Any?): Modifier {
+    val ok = motionOk()
+    val a = remember { androidx.compose.animation.core.Animatable(1f) }
+    var first by remember { mutableStateOf(true) }
+    LaunchedEffect(key) {
+        if (first) { first = false; return@LaunchedEffect }
+        if (ok) { a.snapTo(0.25f); a.animateTo(1f, UltraMotion.medium()) }
+    }
+    return this.graphicsLayer { alpha = a.value }
 }
 
 /** Gemeinsame Fokus-Logik: Skalierung, Leuchtrand und Fokus-Klang. */
@@ -231,9 +288,9 @@ fun Modifier.tvFocusable(
             onLongClick = onLongClick,
         )
         .clip(shape)
-    // Moderner, ruhiger Fokus wie bei Apple TV: sanftes Anheben + klarer heller Rand
-    return if (focused) base.border(2.5.dp, Color.White.copy(alpha = 0.92f), shape)
-    else base
+    // Moderner, ruhiger Fokus wie bei Apple TV: sanftes Anheben + klarer heller Rand (blendet weich ein/aus)
+    val ring = androidx.compose.animation.core.animateFloatAsState(if (focused) 1f else 0f, UltraMotion.fast(), label = "ring")
+    return base.focusRing(ring, shape, 2.5.dp, Color.White.copy(alpha = 0.92f))
 }
 
 /**
@@ -244,6 +301,17 @@ fun Modifier.outlineButton(focused: Boolean, primary: Boolean, enabled: Boolean,
     this.background(if (focused && enabled) Color.White else Color.Transparent, shape)
         .border(if (primary) 2.dp else 1.5.dp,
             Color.White.copy(alpha = when { !enabled -> 0.2f; focused -> 1f; primary -> 0.9f; else -> 0.55f }), shape)
+
+/** Wie [outlineButton], aber Füllung/Rahmen gleiten weich zwischen normal und fokussiert (t = 0…1). */
+private fun Modifier.outlineButtonT(t: Float, primary: Boolean, enabled: Boolean, shape: androidx.compose.ui.graphics.Shape): Modifier {
+    val f = if (enabled) t else 0f
+    val baseA = when { !enabled -> 0.2f; primary -> 0.9f; else -> 0.55f }
+    return this.background(Color.White.copy(alpha = f), shape)
+        .border(if (primary) 2.dp else 1.5.dp, Color.White.copy(alpha = baseA + (1f - baseA) * f), shape)
+}
+
+private fun outlineButtonTextT(t: Float, enabled: Boolean): Color =
+    if (!enabled) Color.White.copy(alpha = 0.4f) else androidx.compose.ui.graphics.lerp(Color.White, Color(0xFF111111), t)
 
 /** Textfarbe passend zu [outlineButton]. */
 fun outlineButtonText(focused: Boolean, enabled: Boolean): Color =
@@ -373,10 +441,11 @@ fun TvButton(
     val p = theme.palette
     val shape = RoundedCornerShape(theme.spec.corner.coerceAtMost(28.dp))
     var focused by remember { mutableStateOf(false) }
+    val ft by androidx.compose.animation.core.animateFloatAsState(if (focused) 1f else 0f, UltraMotion.fast(), label = "btn")
     Box(
         modifier
             .tvFocusable(shape, onClick = { if (enabled) onClick() }, focusRequester = focusRequester, onFocus = { focused = it })
-            .outlineButton(focused, primary, enabled, shape)
+            .outlineButtonT(ft, primary, enabled, shape)
             .padding(horizontal = 20.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -390,7 +459,7 @@ fun TvButton(
             }
             lastText = text
         }
-        Text(text, color = outlineButtonText(focused, enabled), fontWeight = FontWeight.SemiBold,
+        Text(text, color = outlineButtonTextT(ft, enabled), fontWeight = FontWeight.SemiBold,
             fontFamily = theme.spec.fontFamily, fontSize = 16.sp, maxLines = 1,
             modifier = Modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value })
     }
@@ -420,16 +489,17 @@ fun TvChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modif
     val p = theme.palette
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(50)
+    val ft by androidx.compose.animation.core.animateFloatAsState(if (focused) 1f else 0f, UltraMotion.fast(), label = "chip")
     Box(
         modifier
             .tvFocusable(shape, onClick, onFocus = { focused = it })
-            .outlineButton(focused, primary = selected, enabled = true, shape = shape)
+            .outlineButtonT(ft, primary = selected, enabled = true, shape = shape)
             .padding(horizontal = 16.dp, vertical = 7.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (icon != null) androidx.compose.material3.Icon(icon, contentDescription = null, tint = outlineButtonText(focused, true),
+            if (icon != null) androidx.compose.material3.Icon(icon, contentDescription = null, tint = outlineButtonTextT(ft, true),
                 modifier = Modifier.padding(end = 6.dp).size(16.dp))
-            Text(text, color = outlineButtonText(focused, true), fontSize = 14.sp, maxLines = 1,
+            Text(text, color = outlineButtonTextT(ft, true), fontSize = 14.sp, maxLines = 1,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
         }
     }
@@ -510,7 +580,10 @@ fun FocusCard(
                 val fill = remember { androidx.compose.animation.core.Animatable(if (anim) 0f else progress) }
                 LaunchedEffect(progress) { fill.animateTo(progress.coerceIn(0f, 1f), androidx.compose.animation.core.tween(if (anim) 700 else 0)) }
                 Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(4.dp).background(Color.Black.copy(alpha = 0.5f)))
-                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth(fill.value.coerceIn(0.001f, 1f)).height(4.dp).background(progressColor ?: p.primary))
+                val pc = progressColor ?: p.primary
+                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(4.dp).drawBehind {
+                    drawRect(pc, size = androidx.compose.ui.geometry.Size(size.width * fill.value.coerceIn(0.001f, 1f), size.height))
+                })
             }
             badge?.let { (label, color) ->
                 val pa = if (badgePulse && anim) androidx.compose.animation.core.rememberInfiniteTransition(label = "bp").animateFloat(0.6f, 1f,
