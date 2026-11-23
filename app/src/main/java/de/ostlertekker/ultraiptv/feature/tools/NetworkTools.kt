@@ -109,6 +109,9 @@ data class SpeedState(
     val error: String? = null,
     /** Live-Messwerte der laufenden Phase (für die Verlaufskurve). */
     val samples: List<Double> = emptyList(),
+    /** Durchsatz eines Anbieter-Streams (nur „Mit Anbieter-Stream“; die Stream-Bitrate begrenzt den Wert). */
+    val providerMbps: Double? = null,
+    val providerNote: String? = null,
 )
 
 /** Balken in der App-Diagnose (Anteil 0..1). */
@@ -136,11 +139,16 @@ class NetworkToolsViewModel @Inject constructor(
     private val creds: de.ostlertekker.ultraiptv.core.security.CredentialStore,
     private val jellyfin: de.ostlertekker.ultraiptv.core.jellyfin.JellyfinRepository,
     private val seerr: de.ostlertekker.ultraiptv.core.seerr.SeerrRepository,
+    private val content: de.ostlertekker.ultraiptv.core.data.ContentRepository,
+    private val resolver: de.ostlertekker.ultraiptv.core.security.StreamResolver,
+    private val settingsRepo: de.ostlertekker.ultraiptv.core.data.SettingsRepository,
 ) : ViewModel() {
     // Eigener Client: kein Cache, getrennte Verbindungen für parallele Messungen
     private val http = baseClient.newBuilder().cache(null).connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS).writeTimeout(15, TimeUnit.SECONDS).build()
     private val base = "https://speed.cloudflare.com"
+    /** Messserver Download/Ping: Hetzner Falkenstein (Deutschland), offizielle Testdateien. */
+    private val hetzner = "https://fsn1-speed.hetzner.com"
 
     val speed = MutableStateFlow(SpeedState())
     val checks = MutableStateFlow<List<CheckRow>>(emptyList())
@@ -154,26 +162,88 @@ class NetworkToolsViewModel @Inject constructor(
 
     // ---------------------------------------------------------------- Speedtest (Cloudflare-Messserver)
 
-    fun startSpeedtest() {
+    /**
+     * Speedtest wie früher: eine Verbindung, Download ca. 8 s, Upload ein 4-MB-Paket – Download und Ping jetzt gegen
+     * Hetzner Falkenstein (DE). Upload über Cloudflare, da Hetzner keinen Upload-Test anbietet.
+     * Optional: Durchsatz eines echten Streams deines IPTV-Anbieters (5 s).
+     */
+    fun startSpeedtest(withProvider: Boolean = false) {
         speedJob?.cancel()
         speedJob = viewModelScope.launch(Dispatchers.IO) {
-            speed.value = SpeedState(running = true, phase = "Verbinde …")
+            speed.value = SpeedState(running = true, phase = "Ping wird gemessen …", server = "Hetzner Falkenstein (DE)")
             try {
-                val meta = runCatching { meta() }.getOrNull()
-                val server = meta?.let { m -> listOfNotNull(m.optString("colo").ifBlank { null }?.let { "Cloudflare $it" },
-                    m.optString("city").ifBlank { null }).joinToString(" · ") }
-                speed.value = speed.value.copy(server = server, phase = "Ping wird gemessen …")
-                val (ping, jitter) = ping()
+                val (ping, jitter) = pingHetzner()
                 speed.value = speed.value.copy(pingMs = ping, jitterMs = jitter, phase = "Download wird gemessen …")
-                val down = transfer(upload = false) { live -> speed.value = speed.value.copy(live = live, samples = speed.value.samples + live) }
+                val down = measureDownload("$hetzner/1GB.bin", 8_000) { live -> speed.value = speed.value.copy(live = live, samples = speed.value.samples + live) }
                 speed.value = speed.value.copy(downMbps = down, live = null, samples = emptyList(), phase = "Upload wird gemessen …")
-                val up = transfer(upload = true) { live -> speed.value = speed.value.copy(live = live, samples = speed.value.samples + live) }
-                speed.value = speed.value.copy(upMbps = up, live = null, running = false, phase = "Fertig")
+                val up = measureUpload { live -> speed.value = speed.value.copy(live = live, samples = speed.value.samples + live) }
+                speed.value = speed.value.copy(upMbps = up, live = null, samples = emptyList())
+                if (withProvider) {
+                    speed.value = speed.value.copy(phase = "Anbieter-Stream wird gemessen …")
+                    val ch = runCatching { content.channelsAllOnce(1).firstOrNull() }.getOrNull()
+                    val url = ch?.let { runCatching { resolver.resolve(it.streamUrl, settingsRepo.current().liveFormat) }.getOrNull() }
+                    if (url == null) speed.value = speed.value.copy(providerNote = "Kein Live-Sender vorhanden")
+                    else {
+                        val r = runCatching { measureDownload(url, 5_000) { live -> speed.value = speed.value.copy(live = live, samples = speed.value.samples + live) } }
+                        speed.value = speed.value.copy(providerMbps = r.getOrNull(), live = null, samples = emptyList(),
+                            providerNote = r.exceptionOrNull()?.let { "Anbieter-Stream nicht messbar: ${de.ostlertekker.ultraiptv.core.network.SafeLog.redact(it.message ?: "Fehler")}" })
+                    }
+                }
+                speed.value = speed.value.copy(running = false, phase = "Fertig")
             } catch (e: kotlinx.coroutines.CancellationException) { throw e
             } catch (e: Exception) {
                 speed.value = speed.value.copy(running = false, live = null, phase = "", error = "Test fehlgeschlagen: ${e.message ?: "keine Verbindung"}")
             }
         }
+    }
+
+    /** 6 kleine Anfragen (1 Byte) über dieselbe Verbindung; die erste (Verbindungsaufbau) zählt nicht. Ping = schnellste. */
+    private fun pingHetzner(): Pair<Double, Double> {
+        val times = ArrayList<Double>()
+        repeat(6) { i ->
+            val t0 = System.nanoTime()
+            http.newCall(Request.Builder().url("$hetzner/100MB.bin").header("Range", "bytes=0-0").build()).execute().use { it.body?.bytes() }
+            if (i > 0) times += (System.nanoTime() - t0) / 1e6
+        }
+        val jitter = times.zipWithNext { a, b -> kotlin.math.abs(a - b) }.average()
+        return times.min() to jitter
+    }
+
+    /** Lädt höchstens [maxMs] lang über eine Verbindung und liefert Mbit/s (mit Live-Wert alle 250 ms). */
+    private suspend fun measureDownload(url: String, maxMs: Long, onLive: (Double) -> Unit): Double = withContext(Dispatchers.IO) {
+        val start = System.nanoTime()
+        var bytes = 0L
+        var lastTick = 0L
+        http.newCall(Request.Builder().url(url).build()).execute().use { r ->
+            if (!r.isSuccessful) error("HTTP ${r.code}")
+            val input = r.body?.byteStream() ?: error("Leere Antwort")
+            val buf = ByteArray(64 * 1024)
+            while (isActive) {
+                val n = input.read(buf); if (n < 0) break
+                bytes += n
+                val el = (System.nanoTime() - start) / 1_000_000
+                if (el - lastTick >= 250) { lastTick = el; onLive(bytes * 8.0 / 1e6 / (el / 1000.0).coerceAtLeast(0.001)) }
+                if (el >= maxMs) break
+            }
+        }
+        if (bytes <= 0) error("keine Daten übertragen")
+        bytes * 8.0 / 1e6 / ((System.nanoTime() - start) / 1e9).coerceAtLeast(0.001)
+    }
+
+    /** Ein 4-MB-Paket hochladen (Cloudflare) und Mbit/s berechnen. */
+    private suspend fun measureUpload(onLive: (Double) -> Unit): Double = withContext(Dispatchers.IO) {
+        val size = 4_000_000L
+        val sent = AtomicLong(0)
+        val start = System.nanoTime()
+        val ticker = launch {
+            while (isActive) { delay(250); val el = (System.nanoTime() - start) / 1e9; if (el > 0.3) onLive(sent.get() * 8.0 / 1e6 / el) }
+        }
+        try {
+            http.newCall(Request.Builder().url("$base/__up").post(CountingBody(size, sent) { true }).build()).execute().use { r ->
+                if (!r.isSuccessful) error("HTTP ${r.code}"); r.body?.bytes()
+            }
+        } finally { ticker.cancel() }
+        size * 8.0 / 1e6 / ((System.nanoTime() - start) / 1e9).coerceAtLeast(0.001)
     }
 
     private fun meta(): JSONObject = http.newCall(Request.Builder().url("$base/meta").build()).execute().use { r ->
@@ -659,9 +729,14 @@ private fun SpeedPane(vm: NetworkToolsViewModel) {
         }
         s.error?.let { Text("⚠ $it", color = Color(0xFFFF8A80), fontSize = 15.sp, modifier = Modifier.padding(top = 8.dp)) }
         Spacer(Modifier.height(14.dp))
-        TvButton(if (s.running) "Test läuft …" else if (s.downMbps != null) "Erneut testen" else "Test starten",
-            onClick = { if (!s.running) vm.startSpeedtest() }, primary = true, enabled = !s.running)
-        Text("Gemessen wird zum nächstgelegenen Cloudflare-Server (etwa 20 Sekunden, bis zu einige 100 MB Datenverbrauch bei schnellen Leitungen).",
+        s.providerMbps?.let { Text("Durchsatz eines Anbieter-Streams: ${fmt(it)} Mbit/s (die Stream-Bitrate begrenzt den Wert)", color = p.text, fontSize = 15.sp, modifier = Modifier.padding(bottom = 8.dp)) }
+        s.providerNote?.let { Text(it, color = p.textDim, fontSize = 14.sp, modifier = Modifier.padding(bottom = 8.dp)) }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            TvButton(if (s.running) "Test läuft …" else if (s.downMbps != null) "Erneut testen" else "Test starten",
+                onClick = { if (!s.running) vm.startSpeedtest(false) }, primary = true, enabled = !s.running)
+            TvButton("Mit Anbieter-Stream", onClick = { if (!s.running) vm.startSpeedtest(true) }, enabled = !s.running)
+        }
+        Text("Download und Ping: Hetzner Falkenstein (Deutschland), eine Verbindung, ca. 8 Sekunden. Upload: 4 MB über Cloudflare (Hetzner bietet keinen Upload-Test). „Mit Anbieter-Stream“ misst zusätzlich 5 Sekunden einen Sender deines Anbieters.",
             color = p.textDim.copy(alpha = 0.8f), fontSize = 12.sp, modifier = Modifier.padding(top = 10.dp))
     }
 }
