@@ -79,6 +79,69 @@ class AdblockManager @Inject constructor(
 
     private fun file(l: FilterList) = File(dir, l.id + ".txt")
 
+    // ------------------------------------------------ System-Updates: prüfen (bereitlegen) und getrennt übernehmen
+
+    private fun staged(l: FilterList) = File(dir, l.id + ".staged")
+
+    /** Stand der Listen: (Titel, Datum der Datei, Größe). */
+    fun listInfo(): List<Triple<String, Long, Long>> = LISTS.map { l -> val f = file(l); Triple(l.title, if (f.exists()) f.lastModified() else 0L, if (f.exists()) f.length() else 0L) }
+
+    /**
+     * Fragt alle Listen mit ETag ab; geänderte, gültige Fassungen werden nur bereitgelegt (.staged), nicht übernommen.
+     * Rückgabe: Titel der geänderten Listen.
+     */
+    fun stageUpdates(): List<String> {
+        val changed = ArrayList<String>()
+        for (l in LISTS) {
+            val f = file(l)
+            for (url in l.urls) {
+                val req = Request.Builder().url(url).header("User-Agent", "UltraIPTV-Browser/1.0")
+                    .apply { if (f.exists()) prefs.getString("etag_${l.id}_$url", null)?.let { header("If-None-Match", it) } }.build()
+                val res = runCatching {
+                    http.newCall(req).execute().use { r ->
+                        if (r.code == 304) return@use 0
+                        if (!r.isSuccessful) error("HTTP ${r.code}")
+                        val tmp = File(dir, l.id + ".tmp")
+                        r.body?.byteStream()?.use { input -> tmp.outputStream().use { input.copyTo(it) } } ?: error("leer")
+                        if (!looksValid(tmp)) { tmp.delete(); error("ungültige Liste") }
+                        // Gleicher Inhalt wie installiert → keine Änderung
+                        if (f.exists() && f.length() == tmp.length() && f.readBytes().contentEquals(tmp.readBytes())) { tmp.delete(); return@use 0 }
+                        staged(l).delete(); tmp.renameTo(staged(l))
+                        r.header("ETag")?.let { prefs.edit().putString("staged_etag_${l.id}", "$url\n$it").apply() }
+                        1
+                    }
+                }.onFailure { Log.w(TAG, "${l.id} von $url: ${it.message}") }.getOrNull()
+                if (res != null) { if (res == 1) changed += l.title; break }
+            }
+        }
+        return changed
+    }
+
+    fun stagedFiles(): List<File> = LISTS.map { staged(it) }.filter { it.exists() }
+
+    /** Übernimmt bereitgelegte Listen und kompiliert die Filter neu. Alte Fassung bleibt bis zum Erfolg bestehen. */
+    suspend fun installStaged(): Int {
+        var n = 0
+        for (l in LISTS) {
+            val st = staged(l); if (!st.exists()) continue
+            val f = file(l); val backup = File(dir, l.id + ".bak")
+            backup.delete(); if (f.exists()) f.renameTo(backup)
+            if (!st.renameTo(f)) { backup.renameTo(f); continue }
+            prefs.getString("staged_etag_${l.id}", null)?.split("\n", limit = 2)?.takeIf { it.size == 2 }?.let { (u, e) -> prefs.edit().putString("etag_${l.id}_$u", e).remove("staged_etag_${l.id}").apply() }
+            n++
+        }
+        if (n > 0) {
+            val ok = runCatching { rebuild() }.isSuccess
+            // Rollback: Neu-Kompilieren fehlgeschlagen → alte Listen zurück
+            if (!ok) { for (l in LISTS) { val b = File(dir, l.id + ".bak"); if (b.exists()) { file(l).delete(); b.renameTo(file(l)) } }; runCatching { rebuild() }; error("Filter ließen sich nicht übernehmen – alte Fassung wiederhergestellt") }
+            for (l in LISTS) File(dir, l.id + ".bak").delete()
+            prefs.edit().putLong("lastUpdate", System.currentTimeMillis()).apply()
+        }
+        return n
+    }
+
+    fun discardStaged() { LISTS.forEach { staged(it).delete() } }
+
     private suspend fun update() {
         var changed = false
         for (l in LISTS) if (runCatching { download(l) }.onFailure { Log.w(TAG, "${l.id}: ${it.message}") }.getOrDefault(false)) changed = true

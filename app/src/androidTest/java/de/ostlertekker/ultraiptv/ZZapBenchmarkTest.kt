@@ -83,6 +83,8 @@ class ZZapBenchmarkTest {
                 hooks.settings().set(Keys.INTRO_PLAYED, true)
                 hooks.settings().set(Keys.INTRO, false)
                 hooks.settings().set(Keys.UPDATE_CHECK, false)
+                // System-Updates im Test aus (kein automatischer Abruf von Katalogen, Manifest, Filterlisten während der Tests)
+                context.getSharedPreferences("system_update_settings", 0).edit().putBoolean("auto_check", false).commit()
                 hooks.user().ensureDefaultProfile()
                 check(hooks.sync().syncAll(includeEpg = false)) { "Sync der Zapping-Testquelle fehlgeschlagen" }
             }

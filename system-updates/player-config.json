@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "userAgent": "",
+  "connectTimeoutMs": 10000,
+  "readTimeoutMs": 12000,
+  "liveStartDefaultMs": 700,
+  "liveStartMinMs": 500,
+  "liveStartMaxMs": 2500,
+  "firstConnectGraceMs": 12000
+}

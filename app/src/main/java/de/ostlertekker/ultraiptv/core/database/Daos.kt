@@ -27,6 +27,16 @@ interface ContentDao {
     @Query("DELETE FROM series") suspend fun clearSeries()
     @Query("DELETE FROM episodes") suspend fun clearEpisodes()
     @Query("DELETE FROM episodes WHERE seriesId = :seriesId") suspend fun clearEpisodesOf(seriesId: String)
+    // Gezieltes Entfernen (System-Updates: nur weggefallene Einträge löschen, alles andere bleibt)
+    @Query("DELETE FROM channels WHERE id IN (:ids)") suspend fun deleteChannels(ids: List<String>)
+    @Query("DELETE FROM movies WHERE id IN (:ids)") suspend fun deleteMovies(ids: List<String>)
+    @Query("DELETE FROM series WHERE id IN (:ids)") suspend fun deleteSeries(ids: List<String>)
+    @Query("DELETE FROM episodes WHERE id IN (:ids)") suspend fun deleteEpisodes(ids: List<String>)
+    @Query("DELETE FROM episodes WHERE seriesId IN (:seriesIds)") suspend fun deleteEpisodesOfSeries(seriesIds: List<String>)
+    @Query("SELECT * FROM channels") suspend fun allChannels(): List<ChannelEntity>
+    @Query("SELECT * FROM movies") suspend fun allMovies(): List<MovieEntity>
+    @Query("SELECT * FROM series") suspend fun allSeries(): List<SeriesEntity>
+    @Query("SELECT * FROM episodes WHERE id LIKE 'm3u:%'") suspend fun allM3uEpisodes(): List<EpisodeEntity>
 
     // ---------- Live ----------
     @Query("SELECT category FROM channels WHERE (adult = 0 OR :showAdult = 1) GROUP BY category ORDER BY MIN(number), category")

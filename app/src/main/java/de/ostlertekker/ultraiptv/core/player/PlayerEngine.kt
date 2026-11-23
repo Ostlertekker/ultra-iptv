@@ -159,6 +159,7 @@ class PlayerEngine @Inject constructor(
 
     init {
         ZapMonitor.init(context); ZapTuner.init(context)
+        de.ostlertekker.ultraiptv.core.sysupdate.RemotePlayerConfig.load(context)
         scope.launch {
             settingsRepo.settings.collect { s ->
                 cfg = s
@@ -329,7 +330,9 @@ class PlayerEngine @Inject constructor(
         stopTimeshift()
         val free = context.cacheDir.usableSpace
         val maxBytes = (free * 0.35).toLong().coerceIn(64L * 1024 * 1024, 4L * 1024 * 1024 * 1024)
-        val b = TimeshiftBuffer(java.io.File(context.cacheDir, "timeshift"), url, USER_AGENT, cfg.timeshiftMin * 60_000L, maxBytes)
+        val rc = de.ostlertekker.ultraiptv.core.sysupdate.RemotePlayerConfig.current
+        val b = TimeshiftBuffer(java.io.File(context.cacheDir, "timeshift"), url, rc.userAgent.ifBlank { USER_AGENT }, cfg.timeshiftMin * 60_000L, maxBytes,
+            connectTimeoutMs = rc.connectTimeoutMs, readTimeoutMs = rc.readTimeoutMs)
         b.onConnected = { ZapMonitor.connected() }
         b.onFirstData = { ZapMonitor.firstData() }
         b.start(after = previousGone)
@@ -472,10 +475,10 @@ class PlayerEngine @Inject constructor(
             // nur wenn das Gerät ein Tonformat (z. B. DTS-HD MA, TrueHD) nicht kann, dekodiert die App selbst
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
         val http = DefaultHttpDataSource.Factory()
-            .setUserAgent(USER_AGENT)
+            .setUserAgent(de.ostlertekker.ultraiptv.core.sysupdate.RemotePlayerConfig.current.userAgent.ifBlank { USER_AGENT })
             .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(10_000)
-            .setReadTimeoutMs(12_000)
+            .setConnectTimeoutMs(de.ostlertekker.ultraiptv.core.sysupdate.RemotePlayerConfig.current.connectTimeoutMs)
+            .setReadTimeoutMs(de.ostlertekker.ultraiptv.core.sysupdate.RemotePlayerConfig.current.readTimeoutMs)
             // Messpunkte Senderwechsel: Server antwortet / erste Daten (HLS, direkte Streams)
             .setTransferListener(object : androidx.media3.datasource.TransferListener {
                 override fun onTransferInitializing(source: androidx.media3.datasource.DataSource, dataSpec: androidx.media3.datasource.DataSpec, isNetwork: Boolean) {}
@@ -531,7 +534,7 @@ class PlayerEngine @Inject constructor(
         ZapMonitor.startBuffer(if (liveStartUs > 0) liveStartUs / 1000 else profileStartMs(profile))
         readyAt = 0L; earlyStallSeen = false
         val now = SystemClock.elapsedRealtime()
-        graceUntil = now + 12_000 // erster Verbindungsaufbau darf länger dauern
+        graceUntil = now + de.ostlertekker.ultraiptv.core.sysupdate.RemotePlayerConfig.current.firstConnectGraceMs // erster Verbindungsaufbau darf länger dauern
         lastProgressAt = now; lastPos = Long.MIN_VALUE
         if (canTimeshift(url, who, isLive)) p.setMediaItem(startTimeshift(url))
         else { stopTimeshift(); p.setMediaItem(mediaItem(url, subtitles), startMs.coerceAtLeast(0)) }

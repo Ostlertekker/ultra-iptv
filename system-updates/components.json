@@ -1,0 +1,10 @@
+[
+  {
+    "id": "player-config",
+    "name": "Player- und Streaming-Konfiguration",
+    "file": "player-config.json",
+    "changes": "Erste Fernkonfiguration – Werte identisch mit den eingebauten (Zeitlimits 10/12 s, Schnellstart 700 ms, Grenzen 500–2500 ms)",
+    "priority": "low",
+    "minAppVersion": 0
+  }
+]

@@ -230,6 +230,30 @@ jobs:
           git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "UI test log run ${{ github.run_number }}"
           git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ci-logs
 
+  system-updates:
+    # Signiertes System-Update-Manifest neu bauen und auf den Zweig „system-updates“ veröffentlichen (nur wenn sich system-updates/ ändert).
+    # Signiert wird mit dem Secret SYSTEM_UPDATE_SIGNING_KEY (privater Schlüssel, PKCS#8-PEM). Ohne Secret wird nichts veröffentlicht.
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Manifest bauen, signieren, veröffentlichen
+        env:
+          KEY: ${{ secrets.SYSTEM_UPDATE_SIGNING_KEY }}
+        run: |
+          if ! git diff --name-only HEAD~1 HEAD | grep -q '^system-updates/'; then echo "system-updates/ unverändert – nichts zu tun"; exit 0; fi
+          if [ -z "$KEY" ]; then echo "::warning::Secret SYSTEM_UPDATE_SIGNING_KEY fehlt – Manifest wird nicht veröffentlicht"; exit 0; fi
+          printf '%s\n' "$KEY" > /tmp/key.pem
+          python3 .github/scripts/build-system-manifest.py system-updates out https://raw.githubusercontent.com/${{ github.repository }}/system-updates
+          openssl dgst -sha256 -sign /tmp/key.pem -out /tmp/sig.der out/system-manifest.json
+          base64 -w0 /tmp/sig.der > out/system-manifest.json.sig
+          rm -f /tmp/key.pem /tmp/sig.der
+          cd out && git init -q && git checkout -q -b system-updates && git add . \
+            && git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "System-Manifest ${{ github.sha }}" \
+            && git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" system-updates
+
   release:
     needs: [build, ui-test]
     if: ${{ always() && needs.build.result == 'success' && (needs.ui-test.result == 'success' || needs.ui-test.result == 'skipped') }}

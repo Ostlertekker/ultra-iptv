@@ -74,6 +74,7 @@ class SettingsExtrasViewModel @Inject constructor(
     private val content: ContentDao,
     private val settings: SettingsRepository,
     private val resolver: StreamResolver,
+    val system: de.ostlertekker.ultraiptv.core.sysupdate.AutoUpdateManager,
 ) : ViewModel() {
     val connection = MutableStateFlow<List<InfoEntry>?>(null)
     val connectionRunning = MutableStateFlow(false)
@@ -202,6 +203,7 @@ fun LazyListScope.updatesSection(x: SettingsExtrasViewModel, s: AppSettings, vm:
                 color = p.textDim, fontSize = 11.sp, modifier = Modifier.padding(8.dp))
         }
     }
+    systemUpdatesSection(x.system)
 }
 
 // ------------------------------------------------------------------ Benachrichtigungen

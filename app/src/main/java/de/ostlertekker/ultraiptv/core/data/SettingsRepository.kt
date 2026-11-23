@@ -56,6 +56,8 @@ data class AppSettings(
     val outroMode: OutroMode = OutroMode.FULL,
     val upscalingRequested: Boolean = false,
     val epgUrlOverride: String = "",
+    /** EPG-Adresse aus dem Kopf der M3U-Playlist (für die EPG-Prüfung der System-Updates). */
+    val m3uHeaderEpg: String = "",
     /** Wetter: Ort (Anzeigename) und Koordinaten aus der Ortssuche. */
     val weatherPlace: String = "",
     val weatherLat: String = "",
@@ -221,6 +223,7 @@ object Keys {
     val EPG_DAYS = intPreferencesKey("epg_days")
     val LAST_SYNC = longPreferencesKey("last_sync")
     val LAST_EPG_SYNC = longPreferencesKey("last_epg_sync")
+    val M3U_HEADER_EPG = stringPreferencesKey("m3u_header_epg")
     val ACTIVE_PROFILE = longPreferencesKey("active_profile")
     val SHOW_ADULT = booleanPreferencesKey("show_adult")
     val SEARCH_HISTORY = stringPreferencesKey("search_history")
@@ -316,6 +319,7 @@ fun Preferences.toSettings(): AppSettings {
         outroMode = enumOr(this[Keys.OUTRO_MODE], d.outroMode),
         upscalingRequested = this[Keys.UPSCALING] ?: d.upscalingRequested,
         epgUrlOverride = this[Keys.EPG_URL] ?: d.epgUrlOverride,
+        m3uHeaderEpg = this[Keys.M3U_HEADER_EPG] ?: d.m3uHeaderEpg,
         weatherPlace = this[Keys.WEATHER_PLACE] ?: "",
         weatherLat = this[Keys.WEATHER_LAT] ?: "",
         weatherLon = this[Keys.WEATHER_LON] ?: "",

@@ -173,16 +173,17 @@ object ZapMonitor {
  * Läuft er wiederholt sauber, sinkt der Wert wieder schrittweise (bis 0,5 s). So bekommt jeder Stream seine eigene Strategie.
  */
 object ZapTuner {
-    const val DEFAULT_MS = 700L
-    private const val MIN_MS = 500L
-    private const val MAX_MS = 2_500L
+    // Werte aus der (per System-Update aktualisierbaren) Player-Konfiguration; Standard 700 / 500 / 2500 ms
+    private val DEFAULT_MS get() = de.ostlertekker.ultraiptv.core.sysupdate.RemotePlayerConfig.current.liveStartDefaultMs
+    private val MIN_MS get() = de.ostlertekker.ultraiptv.core.sysupdate.RemotePlayerConfig.current.liveStartMinMs
+    private val MAX_MS get() = de.ostlertekker.ultraiptv.core.sysupdate.RemotePlayerConfig.current.liveStartMaxMs
     private var prefs: android.content.SharedPreferences? = null
 
     fun init(context: Context) { if (prefs == null) prefs = context.applicationContext.getSharedPreferences("zap_tuner", Context.MODE_PRIVATE) }
 
     private fun key(url: String) = "s" + (url.substringBefore('?').hashCode().toLong() and 0xffffffffL).toString(36)
 
-    fun startMs(url: String): Long = prefs?.getLong(key(url), DEFAULT_MS) ?: DEFAULT_MS
+    fun startMs(url: String): Long = (prefs?.getLong(key(url), DEFAULT_MS) ?: DEFAULT_MS).coerceIn(MIN_MS, MAX_MS)
 
     /** Stocken kurz nach dem Start → mehr Vorrat für diesen Sender. */
     fun onEarlyStall(url: String) {

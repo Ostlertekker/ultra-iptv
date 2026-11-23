@@ -89,6 +89,8 @@ class UiSmokeTest {
             hooks.settings().set(Keys.LAST_SYNC, System.currentTimeMillis())
             hooks.settings().set(Keys.LAST_EPG_SYNC, System.currentTimeMillis())
             hooks.settings().set(Keys.UPDATE_CHECK, false)
+            // System-Updates im Test aus (kein automatischer Abruf von Katalogen, Manifest, Filterlisten während der Tests)
+            context.getSharedPreferences("system_update_settings", 0).edit().putBoolean("auto_check", false).commit()
             hooks.user().ensureDefaultProfile()
             assertTrue("Sync der Testquelle fehlgeschlagen", hooks.sync().syncAll(includeEpg = true))
             // Favoriten aller Arten anlegen

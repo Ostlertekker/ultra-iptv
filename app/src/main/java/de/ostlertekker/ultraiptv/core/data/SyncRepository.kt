@@ -92,6 +92,7 @@ class SyncRepository @Inject constructor(
     val state: StateFlow<SyncState> = _state.asStateFlow()
     private val mutex = Mutex()
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
+    private val epgTempDir: java.io.File get() = java.io.File(System.getProperty("java.io.tmpdir") ?: "/data/local/tmp").let { java.io.File(it, "ultra-epg").apply { mkdirs() } }
 
     private fun status(msg: String) { _state.value = SyncState(running = true, message = msg) }
 
@@ -150,14 +151,34 @@ class SyncRepository @Inject constructor(
             body.charStream().buffered().useLines { M3uParser.parse(it) }
         }
         if (result.entries.isEmpty()) error("Playlist enthält keine Einträge")
+        result.epgUrl?.let { settings.set(Keys.M3U_HEADER_EPG, it) }
         status("${result.entries.size} Einträge werden verarbeitet …")
 
+        val cat = m3uCatalog(result.entries)
+        val channels = cat.channels; val movies = cat.movies; val series = cat.series; val episodes = cat.episodes
+        status("Datenbank wird aktualisiert …")
+        db.withTransaction {
+            val dao = db.content()
+            dao.clearChannels(); dao.clearMovies(); dao.clearSeries(); dao.clearEpisodes()
+            channels.chunked(500).forEach { dao.upsertChannels(it) }
+            movies.chunked(500).forEach { dao.upsertMovies(it) }
+            series.chunked(500).forEach { dao.upsertSeries(it) }
+            episodes.chunked(500).forEach { dao.upsertEpisodes(it) }
+        }
+        return result.epgUrl
+    }
+
+
+    /** Inhalt einer M3U-Playlist als Datenbank-Einträge. */
+    class M3uCatalog(val channels: List<ChannelEntity>, val movies: List<MovieEntity>, val series: List<SeriesEntity>, val episodes: List<EpisodeEntity>)
+
+    private fun m3uCatalog(entries: List<de.ostlertekker.ultraiptv.core.network.M3uEntry>): M3uCatalog {
         val channels = ArrayList<ChannelEntity>()
         val movies = ArrayList<MovieEntity>()
         val series = LinkedHashMap<String, SeriesEntity>()
         val episodes = ArrayList<EpisodeEntity>()
         val now = System.currentTimeMillis()
-        result.entries.forEachIndexed { index, e ->
+        entries.forEachIndexed { index, e ->
             val adult = isAdultCategory(e.group)
             when (M3uParser.classify(e)) {
                 M3uKind.LIVE -> channels += ChannelEntity(
@@ -189,16 +210,186 @@ class SyncRepository @Inject constructor(
                 }
             }
         }
-        status("Datenbank wird aktualisiert …")
-        db.withTransaction {
-            val dao = db.content()
-            dao.clearChannels(); dao.clearMovies(); dao.clearSeries(); dao.clearEpisodes()
-            channels.chunked(500).forEach { dao.upsertChannels(it) }
-            movies.chunked(500).forEach { dao.upsertMovies(it) }
-            series.values.chunked(500).forEach { dao.upsertSeries(it) }
-            episodes.chunked(500).forEach { dao.upsertEpisodes(it) }
+        return M3uCatalog(channels, movies, series.values.toList(), episodes)
+    }
+
+    // ============================================================ System-Updates (inkrementell)
+    //
+    // Anbieter liefern keine Versionsnummern. Deshalb: Rohdaten in den Zwischenspeicher laden, SHA-256 bilden und mit der
+    // zuletzt übernommenen Fassung vergleichen. Nur bei Abweichung wird ein Update gemeldet – mit echtem Vergleich zur Datenbank
+    // (neu / geändert / entfernt). Übernommen wird in einer einzigen Transaktion: IDs bleiben, Favoriten/Verlauf hängen an den IDs,
+    // nachgeladene Details (Beschreibung, Hintergrund, Laufzeit, Episoden) bleiben erhalten. Bei Fehlern bleibt alles wie vorher.
+
+    enum class CatalogPart(val id: String, val label: String) {
+        LIVE("iptv-live", "Live-TV: Sender, Kategorien, Catch-up"),
+        VOD("iptv-vod", "Filme: Katalog, Kategorien, Metadaten"),
+        SERIES("iptv-series", "Serien: Katalog, Kategorien, Metadaten"),
+        PLAYLIST("iptv-m3u", "Playlist (M3U): Sender, Filme, Serien, Episoden"),
+    }
+
+    data class CatalogDiff(val added: Int, val changed: Int, val removed: Int, val total: Int) {
+        val empty get() = added == 0 && changed == 0 && removed == 0
+        fun text() = if (empty) "keine inhaltlichen Änderungen" else "$added neu · $changed geändert · $removed entfernt (gesamt $total)"
+    }
+
+    /** Welche Katalogteile es für die eingerichtete Quelle gibt. */
+    fun catalogParts(): List<CatalogPart> = when (creds.load()?.type) {
+        ProviderType.XTREAM -> listOf(CatalogPart.LIVE, CatalogPart.VOD, CatalogPart.SERIES)
+        ProviderType.M3U -> listOf(CatalogPart.PLAYLIST)
+        null -> emptyList()
+    }
+
+    /** Lädt die Rohdaten eines Katalogteils in [dir] (Kategorien + Liste bzw. Playlist). Gibt die Dateien zurück. */
+    suspend fun downloadCatalog(part: CatalogPart, dir: java.io.File): List<java.io.File> = withContext(Dispatchers.IO) {
+        val cfg = creds.load() ?: error("Keine Quelle eingerichtet")
+        dir.mkdirs()
+        fun save(url: String, name: String): java.io.File {
+            val out = java.io.File(dir, name); val part2 = java.io.File(dir, "$name.part")
+            http.newCall(Request.Builder().url(url).build()).execute().use { r ->
+                if (!r.isSuccessful) throw java.io.IOException("HTTP ${r.code}")
+                val body = r.body ?: throw java.io.IOException("Leere Antwort")
+                body.byteStream().use { i -> part2.outputStream().use { o -> i.copyTo(o, 64 * 1024) } }
+            }
+            if (part2.length() == 0L) throw java.io.IOException("Leere Antwort")
+            out.delete(); if (!part2.renameTo(out)) throw java.io.IOException("Zwischenspeichern fehlgeschlagen")
+            return out
         }
-        return result.epgUrl
+        when (part) {
+            CatalogPart.PLAYLIST -> listOf(save(cfg.m3uUrl.trim(), "playlist.m3u"))
+            else -> {
+                val base = XtreamUrls.normalizeServer(cfg.server)
+                val (catAction, listAction) = when (part) {
+                    CatalogPart.LIVE -> "get_live_categories" to "get_live_streams"
+                    CatalogPart.VOD -> "get_vod_categories" to "get_vod_streams"
+                    else -> "get_series_categories" to "get_series"
+                }
+                listOf(save(XtreamUrls.api(base, cfg.username, cfg.password, catAction), "categories.json"),
+                    save(XtreamUrls.api(base, cfg.username, cfg.password, listAction), "items.json"))
+            }
+        }
+    }
+
+    @OptIn(ExperimentalSerializationApi::class)
+    private fun <T> readArrayFile(f: java.io.File, map: (JsonObject) -> T?): List<T> = f.inputStream().buffered().use { input ->
+        json.decodeToSequence<JsonElement>(input, DecodeSequenceMode.AUTO_DETECT).mapNotNull { (it as? JsonObject)?.let(map) }.toList()
+    }
+
+    private fun catsFile(f: java.io.File): Map<String, String> = readArrayFile(f) { o ->
+        val id = o.str("category_id") ?: return@readArrayFile null
+        id to (o.str("category_name") ?: "Kategorie $id")
+    }.toMap()
+
+    // Nachgeladene Details und stabile Werte der bisherigen Fassung übernehmen (nur wo die neue Liste nichts liefert)
+    private fun mergeMovie(n: MovieEntity, o: MovieEntity?, keepAdded: Boolean) = if (o == null) n else n.copy(
+        backdrop = n.backdrop ?: o.backdrop, durationSec = n.durationSec ?: o.durationSec, plot = n.plot ?: o.plot,
+        genre = n.genre ?: o.genre, actors = n.actors ?: o.actors, director = n.director ?: o.director,
+        addedAt = if (keepAdded) o.addedAt else n.addedAt)
+    private fun mergeSeries(n: SeriesEntity, o: SeriesEntity?, keepAdded: Boolean) = if (o == null) n else n.copy(
+        backdrop = n.backdrop ?: o.backdrop, plot = n.plot ?: o.plot, genre = n.genre ?: o.genre, actors = n.actors ?: o.actors,
+        addedAt = if (keepAdded) o.addedAt else n.addedAt)
+
+    private class Plan<T>(val upsert: List<T>, val removeIds: List<String>, val diff: CatalogDiff)
+
+    private fun <T> plan(new: List<T>, old: List<T>, id: (T) -> String, merge: (T, T?) -> T): Plan<T> {
+        val oldMap = old.associateBy(id)
+        val merged = new.distinctBy(id).map { merge(it, oldMap[id(it)]) }
+        val newIds = merged.mapTo(HashSet(merged.size)) { id(it) }
+        var added = 0; var changed = 0
+        val up = ArrayList<T>()
+        for (m in merged) { val o = oldMap[id(m)]; if (o == null) { added++; up += m } else if (o != m) { changed++; up += m } }
+        val removed = old.map(id).filter { it !in newIds }
+        return Plan(up, removed, CatalogDiff(added, changed, removed.size, merged.size))
+    }
+
+    private class FullPlan(val ch: Plan<ChannelEntity>?, val mv: Plan<MovieEntity>?, val se: Plan<SeriesEntity>?, val ep: Plan<EpisodeEntity>?) {
+        val diff: CatalogDiff get() {
+            val l = listOfNotNull(ch?.diff, mv?.diff, se?.diff, ep?.diff)
+            return CatalogDiff(l.sumOf { it.added }, l.sumOf { it.changed }, l.sumOf { it.removed }, l.sumOf { it.total })
+        }
+    }
+
+    private suspend fun buildPlan(part: CatalogPart, files: List<java.io.File>): FullPlan {
+        val dao = db.content()
+        return when (part) {
+            CatalogPart.LIVE -> { val c = catsFile(files[0]); FullPlan(plan(readArrayFile(files[1]) { mapLive(it, c) }, dao.allChannels().filter { it.id.startsWith("x:") }, { it.id }) { n, _ -> n }, null, null, null) }
+            CatalogPart.VOD -> { val c = catsFile(files[0]); FullPlan(null, plan(readArrayFile(files[1]) { mapVod(it, c) }, dao.allMovies().filter { it.id.startsWith("x:") }, { it.id }) { n, o -> mergeMovie(n, o, false) }, null, null) }
+            CatalogPart.SERIES -> { val c = catsFile(files[0]); FullPlan(null, null, plan(readArrayFile(files[1]) { mapSeries(it, c) }, dao.allSeries().filter { it.id.startsWith("x:") }, { it.id }) { n, o -> mergeSeries(n, o, false) }, null) }
+            CatalogPart.PLAYLIST -> {
+                val res = files[0].bufferedReader().useLines { M3uParser.parse(it) }
+                if (res.entries.isEmpty()) error("Playlist enthält keine Einträge")
+                res.epgUrl?.let { settings.set(Keys.M3U_HEADER_EPG, it) }
+                val cat = m3uCatalog(res.entries)
+                FullPlan(
+                    plan(cat.channels, dao.allChannels().filter { it.id.startsWith("m3u:") }, { it.id }) { n, _ -> n },
+                    plan(cat.movies, dao.allMovies().filter { it.id.startsWith("m3u:") }, { it.id }) { n, o -> mergeMovie(n, o, true) },
+                    plan(cat.series, dao.allSeries().filter { it.id.startsWith("m3u:") }, { it.id }) { n, o -> mergeSeries(n, o, true) },
+                    plan(cat.episodes, dao.allM3uEpisodes(), { it.id }) { n, _ -> n },
+                )
+            }
+        }
+    }
+
+    /** Vergleicht bereitliegende Rohdaten mit der Datenbank (ohne etwas zu ändern). */
+    suspend fun diffCatalog(part: CatalogPart, files: List<java.io.File>): CatalogDiff = withContext(Dispatchers.IO) { buildPlan(part, files).diff }
+
+    /** Übernimmt bereitliegende Rohdaten in einer Transaktion. Bei Fehlern bleibt die Datenbank unverändert. */
+    suspend fun applyCatalog(part: CatalogPart, files: List<java.io.File>): CatalogDiff = mutex.withLock {
+        withContext(Dispatchers.IO) {
+            val p = buildPlan(part, files)
+            val dao = db.content()
+            db.withTransaction {
+                p.ch?.let { pl -> pl.removeIds.chunked(500).forEach { dao.deleteChannels(it) }; pl.upsert.chunked(500).forEach { dao.upsertChannels(it) } }
+                p.mv?.let { pl -> pl.removeIds.chunked(500).forEach { dao.deleteMovies(it) }; pl.upsert.chunked(500).forEach { dao.upsertMovies(it) } }
+                p.se?.let { pl ->
+                    pl.removeIds.chunked(500).forEach { dao.deleteSeries(it); dao.deleteEpisodesOfSeries(it) } // Episoden entfernter Serien mit entfernen
+                    pl.upsert.chunked(500).forEach { dao.upsertSeries(it) }
+                }
+                p.ep?.let { pl -> pl.removeIds.chunked(500).forEach { dao.deleteEpisodes(it) }; pl.upsert.chunked(500).forEach { dao.upsertEpisodes(it) } }
+            }
+            runCatching { db.openHelper.writableDatabase.let { w -> de.ostlertekker.ultraiptv.core.database.Migrations.SANITIZE.forEach { w.execSQL(it) } } }
+            settings.set(Keys.LAST_SYNC, System.currentTimeMillis())
+            p.diff
+        }
+    }
+
+    // ---------------------------------------------------------------- EPG (Datei zuerst, dann atomar übernehmen)
+
+    /** Adresse des EPG (wie bei der normalen Synchronisation). */
+    suspend fun epgSourceUrl(): String? {
+        val cfg = creds.load() ?: return null
+        val s = settings.current()
+        return s.epgUrlOverride.takeIf { it.isNotBlank() }
+            ?: cfg.epgUrl.takeIf { it.isNotBlank() }
+            ?: settings.current().m3uHeaderEpg.takeIf { cfg.type == ProviderType.M3U && it.isNotBlank() }
+            ?: if (cfg.type == ProviderType.XTREAM) XtreamUrls.xmltv(XtreamUrls.normalizeServer(cfg.server), cfg.username, cfg.password) else null
+    }
+
+    /** Liest eine XMLTV-Datei und ersetzt das EPG in einer Transaktion. Erst wenn die Datei vollständig gelesen ist, wird getauscht. */
+    suspend fun importEpgFile(file: java.io.File): Int = withContext(Dispatchers.IO) {
+        val s = settings.current()
+        val now = System.currentTimeMillis()
+        val from = now - 86_400_000L
+        val to = now + (s.epgDays.coerceIn(1, 7) + 1) * 86_400_000L
+        val offset = s.epgOffsetHours * 3_600_000L
+        // In EINER Datenbank-Transaktion: alte Sendungen löschen, neue streamend einfügen (wenig Speicher, auch auf Fire TV).
+        // Bricht das Lesen ab, wird die Transaktion zurückgerollt – das bisherige EPG bleibt vollständig erhalten.
+        var count = 0
+        db.runInTransaction {
+            val w = db.openHelper.writableDatabase
+            w.execSQL("DELETE FROM epg")
+            val st = w.compileStatement("INSERT INTO epg (channelEpgId, startMs, endMs, title, description) VALUES (?, ?, ?, ?, ?)")
+            file.inputStream().use { raw ->
+                XmltvParser { Xml.newPullParser() }.parse(maybeGunzip(raw), offset, from, to) { p ->
+                    st.clearBindings()
+                    st.bindString(1, p.channel.lowercase()); st.bindLong(2, p.startMs); st.bindLong(3, p.stopMs); st.bindString(4, p.title)
+                    p.description?.let { st.bindString(5, it) } ?: st.bindNull(5)
+                    st.executeInsert(); count++
+                }
+            }
+            if (count == 0) throw IllegalStateException("EPG-Datei enthält keine Sendungen im Zeitraum – bisheriges EPG bleibt")
+        }
+        settings.set(Keys.LAST_EPG_SYNC, System.currentTimeMillis())
+        count
     }
 
     // --------------------------------------------------------------- Xtream
@@ -247,56 +438,17 @@ class SyncRepository @Inject constructor(
         status("Live-TV-Kategorien …")
         val liveCats = categories(base, cfg, "get_live_categories")
         status("Live-Sender …")
-        val channels = readArray(XtreamUrls.api(base, cfg.username, cfg.password, "get_live_streams")) { o ->
-            val id = o.str("stream_id") ?: return@readArray null
-            val cat = liveCats[o.str("category_id")] ?: "Sonstige"
-            ChannelEntity(
-                id = "x:live:$id", name = o.str("name") ?: "Kanal $id", category = cat,
-                logo = o.str("stream_icon"), streamUrl = StreamResolver.ref("live", id, "ts"),
-                epgId = o.str("epg_channel_id")?.lowercase(), number = o.str("num")?.toIntOrNull() ?: 0,
-                adult = isAdultCategory(cat) || o.str("is_adult") == "1",
-                country = Countries.detect(cat, o.str("name")),
-                // Archiv laut Anbieter (tv_archive / tv_archive_duration) → TV Time Machine, Live-Pause, Zurückspulen
-                archiveDays = if (o.str("tv_archive") == "1") (o.str("tv_archive_duration")?.toIntOrNull() ?: 1).coerceIn(1, 30) else 0,
-                catchupMode = if (o.str("tv_archive") == "1") "xc" else null,
-                catchupSource = if (o.str("tv_archive") == "1") id else null,
-            )
-        }
+        val channels = readArray(XtreamUrls.api(base, cfg.username, cfg.password, "get_live_streams")) { o -> mapLive(o, liveCats) }
 
         status("Film-Kategorien …")
         val vodCats = categories(base, cfg, "get_vod_categories")
         status("Filme …")
-        val movies = readArray(XtreamUrls.api(base, cfg.username, cfg.password, "get_vod_streams")) { o ->
-            val id = o.str("stream_id") ?: return@readArray null
-            val cat = vodCats[o.str("category_id")] ?: "Sonstige"
-            MovieEntity(
-                id = "x:vod:$id", name = o.str("name") ?: "Film $id", category = cat,
-                poster = o.str("stream_icon"), backdrop = null, plot = o.str("plot"), genre = o.str("genre"),
-                year = o.str("year") ?: o.str("releasedate")?.take(4), rating = o.str("rating")?.toDoubleOrNull(),
-                durationSec = null, streamUrl = StreamResolver.ref("movie", id, o.str("container_extension") ?: "mp4"),
-                addedAt = (o.str("added")?.toLongOrNull() ?: 0L) * 1000L,
-                adult = isAdultCategory(cat) || o.str("is_adult") == "1",
-                actors = o.str("cast") ?: o.str("actors"), director = o.str("director"),
-                language = Countries.languageOf(Countries.detect(cat, o.str("name"))),
-            )
-        }
+        val movies = readArray(XtreamUrls.api(base, cfg.username, cfg.password, "get_vod_streams")) { o -> mapVod(o, vodCats) }
 
         status("Serien-Kategorien …")
         val seriesCats = categories(base, cfg, "get_series_categories")
         status("Serien …")
-        val series = readArray(XtreamUrls.api(base, cfg.username, cfg.password, "get_series")) { o ->
-            val id = o.str("series_id") ?: return@readArray null
-            val cat = seriesCats[o.str("category_id")] ?: "Sonstige"
-            SeriesEntity(
-                id = "x:series:$id", name = o.str("name") ?: "Serie $id", category = cat,
-                poster = o.str("cover"), backdrop = o.firstStr("backdrop_path"), plot = o.str("plot"),
-                genre = o.str("genre"), year = o.str("releaseDate")?.take(4) ?: o.str("release_date")?.take(4),
-                rating = o.str("rating")?.toDoubleOrNull(),
-                addedAt = (o.str("last_modified")?.toLongOrNull() ?: 0L) * 1000L,
-                adult = isAdultCategory(cat),
-                actors = o.str("cast"), language = Countries.languageOf(Countries.detect(cat, o.str("name"))),
-            )
-        }
+        val series = readArray(XtreamUrls.api(base, cfg.username, cfg.password, "get_series")) { o -> mapSeries(o, seriesCats) }
 
         status("Datenbank wird aktualisiert …")
         db.withTransaction {
@@ -306,6 +458,53 @@ class SyncRepository @Inject constructor(
             movies.chunked(500).forEach { dao.upsertMovies(it) }
             series.chunked(500).forEach { dao.upsertSeries(it) }
         }
+    }
+
+
+    // Abbildung der Xtream-Antworten auf Datenbank-Einträge (gemeinsam für Voll-Sync und System-Updates)
+    private fun mapLive(o: JsonObject, cats: Map<String, String>): ChannelEntity? {
+        val id = o.str("stream_id") ?: return null
+        val cat = cats[o.str("category_id")] ?: "Sonstige"
+        return ChannelEntity(
+            id = "x:live:$id", name = o.str("name") ?: "Kanal $id", category = cat,
+            logo = o.str("stream_icon"), streamUrl = StreamResolver.ref("live", id, "ts"),
+            epgId = o.str("epg_channel_id")?.lowercase(), number = o.str("num")?.toIntOrNull() ?: 0,
+            adult = isAdultCategory(cat) || o.str("is_adult") == "1",
+            country = Countries.detect(cat, o.str("name")),
+            // Archiv laut Anbieter (tv_archive / tv_archive_duration) → TV Time Machine, Live-Pause, Zurückspulen
+            archiveDays = if (o.str("tv_archive") == "1") (o.str("tv_archive_duration")?.toIntOrNull() ?: 1).coerceIn(1, 30) else 0,
+            catchupMode = if (o.str("tv_archive") == "1") "xc" else null,
+            catchupSource = if (o.str("tv_archive") == "1") id else null,
+        )
+    }
+
+    private fun mapVod(o: JsonObject, cats: Map<String, String>): MovieEntity? {
+        val id = o.str("stream_id") ?: return null
+        val cat = cats[o.str("category_id")] ?: "Sonstige"
+        return MovieEntity(
+            id = "x:vod:$id", name = o.str("name") ?: "Film $id", category = cat,
+            poster = o.str("stream_icon"), backdrop = null, plot = o.str("plot"), genre = o.str("genre"),
+            year = o.str("year") ?: o.str("releasedate")?.take(4), rating = o.str("rating")?.toDoubleOrNull(),
+            durationSec = null, streamUrl = StreamResolver.ref("movie", id, o.str("container_extension") ?: "mp4"),
+            addedAt = (o.str("added")?.toLongOrNull() ?: 0L) * 1000L,
+            adult = isAdultCategory(cat) || o.str("is_adult") == "1",
+            actors = o.str("cast") ?: o.str("actors"), director = o.str("director"),
+            language = Countries.languageOf(Countries.detect(cat, o.str("name"))),
+        )
+    }
+
+    private fun mapSeries(o: JsonObject, cats: Map<String, String>): SeriesEntity? {
+        val id = o.str("series_id") ?: return null
+        val cat = cats[o.str("category_id")] ?: "Sonstige"
+        return SeriesEntity(
+            id = "x:series:$id", name = o.str("name") ?: "Serie $id", category = cat,
+            poster = o.str("cover"), backdrop = o.firstStr("backdrop_path"), plot = o.str("plot"),
+            genre = o.str("genre"), year = o.str("releaseDate")?.take(4) ?: o.str("release_date")?.take(4),
+            rating = o.str("rating")?.toDoubleOrNull(),
+            addedAt = (o.str("last_modified")?.toLongOrNull() ?: 0L) * 1000L,
+            adult = isAdultCategory(cat),
+            actors = o.str("cast"), language = Countries.languageOf(Countries.detect(cat, o.str("name"))),
+        )
     }
 
     /** Lädt Staffeln/Episoden einer Xtream-Serie bei Bedarf nach. */
@@ -423,33 +622,19 @@ class SyncRepository @Inject constructor(
             ?: if (cfg.type == ProviderType.XTREAM) XtreamUrls.xmltv(XtreamUrls.normalizeServer(cfg.server), cfg.username, cfg.password) else null
         if (url == null) return
         status("TV-Programm (EPG) wird geladen …")
-        val now = System.currentTimeMillis()
-        // Gestern (für „Gestern“/Catch-up) bis „eingestellte Tage + 1“ voraus – so reicht das Programm
-        // auch kurz vor der nächsten Aktualisierung noch für die eingestellte Anzahl an Tagen
-        val from = now - 86_400_000L
-        val to = now + (s.epgDays.coerceIn(1, 7) + 1) * 86_400_000L
-        val offset = s.epgOffsetHours * 3_600_000L
-        val request = Request.Builder().url(url).build()
-        http.newCall(request).execute().use { resp ->
-            if (!resp.isSuccessful) error("EPG: HTTP ${resp.code}")
-            val body = resp.body ?: error("EPG: leere Antwort")
-            val input = maybeGunzip(body.byteStream())
-            val parser = XmltvParser { Xml.newPullParser() }
-            val batch = ArrayList<EpgProgramEntity>(2000)
-            db.epg().clear()
-            var total = 0
-            parser.parse(input, offset, from, to) { p ->
-                batch += EpgProgramEntity(channelEpgId = p.channel.lowercase(), startMs = p.startMs, endMs = p.stopMs, title = p.title, description = p.description)
-                if (batch.size >= 2000) {
-                    val copy = ArrayList(batch); batch.clear()
-                    runBlocking { db.epg().insertPrograms(copy) }
-                    total += copy.size
-                    status("EPG: $total Sendungen …")
-                }
+        // Erst vollständig in eine Datei laden, dann atomar übernehmen – ein abgebrochener Download löscht nie das bisherige EPG
+        val tmp = java.io.File(epgTempDir, "epg-sync.xml")
+        val part = java.io.File(epgTempDir, "epg-sync.xml.part")
+        try {
+            http.newCall(Request.Builder().url(url).build()).execute().use { resp ->
+                if (!resp.isSuccessful) error("EPG: HTTP ${resp.code}")
+                val body = resp.body ?: error("EPG: leere Antwort")
+                body.byteStream().use { i2 -> part.outputStream().use { o -> i2.copyTo(o, 64 * 1024) } }
             }
-            if (batch.isNotEmpty()) db.epg().insertPrograms(batch)
-        }
-        settings.set(Keys.LAST_EPG_SYNC, System.currentTimeMillis())
+            tmp.delete(); if (!part.renameTo(tmp)) error("EPG: Zwischenspeichern fehlgeschlagen")
+            status("TV-Programm (EPG) wird übernommen …")
+            importEpgFile(tmp)
+        } finally { part.delete(); tmp.delete() }
     }
 
     private fun maybeGunzip(input: InputStream): InputStream {

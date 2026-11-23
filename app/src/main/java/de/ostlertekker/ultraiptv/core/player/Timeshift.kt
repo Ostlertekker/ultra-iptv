@@ -26,6 +26,8 @@ class TimeshiftBuffer(
     private val userAgent: String,
     private val maxMs: Long,
     private val maxBytes: Long,
+    private val connectTimeoutMs: Int = 10_000,
+    private val readTimeoutMs: Int = 12_000,
 ) {
     private class Chunk(val start: Long, val file: File) {
         var length = 0L
@@ -78,7 +80,7 @@ class TimeshiftBuffer(
         while (!closed) {
             try {
                 val c = (URL(url).openConnection() as HttpURLConnection).apply {
-                    connectTimeout = 10_000; readTimeout = 12_000
+                    connectTimeout = connectTimeoutMs; readTimeout = readTimeoutMs
                     instanceFollowRedirects = true
                     setRequestProperty("User-Agent", userAgent)
                 }

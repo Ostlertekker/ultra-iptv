@@ -21,6 +21,12 @@ class UltraApp : Application(), ImageLoaderFactory {
         super.onCreate()
         de.ostlertekker.ultraiptv.core.diagnostics.StabilityGuard.install(this)
         credentialStore.init()
+        // System-Updates: Prüfung beim App-Start (verzögert, damit der Start nicht leidet) und regelmäßig im Hintergrund
+        runCatching {
+            val m = dagger.hilt.android.EntryPointAccessors.fromApplication(this, de.ostlertekker.ultraiptv.core.sysupdate.SystemUpdateEntryPoint::class.java).manager()
+            m.schedule()
+            m.runAutomaticAsync("App-Start", delayMs = 25_000)
+        }
     }
 
     /** Bild-Cache passend zum Gerät: auf schwachen Sticks kleiner und mit RGB565. */
