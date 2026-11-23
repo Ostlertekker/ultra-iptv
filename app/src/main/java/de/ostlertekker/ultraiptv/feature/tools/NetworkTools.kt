@@ -21,6 +21,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -342,7 +343,13 @@ class NetworkToolsViewModel @Inject constructor(
                 if (rest > 0) Thread.sleep(rest)
                 rows += r; checks.value = rows.toList()
             }
-            step("Internet") { probe("Internet", "https://cp.cloudflare.com/generate_204") }
+            // Internet: Android-Standardprüfung (Google), bei Fehlschlag Hetzner als zweiter Anbieter
+            step("Internet") {
+                val g = probe("Internet", "https://connectivitycheck.gstatic.com/generate_204")
+                if (g.ok == true) g.copy(detail = listOf(g.detail, "Google").filter { it.isNotBlank() }.joinToString(" · "))
+                else probe("Internet", "https://fsn1-speed.hetzner.com/", anyHttpIsOk = true)
+                    .let { h -> h.copy(detail = listOf(h.detail, "Hetzner").filter { it.isNotBlank() }.joinToString(" · ")) }
+            }
             step("Namensauflösung (DNS)") {
                 val t0 = System.nanoTime()
                 runCatching { java.net.InetAddress.getByName("example.org") }.fold(
@@ -700,7 +707,7 @@ private fun SpeedPane(vm: NetworkToolsViewModel) {
     val upC = countUp(s.upMbps)
     val inDown = s.downMbps == null && s.phase.startsWith("Download")
     val inUp = s.upMbps == null && s.phase.startsWith("Upload")
-    Column {
+    Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(bottom = 40.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Stat("Ping", fmt(pingC, 0), "ms", Modifier.width(200.dp))
             Stat("Download", fmt(if (inDown) s.live else downC), "Mbit/s", Modifier.width(260.dp))
@@ -733,8 +740,8 @@ private fun SpeedPane(vm: NetworkToolsViewModel) {
         s.providerNote?.let { Text(it, color = p.textDim, fontSize = 14.sp, modifier = Modifier.padding(bottom = 8.dp)) }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             TvButton(if (s.running) "Test läuft …" else if (s.downMbps != null) "Erneut testen" else "Test starten",
-                onClick = { if (!s.running) vm.startSpeedtest(false) }, primary = true, enabled = !s.running)
-            TvButton("Mit Anbieter-Stream", onClick = { if (!s.running) vm.startSpeedtest(true) }, enabled = !s.running)
+                onClick = { if (!s.running) vm.startSpeedtest(false) }, primary = true)
+            TvButton("Mit Anbieter-Stream", onClick = { if (!s.running) vm.startSpeedtest(true) })
         }
         Text("Download und Ping: Hetzner Falkenstein (Deutschland), eine Verbindung, ca. 8 Sekunden. Upload: 4 MB über Cloudflare (Hetzner bietet keinen Upload-Test). „Mit Anbieter-Stream“ misst zusätzlich 5 Sekunden einen Sender deines Anbieters.",
             color = p.textDim.copy(alpha = 0.8f), fontSize = 12.sp, modifier = Modifier.padding(top = 10.dp))
