@@ -26,7 +26,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -67,9 +71,16 @@ class EpgViewModel @Inject constructor(
     private val notifications: de.ostlertekker.ultraiptv.core.notify.NotificationCenter,
 ) : ViewModel() {
     val message = MutableStateFlow<String?>(null)
+    private var msgJob: kotlinx.coroutines.Job? = null
+    /** Gesetzte Erinnerungen (Sender-ID + Startzeit) – für das Glocken-Symbol in der Programmübersicht. */
+    val reminderKeys = MutableStateFlow<Set<String>>(emptySet())
+    fun reminderKey(channelId: String, startMs: Long) = "$channelId@$startMs"
+
     fun toggleReminder(ch: ChannelEntity, prog: EpgProgramEntity) = viewModelScope.launch {
         val on = runCatching { notifications.toggleReminder(ch.id, ch.name, prog.title, prog.startMs) }.getOrNull()
-        message.value = when (on) { true -> "Erinnerung gesetzt: ${prog.title}"; false -> "Erinnerung entfernt: ${prog.title}"; null -> "Erinnerung nicht möglich" }
+        val t = java.text.SimpleDateFormat("EEE HH:mm", java.util.Locale.GERMANY).format(java.util.Date(prog.startMs))
+        message.value = when (on) { true -> "🔔 Erinnerung gesetzt: ${prog.title} ($t, ${ch.name})"; false -> "Erinnerung entfernt: ${prog.title}"; null -> "Erinnerung nicht möglich" }
+        msgJob?.cancel(); msgJob = viewModelScope.launch { kotlinx.coroutines.delay(4_000); message.value = null }
     }
     fun jumpDay(days: Int) {
         val cal = java.util.Calendar.getInstance()
@@ -87,6 +98,9 @@ class EpgViewModel @Inject constructor(
     val syncState = sync.state
 
     init {
+        viewModelScope.launch {
+            notifications.upcomingReminders().collect { l -> reminderKeys.value = l.mapTo(HashSet()) { reminderKey(it.channelId, it.startMs) } }
+        }
         viewModelScope.launch {
             channels.value = if (category != null) content.channelsInOnce(category).take(200) else content.channelsAllOnce(200)
             combine(channels, windowStart) { c, w -> c to w }.collectLatest { (c, w) ->
@@ -122,6 +136,9 @@ fun EpgScreen(vm: EpgViewModel = hiltViewModel()) {
     val loading by vm.loading.collectAsStateWithLifecycle()
     val sync by vm.syncState.collectAsStateWithLifecycle()
     var detail by remember { mutableStateOf<EpgProgramEntity?>(null) }
+    val reminders by vm.reminderKeys.collectAsStateWithLifecycle()
+    // Blättern mit ◀/▶ am Rand der Programmzeile: danach Fokus in derselben Senderzeile (true = erste, false = letzte Sendung)
+    var pendingFocus by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
     val now = System.currentTimeMillis()
 
     Column(Modifier.fillMaxSize().padding(20.dp)) {
@@ -142,12 +159,14 @@ fun EpgScreen(vm: EpgViewModel = hiltViewModel()) {
         // Detailbereich der fokussierten Sendung
         Box(Modifier.fillMaxWidth().height(86.dp).padding(vertical = 8.dp)) {
             val d = detail
+            if (msg != null) Text(msg ?: "", color = p.primary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.align(Alignment.TopEnd).background(p.surface, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 4.dp))
             if (d != null) Column {
                 Text("${formatTime(d.startMs)}–${formatTime(d.endMs)}  ${d.title}", color = p.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 Text(d.description ?: "", color = p.textDim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(when { d.endMs <= now -> "OK: als Catch-up ansehen (wenn der Sender ein Archiv hat)"; d.startMs > now -> "OK: Erinnerung setzen oder entfernen"; else -> "OK: jetzt ansehen" },
-                    color = p.primary, fontSize = 12.sp)
-            } else if (msg != null) Text(msg ?: "", color = p.primary) else if (sync.running) Text(sync.message, color = p.textDim)
+                Text(when { d.endMs <= now -> "OK: als Catch-up ansehen (wenn der Sender ein Archiv hat)"; d.startMs > now -> "OK: Erinnerung setzen oder entfernen · Lang drücken: Sender jetzt ansehen"; else -> "OK: jetzt ansehen" } +
+                    " · ◀ ▶ am Rand: Zeit weiterblättern", color = p.primary, fontSize = 12.sp)
+            } else if (sync.running) Text(sync.message, color = p.textDim)
         }
         if (loading) { UltraLoader(Modifier.fillMaxWidth(), "TV-Programm wird geladen …"); return@Column }
         if (programs.isEmpty()) {
@@ -185,19 +204,43 @@ fun EpgScreen(vm: EpgViewModel = hiltViewModel()) {
                             }
                             Box(Modifier.width(gridW).fillMaxHeight()) {
                                 val list = ch.epgId?.let { programs[it] }.orEmpty()
-                                if (list.isEmpty()) {
-                                    ProgramBlock("Keine Daten", false, Modifier.padding(start = 4.dp).width(gridW - 4.dp), { context.openPlayer(ContentKind.LIVE, ch.id, category = ch.category) }) { }
+                                // Sichtbare Sendungen dieser Zeile (für Blättern am Rand)
+                                val visible = list.filter { prog ->
+                                    val s0 = maxOf(prog.startMs, start); val e0 = minOf(prog.endMs, start + WINDOW)
+                                    e0 > s0 && ((e0 - s0) * pxPerMs).dp - 4.dp > 6.dp
                                 }
-                                list.forEach { prog ->
+                                val pf = pendingFocus
+                                val target = if (pf != null && pf.first == ch.id) (if (pf.second) visible.firstOrNull() else visible.lastOrNull()) else null
+                                val targetReq = remember(ch.id) { androidx.compose.ui.focus.FocusRequester() }
+                                if (pf != null && pf.first == ch.id) LaunchedEffect(start, programs) {
+                                    kotlinx.coroutines.delay(30)
+                                    runCatching { targetReq.requestFocus() }
+                                    pendingFocus = null
+                                }
+                                fun edgeKeys(first: Boolean, last: Boolean) = Modifier.onPreviewKeyEvent { ev ->
+                                    if (ev.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                                    when (ev.key) {
+                                        androidx.compose.ui.input.key.Key.DirectionRight -> if (last) { pendingFocus = ch.id to true; vm.shift(HALF_HOUR * 2); true } else false
+                                        androidx.compose.ui.input.key.Key.DirectionLeft -> if (first) { pendingFocus = ch.id to false; vm.shift(-HALF_HOUR * 2); true } else false
+                                        else -> false
+                                    }
+                                }
+                                if (list.isEmpty() || visible.isEmpty()) {
+                                    ProgramBlock("Keine Daten", false, Modifier.padding(start = 4.dp).width(gridW - 4.dp).then(edgeKeys(true, true)),
+                                        { context.openPlayer(ContentKind.LIVE, ch.id, category = ch.category) },
+                                        focusRequester = if (pf != null && pf.first == ch.id) targetReq else null) { }
+                                }
+                                visible.forEachIndexed { idx, prog ->
                                     val s = maxOf(prog.startMs, start)
                                     val e = minOf(prog.endMs, start + WINDOW)
-                                    if (e > s) {
+                                    run {
                                         val x = ((s - start) * pxPerMs).dp
                                         val w = ((e - s) * pxPerMs).dp - 4.dp
                                         val catchup = prog.endMs <= now && ch.archiveDays > 0 && prog.startMs > now - ch.archiveDays * 86_400_000L
-                                        val label = (if (catchup) "↺ " else "") + prog.title
-                                        if (w > 6.dp) ProgramBlock(label, prog.startMs <= now && prog.endMs > now,
-                                            Modifier.offset(x = x + 4.dp).width(w),
+                                        val hasReminder = prog.startMs > now && vm.reminderKey(ch.id, prog.startMs) in reminders
+                                        val label = (if (hasReminder) "🔔 " else "") + (if (catchup) "↺ " else "") + prog.title
+                                        ProgramBlock(label, prog.startMs <= now && prog.endMs > now,
+                                            Modifier.offset(x = x + 4.dp).width(w).then(edgeKeys(idx == 0, idx == visible.lastIndex)),
                                             {
                                                 when {
                                                     prog.startMs > now -> vm.toggleReminder(ch, prog)
@@ -205,7 +248,9 @@ fun EpgScreen(vm: EpgViewModel = hiltViewModel()) {
                                                         catchupStart = prog.startMs, catchupEnd = prog.endMs) else vm.message.value = "Für diese Sendung gibt es kein Archiv."
                                                     else -> context.openPlayer(ContentKind.LIVE, ch.id, category = ch.category)
                                                 }
-                                            }, past = prog.endMs <= now, narrow = w < 130.dp) { f -> if (f) detail = prog }
+                                            }, past = prog.endMs <= now, narrow = w < 130.dp,
+                                            onLongClick = if (prog.startMs > now) ({ context.openPlayer(ContentKind.LIVE, ch.id, category = ch.category) }) else null,
+                                            focusRequester = if (prog === target) targetReq else null) { f -> if (f) detail = prog }
                                     }
                                 }
                             }
@@ -223,14 +268,15 @@ fun EpgScreen(vm: EpgViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun ProgramBlock(title: String, live: Boolean, modifier: Modifier, onClick: () -> Unit, past: Boolean = false, narrow: Boolean = false, onFocus: (Boolean) -> Unit) {
+private fun ProgramBlock(title: String, live: Boolean, modifier: Modifier, onClick: () -> Unit, past: Boolean = false, narrow: Boolean = false,
+                         onLongClick: (() -> Unit)? = null, focusRequester: androidx.compose.ui.focus.FocusRequester? = null, onFocus: (Boolean) -> Unit) {
     val theme = LocalUltraTheme.current
     val p = theme.palette
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(8.dp)
     Box(
         modifier.fillMaxHeight()
-            .tvFocusable(shape, onClick, scaleOnFocus = false, onFocus = { focused = it; onFocus(it) })
+            .tvFocusable(shape, onClick, onLongClick = onLongClick, focusRequester = focusRequester, scaleOnFocus = false, onFocus = { focused = it; onFocus(it) })
             .background(if (focused) p.primary else if (live) p.surfaceFocused else if (past) p.surface.copy(alpha = 0.55f) else p.surface, shape)
             .padding(horizontal = 8.dp),
         contentAlignment = Alignment.CenterStart,
