@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "generated": "2026-11-23T13:05:59Z",
+  "components": [
+    {
+      "id": "player-config",
+      "name": "Player- und Streaming-Konfiguration",
+      "version": 1,
+      "url": "https://raw.githubusercontent.com/Ostlertekker/ultra-iptv/system-updates/player-config.json",
+      "sha256": "7925ccac8fbe2080581993b8843c7297b8a733d125424a6cc5c33b0dc24c01bb",
+      "size": 205,
+      "changes": "Erste Fernkonfiguration – Werte identisch mit den eingebauten (Zeitlimits 10/12 s, Schnellstart 700 ms, Grenzen 500–2500 ms)",
+      "priority": "low",
+      "minAppVersion": 0
+    }
+  ]
+}
