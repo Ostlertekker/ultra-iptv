@@ -660,6 +660,22 @@ private fun LazyListScope.aboutSection(vm: SettingsViewModel) {
             Spacer(Modifier.height(10.dp))
             SInfo(tr("Version"), "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
             SInfo(tr("Gerät"), "${vm.device.manufacturer} ${vm.device.model}")
+            // Support-Discord: QR-Code zum Scannen mit dem Handy
+            SHeader(tr("Support-Discord"))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 6.dp)) {
+                androidx.compose.foundation.Image(
+                    androidx.compose.ui.res.painterResource(de.ostlertekker.ultraiptv.R.drawable.support_discord_qr),
+                    contentDescription = "discord.gg/Jg2EZc9yE7",
+                    modifier = Modifier.width(220.dp).clip(RoundedCornerShape(14.dp)),
+                )
+                Spacer(Modifier.width(20.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(tr("Fragen, Probleme oder Ideen? Scanne den QR-Code mit dem Handy und tritt unserem Discord bei."),
+                        color = p.text, fontSize = 16.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Text("discord.gg/Jg2EZc9yE7", color = p.primary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
+            }
             Text(tr("ULTRA IPTV ist ein Abspieler. Er liefert keine Inhalte. Nutze nur Quellen, für die du eine Berechtigung hast. ") +
                 tr("DRM- und Zugangsbeschränkungen werden nicht umgangen."), color = p.textDim, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp))
         }
